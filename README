@@ -1,8 +1,10 @@
-Thank you for downloading GIDGET, the Gravitational Instability-Dominated Galaxy Evolution Tool. Please email jforbes@ucolick.org with questions, concerns, issues, or comments.
+README for GIDGET, the Gravitational Instability-Dominated Galaxy Evolution Tool. 
+
+Please email jforbes at ucolick.org with questions, concerns, issues, or comments.
 
 Now that you've downloaded the source code, it should be easy to get going running your own 1D disks.
 
-The source code is located in the src directory. You are free to modify and re-distribute the code under the GNU General Public License (GPL), available in full at http://www.gnu.org/copyleft/gpl.html For more details see the LICENSE file in this directory. We ask that you cite Forbes, Krumholz, and Burkert (2011), forthcoming on astro-ph, if you publish work based on this code.
+The source code is located in the src directory. You are free to modify and re-distribute the code under the GNU General Public License (GPL), available in full at http://www.gnu.org/copyleft/gpl.html For more details see the LICENSE file in this directory. We ask that you cite Forbes, Krumholz, and Burkert (2011), arXiv:1112.1410v1 or the forthcoming version in ApJ, if you publish work based on this code.
 
 The code relies on the GNU Scientific Library (GSL). Header files are included in gidget/inc/gsl, and a static version of the library is provided in the src directory. This setup allows the binary to be run on machines which do not have their own version of GSL installed, e.g. on a Mac Xgrid. 
 
@@ -14,7 +16,7 @@ To compile the code, simply cd to the src directory and type 'make' at the promp
 
 To use the IDL analysis code which reads in the files produced by the gidget code, you will need to install the IDL Astronomy User's Library (http://idlastro.gsfc.nasa.gov/ )  and modify your IDL path to include gidget/analysis/idl. Another library which shows up in some parts of the code, i.e. if you'd like to make movies without plotting to the screen using the z buffer, is the Coyote Library written by David Fanning http://www.idlcoyote.com/documents/programs.php 
 
-This code also includes latexify.pro, written by Robert da Silva, which itself has a few dependencies on other routines not written by me which you must download at the following site, which has more information and potential issues with latexify, see http://slugidl.pbworks.com/w/page/37657460/latexify%20tutorial . This routine is only necessary for making plots in eps form (in which plain text is replaced with LaTeX expressions). 
+This code also includes latexify.pro, written by Robert da Silva, which itself has a few dependencies on other routines not written by me which you must download at the following site, which has more information and potential issues with latexify: http://slugidl.pbworks.com/w/page/37657460/latexify%20tutorial . This routine is only necessary for making plots in eps form (in which plain text is replaced with LaTeX expressions). 
 
 
 --------------------

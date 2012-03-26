@@ -15,7 +15,7 @@ import math
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,500,1.5,.01,2.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1e-4,1.0,0,-1.0,0,0.0,1.5,1,2.0,.001]
+        self.p=[name,500,1.5,.02,2.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1e-4,1.0,0,-1.0,0,0.0,1.0,1,1.333333333,.01]
         self.pl=[self.p[:]]
         # store some keys and the position to which they correspond in the p array
         self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals']
@@ -25,7 +25,7 @@ class experiment:
             self.keys[n]=ctr
             ctr=ctr+1
         self.expName=name
-        self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
+        self.base=os.getcwd() # Assume we are in the base directory
         self.src=self.base+'/src'
         self.analysis=self.base+'/analysis'
         self.bin=self.base+'/bin'
@@ -171,49 +171,32 @@ class experiment:
 
 
 if __name__ == "__main__":
+    # Set up the experiment:
+    # Usage is e.g.
+    # $ python exper.py 'ex1'
     expName=sys.argv[1]
     a=experiment(expName)
 
-    # Examples of what one might be interested in co-varying
 
-
-    # ri29- do only 1000 runs, i.e. similar to ri28, but low resolution. ri30 is high res, 
-    # ri31- low res w/ fixed mdot normalization, ri33, higher res, smaller sample, ri34- ri31 w/ poly interp.
-    ### vary the mass
-#    a.vary('epsff',.01,.01,1,0) # not varying
-#    a.vary('nx',200,200,1,0) # not varying, lowres
-#    a.vary('Qlim',2.5,2.5,1,0) # not varying
-#    a.vary('mu',1.0,1.0,1,0) # not varying
-#    a.vary('phi0',2.0,2.0,1,0) # not varying
-#    a.vary('whichAccretionHistory',4,3003,3000,0)
-#    a.vary('thickness',1.5,1.5,1,0) # not varying
-#    a.vary('fixedQ',2.0,2.0,1,0) # not varying
-#    a.vary('kappaMetals',1.0e-3,1.0e-3,1,0) # not varying
-
-
-#    ri32 - production run with t_ff replaced by its exact value (1/sqrt(G rho) -> sqrt( 3 pi / (32 G rho))
+#   These parameters used to generate the figures in Forbes, Krumholz, and Burkert (2012)
 #    a.vary('epsff',.01,.01,1,0) # not varying
 #    a.vary('Qlim',2.5,2.5,1,0) #not varying
 #    a.vary('mu',1.0,1.0,1,0) # not varying
 #    a.vary('phi0',2.0,2.0,2,0) # not varying
 #    a.vary('whichAccretionHistory',0,2,3,0)
-#    a.vary('migratePassive',0,1,2,0) 
+#    a.vary('migratePassive',0,1,2,0)
 #    a.vary('thickness',1.5,1.5,1,0) # not varying
 #    a.vary('fixedQ',2.0,2.0,1,0) #not varying
 #    a.vary('kappaMetals',1.0e-4,1.0e-2,9,1)
 
-
-#   ri35 - back to simplicity: vary fg0 and phi0
-#    a.vary('fg0',.1,.9,9,0)
-#    a.vary('phi0',1.0,2.0,2,0)
-
-#    ri36- set a fixed turnover radius / bulge radius, vary the accretion histories, see if a feature appears
-    a.vary('nx',200,200,1,0)
-    a.vary('b',1.5,1.5,1,0)
-    a.vary('whichAccretionHistory',4,3003,3000,0)
+    # The example in the README file:
+    a.vary('nx',1000,1000,1,0) # not varying
+    a.vary('fg',.1,.9,9,0) # vary gas fraction linearly
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.
-    a.generatePl()  
+    a.generatePl() 
+
+    # Now run the experiment! 
 #    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
-    a.localRun(16) # run (in serial) on four processors.
+    a.localRun(4) # run (in serial) on four processors.

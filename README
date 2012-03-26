@@ -1,0 +1,119 @@
+Thank you for downloading GIDGET, the Gravitational Instability-Dominated Galaxy Evolution Tool. Please email jforbes@ucolick.org with questions, concerns, issues, or comments.
+
+Now that you've downloaded the source code, it should be easy to get going running your own 1D disks.
+
+The source code is located in the src directory. You are free to modify and re-distribute the code under the GNU General Public License (GPL), available in full at http://www.gnu.org/copyleft/gpl.html For more details see the LICENSE file in this directory. We ask that you cite Forbes, Krumholz, and Burkert (2011), forthcoming on astro-ph, if you publish work based on this code.
+
+The code relies on the GNU Scientific Library (GSL). Header files are included in gidget/inc/gsl, and a static version of the library is provided in the src directory. This setup allows the binary to be run on machines which do not have their own version of GSL installed, e.g. on a Mac Xgrid. 
+
+Some documentation is provided in the source code, particularly the header files in gidget/src. 
+---------------------
+INSTALLING
+
+To compile the code, simply cd to the src directory and type 'make' at the prompt.  This may require some modification of the makefile; the default options are set up to work on modern Mac OS X installations, so you may have to remove the -mmacosx-version-min=10.4 option if you are running Linux. It's also possible that your version of gcc will not allow static linking of libstdc++, in which case you can remove that flag, though this might cause difficulty in using your code on an Xgrid (I only know that it works with gcc 4.5.3).
+
+To use the IDL analysis code which reads in the files produced by the gidget code, you will need to install the IDL Astronomy User's Library (http://idlastro.gsfc.nasa.gov/ )  and modify your IDL path to include gidget/analysis/idl. Another library which shows up in some parts of the code, i.e. if you'd like to make movies without plotting to the screen using the z buffer, is the Coyote Library written by David Fanning http://www.idlcoyote.com/documents/programs.php 
+
+This code also includes latexify.pro, written by Robert da Silva, which itself has a few dependencies on other routines not written by me which you must download at the following site, which has more information and potential issues with latexify, see http://slugidl.pbworks.com/w/page/37657460/latexify%20tutorial . This routine is only necessary for making plots in eps form (in which plain text is replaced with LaTeX expressions). 
+
+
+--------------------
+RUNNING
+
+You have a couple of options to run the code - you can do so directly from the command line. Change to a directory where you would like the output to be produced (e.g. gidget/analysis/), then running
+$ ../bin/gidget
+will print a list of arguments the code will accept. Only the first argument is mandatory - this is the run name, i.e. the base name of the handful of files created by running the code. All other command line arguments correspond to some parameter, either physical or related to a numerical aspect fo the simulation (e.g. how many cells to use). If you do not provide an argument, a default value will be used.
+
+Your other option is to use the python interface provided in the module exper.py. This allows you to run large numbers of models in succession where you vary one or more parameters in a systematic way. Here is an interactive example:
+$ cd gidget
+$ python
+>>> import exper
+>>> a=exper.experiment('ex1')
+>>> a.vary('fg',0.1,0.9,9,0)
+>>> a.vary('nx',1000,1000,1,0)
+>>> a.generatePl() # don't forget this step!
+>>> a.localRun(4)
+This creates an "experiment" called ex1 which varies the gas fraction from 0.1 to 0.9 in 9 steps, linearly spaced. The default number of cells is changed to 1000. Then, all the runs required for this experiment (i.e. a run with fg=.1, a run with fg=.2,... ) are executed on the local computer, using a maximum of 8 processors at once (the 5th and subsequent runs will be executed as the first four jobs finish).
+
+Instead of running locally, you have the option to create a text file which can be run over an xgrid. This is convenient for experiments with large numbers of runs and moderately long runtimes. To do so, instead of typing
+>>> a.localRun(4)
+you can type
+>>> a.write('ex1_xgrid.txt')
+This creates a text file which you can open with GridStuffer as the 'Input file', and gidget/output as the output file (where GridStuffer will write out stderr and stdout files).
+
+And instead of running interactively, you can just edit the contents of gidget/exper.py below the line
+if __name__ == "__main__":
+and then run the entire script at once. As it is currently configured, running
+$ python exper.py 'ex1'
+would run the above example on your local machine.
+
+
+---------------
+ANALYZING
+
+Once you have an experiment as generated above, you will have a bunch of files, most of them in binary, containing the data generated. In the example above, there will be 9 sets of files in gidget/analysis/ex1/ of the form ex1a_*, ex1b_*, ex1c_*,..., each of which will have analogs to the following files:
+ex1a_comment.txt  - a plain text file listing the parameters used in run ex1a.
+ex1a_stde.txt - the standard error from the run
+ex1a_stdo.txt - the standard output from this run
+ex1a_evolution.dat - a binary file describing the time evolution of the system. In plain text it would have about 15 columns with one row per timestep on which any output is written (by default 10 outputs per outer orbital period). See DiskContents.cpp for the method which writes writes to this file, WriteOutStepFile()
+ex1a_stars.dat  - binary file describing the passive stellar populations (see WriteOutStarsFile() for details of its contents)
+ex1a_act_stars.dat - binary file describing the active stellar populations.
+ex1a_radial.dat - binary file describing the evolution of radial quantities. Contains an nx by 50ish matrix for every timestep at which output is produced.
+ex1a_convergence2.dat - a plain text file containing single numbers which one hopes will converge for a set of runs with e.g. increasing number of cells or decreasing time step sizes. Simple plots can be made by concatenating these one-line files for many different runs and using your favorite plotting program.
+
+These files are all read in by the READOUTPUT function in readmodels.pro. The basic procedure to do an analysis can be summarized as
+- Read in one or several runs' worth of data with the readmodels function.
+- make plots, compute simple statistics, or make movies
+- Free the memory needed to store these data.
+
+These are all automated at a higher level by the following procedures. To do your own analysis/create your own plots, these will be helpful guides on how to deal with the data structures produced by READOUTPUT.
+diskanalyze.pro - create a handful of plots for a single run
+diskanalyzecompare.pro - create a handful of movies comparing the time evolution of multiple runs
+diskanalyzecompareexperiment.pro - a wrapper for diskanalyzecompare.pro which lets you provide just the experiment name, instead of specifying every single run name. Not recommended for experiments where many different parameters are varied!
+seqdiskanalyze.pro - analogous to diskanalyze.pro, except make stationary plots comparing many runs. OK for experiments with many runs, since memory for each run is freed before reading in the next run.
+
+Examples:
+$ idl
+IDL> diskanalyze,"ex1/ex1a",0 ; from our earlier example, make plots of the run with initial gas fraction = 0.1
+% Compiled module: DISKANALYZE.
+% Compiled module: SETCT.
+% Compiled module: READMODELS.
+% Compiled module: STRSPLIT.
+% Compiled module: FIGUREINIT.
+% Compiled module: MULTIPLOT.
+% Compiled module: NEAREST.
+% Compiled module: PLOTVSXIND.
+% Compiled module: CURVEFIT.
+Function parameters:        765.19782       1.1429832
+% Compiled module: PLOTVST.
+% Compiled module: CONV_AXIS.
+% Program caused arithmetic error: Floating divide by 0
+% Program caused arithmetic error: Floating illegal operand
+Gas Column Density at the solar radius:        18.892122         187         400
+Gas Column Density Contrast:       1.9294825
+Gas sigma contrast (inner edge of star-forming disk/r=10 kpc):        1.7221801
+Total Stellar Mass within 10 kpc   2.6391740e+10 MSol
+IDL> 
+
+$ idl
+IDL> diskanalyzecompareexperiment,'ex1',2,""; make a movie comparing all 9 runs in ex1 simultaneously. Again, not recommended if your machine has limited memory
+% Compiled module: DISKANALYZECOMPAREEXPERIMENT.
+% Compiled module: DISKANALYZECOMPARE.
+% Compiled module: SETCT.
+% Compiled module: READMODELS.
+% Compiled module: STRSPLIT.
+% Compiled module: GETRANGES5.
+% Compiled module: RESISTANT_MEAN.
+% Compiled module: MEAN.
+% Compiled module: MOMENT.
+% Compiled module: ROBUST_SIGMA.
+% Compiled module: EXTRACTSLASH.
+% Compiled module: NEAREST.
+% Compiled module: PLOTVSXIND.
+% Loaded DLM: PNG.
+...
+
+$ idl
+IDL> diskanalyzecompare,['ex1/ex1a','ex1/ex1b'],0,"Vary gas fraction",['0.1','0.2']; compare just ex1a and ex1b
+...
+

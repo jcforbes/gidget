@@ -99,68 +99,9 @@ double npow(double x,double ex)
   else
     return pow(x,ex);
 }
-double MofS_AN(double theS,double sigma8,double OmegaM)
-{
-  double Gamma=0.169;
-  double c0=3.804e-4;
-  double uu=u(32.0*Gamma)/sigma8*sqrt(theS);
-  double f =pow(uu/64.087,-.1);
-  //  double yy= 0.9764842426426905*npow(f-1.0,1./3.)
-  //	+0.4678825120300093*npow(f-1.0,2./3.)
-  //	+0.3968694013650376*(f-1.0)
-  //	+0.3807497793594493*npow(f - 1.,4./3.) 
-  //	+0.36862778604069785*npow(f - 1.,5./3.) 
-  //	+0.3328886440017323*(f - 1.)*(f-1.) 
-  //	+0.24383270141307786*npow(f - 1.,7./3.) 
-  //	+0.06282816765413031*npow(f - 1.,8./3.)
-  //	-0.26049061964323156*npow(f - 1.,3.0) 
-  //	-0.7878462079141473*npow(f - 1.,10./3.) 
-  //	-1.5867615682478804*npow(f - 1.,11./3.) 
-  //	-2.7159830733318246*npow(f - 1.,4.0);
-	
-  double yy= 0.9764842426426905*npow(f-1.0,1./3.) + 
-    0.4678825120300093*npow(f-1.0,2./3.) + 0.3968694013650376* (f-1.) + 
-    0.3807497793594493*npow(f-1.0,4./3.) + 
-    0.3686277860406979*npow(f-1.0,5./3.) + 0.3328886440017323*npow(f-1.,2.) + 
-    0.2438327014130779*npow(f-1.0,7./3.) + 
-    0.06282816765413057*npow(f-1.0,8./3.) - 0.2604906196432312*npow(f-1.0,3.0) - 
-    0.7878462079141472*npow(f-1.0,10./3.) - 
-    1.5867615682478804*npow(f-1.0,11./3.) - 2.715983073331824*npow(f-1.0,4.0) - 
-    4.196113952078296*npow(f-1.0,13./3.) - 
-    5.957675479359978*npow(f-1.0,14./3.) - 7.757215883866726*npow(f-1.0,5.0) - 
-    9.052022839308824*npow(f-1.0,16./3.) - 
-    8.827493940114989*npow(f-1.0,17./3.) - 5.381614672194976*npow(f-1.0,6.0) + 
-    3.906669992166177*npow(f-1.0,19./3.) + 
-    22.757106826262525*npow(f-1.0,20./3.) + 55.9786623810211*npow(f-1.0,7.0) + 
-    109.02755321470875*npow(f-1.0,22./3.) + 
-    186.73908051945466*npow(f-1.0,23./3.) + 290.64696116977905*npow(f-1.0,8.0) + 
-    414.0907383548234*npow(f-1.0,25./3.) + 
-    534.1383992776838*npow(f-1.0,26./3.) + 599.3436845911236*npow(f-1.0,9.0) + 
-    512.7459408463739*npow(f-1.0,28./3.) + 
-    110.68562129044*npow(f-1.0,29./3.) - 859.470476255553*npow(f-1.0,10.0) - 
-    2754.9181995691347*npow(f-1.0,31./3.) - 
-    6030.697928001349*npow(f-1.0,32./3.) - 11182.995278112941*npow(f - 1.0,11.) - 
-    18597.832691146858*npow(f-1.0,34./3.) - 
-    28239.118022803046*npow(f-1.0,35./3.) - 
-    39087.162378418005*npow(f - 1,12.) - 
-    48222.329292856855*npow(f-1.0,37./3.) - 
-    49454.5445168956*npow(f-1.0,38./3.) - 31456.98301353682*npow(f - 1.0,13.0) + 
-    24481.226321912305*npow(f-1.0,40./3.) + 
-    146641.89257394112*npow(f-1.0,41./3.) + 
-    373969.27704908454*npow(f-1.0,14.) + 754053.6571371343*npow(f-1.0,43./3.) + 
-    1.334519266949246e6 *npow(f-1.0,44./3.) + 
-    2.1423016923339507e6 *npow(f-1.0,15.0) + 
-    3.1428330186842247e6 *npow(f-1.0,46./3.) + 
-    4.168715749788875e6 *npow(f-1.,47./3.);
 
-
-  double xx=pow(yy,10.0);
-  double M=OmegaM * pow(xx/(c0*Gamma),3.0);
-//  std::cout<<"MofS_AN: "<<uu<<" "<<f<<" "<<xx<<" "<<M<<std::endl;
-  return M;
-}
-
-double AccretionHistory::GenerateNeistein08(double Mh0, double zst, Cosmology& cos, std::string fn, bool writeOut,unsigned long int seed)
+double AccretionHistory::GenerateNeistein08(double Mh0, double zst, Cosmology& cos, 
+				std::string fn, bool writeOut,unsigned long int seed)
 {
   zstart = zst;
   std::ofstream file;
@@ -185,7 +126,8 @@ double AccretionHistory::GenerateNeistein08(double Mh0, double zst, Cosmology& c
     double deltaS= exp((1.367+0.012*s+0.234*s*s)*x + (-3.682+0.76*s-0.36*s*s));
     zs.push_back(zOfOmega(om));
     masses.push_back(MofS(SS,sp.sigma8,sp.OmegaM)/cos.h());
-    std::cout<<"z,om;S,M;ds,s,x: "<<zs[zs.size()-1]<<" "<<om<<"; "<<SS<<" "<<masses[masses.size()-1]<<"; "<<deltaS<<" "<<s<<" "<<x<<std::endl;
+    std::cout<<"z,om;S,M;ds,s,x: "<<zs[zs.size()-1]<<" "<<om<<"; "<<SS<<" "<<
+	masses[masses.size()-1]<<"; "<<deltaS<<" "<<s<<" "<<x<<std::endl;
     SS+=deltaS;
     om += dom;
   } while(zs[zs.size()-1]<zstart*1.3);
@@ -214,12 +156,32 @@ double AccretionHistory::GenerateNeistein08(double Mh0, double zst, Cosmology& c
 
   return accs[accs.size()-1] / AccOfZ(zs[zs.size()-1]);
 }
-double AccretionHistory::GenerateBoucheEtAl2009(double Mh0, double zs, Cosmology& cos, std::string fn, bool writeOut)
+
+double epsin(double z, double Mh,Cosmology & cos)
+{
+    double fOfz;
+    if(z>=2.2)
+        fOfz=1.0;
+    else if(z<=1.0)
+        fOfz=0.5;
+    else {
+        fOfz = 1.0 - (cos.Tsim(z)-cos.Tsim(2.2))* 0.5 / (cos.Tsim(1.0) - cos.Tsim(2.2));
+    }
+    double eps;
+    if(Mh < 1.5) 
+        eps = 0.7*fOfz;
+    else
+        eps = 0.0;
+    return eps;
+}
+
+double AccretionHistory::GenerateBoucheEtAl2009(double Mh0, double zs, Cosmology& cos, 
+					std::string fn, bool writeOut, bool MhAtz0)
 {
   std::ofstream file;
   if(writeOut) file.open(fn.c_str());
   zstart = zs;
-  unsigned int N=10000; 
+  unsigned int N=1000; 
   double Mh=Mh0;
   double z=zstart;
   double fbp18 = 1.0; // baryon fraction / 0.18
@@ -227,29 +189,34 @@ double AccretionHistory::GenerateBoucheEtAl2009(double Mh0, double zs, Cosmology
   std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
 
   for(unsigned int i=0; i<=N; ++i) {
-    z=((double) (N-i))/((double) N)*(zstart-0.0);
-    double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // 10^12 Msol/yr
-    double fOfz;
-    if(z>=2.2)
-      fOfz=1.0;
-    else if(z<=1.0)
-      fOfz=0.5;
-    else {
-      fOfz = 1.0 - (cos.Tsim(z)-cos.Tsim(2.2)) * 0.5 / (cos.Tsim(1.0) - cos.Tsim(2.2));
-    }
-    double epsin;
-    if(Mh < 1.5)
-      epsin = 0.7*fOfz;
-    else
-      epsin=0.0;
+    if(!MhAtz0) // if Mh is given at z=zstart, start from high redshift and go to z=0 
+	z=((double) (N-i))/((double) N)*(zstart-0.0);
+    else // if Mh is given at z=0, start from low redshift and go to z=zstart.
+	z=((double) i)/((double) N) * (zstart - 0.0);
 
-    double MdotExt = 7.0 * epsin * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // solar masses /year
-    if(i==0) MdotExt0= MdotExt;
+    // Use the Bouche formula to tell us the dark matter accretion rate
+    double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // 10^12 Msol/yr
+    
+    // Use the analogous formula to tell us the baryonic accretion rate.
+    double MdotExt = 7.0 * epsin(z,Mh,cos) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // solar masses /year
+
+    if((i==0 && !MhAtz0) || (i==N && MhAtz0)) // always set MdotExt0 to be MdotExt at z=2
+	MdotExt0= MdotExt;
+
     haloMass.push_back(Mh);
-    Mh+=dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;
-      
+
+    if(!MhAtz0) // starting from high redshift..
+        Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;
+    else
+        Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart-0.0))) / speryear;
+
     redshifts.push_back(z); tabulatedAcc.push_back(MdotExt);
     if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
+  }
+
+  if(MhAtz0) { // then we need to reverse redshifts and tabulatedAcc
+    reverse(redshifts.begin(),redshifts.end());
+    reverse(tabulatedAcc.begin(), tabulatedAcc.end());
   }
 
   file.close();

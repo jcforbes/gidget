@@ -49,9 +49,9 @@ int main(int argc, char **argv) {
   // specified on the command line, set that parameter to the default value (first 
   // argument of as.Set())
   ArgumentSetter as(argc,argv,filename);
-  const unsigned int nx=           as.Set(200,"nx");
+  const unsigned int nx=           as.Set(500,"nx");
   const double eta=                as.Set(1.5,"eta");
-  const double epsff=              as.Set(.02,"eps_ff");
+  const double epsff=              as.Set(.01,"eps_ff");
   const double tauHeat=            as.Set(2,"heating timescale (outer orbits)");
   const bool analyticQ=           (as.Set(1,"analytic Q")==1);
   const bool cosmologyOn=         (as.Set(1,"cosmological accretion history")==1);
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
   const double vphiR =             as.Set(220,"Circular velocity (km/s)")*1.e5;
   const double radius=             as.Set(20.,"Outer Radius (kpc)")*cmperkpc;
   const double sigth=         sqrt(as.Set(7000,"Gas Temperature (K)")*kB/mH)/vphiR;
-  const double Qlim =              as.Set(2.,"Limiting Q_*");
+  const double Qlim =              as.Set(2.5,"Limiting Q_*");
   const double fg0  =              as.Set(.5,"Initial gas fraction");
   const double tempRatio =         as.Set(1.,"Initial sigma_*/sigma_g");
   const double zstart =            as.Set(2.,"Initial redshift");
@@ -73,10 +73,10 @@ int main(int argc, char **argv) {
   const double stScaleLength    =  as.Set(-1,"Initial Stellar Disk Scale Length (kpc)");
   const int whichAccretionHistory= as.Set(0,"Which Accretion History- 0-Bouche, 1-High, 2-Low");
   const double alphaMRI         =  as.Set(0,"alpha viscosity for the MRI");
-  const double thick =             as.Set(1.0,"Thickness correction to Q");
+  const double thick =             as.Set(1.5,"Thickness correction to Q");
   const bool migratePassive=      (as.Set(1,"Migrate Passive population")==1);
-  const double Qinit =             as.Set(1.3,"The fixed Q");
-  const double kappaMetals =       as.Set(.01,"Kappa Metals");
+  const double Qinit =             as.Set(2.0,"The fixed Q");
+  const double kappaMetals =       as.Set(.001,"Kappa Metals");
 
   // Make an object to deal with things cosmological
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
   // Based on the user's choice of accretion history, generate the appropriate
   // mapping between redshift and accretion rate.
   if(whichAccretionHistory==0)
-    mdot0 = accr.GenerateBoucheEtAl2009(0.27,2.0,cos,filename+"_Bouche09.dat",true) * MSol/speryear;
+    mdot0 = accr.GenerateBoucheEtAl2009(1.0,2.0,cos,filename+"_Bouche09.dat",true,true) * MSol/speryear;
   else if(whichAccretionHistory==2)
     mdot0 = accr.GenerateConstantAccretionHistory(2.34607,zstart,cos,filename+"_ConstAccHistory.dat",true) * MSol/speryear;
   else if(whichAccretionHistory==1)

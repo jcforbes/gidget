@@ -18,23 +18,33 @@ class AccretionHistory {
 		     unsigned int rs, // number of rows to skip
 		     unsigned int nc, // number of columns in the file
 		     double zstart); // starting redshift
+
   // Generate a realistic accretion history given a halo mass at z=0
   double GenerateNeistein08(double Mh0, double zstart, 
 			    Cosmology& cos, std::string fn, 
 			    bool writeOut,unsigned long int seed);
 
-  // Generate an accretion history given a halo mass at zstart.
+  // Generate an accretion history given a halo mass Mh0 at zstart.
+  // If MhAtz0 is true, the given halo mass Mh0 is assumed to be for z=0, not z=zstart
+  // fn is the filename to which to write this accretion history if writeOut is true
+  // Cosmology contains the assumed Cosmological parameters & functions to calculate
+  // lookback time for a given redshift.
   double GenerateBoucheEtAl2009(double Mh0, double zstart, 
 				Cosmology& cos, std::string fn, 
-				bool writeOut);
+				bool writeOut,bool MhAtz0);
+
   // Generate an accretion history which is just constant with redshift
-  double GenerateConstantAccretionHistory(double rate,double zstart,Cosmology& cos,std::string fn,bool writeOut);
+  double GenerateConstantAccretionHistory(double rate,double zstart,Cosmology& cos,
+				std::string fn,bool writeOut);
 
   // Given a vector of redshifts and the accretion rates at those
   // redshifts, fill in the GSL interpolation objects which will
   // be used to return the accretion rate at arbitrary redshifts.
   void InitializeGSLObjs(std::vector<double> z, 
 			 std::vector<double> tabulatedAcc);
+
+  double epsin(double z, double Mh, Cosmology& cos);
+
  private:
   // vector of tabulated dimensionless accretion - same 
   // number of elements as redshift:

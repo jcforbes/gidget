@@ -17,7 +17,7 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 			FILE_MKDIR,dn
 		ENDIF
 		count=0
-		tailLength = 6; length of a tail to put on each point which represents a galaxy when prev=1
+		tailLength = fix(2.0/(float(n_elements(styles))/928.0)^(.25)) ; length of a tail to put on each point which represents a galaxy when prev=1
 		FOR ti=0,n_elements(time)-1 DO BEGIN  ;; loop over time
 			
 			count=count+1
@@ -29,7 +29,7 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 			    findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
 			    COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=labels[0],YTITLE=labels[k],XRANGE=ranges[*,0], $
 			    YRANGE=ranges[*,k],ylog=wrtXlog[k],xlog=wrtXlog[0],linestyle=2
-			
+			XYOUTS,.1,.9,string(time[ti]),/NORMAL,COLOR=0,CHARSIZE=2	
 			FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN ;; loop over models (4th column of data)	
 				IF(n_elements(styles) GT 20) THEN setct,5,n_elements(styles),j
 				OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[j],linestyle=styles[j],PSYM=psym
@@ -229,9 +229,11 @@ PRO variability2,expName,keys,N,sv
 
 	
 
-	setct,3,n_elements(sortdData[0,0,0,*]),1
+	setct,3,n_elements(sortdData[0,0,0,*]),0
 	simpleMovie,sortdData,time,wrtXyn,indgen(n_elements(sortdData[0,0,0,*])),intarr(n_elements(sortdData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_sorted",sv,intarr(n_elements(sortdData[0,0,0,*]))
 
+	setct,3,n_elements(theData[0,0,0,*]),0
+	simpleMovie,theData,time,wrtXyn,indgen(n_elements(theData[0,0,0,*])),intarr(n_elements(theData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(theData[0,0,0,*]))
 
 	
 
@@ -239,7 +241,7 @@ PRO variability2,expName,keys,N,sv
 	simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[1,300],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8]], $
+		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8]], $
 		[1,1,1,1,0,1,1],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0],PSYM=1,prev=1
 
 	;; average mdot over a number of time steps nt
@@ -254,18 +256,33 @@ PRO variability2,expName,keys,N,sv
 	simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.1,200],[1,300],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8]], $
+		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8]], $
 		[1,1,1,1,0,1,1],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0],PSYM=1,prev=1
 
 
+	setct,3,n_elements(vsMdot[0,0,0,*]),0
+	vsSFR = sortdVsMdot[*,*,1:n_elements(sortdVsMdot[0,0,*,0])-1,*] ;; cut out the mdot slice of the array
+	simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR'], $
+		indgen(n_elements(vsMdot[0,0,0,*])), $
+		intarr(n_elements(vsMdot[0,0,0,*])), $
+		[[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8]], $
+		[1,1,1,0,1,1],expName2+"_vsSFR",sv,[1,0,0,0,0,0],PSYM=1,prev=1
+
+	
 	SETCT,3,n_elements(vsMdot[0,0,0,*]),0
-	FIGUREInit,(expName+'_accRates'),1,1,1
-	Plot,time,sortdVsMdot[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=[.03,200],YLOG=1,XTITLE="Time",YTITLE="Accretion Rate"
+	FIGUREInit,(expName2+'_accRates'),1,1,1
+	Plot,time,sortdVsMdot[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=[.03,200],YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Accretion Rate"
 	FOR m=1,n_elements(sortdVsMdot[0,0,0,*])-1 DO BEGIN
 		setct,5,n_elements(sortdVsMdot[0,0,0,*]),m
 		OPLOT,time,sortdVsMdot[*,0,0,m],COLOR=m
+		
 	ENDFOR
 	FIGURECLEAN,(expName2+'_accRates'),1
+
+	FIGUREInit,(expName+'_z0AccRates'),1,1,1
+	cgHistoplot, alog10(sortdVsMdot[n_elements(sortdVsMdot[*,0,0,0])-1,0,0,*]), BinSize=.1
+	FIGURECLEAN,(expName2+'_z0AccRates'),1
+	
 
 
 END

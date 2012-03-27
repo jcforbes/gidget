@@ -140,6 +140,12 @@ void DiskContents::Initialize(Initializer& in)
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
+void DiskContents::Initialize(double Z_Init,double fcool, double fg0,double Mh0,
+			      unsigned int NActive,unsigned int NPassive,
+			      double BulgeRadius, double stScaleLength)
+{			     
+
+}
 
 void DiskContents::Initialize(double tempRatio, double fg0, 
 			      unsigned int NActive, unsigned int NPassive, 

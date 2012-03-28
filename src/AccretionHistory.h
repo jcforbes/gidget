@@ -43,7 +43,7 @@ class AccretionHistory {
   void InitializeGSLObjs(std::vector<double> z, 
 			 std::vector<double> tabulatedAcc);
 
-  double epsin(double z, double Mh, Cosmology& cos);
+  double epsin(double z, double Mh, Cosmology & cos);
 
  private:
   // vector of tabulated dimensionless accretion - same 

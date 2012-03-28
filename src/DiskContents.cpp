@@ -132,7 +132,7 @@ void DiskContents::Initialize(Initializer& in)
   initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
-  EnforceFixedQ();
+  EnforceFixedQ(true);
 
   initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -140,11 +140,31 @@ void DiskContents::Initialize(Initializer& in)
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
-void DiskContents::Initialize(double Z_Init,double fcool, double fg0,double Mh0,
+void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
+			      double sigst0, double Mh0,
 			      unsigned int NActive,unsigned int NPassive,
 			      double BulgeRadius, double stScaleLength)
 {			     
+  StellarPop initialStarsA(nx,YoungIthBin(0,cos,NActive),OldIthBin(0,cos,NActive));
+  StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),OldIthBin(0,cos,NPassive));
+  
+  for(unsigned int n=1; n<=nx; ++n) {
+    x[n] = XMIN*exp(dlnx*(n-1.0));
 
+    double b = BulgeRadius / dim.d(1.0); // matching radius at 1 kpc
+    uu[n] = x[n]/sqrt(b*b + x[n]*x[n]);
+    beta[n]=b*b/(b*b+x[n]*x[n]);
+    betap[n]= -2.*b*b*x[n] / ((b*b+x[n]*x[n])*(b*b+x[n]*x[n]));
+
+    keepTorqueOff[n] = 0;
+    ZDisk[n] = Z_Init;
+
+    sig[n] = pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.);
+//    col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
+	
+  }
+
+  EnforceFixedQ(false);  
 }
 
 void DiskContents::Initialize(double tempRatio, double fg0, 
@@ -195,7 +215,7 @@ void DiskContents::Initialize(double tempRatio, double fg0,
   initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
-  EnforceFixedQ();
+  EnforceFixedQ(true);
 
   initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -518,13 +538,18 @@ void DiskContents::ComputeRafikovQParams(RafikovQParams* p, unsigned int n)
   (*p).fixedQ=fixedQ;
 }
 
-void DiskContents::EnforceFixedQ()
+// if fixedPhi0 is true, Q=Q_f is enforced by adjusting sig and sig_st simultaneously
+// otherwise we assume sig_st is fixed, and we adjust sig only.
+void DiskContents::EnforceFixedQ(bool fixedPhi0)
 {
   RafikovQParams rqp;
   gsl_function F;
   // the function whose root we want, f=Q(stateVars)-fixedQ.
   // QmfQ is declared in DiskUtils.h
-  F.function = &QmfQ; 
+  if(fixedPhi0)
+    F.function = &QmfQ; 
+  else
+    F.function = &QmfQfst;
   double factor =1.;
   rqp.mostRecentq=1.;
   for(unsigned int n=1; n<=nx; ++n) {
@@ -534,8 +559,11 @@ void DiskContents::EnforceFixedQ()
     findRoot(F,&factor);
     
     sig[n] *= factor;
-    for(unsigned int i=0; i!=spsActive.size(); ++i) {
-      spsActive[i].spsig[n] *= factor;
+
+    if(fixedPhi0) {
+      for(unsigned int i=0; i!=spsActive.size(); ++i) {
+        spsActive[i].spsig[n] *= factor;
+      }
     }
   }
 }

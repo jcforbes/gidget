@@ -59,6 +59,8 @@ double Q(RafikovQParams *qp, double *absc);
 // object (a pointer to which is passed to QmfQ as p)
 double QmfQ(double sv, void * p);
 
+double QmfQfst(double sv, void * p);
+
 // Hide the process of creating the parameters necessary to compute Q,
 // and simply return Q at a given cell n in the disk.
 double Qsimple(unsigned int n, DiskContents& disk);

@@ -157,7 +157,7 @@ double AccretionHistory::GenerateNeistein08(double Mh0, double zst, Cosmology& c
   return accs[accs.size()-1] / AccOfZ(zs[zs.size()-1]);
 }
 
-double epsin(double z, double Mh,Cosmology & cos)
+double AccretionHistory::epsin(double z, double Mh,Cosmology & cos)
 {
     double fOfz;
     if(z>=2.2)
@@ -195,19 +195,20 @@ double AccretionHistory::GenerateBoucheEtAl2009(double Mh0, double zs, Cosmology
 	z=((double) i)/((double) N) * (zstart - 0.0);
 
     // Use the Bouche formula to tell us the dark matter accretion rate
-    double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // 10^12 Msol/yr
+    double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // in 10^12 Msol/yr
     
     // Use the analogous formula to tell us the baryonic accretion rate.
-    double MdotExt = 7.0 * epsin(z,Mh,cos) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // solar masses /year
+    double MdotExt = 7.0 * epsin(z,Mh,cos) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
 
     if((i==0 && !MhAtz0) || (i==N && MhAtz0)) // always set MdotExt0 to be MdotExt at z=2
 	MdotExt0= MdotExt;
 
     haloMass.push_back(Mh);
 
+    // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
     if(!MhAtz0) // starting from high redshift..
         Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;
-    else
+    else // starting from low redshift..
         Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart-0.0))) / speryear;
 
     redshifts.push_back(z); tabulatedAcc.push_back(MdotExt);

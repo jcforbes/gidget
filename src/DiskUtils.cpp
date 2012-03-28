@@ -160,6 +160,21 @@ double Qsimple(unsigned int n,DiskContents& disk)
   return Q(&rqp,&absc);
 }
 
+// Same as QmfQ (below), except instead of varying sig and sig_st simultaneously by the same factor (sv),
+// we just vary sig. The former is useful if we fix the ratio, phi0, in the initial conditions, and the 
+// latter is useful if instead we just set the absolute value of sig_st and let the gas relax around the stars.
+double QmfQfst(double sv, void *p)
+{
+  struct RafikovQParams * qp = (RafikovQParams *) p;
+  (*qp).var=-1;
+  (*qp).Qg *= sv;
+  if((*qp).fixedQ < 0.0) errormsg("The fixedQ passed to QmfQfst (in DiskUtils) was not initialized.");
+  double val = Q(qp,&((*qp).mostRecentq))-(*qp).fixedQ;
+  (*qp).Qg /=sv;
+
+  return val;
+}
+
 double QmfQ(double sv, void *p) 
 {
   // here sv is a factor by which we will multiply all velocity dispersions (and hence Qsi - the ri will be constant since both the gas and stellar velocity dispersions will be multiplied by sv)

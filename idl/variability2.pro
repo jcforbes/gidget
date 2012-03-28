@@ -17,7 +17,7 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 			FILE_MKDIR,dn
 		ENDIF
 		count=0
-		tailLength = fix(2.0/(float(n_elements(styles))/928.0)^(.25)) ; length of a tail to put on each point which represents a galaxy when prev=1
+		tailLength = fix(3.0/(float(n_elements(styles))/928.0)^(.25)) ; length of a tail to put on each point which represents a galaxy when prev=1
 		FOR ti=0,n_elements(time)-1 DO BEGIN  ;; loop over time
 			
 			count=count+1
@@ -112,12 +112,12 @@ PRO variability2,expName,keys,N,sv
 	ctr=0
 
 	;; variables to plot- title, column index, log plot, name, y-range
-	wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst']
-	wrtXyy=[9,10,11,12,13,17,22,14,12,24,23]
-	wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0]
-	wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst']
-	wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],[1d-6,10],[1.5,5.0],[.5,50],[.5,50]]
-	wrtXyl=[0,1,1,1,1,0,0,1,0,1,1]
+	wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2']
+	wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48]
+	wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0,0]
+	wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2']
+	wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],[1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1]]
+	wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0]
 
 
 	tk = [[0],keys]
@@ -142,7 +142,7 @@ PRO variability2,expName,keys,N,sv
 	theData= dblarr(n_elements(model.dataCube[*,0,0]),n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
 
 	;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 4) x (# models)
-	vsMdot = dblarr(n_elements(model.dataCube[*,0,0]),1,7,n_elements(nameList2))
+	vsMdot = dblarr(n_elements(model.dataCube[*,0,0]),1,10,n_elements(nameList2))
 
 ;	theTData = dblarr(n_elements(model.dataCube[*,0,0]), n_elements(wrtTyy), n_elements(nameList2))
 
@@ -165,20 +165,24 @@ PRO variability2,expName,keys,N,sv
 				
 			ENDFOR
 			
-			vsMdot[*,0,0,i] = - model.dataCube[*,model.nx-1,3-1] * model.mdotext0
+			vsMdot[*,0,0,i] = - model.dataCube[*,model.nx-1,3-1] * model.mdotext0 ;; external accretion rate
 ;			FOR theT=0, n_elements(model.dataCube[*,0,0])-1 DO $
 ;				vsMdot[theT,0,1,i] = TOTAL(2*!pi*x[*]*x[*]*model.dlnx*model.dataCube[theT,*,model.ncolstep+14-1]*model.Radius*model.Radius)
 
-			vsMdot[*,0,1,i] = model.evArray[10,*] ;; cross-check!
+			vsMdot[*,0,1,i] = model.evArray[10,*] ;; SFR
 			vsMdot[*,0,2,i] = model.evArray[5,*]/model.evArray[6,*] * (1.0 - model.evArray[6,*])
 
-			FOR zi=0, n_elements(model.evArray[9,*])-1 DO BEGIN
+			FOR zi=0, n_elements(model.evArray[9,*])-1 DO BEGIN ; loop over redshift
 				modelInfo = diskStats(model,z=model.evArray[9,zi])
-				vsMdot[zi,0,3,i] = modelInfo[1]
-				vsMdot[zi,0,4,i] = modelInfo[2]
-				vsMdot[zi,0,5,i] = modelInfo[3]
-				vsMdot[zi,0,6,i] = modelInfo[7]
+				vsMdot[zi,0,3,i] = modelInfo[1] ;; peak radius of column density (kpc)
+				vsMdot[zi,0,4,i] = modelInfo[2] ;; edge of SF region (kpc)
+				vsMdot[zi,0,5,i] = modelInfo[3] ;; col @ r=8kpc (solar masses/pc^2)
+				vsMdot[zi,0,6,i] = modelInfo[7] ;; sSFR (yr^-1)
+				vsMdot[zi,0,7,i] = modelInfo[8] ;; mass in bulge (MSol)
+				vsMdot[zi,0,8,i] = modelInfo[9] ;; fSt in bulge
+				vsMdot[zi,0,9,i] = modelInfo[10];; total f_H2
 			ENDFOR
+
 
 ;			FOR kk=0,n_elements(wrtTyind)-1 DO BEGIN
 ;				theTData[*,kk,i] =;; model.evArray[wrtTyind[kk],*]
@@ -238,11 +242,11 @@ PRO variability2,expName,keys,N,sv
 	
 
 	setct,3,n_elements(vsMdot[0,0,0,*]),0
-	simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR'],$
+	simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8]], $
-		[1,1,1,1,0,1,1],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0],PSYM=1,prev=1
+		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
+		[1,1,1,1,0,1,1,1,0,0],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
 
 	;; average mdot over a number of time steps nt
 	nt = 50
@@ -253,20 +257,20 @@ PRO variability2,expName,keys,N,sv
 			avgdVsMdot[ti,0,0,mm] = TOTAL(sortdVsMdot[MAX([0,ti-nt]):ti,0,0,mm]) / (ti - MAX([0,ti-nt]) + 1)
 		ENDFOR
 	ENDFOR
-	simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR'],$
+	simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8]], $
-		[1,1,1,1,0,1,1],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0],PSYM=1,prev=1
+		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
+		[1,1,1,1,0,1,1,1,0,0],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
 
 
 	setct,3,n_elements(vsMdot[0,0,0,*]),0
 	vsSFR = sortdVsMdot[*,*,1:n_elements(sortdVsMdot[0,0,*,0])-1,*] ;; cut out the mdot slice of the array
-	simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR'], $
+	simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'], $
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8]], $
-		[1,1,1,0,1,1],expName2+"_vsSFR",sv,[1,0,0,0,0,0],PSYM=1,prev=1
+		[[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
+		[1,1,1,0,1,1,1,0,0],expName2+"_vsSFR",sv,[1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
 
 	
 	SETCT,3,n_elements(vsMdot[0,0,0,*]),0

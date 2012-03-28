@@ -26,6 +26,22 @@ FUNCTION diskStats,model,z=z
 	stMass = model.evArray[5,zj]/model.evArray[6,zj] * (1.0-model.evArray[6,zj])
 	sSFR = model.evArray[11-1,zj]/stMass
 
+
+	gasS=model.dataCube[*,*,3] ;; dimensionless gas column density
+	starS=model.dataCube[*,*,5] ;; dimensionless stellar column density
+	outS=model.dataCube[*,*,51]*model.mlf ;; dimensionless outflow column density = stars formed * mass loading factor
+	macc = model.evArray[17-1,*] ;; cumulative mass accreted in solar masses
+
+	kmperkpc=3.08568025d16
+	speryear=31556926d
+
+
+	;; Compute bulge mass by conservation arguments: cosmological input - total (outflowing mass + change in stellar mass + change in gas mass in the disk)
+	BulgeM = macc[zj] + TOTAL((2*!pi*model.Radius*model.mdotext0*model.dlnx*(kmperkpc/speryear)/model.vphiR) * x[*]*x[*]*(-outS[zj,*]-starS[zj,*]-gasS[zj,*]+starS[0,*]+gasS[0,*])) ;; kpc* MSol/yr *s/km * (1/speryear) * (kmperkpc) = MSol
+
+	BulgeMSt = TOTAL((2*!pi*model.Radius*model.mdotext0*model.dlnx*(kmperkpc/speryear)/model.vphiR) * x[*]*x[*]*(-starS[zj,*] + starS[0,*] + model.Rf * model.dataCube[zj,*,51]))
+
+
 	IF(xoutInd LT xinInd) THEN BEGIN 
 		xoutInd = xinInd
 		PRINT,"diskstats: Warning: changing xoutInd to xinInd "
@@ -44,12 +60,14 @@ FUNCTION diskStats,model,z=z
         vstSf = TOTAL(xsf*xsf*vst[xinInd:xoutInd])/TOTAL(xsf*xsf)
         vstHI = TOTAL(xHI*xHI*vst[xoutInd:model.nx-1])/TOTAL(xHI*xHI)   
         colsol= col[nearest("position",1,model,8.0/model.Radius)]
+	totfH2 = TOTAL(x[*] * x[*] * fH2[*])/TOTAL(x[*]*x[*])
 
         info=[xin*model.Radius,$    ;; inner edge of SF region
                 xpeak*model.Radius,$ ;; peak of the column density
                 xout*model.Radius,$ ;; outer edge of SF region
                 colsol,$            ;; column density at r=8 kpc
-                fgnuc,fgsf,fgHI,sSFR];,$   ;; gas fraction
+                fgnuc,fgsf,fgHI,sSFR, $   ;; gas fraction, specific SFR
+		BulgeM,BulgeMSt/BulgeM, totfH2 ]
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

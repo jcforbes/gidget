@@ -65,7 +65,8 @@ PRO setct,which,n,color
 		mmm = 70
 		sp = 255-mmm
 ;		j=color MOD (7*sp)
-		j = fix(float(color) / float(n)) * 7 *sp
+		j = ( fix(float(color * 7.0 * sp) / float(n)  ) ) MOD (7*sp)
+		
 		ct = (j) MOD sp
 		rr=mmm
 		gg=mmm

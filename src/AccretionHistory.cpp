@@ -78,6 +78,8 @@ double S(double M, void * p)
   double x=c0*Gamma*pow(M,1./3.)/pow((*sp).OmegaM,1./3.);
   return u(x)*u(x)*sigma8*sigma8/(u(32.0*Gamma)*u(32.0*Gamma)) - (*sp).rhs;
 }
+
+// Return M(S) in units of solar masses
 double MofS(double theS,double s8,double OmegaM)
 {
   gsl_function F;
@@ -138,7 +140,7 @@ double AccretionHistory::GenerateNeistein08(double Mh0, double zst, Cosmology& c
 
     // The accretion rate is the difference in DM halo masses between the two time steps 
     // times the cosmic baryon fraction, divided by the time between redshift steps 
-    accs.push_back(.18*(masses[i]-masses[i+1])/
+    accs.push_back(.18*epsin(zs[i],masses[i]*1.0e-12,cos)*(masses[i]-masses[i+1])/
 		   (fabs(cos.Tsim(zs[i+1]) - cos.Tsim(zs[i]))
 		    /speryear)
 		   );

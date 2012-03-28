@@ -145,8 +145,10 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 			      unsigned int NActive,unsigned int NPassive,
 			      double BulgeRadius, double stScaleLength)
 {			     
-  StellarPop initialStarsA(nx,YoungIthBin(0,cos,NActive),OldIthBin(0,cos,NActive));
-  StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),OldIthBin(0,cos,NPassive));
+  StellarPop initialStarsA(nx,YoungIthBin(0,cos,NActive),
+			   OldIthBin(0,cos,NActive));
+  StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
+			   OldIthBin(0,cos,NPassive));
   
   for(unsigned int n=1; n<=nx; ++n) {
     x[n] = XMIN*exp(dlnx*(n-1.0));
@@ -159,12 +161,34 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     keepTorqueOff[n] = 0;
     ZDisk[n] = Z_Init;
 
+    double xd = stScaleLength/dim.d(1.0);
+    double S0 = 0.18 * fcool * (1-fg0) * Mh0*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+    initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
+    initialStarsA.spsig[n] = sigst0;
+    initialStarsA.spZ[n] = Z_Init;
+    initialStarsA.spZV[n] = 0.0;
+
+    initialStarsP.spcol[n] = initialStarsA.spcol[n];
+    initialStarsP.spsig[n] = initialStarsA.spsig[n];
+    initialStarsP.spZ[n] = initialStarsA.spZ[n];
+    initialStarsP.spZV[n] = initialStarsA.spZV[n];
+
     sig[n] = pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.);
-//    col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
+    col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsig[n]) *sig[n];
 	
   }
 
-  EnforceFixedQ(false);  
+  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
+  initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
+  initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+  spsActive.push_back(initialStarsA);
+  spsPassive.push_back(initialStarsP);
+  EnforceFixedQ(false);
+
+  initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
+    (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
+  initialGasMass = TotalWeightedByArea(col) * 
+    (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
 void DiskContents::Initialize(double tempRatio, double fg0, 

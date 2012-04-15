@@ -8,9 +8,13 @@ END
 ;; which=3 <=> a gradual progression within a certain set of colors, determined by color
 ;;                  n refers to the number of gradations in this color
 PRO setct,which,n,color
-	set_plot,'x'
-	DEVICE,DECOMPOSED=0
-	DEVICE,RETAIN=2
+	IF(which EQ 0) THEN BEGIN
+		compile_opt idl2
+		set_plot,'x'
+		DEVICE,DECOMPOSED=0
+		DEVICE,RETAIN=2
+	ENDIF
+	
 	;;; Construct a color table
 	r=BYTE(INDGEN(256))
 	g=r
@@ -65,7 +69,7 @@ PRO setct,which,n,color
 		mmm = 70
 		sp = 255-mmm
 ;		j=color MOD (7*sp)
-		j = ( fix(float(color * 7.0 * sp) / float(n)  ) ) MOD (7*sp)
+		j = ( fix(float(color * 6.0 * sp) / float(n)  ) ) MOD (6*sp)
 		
 		ct = (j) MOD sp
 		rr=mmm
@@ -90,13 +94,13 @@ PRO setct,which,n,color
 		ENDIF
 		IF(j GT 5*sp AND j LE 6*sp) THEN BEGIN
 			bb=255
-			gg=mmm+ct
+;			gg=mmm+ct
 			rr=mmm+ct
 		ENDIF
 		IF(j GT 6*sp AND j LE 7*sp) THEN BEGIN
 			bb=255 -ct
-			gg=255 -ct
-			rr=255 -ct
+			gg=mmm +ct
+			rr=255 
 		ENDIF
 		ind=j MOD 256
 		r[*]= rr

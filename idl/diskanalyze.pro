@@ -134,38 +134,56 @@ PRO bulgeDisk,model,sv
         figureClean,(model.name+'_pub_bd'),sv
 END
 
-PRO GlobalTimeSeries,model,sv
-        figureInit,(model.name+'_pub_ts'),sv,1,2
-        multi=1
-        IF(multi EQ 0) THEN !p.multi=[0,3,1]
-        IF(multi EQ 1) THEN BEGIN
-                multiplot,[0,1,3,0,0],ygap=.003
-                !p.noerase=0
-        ENDIF
+PRO GlobalTimeSeries,model,sv,split=split
+	multi=0
+	cs=1.5
+	IF(n_elements(split) EQ 0) THEN BEGIN
+	        figureInit,(model.name+'_pub_ts'),sv,1,2
+        	multi=1
+       		IF(multi EQ 0) THEN !p.multi=[0,3,1]
+        	IF(multi EQ 1) THEN BEGIN
+                	multiplot,[0,1,3,0,0],ygap=.003
+        	        !p.noerase=0
+        	ENDIF
+		cs=.7
+	ENDIF
+
+	IF(n_elements(split) NE 0) THEN figureInit,(model.name+'_fgvst'),sv,1,1
+
         xt="Time since z=2 [Gyr]"
-        cs=.7
         xtvi=[nearest("redshift",1,model,2.0),nearest("redshift",1,model,1.5),nearest("redshift",1,model,1.0),nearest("redshift",1,model,0.5),nearest("redshift",1,model,.001)]
         xtv=model.evArray[1,xtvi]
         PlotVsT,model,7,-1,0,YRANGE=[0,.6],YSTYLE=1,COLOR=0,BACKGROUND=255,YTITLE="Gas Fraction",CHARSIZE=cs,XSTYLE=9,YMARGIN=[4,6]
         axis,XSTYLE=1,XAXIS=1,XTICKFORMAT='conv_axis',CHARSIZE=cs,XTITLE="Redshift",xtickv=xtv,COLOR=0,xticks=4
 
-        IF(multi EQ 1) THEN BEGIN
-                 multiplot,ygap=0.0
-                !p.noerase=1
-        ENDIF
+	IF(n_elements(split) EQ 0) THEN BEGIN
+	        IF(multi EQ 1) THEN BEGIN
+        	         multiplot,ygap=0.0
+                	!p.noerase=1
+        	ENDIF
+	ENDIF
+	IF(n_elements(split) NE 0) THEN figureClean,(model.name+'_fgvst'),sv
+	IF(n_elements(split) NE 0) THEN figureInit,(model.name+'_mjvst'),sv,1,1
 
         PlotVsT,model,model.ncolstep+8,8/model.Radius,0,YRANGE=[8d6,2d9],YSTYLE=1,COLOR=0,BACKGROUND=255,YTITLE='2D Jeans Mass at r=8 kpc [MSun]',CHARSIZE=cs,XSTYLE=9,ylog=1,ymargin=[4,6]
 ;       axis,XSTYLE=1,XAXIS=1,XTICKFORMAT='conv_axis',CHARSIZE=cs,XTITLE="Redshift",xtickv=xtv,COLOR=0,xticks=4
 
         IF(multi EQ 1) THEN multiplot
+	IF(n_elements(split) NE 0) THEN figureClean,(model.name+'_mjvst'),sv
+	IF(n_elements(split) NE 0) THEN figureInit,(model.name+'_sfrvst'),sv,1,1
 
         PlotVsT,model,11,-1,0,YRANGE=[1,25],ylog=1,YSTYLE=1,COLOR=0,BACKGROUND=255,XTITLE="Time since z=2 [Gyr]",YTITLE="Star Formation Rate [MSol/yr]",CHARSIZE=cs,XSTYLE=9,ymargin=[4,6];       
 ;	axis,XSTYLE=1,XAXIS=1,XTICKFORMAT='conv_axis',CHARSIZE=cs,XTITLE="Redshift",xtickv=xtv,COLOR=0,xticks=4
 
-        figureClean,(model.name+'_pub_ts'),sv
-        IF(sv EQ 2) THEN latexify,(model.name+'_pub_ts.eps'),['Time since z=2 [Gyr]','Gas Fraction','2D Jeans Mass at r=8 kpc [MSun]','Star Formation Rate [MSol/yr]'],['Time since $z=2$ [Gyr]','Gas Fraction','2D Jeans Mass at $r=8$ kpc [$M_\odot$]','Star Formation Rate [$M_\odot/yr$]'],replicate(1.3,4),/full
-        IF(multi EQ 0) THEN !p.multi=[0]        
-	IF(multi EQ 1) THEN multiplot,/default
+
+	IF(n_elements(split) NE 0) THEN figureClean,(model.name+'_sfrvst'),sv
+
+	IF(n_elements(split) EQ 0) THEN BEGIN
+	        figureClean,(model.name+'_pub_ts'),sv
+        	IF(sv EQ 2) THEN latexify,(model.name+'_pub_ts.eps'),['Time since z=2 [Gyr]','Gas Fraction','2D Jeans Mass at r=8 kpc [MSun]','Star Formation Rate [MSol/yr]'],['Time since $z=2$ [Gyr]','Gas Fraction','2D Jeans Mass at $r=8$ kpc [$M_\odot$]','Star Formation Rate [$M_\odot/yr$]'],replicate(1.3,4),/full
+	        IF(multi EQ 0) THEN !p.multi=[0]        
+		IF(multi EQ 1) THEN multiplot,/default
+	ENDIF
 END
 
 PRO MdotSFR,model,sv
@@ -347,14 +365,19 @@ PRO angularMomentum,model,sv
 END
 
 
-PRO RadialStellarPops,model,sv
-        figureInit,(model.name+'_pub_rst'),sv,1,2
-        multi=1
-        IF(multi EQ 0) THEN !p.multi=[0,1,3]
-        IF(multi EQ 1) THEN BEGIN
-                multiplot,[0,1,3,0,0]
-                !p.noerase=0
-        ENDIF
+PRO RadialStellarPops,model,sv,split=split
+	multi=0
+	cs=1.5
+        IF(n_elements(split) EQ 0) THEN BEGIN
+		figureInit,(model.name+'_pub_rst'),sv,1,2
+        	multi=1
+	        IF(multi EQ 0) THEN !p.multi=[0,1,3]
+        	IF(multi EQ 1) THEN BEGIN
+                	multiplot,[0,1,3,0,0]
+        	        !p.noerase=0
+        	ENDIF
+		cs=.7
+	ENDIF
         xr=fltarr(2,3)
         yr=fltarr(2,3)
         xr[0,*]=0.0 ;; Radius (kpc)
@@ -367,25 +390,29 @@ PRO RadialStellarPops,model,sv
         npp=model.npostprocess
         stv=model.stvars
         np=model.NPassive
-        cs=.7
         yind=[indgen(np+1)*stv+1,indgen(np+1)*stv+2,indgen(np+2)*stv+3]+ncs+npp
         xtitles=["","","Radius [kpc]"]
         ytitles=["Column Density [MSol/pc^2]","Velocity Dispersion [km/s]","[Z]"]
+	nms=['stcol','stsig','stz']
         xind=[0,0,0]+ncs+9
         FOR i=0,2 DO BEGIN
+		IF(n_elements(split) NE 0) THEN figureInit,(model.name+'_'+nms[i]),sv,1,1
                 IF(i NE 0 AND multi EQ 1) THEN !p.noerase=1
                 FOR j=0,model.NPassive DO BEGIN
                         PlotVsXInd,model,zj,xind[i],yind[i*(np+1)+j],OP(j),0,xrange=xr[*,i],yrange=yr[*,i],CHARSIZE=cs,COLOR=j,XTITLE=xtitles[i],YTITLE=ytitles[i],XSTYLE=1,YSTYLE=1,LINESTYLE=(1-OP(j))
                 ENDFOR
-                IF(multi EQ 1) THEN multiplot
+                IF(multi EQ 1 AND n_elements(split) EQ 0) THEN multiplot
+		IF(n_elements(split) NE 0) THEN figureClean,(model.name+'_'+nms[i]),sv
         ENDFOR
-        figureClean,(model.name+'_pub_rst'),sv
-        IF(sv EQ 2) THEN latexify,(model.name+'_pub_rst.eps'),["Radius [kpc]",ytitles],['Radius [kpc]','Column Density [$M_\odot/pc^2$]','Velocity Dispersion [km/s]','[\ $<Z>$\ ]'],replicate(1.3,4),/full
-        IF(multi EQ 1) THEN BEGIN
-                multiplot,/reset
-                multiplot,/default
-        ENDIF
 
+	IF(n_elements(split) EQ 0) THEN BEGIN
+	        figureClean,(model.name+'_pub_rst'),sv
+        	IF(sv EQ 2) THEN latexify,(model.name+'_pub_rst.eps'),["Radius [kpc]",ytitles],['Radius [kpc]','Column Density [$M_\odot/pc^2$]','Velocity Dispersion [km/s]','[\ $<Z>$\ ]'],replicate(1.3,4),/full
+        	IF(multi EQ 1) THEN BEGIN
+                	multiplot,/reset
+        	        multiplot,/default
+        	ENDIF
+	ENDIF
 END
 
 
@@ -461,10 +488,41 @@ PRO RadialTimeSeriesGlobal,model,sv
         IF(multi EQ 0) THEN !p.multi=[0,1,1]
 END
 
-PRO RadialTimeSeriesComponents,model,sv        
-	figureInit,(model.name+'_pub_rtsc'),sv,1,2
-        multiplot,[0,2,6,0,0]
-        !p.noerase=0
+PRO ScaleHeight,model,sv
+	setct,1,0	
+	figureInit,(model.name+"_heightvcol"),sv,1,1
+	ti=nearest("redshift",1,model,0.0)
+	t0=1
+	tne = n_elements(model.stellarages[ti,*])
+	age = model.stellarages[ti,t0:(tne-1)]*1e-9; age in Ga.
+	posi=nearest("position",1,model,8.0/model.Radius)
+	colstj= model.stellardata[ti,t0:(tne-1),posi,0] $
+	  * model.mdotext0/(model.radius * model.vphiR) $
+	  *977.813952 ;Msol/yr (1/kpc) (s/km) yr/s kpc/pc km/pc = Msol/pc^2
+	sigstj= model.stellardata[ti,t0:(tne-1),posi,1]*model.vphiR
+
+	G=6.67d-8
+	Msun=2d33
+	speryear=31556926
+
+	chi = model.mdotext0 * (MSun / speryear) * G / (model.vphiR * 1.0d5)^3
+
+;	Hj = sigstj*sigstj*3.08568d28 / (!pi*G*colstj*Msun)
+;	Hj = sigstj*sigstj*74.0052633 / (TOTAL(colstj)) ;;pc
+	Hj = model.Radius*1000.0 * (sigstj/model.vphiR)^2 / (!pi* chi * TOTAL(model.stellardata[ti,t0:(tne-1),posi,0]))
+	plot,Hj,colstj,COLOR=0,BACKGROUND=255,PSYM=2,XTITLE="Scale Height (pc)",YTITLE="Column Density at R=8 kpc (MSol/pc^2)"
+
+	figureClean,(model.name+"_heightvcol"),sv
+END
+
+PRO RadialTimeSeriesComponents,model,sv,split=split
+	cs=1.5
+	IF(n_elements(split) EQ 0) THEN BEGIN
+		figureInit,(model.name+'_pub_rtsc'),sv,1,2
+        	multiplot,[0,2,6,0,0]
+        	!p.noerase=0
+		cs=.7
+	ENDIF
         xr=fltarr(2,12)
         yr=fltarr(2,12)
         yr[0,0:1] = 0.
@@ -505,7 +563,6 @@ PRO RadialTimeSeriesComponents,model,sv
                 24,23,$
                 model.ncolstep+26,model.ncolstep+27]
         xind=yind*0+model.ncolstep+9
-        cs=.7
         titles=strarr(12)
         titles[0:1]=["Gas","Stars"];,"Old Stars","Young Stars"]
         xtitles=strarr(12)
@@ -517,16 +574,20 @@ PRO RadialTimeSeriesComponents,model,sv
         ytitles[6]="Scale Height [kpc]"
         ytitles[8]="Qi"
         ytitles[10]="log Inward Velocity [km/s]"
-                FOR i=0,11 DO BEGIN                IF(i NE 0) THEN !p.noerase=1
+        FOR i=0,11 DO BEGIN                
+		IF(i NE 0 AND n_elements(split) EQ 0) THEN !p.noerase=1
+		IF(n_elements(split) NE 0) THEN
                 FOR j=0,n_elements(lsj)-1 DO BEGIN
                         PlotVsXInd,model,zj[j],xind[i],yind[i],OP(j),0,xrange=xr[*,i],yrange=yr[*,i],CHARSIZE=cs,COLOR=colj[j],Linestyle=lsj[j],XTITLE=xtitles[i],YTITLE=ytitles[i],TITLE=titles[i],XSTYLE=1,YSTYLE=1,THICK=thj[j]
                 ENDFOR
-                multiplot
+                IF(n_elements(split) EQ 0) THEN multiplot
         ENDFOR        
-	multiplot,/reset        
-	multiplot,/default
-        figureClean,(model.name+'_pub_rtsc'),sv
-        IF(sv EQ 2) THEN latexify,(model.name+'_pub_rtsc.eps'),[ytitles[0],ytitles[2],ytitles[4],ytitles[6],ytitles[8],ytitles[10]],['$\log \Sigma_j$ [$M_\odot/pc^2$]','$\sigma_j$ [km/s]','[\ $<Z>$\ ]','$H_j$ [kpc]','$Q_j$','$\log v_r$ [km/s]'],replicate(.83,6),/full
+	IF(n_elements(split) EQ 0) THEN BEGIN
+		multiplot,/reset        
+		multiplot,/default
+	        figureClean,(model.name+'_pub_rtsc'),sv
+        	IF(sv EQ 2) THEN latexify,(model.name+'_pub_rtsc.eps'),[ytitles[0],ytitles[2],ytitles[4],ytitles[6],ytitles[8],ytitles[10]],['$\log \Sigma_j$ [$M_\odot/pc^2$]','$\sigma_j$ [km/s]','[\ $<Z>$\ ]','$H_j$ [kpc]','$Q_j$','$\log v_r$ [km/s]'],replicate(.83,6),/full
+	ENDIF
 
 END
 
@@ -535,35 +596,38 @@ END
 ;; sv=0 : just show in a window
 ;; sv=1 : save as a png
 ;; sv=2 : save as an eps
-PRO diskAnalyze,name,sv
+PRO diskAnalyze,name,sv,split=split
         compile_opt idl2
         SETCT,1,0,0
 
         modelList=readmodels([name])
         model=(*(modelList[0]))
-	modelList2=readmodels([ 'ri32/ri32babe',$
-				'ri32/ri32baae',$
-				'ri32/ri32bbbe',$
-				'ri32/ri32bcbe',$
-				'ri32/ri32bcae'])
-;	modelList2=readmodels([ 'ri16/ri16'
-        modelList2[0]=modelList[0]
+;	modelList2=readmodels([ 'ri32/ri32babe',$
+;				'ri32/ri32baae',$
+;				'ri32/ri32bbbe',$
+;				'ri32/ri32bcbe',$
+;				'ri32/ri32bcae'])
+
+	modelList2=readmodels(['ri40/ri40cg','ri40/ri40dg'])
+
+;        modelList2[0]=modelList[0]
 
         COMMON modelBlock,theModel
         theModel=(*(modelList[0]))
 
-        RadialTimeSeriesComponents,model,sv
-        RadialTimeSeriesGlobal,model,sv
-	angularMomentum,model,sv
-        quench,modelList,sv
-	stellarDisk,model,sv
+        RadialTimeSeriesComponents,model,sv,split=split
+        RadialTimeSeriesGlobal,model,sv,split=split
+	angularMomentum,model,sv,split=split
+        quench,modelList,sv,split=split
+	stellarDisk,model,sv,split=split
         setct,2,0,0
-        RadialStellarPops,model,sv
+        RadialStellarPops,model,sv,split=split
         setct,1,0,0
-;       globalMassBudget,model,sv
-        PlotStarsVsAge,modelList2,8,"stpop_sol","",sv
-        GlobalTimeSeries,model,sv
-	MdotSFR,model,sv        
+;       globalMassBudget,model,sv,split=split
+        PlotStarsVsAge,modelList2,8,"stpop_sol","",sv,split=split
+        GlobalTimeSeries,model,sv,split=split
+	MdotSFR,model,sv;,split=split
+	ScaleHeight,model,sv;,split=split
 
         ;; Compute gas column density at the solar radius:
         z0 = nearest("redshift",1,model,0.0)

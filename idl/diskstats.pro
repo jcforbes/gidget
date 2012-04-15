@@ -1,3 +1,6 @@
+
+;; Kind of an ad-hoc function to take a full simulation and reduce it to a set of simple numbers.
+;; In essence, instead of having a bunch of quantities vs. radius, have a bunch of standalone quantities.
 FUNCTION diskStats,model,z=z
         info=dblarr(7)
 	IF(n_elements(z) EQ 0) THEN z=0.0
@@ -41,6 +44,15 @@ FUNCTION diskStats,model,z=z
 
 	BulgeMSt = TOTAL((2*!pi*model.Radius*model.mdotext0*model.dlnx*(kmperkpc/speryear)/model.vphiR) * x[*]*x[*]*(-starS[zj,*] + starS[0,*] + model.Rf * model.dataCube[zj,*,51]))
 
+	;; hopefully these two numbers are the same.
+	sfr = model.evArray[11-1,zj] ;; SFR integrated over the whole galaxy in MSol/yr (I think)
+	sfr2= TOTAL((2*!pi*model.Radius*model.Radius*model.dlnx * x[*]*x[*] * model.dataCube[zj,*,ncs+14-1]))
+
+	mdotacc = - model.dataCube[zj,model.nx-1,3-1] * model.mdotext0 ;; infalling mass in MSol/yr
+	
+	mdotbulgeSt = -model.dataCube[zj,0,40-1] * model.mdotext0
+	mdotbulgeG = -model.dataCube[zj,0,3-1] * model.mdotext0
+
 
 	IF(xoutInd LT xinInd) THEN BEGIN 
 		xoutInd = xinInd
@@ -62,12 +74,13 @@ FUNCTION diskStats,model,z=z
         colsol= col[nearest("position",1,model,8.0/model.Radius)]
 	totfH2 = TOTAL(x[*] * x[*] * fH2[*])/TOTAL(x[*]*x[*])
 
-        info=[xin*model.Radius,$    ;; inner edge of SF region
-                xpeak*model.Radius,$ ;; peak of the column density
-                xout*model.Radius,$ ;; outer edge of SF region
-                colsol,$            ;; column density at r=8 kpc
-                fgnuc,fgsf,fgHI,sSFR, $   ;; gas fraction, specific SFR
-		BulgeM,BulgeMSt/BulgeM, totfH2 ]
+        info=[xin*model.Radius,$    ;; inner edge of SF region  - 1
+                xpeak*model.Radius,$ ;; peak of the column density - 2
+                xout*model.Radius,$ ;; outer edge of SF region- 3
+                colsol,$            ;; column density at r=8 kpc- 4
+                fgnuc,fgsf,fgHI,sSFR, $   ;; gas fraction, specific SFR- 5,6,7,8
+		BulgeM,BulgeMSt/BulgeM, totfH2, $  ; - 9,10,11
+		mdotBulgeG,mdotbulgeSt]; - 12,13
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

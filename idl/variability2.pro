@@ -2,18 +2,25 @@
 ;; fourth column indexes models, and a vector of time labels, and axis labels
 ;; make one or a few movies! The third column indexes which variable we're plotting.
 PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=prev,psym=psym
-	IF(sv EQ 3) THEN cg=1 ELSE cg=0
+	lth=1
+	chth=1
+	IF(sv EQ 3 || sv EQ 4) THEN cg=1 ELSE cg=0
 	IF(sv EQ 1) THEN cs=1 ELSE cs=2.8
+	IF(sv EQ 4) THEN BEGIN 
+		cs=2
+		chth=4
+		lth=5
+	ENDIF
 
 	FOR k=1,n_elements(labels)-1 DO BEGIN ;; loop over y-axis variables to be plotted (except the first one, which is just radius!)
 		fn=name+"_"+labels[k]
 		dn="movie_"+name+"_"+labels[k]
 		set_plot,'x'
-		IF(sv EQ 3) THEN set_plot,'z'
+		IF(sv EQ 3 || sv EQ 4) THEN set_plot,'z'
 		IF(cg NE 1) THEN WINDOW,1,XSIZE=1024,YSIZE=1024,RETAIN=2
-		IF(sv EQ 3) THEN cgDisplay,1024,1024
+		IF(sv EQ 3 || sv EQ 4) THEN cgDisplay,1024,1024
 		IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([1024,1024],FILENAME=(fn+".mpg"))
-		IF(sv EQ 2 || sv EQ 3) THEN BEGIN
+		IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
 			FILE_MKDIR,dn
 		ENDIF
 		count=0
@@ -21,37 +28,38 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 		FOR ti=0,n_elements(time)-1 DO BEGIN  ;; loop over time
 			
 			count=count+1
-			SETCT,1,n_elements(styles)
+			SETCT,1,n_elements(styles),2
 			IF(strt[k] EQ 0) THEN $
 			  PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=labels[0],YTITLE=labels[k], $ 
-			    XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k],xlog=wrtXlog[0] ELSE $
+			    XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k],xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=lth,XTHICK=lth,YTHICK=lth ELSE $
 			  PLOT,findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
 			    findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
 			    COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=labels[0],YTITLE=labels[k],XRANGE=ranges[*,0], $
-			    YRANGE=ranges[*,k],ylog=wrtXlog[k],xlog=wrtXlog[0],linestyle=2
-			XYOUTS,.1,.9,string(time[ti]),/NORMAL,COLOR=0,CHARSIZE=2	
+			    YRANGE=ranges[*,k],ylog=wrtXlog[k],xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth,THICK=lth,XTHICK=lth,YTHICK=lth
+			XYOUTS,.1,.9,string(time[ti]),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
 			FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN ;; loop over models (4th column of data)	
-				IF(n_elements(styles) GT 20) THEN setct,5,n_elements(styles),j
-				OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[j],linestyle=styles[j],PSYM=psym
+;				IF(n_elements(styles) GT 10) THEN setct,5,n_elements(styles),j
+				IF(n_elements(styles) GT 10) THEN setct,3,n_elements(styles),0	
+				OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[j],linestyle=styles[j],PSYM=psym,SYMSIZE=cs,THICK=lth
 				IF(n_elements(prev) NE 0) THEN BEGIN
-					FOR ti2=MAX([0,ti-tailLength]),ti DO BEGIN ;; loop over previous time steps
-						OPLOT, data[ti2,*,0,j],data[ti2,*,k,j], COLOR=colors[j],PSYM=3,symsize=2
-					ENDFOR
-					OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[j],linestyle=0
+;					FOR ti2=MAX([0,ti-tailLength]),ti DO BEGIN ;; loop over previous time steps
+;						OPLOT, data[ti2,*,0,j],data[ti2,*,k,j], COLOR=colors[j],PSYM=3,symsize=2
+;					ENDFOR
+					OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[j],linestyle=0,THICK=1
 				ENDIF
 			ENDFOR
 			
 
 			IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
 			IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_'+string(count,FORMAT="(I4.4)") + '.png',TVRD(TRUE=1)
-			IF(sv EQ 3) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count,FORMAT="(I4.4)")),/png,/true,/nodialog)
+			IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count,FORMAT="(I4.4)")),/png,/true,/nodialog)
 			IF(sv EQ 0) THEN wait,.05
 		ENDFOR
 		IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
 		IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
-		IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm " + fn+".mpg") 
-		IF(sv EQ 2 || sv EQ 3) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
-		IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm -rf "+dn)
+		IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("rm " + fn+".mpg") 
+		IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
+		IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("rm -rf "+dn)
 	
 		set_plot,'x'
 
@@ -90,6 +98,9 @@ END
 
 PRO variability2,expName,keys,N,sv
 	compile_opt idl2
+	set_plot,'x'
+	DEVICE,DECOMPOSED=0
+	DEVICE,RETAIN=2
 
 	;; take the experiment name and make a list of the names of all 
 	;; runs in that experiment which were not terminated due to some
@@ -112,12 +123,13 @@ PRO variability2,expName,keys,N,sv
 	ctr=0
 
 	;; variables to plot- title, column index, log plot, name, y-range
-	wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2']
-	wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48]
-	wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0,0]
-	wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2']
-	wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],[1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1]]
-	wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0]
+	wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2','ageAtz0','age']
+	wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32]
+	wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1]
+	wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age']
+	wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
+		[1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9]]
+	wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0,0,1]
 
 
 	tk = [[0],keys]
@@ -142,7 +154,7 @@ PRO variability2,expName,keys,N,sv
 	theData= dblarr(n_elements(model.dataCube[*,0,0]),n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
 
 	;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 4) x (# models)
-	vsMdot = dblarr(n_elements(model.dataCube[*,0,0]),1,10,n_elements(nameList2))
+	vsMdot = dblarr(n_elements(model.dataCube[*,0,0]),1,12,n_elements(nameList2))
 
 ;	theTData = dblarr(n_elements(model.dataCube[*,0,0]), n_elements(wrtTyy), n_elements(nameList2))
 
@@ -180,7 +192,9 @@ PRO variability2,expName,keys,N,sv
 				vsMdot[zi,0,6,i] = modelInfo[7] ;; sSFR (yr^-1)
 				vsMdot[zi,0,7,i] = modelInfo[8] ;; mass in bulge (MSol)
 				vsMdot[zi,0,8,i] = modelInfo[9] ;; fSt in bulge
-				vsMdot[zi,0,9,i] = modelInfo[10];; total f_H2
+				vsMdot[zi,0,9,i] = modelInfo[10] ;; total f_H2
+				vsMdot[zi,0,10,i] = modelInfo[11] ;; mdot bulge gas
+				vsMdot[zi,0,11,i] = modelInfo[12] ;; mdot bulge stars
 			ENDFOR
 
 
@@ -234,10 +248,10 @@ PRO variability2,expName,keys,N,sv
 	
 
 	setct,3,n_elements(sortdData[0,0,0,*]),0
-	simpleMovie,sortdData,time,wrtXyn,indgen(n_elements(sortdData[0,0,0,*])),intarr(n_elements(sortdData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_sorted",sv,intarr(n_elements(sortdData[0,0,0,*]))
+	simpleMovie,sortdData,time,wrtXyn,indgen(n_elements(sortdData[0,0,0,*])),intarr(n_elements(sortdData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_sorted",sv,intarr(n_elements(wrtXyl))
 
 	setct,3,n_elements(theData[0,0,0,*]),0
-	simpleMovie,theData,time,wrtXyn,indgen(n_elements(theData[0,0,0,*])),intarr(n_elements(theData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(theData[0,0,0,*]))
+	simpleMovie,theData,time,wrtXyn,indgen(n_elements(theData[0,0,0,*])),intarr(n_elements(theData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl))
 
 	
 
@@ -245,7 +259,7 @@ PRO variability2,expName,keys,N,sv
 	simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
+		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
 		[1,1,1,1,0,1,1,1,0,0],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
 
 	;; average mdot over a number of time steps nt
@@ -260,7 +274,7 @@ PRO variability2,expName,keys,N,sv
 	simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
+		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
 		[1,1,1,1,0,1,1,1,0,0],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
 
 
@@ -269,7 +283,7 @@ PRO variability2,expName,keys,N,sv
 	simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'], $
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[1,100],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
+		[[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
 		[1,1,1,0,1,1,1,0,0],expName2+"_vsSFR",sv,[1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
 
 	

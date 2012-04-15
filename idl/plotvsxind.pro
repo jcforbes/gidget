@@ -22,7 +22,7 @@ PRO plotvsxind,model,timeInd,Xind,ind,overPlot,getLabels,_EXTRA=EXTRA_KEYWORDS;r
                 plot,model.dataCube[timeInd,*,Xind-1],$
 			model.dataCube[timeInd,*,ind-1],$
                         XTITLE=xlabel,YTITLE=label,$
-                        BACKGROUND=255,ylog=log,$
+                        BACKGROUND=255,ylog=log,xlog=0,$
 			_extra=extra_keywords
         END
 ;	PRINT,"PlotVsXind- min max of x,y: ",min(model.dataCube[timeInd,*,Xind-1]),max(model.dataCube[timeInd,*,Xind-1]),min(model.dataCube[timeInd,*,ind-1]),max(model.dataCube[timeInd,*,ind-1]),overPlot

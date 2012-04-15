@@ -58,7 +58,8 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
 		"Z_*","mdot","Gas(In-Out-(Rf+mu)SF)","St(In-Out+Rf*SF)",$          ;; 18..21
 		"Err in Mass Cons (Gas)","Err in Mass Cons (Stars)",$              ;; 22..23
 		"log col","log colst","log vrg","log vrst","gas J/area",$	   ;; 24..27
-		"star J/area","cumulative outflow J/area"]			   ;; 28..30
+		"star J/area","cumulative outflow J/area",$			   ;; 28..30
+		"average age at z=0","average present age"]			   ;; 31..32
 
 	FOR i=0, npassive DO BEGIN
 		pop=strcompress(STRING(i),/remove)
@@ -151,7 +152,14 @@ FUNCTION readOutput,name
 	migPassivePop=ExtractCmtL(lunCom)
         fixedQ=ExtractCmtFlt(lunCom)
 	kappaMetals=ExtractCmtFlt(lunCom)
+	mh0=ExtractCmtFlt(lunCom)
 	md0=ExtractCmtFlt(lunCom)
+
+	;; Now we need to rescale some values for mh0!=1e12
+	MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
+	vphiR = vphiR * (Mh0/1.0e12)^  (1.0/4.0)
+	
+
 
 	Rf = 0.46 ;; remnant fraction
 	b=b/Radius ;; b is read in in kpc (as is Radius). Now set b to its dimensionless value (incidentally, b is the turnover radius of the rotation curve)
@@ -181,7 +189,8 @@ FUNCTION readOutput,name
 
 	evArray=(temporary(evArray))[*,0:(currentStep-1)] ;; reduce the array to its natural size
 
-	;; This is the number of variables output for each stellar population		;; at each timestep at each radius.
+	;; This is the number of variables output for each stellar population		
+	;; at each timestep at each radius.
 	STVars=4
 	;; starsHyperCube stores the passive stars..
 	starsHyperCube = dblarr(currentStep,NPassive+1,nx,STVars) 
@@ -190,7 +199,9 @@ FUNCTION readOutput,name
 	;; is that NActive will be 1.
 	starsHyperCubeA= dblarr(currentStep,NActive+1,nx,STVars)
 			;; (reduced nsteps) x (NActive+1) x (nx) x (4)
-	stellarAges = dblarr(currentStep,NPassive+1) 
+	stellarAges = dblarr(currentStep,NPassive+1) ;; these are the stellar ages at z=0
+			;; (reduced nsteps) x (NAgeBins+1)
+	stellarAgesIS = dblarr(currentStep,NPassive+1) ;; these are the stellar ages In Situ
 			;; (reduced nsteps) x (NAgeBins+1)
 	dataCube=dblarr(currentStep,nx,1) 
 			;; this should be the exact size necessary except for the 3rd dimension
@@ -323,7 +334,7 @@ FUNCTION readOutput,name
 ;	errs[where(errs LT 1.e-21)] = 1.e-21
 ;	dataCube[*,*,60:63] = errs
 
-	NPostProcess= 30
+	NPostProcess= 32
 	tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
 	tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
 	ZstNum = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
@@ -352,7 +363,7 @@ FUNCTION readOutput,name
 
 	tdc[*,*,ncolStep+7]=tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*Radius*cmperkpc*mdotext0/(chi*chi*vphiR*1d5*tdc[*,*,3] * MSol)  ;;;  2d Jeans Mass in Solar Masses
 
-	evArray[1,*] = evArray[1,*]*2*!pi*Radius/(vphiR*.977813952) ;; kpc/(km/s) = .9778 Gyr
+	evArray[1,*] = evArray[1,*]*2*!pi*Radius/(vphiR*.977813952) ;; kpc/(km/s) = .9778 Gyr -- convert times to Ga.
 
 	;;; Replace Toomre Mass with 2d Jeans Mass
 	FOR i=0,n_elements(evArray[7,*])-1 DO BEGIN
@@ -382,6 +393,20 @@ FUNCTION readOutput,name
 	tdc[*,*,ncolstep+28-1]= tdc[*,*,3]*tdc[*,*,0] ;; gas
 	tdc[*,*,ncolstep+29-1]= tdc[*,*,5]*tdc[*,*,0] ;; stars
 	tdc[*,*,ncolstep+30-1]= tdc[*,*,51]*tdc[*,*,0]*MLF ;; cumulative outflow
+
+	;; compute the average age of stars as a function of radius and time
+	;; compute both the average age at z=0, and the age in situ.
+	FOR i=0,NPassive DO BEGIN
+		stellarAgesIS[*,i] = stellarAges[*,i] - (evArray[1,n_elements(evArray[1,*])-1]-evArray[1,*]) * 1.0e9
+	ENDFOR
+	FOR xi=0,nx-1 DO BEGIN ;; loop over space
+		FOR zi=0,n_elements(tdc[*,0,0])-1 DO BEGIN ;; loop over time
+			tdc[zi,xi,ncolstep+31-1] = $
+				TOTAL(starsHyperCube[zi,*,xi,0] * stellarAges[zi,*])/TOTAL(starsHyperCube[zi,*,xi,0])
+			tdc[zi,xi,ncolstep+32-1] = $
+				TOTAL(starsHyperCube[zi,*,xi,0] * stellarAgesIS[zi,*])/TOTAL(starsHyperCube[zi,*,xi,0])
+		ENDFOR
+	ENDFOR
 
 	tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
 	tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr)
@@ -487,7 +512,8 @@ FUNCTION readOutput,name
 		convergence:conv,ncolev:ncolev,ncolstep:ncolstep, $
 		NPostProcess:NPostProcess,NPassive:NPassive,STVars:STVars, $
 		MLF:MLF,mdotext0:md0,Rf:Rf,whichAccHistory:whichAccHistory,$;}
-		fixedQ:fixedQ,diskScaleLength:scaleLength,Qlim:Qlim,dlnx:dlnx}
+		fixedQ:fixedQ,diskScaleLength:scaleLength,Qlim:Qlim,dlnx:dlnx,$
+		mh0:mh0 }
 	
 	RETURN,model ;; end of the readOutput function
 END

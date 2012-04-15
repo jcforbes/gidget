@@ -6,7 +6,7 @@ END
 PRO MakeComparisonMovie,modelList,Xind,ind,npx,npy,fname,xranges,ranges,sv,cmt,leg
         !p.multi=[0,npx,npy]
         IF(sv EQ 3) THEN cg=1 ELSE cg=0
-        IF(cg EQ 1) THEN cs = 1 ELSE cs=2.8
+        IF(cg EQ 1) THEN cs = 1 ELSE cs=2
         nxwin=1024
         nywin=nxwin
 
@@ -29,6 +29,7 @@ PRO MakeComparisonMovie,modelList,Xind,ind,npx,npy,fname,xranges,ranges,sv,cmt,l
 
         maxTime=0.
         whichmodel=0
+	nts=1
         FOR i=0,n_elements(modelList)-1 DO BEGIN
                 maxTime=MAX([maxTime,MAX((*(modelList[i])).evArray[1,*])],replaced)
                 IF(replaced EQ 1) THEN BEGIN
@@ -59,7 +60,7 @@ PRO MakeComparisonMovie,modelList,Xind,ind,npx,npy,fname,xranges,ranges,sv,cmt,l
                                 FOR j=0,n_elements(modelList)-1 DO PlotVsXind,*(modelList[j]),ti[j],Xind[i-1],ind[i-1],OP(j),1,XRANGE=xranges[*,i-1],YRANGE=ranges[*,i-1],CHARSIZE=cs,COLOR=j,LINESTYLE=ls[j];;,THICK=3,YSTYLE=1
                                 FOR j=0,n_elements(modelList)-1 DO PlotVsXind,*(modelList[j]),0,Xind[i-1],ind[i-1],1,1,COLOR=j,LINESTYLE=2;;,THICK=3
                                 IF i EQ 1 THEN BEGIN
-;                                       XYOUTS, .1,1./float(npy)-.008,/NORMAL,("z = "+strcompress(string(theRedshift),/remove)+" "+ CMT),COLOR=0,CHARSIZE=.8*cs,WIDTH=ns
+                                        XYOUTS, .1,2./float(npy)-.008,/NORMAL,("z = "+strcompress(string(theRedshift),/remove)+" "+ CMT),COLOR=0,CHARSIZE=.8*cs,WIDTH=ns
                                         XYOUTS, .1,1./float(npy)-.008,/NORMAL,("T = "+strcompress(string(theTime),/remove)+" Ga "+ CMT),COLOR=0,CHARSIZE=.8*cs,WIDTH=ns
                                         ns2=.1+ns
                                         FOR k=0,n_elements(leg)-1 DO BEGIN
@@ -95,9 +96,8 @@ PRO diskAnalyzeCompare,modelList,sv,cmt,leg
 		message,"Usage: diskAnalyzeCompare,['<name1>','<name2>',...],sv,comment -- sv=0->don't save sv=1->save as mpg sv=2->save png images to be constructed into a movie by ffmpeg, sv=3->same as 2 but don't plot in an X window."
 	ENDIF
 
-	compile_opt idl2
+	SETCT,0,0,0
 	SETCT,1,0,0
-
 	FOR j=0, n_elements(modelList)-1 DO PRINT,"Model ",j," ends at redshift ",$
 		(*(modelList[j])).evArray[9,n_elements((*(modelList[j])).evArray[9,*])-1]," with ", $
 		n_elements((*(modelList[j])).evArray[0,*])," outputs."

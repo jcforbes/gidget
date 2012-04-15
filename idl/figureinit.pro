@@ -13,11 +13,21 @@ PRO figureClean,nm,sv
 		DEVICE,/CLOSE
 		SET_PLOT,'x'
 	ENDIF
+	IF(sv EQ 4) THEN BEGIN
+		dummy = cgSnapshot(filename=nm,/png,/true,/nodialog)
+		SET_PLOT,'x'
+	ENDIF
 END
 
 
 PRO figureInit,nm,sv,nx,ny
 	IF(sv EQ 1 || sv EQ 0) THEN newWindow,nx,ny
+	
+	IF(sv EQ 4) THEN BEGIN
+		set_plot,'z'
+		cgDisplay,2048,2048
+	ENDIF
+	
 	!p.thick=1.5
 	!x.thick=1.5
 	!y.thick=1.5

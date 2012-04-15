@@ -51,18 +51,30 @@ END
 ;; comment - a string to write on the plot
 ;; sv - a number 0-2 resp. print to the screen, print to png, or print to eps
 ;; legend - a list of strings to label the different models
-PRO PlotStarsVsAge,modelList,position,name,comment,sv,legend=legend
+PRO PlotStarsVsAge,modelList,position,name,comment,sv,legend=legend,split=split
+	spt = n_elements(split)
         fn=""
 	IF(n_elements(modelList) LT 6) THEN $
 	        FOR j=0,n_elements(modelList)-1 DO $
 			fn+=(ExtractSlash((modelList[j]),1)+"_") $
 	ELSE fn+= ExtractSlash((modelList[0]),0)+"_"
         fn= fn+"_"+name
-        figureInit,fn,sv,1,2
-        multi=1
+	IF(spt EQ 0) THEN
+	        figureInit,fn,sv,1,2
+        	multi=1
+	ENDIF
+	IF(spt NE 0) THEN
+		figureInit,(fn+'_col'),sv,1,1
+	ENDIF
 
-        IF(multi EQ 1) THEN multiplot,[0,1,3,0,0]
-        cs=.7
+	IF(sv EQ 4) THEN BEGIN
+		cs=2
+		chth=4
+		lth=4
+	ENDIF
+
+        IF(multi EQ 1 AND n_elements(split) EQ 0) THEN multiplot,[0,1,3,0,0]
+        IF(sv NE 4) THEN cs=.7
         !p.noerase=0
 
         ;; Convert from dimensionless to dimensional column density
@@ -96,7 +108,8 @@ PRO PlotStarsVsAge,modelList,position,name,comment,sv,legend=legend
         PlotVsAge,*(modelList[0]),0,poss[0],$
 		max((*(modelList[0])).evArray[1,*]),0,conv[0],$
 		BACKGROUND=255,COLOR=0,YTITLE="Column Density [MSol/pc^2]",$
-		CHARSIZE=cs,YSTYLE=1,XSTYLE=1,YRANGE=[0,4],LINESTYLE=lsj[0]
+		CHARSIZE=cs,YSTYLE=1,XSTYLE=1,YRANGE=[0,4],LINESTYLE=lsj[0],$
+		XTHICK=lth,YTHICK=lth,THICK=lth,CHARTHICK=chth
         PlotVsAge,*(modelList[0]),0,poss[0],$
 		max((*(modelList[0])).evArray[1,*]),1,conv[0],$
 		COLOR=0,PSYM=2
@@ -108,19 +121,25 @@ PRO PlotStarsVsAge,modelList,position,name,comment,sv,legend=legend
         FOR j=1, n_elements(modelList)-1 DO $
 		PlotVsAge,(*(modelList[j])),0,poss[j],$
 			max((*(modelList[j])).evArray[1,*]),$
-			1,conv[j],COLOR=j,LINESTYLE=lsj[j]
+			1,conv[j],COLOR=j,LINESTYLE=lsj[j],$
+			THICK=lth
         IF(multi EQ 1) THEN BEGIN
                 !p.noerase=1
                 multiplot
         ENDIF
 
+	IF(spt NE 0) THEN BEGIN
+		figureClean,(fn+'_col'),sv
+		figureInit,(fn+'_sig'),sv,1,1
+	ENDIF
 
 	;;; Now make a plot of stellar age vs. velocity dispersion for all models
         PlotVsAge,*(modelList[0]),1,poss[0], $
 		max((*(modelList[0])).evArray[1,*]),0,(*(modelList[0])).vphiR,$
 		BACKGROUND=255,COLOR=0,YTITLE="Velocity Dispersion [km/s]",$
 		CHARSIZE=cs,YRANGE=GetStellarRange(modelList,position,1)* ((*(modelList[0])).vphiR),$
-		XSTYLE=1,YSTYLE=1,LINESTYLE=lsj[0]
+		XSTYLE=1,YSTYLE=1,LINESTYLE=lsj[0],CHARTHICK=chth,THICK=lth,$
+		XTHICK=lth,YTHICK=lth
         PlotVsAge,*(modelList[0]),1,poss[0],max((*(modelList[0])).evArray[1,*]),$
 		1,(*(modelList[0])).vphiR,COLOR=0,PSYM=2
         FOR j=1, n_elements(modelList)-1 DO $
@@ -128,18 +147,27 @@ PRO PlotStarsVsAge,modelList,position,name,comment,sv,legend=legend
 			1,(*(modelList[0])).vphiR,COLOR=j,PSYM=2
         FOR j=1, n_elements(modelList)-1 DO $
 		PlotVsAge,*(modelList[j]),1,poss[j],max((*(modelList[j])).evArray[1,*]),$
-			1,(*(modelList[0])).vphiR,COLOR=j,LINESTYLE=lsj[j]
+			1,(*(modelList[0])).vphiR,COLOR=j,LINESTYLE=lsj[j],THICK=lth
 
 ;       oploterror,ageData,vdData,errVdData,errcolor=0,color=0,psym=3,errthick=1,nohat=0
 
         IF(multi EQ 1) THEN multiplot
+
+	IF(spt NE 0) THEN BEGIN
+		figureClean,(fn+'_sig'),sv
+		figureInit,(fn+'_Z'),sv,1,1
+	ENDIF
+
 
 	;;; Make a plot of stellar age vs mean metallicity
         PlotVsAge,*(modelList[0]),2,poss[0],$
 		max((*(modelList[0])).evArray[1,*]),0,1.0,$
 		BACKGROUND=255,COLOR=0,XTITLE="Stellar Age at z=0 [Gyr]",$
 		YTITLE="[<Z>]",CHARSIZE=cs,YRANGE=[-1.1,.1],XSTYLE=1,$
-		YSTYLE=1,LINESTYLE=lsj[0];GetStellarRange(modelList,position,2)
+		YSTYLE=1,LINESTYLE=lsj[0],CHARTHICK=chth,THICK=lth,$
+		XTHICK=lth,YTHICK=lth
+
+		;GetStellarRange(modelList,position,2)
         PlotVsAge,*(modelList[0]),2,poss[0],$
 		max((*(modelList[0])).evArray[1,*]),1,1.0,COLOR=0,PSYM=2
 
@@ -152,11 +180,13 @@ PRO PlotStarsVsAge,modelList,position,name,comment,sv,legend=legend
         FOR j=1, n_elements(modelList)-1 DO $
 		 PlotVsAge,*(modelList[j]),2,poss[j],$
 			max((*(modelList[j])).evArray[1,*]),1,$
-			1.0,COLOR=j,LINESTYLE=lsj[j]
+			1.0,COLOR=j,LINESTYLE=lsj[j],THICK=lth
         ns=0.
         ns2=.1
-
-        figureClean,fn,sv
+	IF(spt NE 0) THEN BEGIN
+		figureClean,(fn+'_Z'),sv
+	ENDIF
+        IF(spt EQ 0) THEN figureClean,fn,sv
         IF(multi EQ 1) THEN BEGIN
                 multiplot,/reset
                 multiplot,/default

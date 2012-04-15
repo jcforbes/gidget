@@ -120,11 +120,14 @@ class DiskContents {
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
   // and fixed quantities (x, beta, u,... )
+  // This method assumes constant ratios sigst/sig, colst/col 
+  // as functions of radius (i.e. constant fg and constant phi)
   void Initialize(double phi0,double fg0,
 		  unsigned int NActive,unsigned int NPassive,
-		  double velCurveTurnoverRadius,
-		  double initialStellarScaleLength);
+		  double velCurveTurnoverRadius);
 
+  // Similar to the above, except put in an exponential scale 
+  // length and constant velocity dispersion for the stars
   void Initialize(double Z_Init, double fcool, double fg0,
 		  double sigst0, double Mh0,
 		  unsigned int NActive, unsigned int NPassive,

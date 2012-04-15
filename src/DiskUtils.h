@@ -15,6 +15,11 @@ double ddx(double *,unsigned int,std::vector<double>&);
 // Print an error message and exit to the system
 void errormsg(const std::string);
 
+// The flux from cell n to cell n+1 given the velocity and column density of the material.
+// Used to compute dSMigdt (i.e. the change in stellar column density = flux in - flux out.
+// (note that this should almost always be negative)
+double flux(unsigned int n, std::vector<double>& yy, std::vector<double>& x, std::vector<double>& col_st);
+
 // Compute dS_*/dt owing to stellar migration, at this particular cell,
 // given an inward velocity y and a column density profile col_st
 double dSMigdt(unsigned int n,std::vector<double>& yy, 

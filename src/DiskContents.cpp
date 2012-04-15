@@ -140,6 +140,9 @@ void DiskContents::Initialize(Initializer& in)
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
+
+// Z_Init is in absolute units (i.e solar metallicity would be ~0.02), Mh0 in solar masses
+// sigst0 is in units of vphiR. stScaleLength is, as usual in units of kpc, as is BulgeRadius.
 void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 			      double sigst0, double Mh0,
 			      unsigned int NActive,unsigned int NPassive,
@@ -165,6 +168,11 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     double S0 = 0.18 * fcool * (1-fg0) * Mh0*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
     initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
     initialStarsA.spsig[n] = sigst0;
+    // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by heating the stars beyond what the user requested.
+    if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
+      initialStarsA.spsig[n] = Qlim*M_PI*x[n]*initialStarsA.spcol[n] *dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]);
+    }
+
     initialStarsA.spZ[n] = Z_Init;
     initialStarsA.spZV[n] = 0.0;
 
@@ -175,7 +183,10 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 
     sig[n] = pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.);
     col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsig[n]) *sig[n];
-	
+
+    if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 || initialStarsA.spsig[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] || initialStarsA.spsig[n]!=initialStarsA.spsig[n]) {
+	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "+str(initialStarsA.spsig[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsig[n]/(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
+    }
   }
 
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
@@ -193,7 +204,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 
 void DiskContents::Initialize(double tempRatio, double fg0, 
 			      unsigned int NActive, unsigned int NPassive, 
-			      double BulgeRadius, double stScaleLength)
+			      double BulgeRadius)
 {
   // an active and passive stellar population..
   StellarPop initialStarsA(nx,
@@ -219,12 +230,7 @@ void DiskContents::Initialize(double tempRatio, double fg0,
     sig[n] = pow(dim.chi()/(ETA*fg0),1./3.)/sqrt(2.);
     col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
          tempRatio/(x[n]*M_PI*dim.chi() * (tempRatio + (1.-fg0)/fg0));
-    if(stScaleLength > 0.0)
-      initialStarsA.spcol[n] = col[1]*(1.-fg0)/fg0 
-         * exp(-dim.d(x[n])/stScaleLength);
-    else {
-      initialStarsA.spcol[n] = col[n]*(1.-fg0)/fg0;
-    }
+    initialStarsA.spcol[n] = col[n]*(1.-fg0)/fg0;
     initialStarsA.spsig[n] = tempRatio*sig[n];
     initialStarsA.spZ[n]   = Z_Init;
     initialStarsA.spZV[n]  = 0.0;
@@ -232,6 +238,11 @@ void DiskContents::Initialize(double tempRatio, double fg0,
     initialStarsP.spsig[n] = initialStarsA.spsig[n];
     initialStarsP.spZ[n]   = initialStarsA.spZ[n];
     initialStarsP.spZV[n]  = initialStarsA.spZV[n];
+
+    if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 || initialStarsA.spsig[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] || initialStarsA.spsig[n]!=initialStarsA.spsig[n]) {
+	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "+str(initialStarsA.spsig[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsig[n]/(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
+    }
+
   }
 
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
@@ -335,11 +346,21 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
       *whichVar =2;
       *whichCell=n;
     }
-    if(fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth)) > dmax) {
-      dmax = fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth));
-      *whichVar = 3;
-      *whichCell=n;
+    if(sig[n] > sigth) {
+      if(fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth)) > dmax) {
+	dmax = fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth));
+	*whichVar = 3;
+	*whichCell=n;
+      }
     }
+    else { 
+      if(fabs(dsigdt[n]/sig[n]) > dmax) {
+	dmax = fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth));
+	*whichVar = 3;
+	*whichCell=n;
+      }
+    }
+
 //    if(fabs((ZFlux[n]-ZFlux[n-1])/(x[n]*x[n]*dlnx*col[n]*ZDisk[n])) > dmax) {
 //      dmax = fabs((ZFlux[n]-ZFlux[n-1])/(col[n]*ZDisk[n]));
 //      *whichVar=4;
@@ -428,6 +449,7 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
 void DiskContents::UpdateStateVars(const double dt, const double redshift,
                                    double ** tauvec)
 {
+  double ostars1=spsActive[0].spcol[200];
   unsigned int szA = spsActive.size();
   unsigned int szP = spsPassive.size();
   StellarPop currentlyForming(nx,
@@ -441,7 +463,7 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
     if(sigth<=sig[n])
       currentlyForming.spsig[n] = sig[n]; // the velocity dispersion of the gas
     else
-      currentlyForming.spsig[n] = 0.;
+      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
     if(currentlyForming.spcol[n] < 0.)
       errormsg(std::string("UpdateStateVars: currently forming stars have negative")
@@ -461,7 +483,7 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
     incP = (incP || spsPassive[i].IsForming(cos,redshift));
     if(migratePassive) spsPassive[i].MigrateStellarPop(dt,yy,(*this));
   }
-
+  double ostars2=spsActive[0].spcol[200];
 
   if(!incA || !incP) {
     errormsg(std::string("UpdateStateVars: currently forming stars not included in the extant stellar populations!"));
@@ -470,7 +492,9 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
     spsActive[szA-1].MergeStellarPops(currentlyForming,(*this));
     spsPassive[szP-1].MergeStellarPops(currentlyForming,(*this));
   }
+  double ostars3=spsActive[0].spcol[200];
 
+  //  std::cout << "Stars at n=200: " << ostars1 << " " << ostars2 << " "<< ostars3 <<std::endl;
 
   double MIn = - dt*tauvec[2][1]/(uu[1]*(1+beta[1]));
 //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
@@ -499,7 +523,12 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
 	dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
     }
     col[n] += dcoldt[n] * dt;
-    sig[n] += dsigdt[n] * dt;
+    if(sig[n] < sigth) {
+      sig[n]=sigth;
+    }
+    else {
+      sig[n] += dsigdt[n] * dt;
+    }
     ZDisk[n] += dZDiskdt[n] * dt;
     CumulativeSF[n] += colSFR[n] * dt;
 
@@ -1101,7 +1130,7 @@ void DiskContents::WriteOutStepFile(std::string filename,
       h0[n]*tauvec[1][n] - H[n];
     dsig_stdt = -2.*M_PI*yy[n]*((1+beta[n])*uu[n]*uu[n]/(3.*sig_st[n]*x[n]) 
       + ddx(sig_st,n,x))
-      + (sig[n]*sig[n] -  sig_st[n]*sig_st[n])*colSFR[n]
+      + (sig[n]*sig[n] -  sig_st[n]*sig_st[n])*RfREC*colSFR[n]
           /(2.*col_st[n]*sig_st[n]);
     dcol_stdt = -2.*M_PI*(col_st[n]*ddx(yy,n,x) + ddx(col_st,n,x)*yy[n] 
       + col_st[n]*yy[n]/x[n]) + RfREC*colSFR[n];
@@ -1115,7 +1144,8 @@ void DiskContents::WriteOutStepFile(std::string filename,
     Mts.push_back(Mt);
 
     // actually this might not be the correct definition:
-    alpha = (-tauvec[2][nx])* dim.chi()/(3. * sig[n]*sig[n]*sig[n]);
+    //alpha = (-tauvec[2][nx])* dim.chi()/(3. * sig[n]*sig[n]*sig[n]);
+    alpha = (-tauvec[1][n]) / (2.0*M_PI*x[n]*x[n]*sig[n]*sig[n]*col[n]);
     std::vector<double> wrt(0);
     wrt.push_back(x[n]);wrt.push_back(tauvec[1][n]);wrt.push_back(tauvec[2][n]);  // 1..3
     wrt.push_back(col[n]);wrt.push_back(sig[n]);wrt.push_back(col_st[n]);         // 4..6
@@ -1130,7 +1160,7 @@ void DiskContents::WriteOutStepFile(std::string filename,
     wrt.push_back(dQdS[n]);wrt.push_back(dQds[n]);wrt.push_back(dQdSerr[n]); // 31..33
     wrt.push_back(dQdserr[n]);wrt.push_back(yy[n]);wrt.push_back(torqueErr); // 34..36
     wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back(CuGasOut[n]); // 37..39
-    wrt.push_back(0);wrt.push_back(0);wrt.push_back(0);//40..42
+    wrt.push_back(flux(n-1,yy,x,col_st));wrt.push_back(0);wrt.push_back(0);//40..42
     wrt.push_back(0);wrt.push_back(ddx(sig,n,x));wrt.push_back(0); // 43..45
     wrt.push_back(0);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
     wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
@@ -1212,18 +1242,68 @@ void DiskContents::ComputeY()
   }
 
   for(unsigned int n=nx; n>=2; --n) {
-    double Qst = sqrt(2.*(beta[n-1]+1.))*uu[n-1]*sig_st[n-1]
-       /(M_PI*dim.chi()*activeColSt(n-1)*x[n-1]);
-    double forcing;
-    if(Qst < Qlim)
-      forcing = 1./(2*M_PI*x[n-1]*tauHeat/uu[n-1]) * (Qlim/Qst - 1.);
-    else forcing = 0.;
-    double f0 = -1./3.*(1.+beta[n-1])*uu[n-1]*uu[n-1]
-       /(sig_st[n-1]*sig_st[n-1]*x[n-1]) 
-      - ddx(sig_st,n-1,x)/sig_st[n-1] 
-      + ddx(col_st,n-1,x)/col_st[n-1] 
-      + 1/x[n-1];
-    yy[n-1]=(forcing*(x[n]-x[n-1]) - yy[n])/(f0*(x[n]-x[n-1]) - 1.);
+//    double Qst = sqrt(2.*(beta[n-1]+1.))*uu[n-1]*sig_st[n-1]
+//       /(M_PI*dim.chi()*activeColSt(n-1)*x[n-1]);
+//    double forcing;
+//    if(Qst < Qlim)
+//      forcing = 1./(2*M_PI*x[n-1]*tauHeat/uu[n-1]) * (Qlim/Qst - 1.);
+//    else forcing = 0.;
+//    double f0 = (-1./3.)*(1.+beta[n-1])*uu[n-1]*uu[n-1]
+//       /(sig_st[n-1]*sig_st[n-1]*x[n-1]) 
+//      - ddx(sig_st,n-1,x)/sig_st[n-1] 
+//      + ddx(col_st,n-1,x)/col_st[n-1] 
+//      + 1/x[n-1];
+//    yy[n-1]=(forcing*(x[n]-x[n-1]) - yy[n])/(f0*(x[n]-x[n-1]) - 1.);
+
+//    double Qst = sqrt(2.*(beta[n-1]+1.))*uu[n-1]*sig_st[n-1] /(M_PI*dim.chi()*col_st[n-1]*x[n-1]);
+
+
+    double Qst = sqrt(2.*(beta[n-1]+1.)) * sqrt(uu[n-1]*uu[n-1]*sig_st[n-1]*sig_st[n-1]) / (M_PI*dim.chi() * sqrt(col_st[n-1]*col_st[n-1]*x[n-1]*x[n-1]));
+    double forcing, f0;
+
+    //////// Forcing = 0 if Qst > Qlim
+    if(Qst < Qlim) {
+      forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst - 1.);
+    }
+    else
+      forcing = 0.0;
+
+      f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
+       /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
+       -ddx(sig_st,n-1,x)/sig_st[n-1]
+       +ddx(col_st,n-1,x)/col_st[n-1];
+      //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
+      //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
+    //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
+      yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
+
+
+
+//     ////// Set y = 0 if Qst > Qlim
+//     if(Qst < Qlim) {
+//       forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst - 1.);
+
+//       f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
+//        /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
+//        -ddx(sig_st,n-1,x)/sig_st[n-1]
+//        +ddx(col_st,n-1,x)/col_st[n-1];
+//       //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
+//       //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
+//     //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
+//       yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
+//     }
+//     else {
+//       yy[n-1]=0.0;
+//     }
+
+
+
+
+
+//    if(yy[n-1] > 0.0) {
+    if(n==2) {
+//      std::cout << "Debug v_*,r! n-1, y[n-1], y[n], x[n-1], f0, forcing, forcing*dx-y, f0*dx-1; 3s^2-u^2/3s^2x, -dlns/dx, dlnS/dx; Qst, sig_st: "<<n-1<<" "<<yy[n-1]<<" "<<yy[n]<<" "<<x[n-1]<<" "<<f0<<" "<<forcing<<" "<<forcing*(x[n]-x[n-1])-yy[n]<<" "<<f0*(x[n]-x[n-1])-1.<<"; "<< (3.0*sig_st[n]*sig_st[n-1] - (1.+beta[n-1])*uu[n]*uu[n-1])/(3.0*sig_st[n]*sig_st[n-1]*sqrt(x[n-1]*x[n]))<<", "<< - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1]) <<", "<<  (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]) <<"; "<<Qst<<", "<<sig_st[n-1]<<std::endl;
+    }
   }
   
 }
@@ -1357,8 +1437,18 @@ void DiskContents::ComputePartials()
 double DiskContents::activeColSt(unsigned int n)
 {
   double val = 0.0;
+  bool alert=false;
   for(unsigned int i=0; i!=spsActive.size(); ++i) {
-	val += spsActive[i].spcol[n];
+	double tval = spsActive[i].spcol[n];
+	val += tval;
+	if(tval < 0.0) alert=true;
+  }
+  if(alert) {
+    std::string msg=("Negative column density! n= " + str(n)+"; ");
+    for(unsigned int i=0; i!=spsActive.size(); ++i) {
+      msg+=str(spsActive[i].spcol[n]) + ", ";
+    }
+    errormsg(msg);
   }
   return val;
 }

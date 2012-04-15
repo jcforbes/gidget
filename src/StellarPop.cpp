@@ -94,10 +94,37 @@ void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskConte
   std::vector<double> incomingZV(dcolh.size());
   std::vector<double> cellMass(dcolh.size());
 
+  std::vector<double> flux(dcolh.size());
+  for(unsigned int n=1; n<=spcol.size()-2; ++n) {
+    double ym = yy[n+1];
+    if(fabs(ym) > fabs(yy[n])) ym=yy[n]; //minmod
+    if(yy[n] * yy[n+1] <= 0.0) ym=0.0;
+    double cst = spcol[n+1];
+    if(ym > 0.0) cst = spcol[n+1];
+
+    flux[n] = 2.0*M_PI*sqrt(disk.GetX()[n]*disk.GetX()[n+1]) * ym * cst ;
+    if(n==1 && flux[n]>1.0) {
+	flux[n]=0.0; // no stars can come out of the bulge.
+	std::cerr << "Warning: positive flux of stars out of the bulge. flux= "+str(flux[n]) << std::endl;
+    }
+  }
+  flux[spcol.size()-1]=0.0;
+
+//  double sum1=0;
+//  double sum2=0;
+//  double sum3=0;
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
-    dcolh[n] = -2.*M_PI*((*this).spcol[n]*ddx(yy,n,disk.GetX()) + ddx((*this).spcol,n,disk.GetX()) *yy[n] + (*this).spcol[n]*yy[n]/disk.GetX()[n]);
+//    dcolh[n] = -2.*M_PI*((*this).spcol[n]*ddx(yy,n,disk.GetX()) + ddx((*this).spcol,n,disk.GetX()) *yy[n] + (*this).spcol[n]*yy[n]/disk.GetX()[n]);
     dsigh[n] = -2.*M_PI*yy[n]*((1.+disk.GetBeta()[n])*disk.GetUu()[n]*disk.GetUu()[n]/(3.*(*this).spsig[n]*disk.GetX()[n]) + ddx((*this).spsig,n,disk.GetX()));
     dZh[n] = -2.*M_PI*yy[n]*ddx((*this).spZ,n,disk.GetX());
+    
+    //    dcolh[n] = (flux[n-1]-flux[n])  / (disk.GetX()[n] * disk.GetX()[n] * disk.GetDlnx());
+    dcolh[n] = dSMigdt(n,yy,disk.GetX(),(*this).spcol);
+
+
+//    sum1+=-2.*M_PI*((*this).spcol[n]*ddx(yy,n,disk.GetX())) * disk.GetX()[n] * disk.GetX()[n];
+//    sum2+=-2.*M_PI*ddx((*this).spcol,n,disk.GetX())*yy[n] * disk.GetX()[n] * disk.GetX()[n];
+//    sum3+=-2.*M_PI*(*this).spcol[n]*yy[n]/disk.GetX()[n] * disk.GetX()[n] * disk.GetX()[n];
 
     if(n==spcol.size()-1) {
       incomingMass[n]=0.0;
@@ -113,11 +140,15 @@ void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskConte
     cellMass[n] = 2.*M_PI*disk.GetX()[n]*disk.GetX()[n]*disk.GetDlnx()*spcol[n];
   }
 
+  //  if(sum1+sum2+sum3>0.0) {
+  //    errormsg("Error migrating the population: mass was artificially created! sum1 sum2 sum3 sum: "+str(sum1)+" "+str(sum2)+" "+str(sum3)+" "+str(sum1+sum2+sum3));
+  //  }
+
   for(unsigned int n=1; n<=dZh.size()-1; ++n) {
-    (*this).spcol[n] += dcolh[n]*dt;
+//    (*this).spcol[n] += dcolh[n]*dt;
     (*this).spsig[n] += dsigh[n]*dt;
     (*this).spZ[n] += dZh[n]*dt ;
-
+    (*this).spcol[n] += dSMigdt(n,yy,disk.GetX(),(*this).spcol)*dt;
     double wt1 = cellMass[n] - outgoingMass[n];
     double wt2 = incomingMass[n];
     double avg1 = spZ[n];

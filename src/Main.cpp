@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
     errmgLine.push_back("fg0, \ntempRatio (sig_*/sig_g), \nzstart, \ntmax, \nstepmax, \n");
     errmgLine.push_back("TOL (t_orb),\nMassLoadingFactor, \nBulgeRadius (kpc), \n");
     errmgLine.push_back("stDiskScale (kpc, or -1 for powerlaw),\nwhichAccretionHistory,\nalphaMRI");
+    errmgLine.push_back(", \nthick,\nmigratePassive,\nQinit,\nkappaMetals,\nMh0\n");
     std::string msg="";
     for(unsigned int i=0; i!=errmgLine.size();++i) {
       msg+=errmgLine[i];
@@ -58,9 +59,10 @@ int main(int argc, char **argv) {
   const double xmin=               as.Set(.01,"inner truncation radius (dimensionless)");
   const unsigned int NActive=      as.Set(1,"N Active Stellar Populations");
   const unsigned int NPassive=     as.Set(10,"N Passive Stellar Populations");
-  const double vphiR =             as.Set(220,"Circular velocity (km/s)")*1.e5;
+  const double vphiRatMh12 =       as.Set(220,"Circular velocity (km/s) for a 10^12 MSun halo")*1.e5;
   const double radius=             as.Set(20.,"Outer Radius (kpc)")*cmperkpc;
-  const double sigth=         sqrt(as.Set(7000,"Gas Temperature (K)")*kB/mH)/vphiR;
+//  const double sigth=         sqrt(as.Set(7000,"Gas Temperature (K)")*kB/mH)/vphiR;
+  const double Tgas =		   as.Set(7000,"Gas Temperature (K)");
   const double Qlim =              as.Set(2.5,"Limiting Q_*");
   const double fg0  =              as.Set(.5,"Initial gas fraction");
   const double tempRatio =         as.Set(1.,"Initial sigma_*/sigma_g");
@@ -68,7 +70,7 @@ int main(int argc, char **argv) {
   const double tmax =              as.Set(1000,"Maximum Time (outer orbits)");
   const unsigned int stepmax=      as.Set(100000000,"Maximum Number of Steps");
   const double TOL =               as.Set(.0001,"TOL (outer orbits)");
-  const double MassLoadingFactor=  as.Set(1,"Mass Loading Factor");
+  const double MassLoadingFactorAtMh12=  as.Set(1,"Mass Loading Factor at Mh=10^12 MSun");
   const double BulgeRadius      =  as.Set(0,"Velocity Curve Turnover Radius (kpc)");
   const double stScaleLength    =  as.Set(-1,"Initial Stellar Disk Scale Length (kpc)");
   const int whichAccretionHistory= as.Set(0,"Which Accretion History- 0-Bouche, 1-High, 2-Low");
@@ -77,6 +79,12 @@ int main(int argc, char **argv) {
   const bool migratePassive=      (as.Set(1,"Migrate Passive population")==1);
   const double Qinit =             as.Set(2.0,"The fixed Q");
   const double kappaMetals =       as.Set(.001,"Kappa Metals");
+  const double Mh0 =  		   as.Set(1.0e12,"Halo Mass");
+
+  // Scale the things which scale with halo mass.
+  const double MassLoadingFactor = MassLoadingFactorAtMh12 * pow((Mh0/1.0e12) , -1./3.);
+  const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./4.);
+  const double sigth = sqrt(Tgas *kB/mH)/vphiR;
 
   // Make an object to deal with things cosmological
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
@@ -88,13 +96,13 @@ int main(int argc, char **argv) {
   // Based on the user's choice of accretion history, generate the appropriate
   // mapping between redshift and accretion rate.
   if(whichAccretionHistory==0)
-    mdot0 = accr.GenerateBoucheEtAl2009(1.0,2.0,cos,filename+"_Bouche09.dat",true,true) * MSol/speryear;
+    mdot0 = accr.GenerateBoucheEtAl2009(Mh0*1.0e-12,2.0,cos,filename+"_Bouche09.dat",true,true) * MSol/speryear;
   else if(whichAccretionHistory==2)
     mdot0 = accr.GenerateConstantAccretionHistory(2.34607,zstart,cos,filename+"_ConstAccHistory.dat",true) * MSol/speryear;
   else if(whichAccretionHistory==1)
     mdot0 = accr.GenerateConstantAccretionHistory(12.3368,zstart,cos,filename+"_ConstAccHistory2.dat",true)*MSol/speryear;
   else
-    mdot0 = accr.GenerateNeistein08(1.0e12,2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory)*MSol/speryear;
+    mdot0 = accr.GenerateNeistein08(Mh0,2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory)*MSol/speryear;
   // Note that the following line does nothing but put a line in the comment file to
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
@@ -107,10 +115,11 @@ int main(int argc, char **argv) {
   Dimensions dim(radius,vphiR,mdot0);
 
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
-  DiskContents diskIC(nx,xmin,tauHeat,eta,sigth,0.0,0.0,
+  DiskContents diskIC(nx,xmin,1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
 		      TOL,analyticQ,MassLoadingFactor,cos,dim,
 		      thick, false,Qinit,kappaMetals);
-  diskIC.Initialize(tempRatio,fg0,NActive,NPassive,BulgeRadius,stScaleLength);
+  if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0,NActive,NPassive,BulgeRadius);
+  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, NActive, NPassive, BulgeRadius, stScaleLength);
 
   Simulation simIC(10.0,100000000,
                    false, nx,TOL,

@@ -43,7 +43,7 @@ int Simulation::runToConvergence(const double fCondition,
     tauvec[k] = new double[nx+1];
   }
 
-  // This is the equilibrium solution to the torque eq from Krumholz&Burkert 2010
+  // This is the equilibrium solution to the torque eq from Krumholz & Burkert 2010
   for(unsigned int n=1; n<=nx; ++n) {
     tauvec[1][n]=-theDisk.GetX()[n];
     tauvec[2][n]=-1.;

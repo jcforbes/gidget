@@ -37,6 +37,7 @@ double ddx(double* arr, unsigned int n, std::vector<double>& x)
     double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
     double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
     double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
+//    return ddx(center,right); 
     return ddx(left,right);
     return right;
   }
@@ -45,7 +46,7 @@ double ddx(double* arr, unsigned int n, std::vector<double>& x)
     double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
     double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
     return left; // bbbbb
-    return right; // bbbb
+    //    return right; // bbbb
     return ddx(left,center); // bbb
     //    return ddx(left,right); bb
     return center;
@@ -105,10 +106,96 @@ void errormsg(const std::string msg)
   exit(1);
 }
 
+double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std::vector<double>& col_st)
+{
+  double fluxn;
+  if(n>0 && n<x.size()-1) {
+    double ym=yy[n+1];
+//    if(fabs(ym) > fabs(yy[n])) ym=yy[n]; //minmod
+    if(yy[n] * yy[n+1] <= 0.0) ym=0.0;
+    double cst = col_st[n+1];
+    if(ym > 0.0) cst = col_st[n];
+
+    fluxn= 2.0*M_PI*sqrt(x[n]*x[n+1]) * ym * cst;
+  }
+  else if(n==x.size()-1) {
+    fluxn=0.0;
+  }
+  else { // n==0
+    double ym = yy[n+1];
+    if(ym > 0.0) {
+      // something bad has happened
+    }
+    double cst = col_st[n+1];
+    fluxn = 2.0*M_PI*sqrt(x[n+1]*x[n+1] * (x[1]/x[2])) * ym *cst;
+    if(fluxn > 0.0) {
+      std::cout << "The bulge is leaking stars! flux, ym, cst, n;  "<<fluxn<<", "<<ym<<", "<<cst<<", "<<n<<std::endl;
+      fluxn=0.0;
+    }
+  }
+
+  return fluxn;
+}
+
 
 double dSMigdt(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std::vector<double>& col_st)
 {
-  return -2*M_PI*(col_st[n]*ddx(yy,n,x) + ddx(col_st,n,x)*yy[n] +col_st[n]*yy[n]/x[n] );
+//   double fluxn;
+//   double fluxnm1;
+// //  return -2*M_PI*(col_st[n]*ddx(yy,n,x) + ddx(col_st,n,x)*yy[n] +col_st[n]*yy[n]/x[n] );
+
+//   if(n!=x.size()-1) {
+//     double ym = yy[n+1];
+//     if(fabs(ym) > fabs(yy[n])) ym=yy[n]; //minmod
+//     if(yy[n] * yy[n+1] <= 0.0) ym=0.0;
+//     double cst = col_st[n+1];
+//     if(ym > 0.0) cst = col_st[n];
+  
+//     fluxn = 2.0*M_PI*sqrt(x[n]*x[n+1]) * ym * cst ;
+//   }
+//   else fluxn=0.0;
+
+// //  if(n==1 && fluxn>1.0) {
+// //    fluxn=0.0; // no stars can come out of the bulge.
+// //    std::cerr << "Warning: positive flux of stars out of the bulge. flux= "+str(flux[n]) << std::endl;
+// //  }
+
+
+//   if(n!=1) {
+//     double ymA = yy[n];
+//     if(fabs(ymA) > fabs(yy[n-1])) ymA=yy[n-1]; //minmod
+//     if(yy[n-1] * yy[n] <= 0.0) ymA=0.0;
+//     double cstA = col_st[n];
+//     if(ymA > 0.0) cstA = col_st[n-1];
+  
+//     fluxnm1 = 2.0*M_PI*sqrt(x[n-1]*x[n]) * ymA * cstA ;
+//   }
+//   else {
+//     double ymA=yy[n];
+//     double cstA=col_st[n];
+//     fluxnm1 = 2.0*M_PI*sqrt(x[n]*x[n] * x[4]/x[5]) *ymA * cstA;
+
+
+//     if(fluxnm1 > 0.0) {
+//       std::cout << "Warning: positive flux of stars out of the bulge. flux= "+str(fluxnm1) << std::endl;	
+//       fluxnm1=0.0; // no stars can come out of the bulge.
+//     }
+//   }
+//  return (fluxnm1 - fluxn) / (x[n]*x[n]*log(x[5]/x[4]));
+
+  double val = - (flux(n,yy,x,col_st) - flux(n-1,yy,x,col_st))/ (x[n]*x[n]*log(x[2]/x[1]));
+  if(n==1) {
+	std::cout.precision(15);
+	//	double a1 = val;
+	//double a2 = flux(n,yy,x,col_st);
+	//double a3 = flux(n-1,yy,x,col_st);
+	//	double a4 = flux(n-2,yy,x,col_st);
+	//double a5 = flux(n,yy,x,col_st) - flux(n-1,yy,x,col_st);
+	//double a6 = (flux(n,yy,x,col_st) - flux(n-1,yy,x,col_st)) / (x[n]*x[n]*log(x[2]/x[1]));
+//	std::cout <<"val, flux(n), flux(n-1); y[n+1], y[n], col_st[n+1], col_st[n]:  "<< val << ", "<<flux(n,yy,x,col_st)<<", "<<flux(n-1,yy,x,col_st) << ";  "<< yy[n+1] << ", "<<yy[n]<<", "<<col_st[n+1]<<", "<<col_st[n]<< std::endl;
+	//	std::cout<<"val, f(n), f(n-1), f(n-2), f(n)-f(n-1), dS: " <<a1<<" "<<a2<<" "<<a3<<" "<<a4<<" "<<a5<<" "<<a6<<std::endl;
+  }
+  return val;
 }
 
 double OldIthBin(unsigned int i,Cosmology& cos,unsigned int NAgeBins)
@@ -301,22 +388,31 @@ int findRoot(gsl_function & F, double * guess)
   T=gsl_root_fsolver_brent;
   s=gsl_root_fsolver_alloc(T);
   
+  bool large=false;
+
   low=.9*(*guess); high=1.1*(*guess);
   flow=GSL_FN_EVAL(&F,low); fhigh=GSL_FN_EVAL(&F,high);
   int niter=0;
   while(flow*fhigh > 0) {// no zero crossings
     //    if(niter<100) std::cout <<"dbg findroot: f("<<low<<")="<< flow <<", f("<<high<<")=" << fhigh << std::endl;
     // expand range
-    if(fabs(flow)<fabs(fhigh)) {
-      low *= .8;
+    if((fabs(flow)<fabs(fhigh) && !large) || (fabs(flow)>fabs(fhigh) && large)) {
+//      low -= (high-low)*1.2;
+      low *= 0.8;
       flow=GSL_FN_EVAL(&F,low);
     }
     else {
+//      high += (high-low)*1.2;
       high *= 1.2;
       fhigh=GSL_FN_EVAL(&F,high);
     }
+//    large = (++niter > 100);
     ++niter;
   }
+  if(fabs(flow) > 1.0e30 && fabs(fhigh) > 1.0e30) {
+    errormsg("Failed to bracket a root: low,high,flow,fhigh,niter: "+str(low)+" "+str(high)+" "+str(flow)+" "+str(fhigh)+" "+str(niter));
+  }
+
   gsl_root_fsolver_set(s,&F,low,high);
   do {
     ++iter;

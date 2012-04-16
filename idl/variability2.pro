@@ -38,8 +38,8 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 			    YRANGE=ranges[*,k],ylog=wrtXlog[k],xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth,THICK=lth,XTHICK=lth,YTHICK=lth
 			XYOUTS,.1,.9,string(time[ti]),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
 			FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN ;; loop over models (4th column of data)	
-;				IF(n_elements(styles) GT 10) THEN setct,5,n_elements(styles),j
-				IF(n_elements(styles) GT 10) THEN setct,3,n_elements(styles),0	
+				IF(n_elements(styles) GT 10) THEN setct,5,n_elements(styles),j
+;				IF(n_elements(styles) GT 10) THEN setct,3,n_elements(styles),0	
 				OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[j],linestyle=styles[j],PSYM=psym,SYMSIZE=cs,THICK=lth
 				IF(n_elements(prev) NE 0) THEN BEGIN
 ;					FOR ti2=MAX([0,ti-tailLength]),ti DO BEGIN ;; loop over previous time steps
@@ -256,11 +256,11 @@ PRO variability2,expName,keys,N,sv
 	
 
 	setct,3,n_elements(vsMdot[0,0,0,*]),0
-	simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'],$
+	simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
-		[1,1,1,1,0,1,1,1,0,0],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
+		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
+		[1,1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
 
 	;; average mdot over a number of time steps nt
 	nt = 50
@@ -271,20 +271,20 @@ PRO variability2,expName,keys,N,sv
 			avgdVsMdot[ti,0,0,mm] = TOTAL(sortdVsMdot[MAX([0,ti-nt]):ti,0,0,mm]) / (ti - MAX([0,ti-nt]) + 1)
 		ENDFOR
 	ENDFOR
-	simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'],$
+	simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'],$
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
-		[1,1,1,1,0,1,1,1,0,0],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
+		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
+		[1,1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
 
 
 	setct,3,n_elements(vsMdot[0,0,0,*]),0
 	vsSFR = sortdVsMdot[*,*,1:n_elements(sortdVsMdot[0,0,*,0])-1,*] ;; cut out the mdot slice of the array
-	simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2'], $
+	simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'], $
 		indgen(n_elements(vsMdot[0,0,0,*])), $
 		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1]], $
-		[1,1,1,0,1,1,1,0,0],expName2+"_vsSFR",sv,[1,0,0,0,0,0,0,0,0],PSYM=1,prev=1
+		[[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
+		[1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsSFR",sv,[1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
 
 	
 	SETCT,3,n_elements(vsMdot[0,0,0,*]),0

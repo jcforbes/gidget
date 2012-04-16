@@ -415,7 +415,7 @@ FUNCTION readOutput,name
 	speryear=31556926.0
 	kmperkpc=3.08568025d16
 	pcperkpc=1d3
-	tdc[*,*,40-1]=tdc[*,*,52-1] * 2*!pi*tdc[*,*,0]*tdc[*,*,0]*dlnx*md0*radius/vphiR * kmperkpc/speryear ;; cumulative star formation in a given cell - solar masses
+;;;;;	tdc[*,*,40-1]=tdc[*,*,52-1] * 2*!pi*tdc[*,*,0]*tdc[*,*,0]*dlnx*md0*radius/vphiR * kmperkpc/speryear ;; cumulative star formation in a given cell - solar masses
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined
 	initialStellarMass = dblarr(nt,nx)
 	initialGasMass = dblarr(nt,nx)
@@ -423,29 +423,29 @@ FUNCTION readOutput,name
 		initialStellarMass[n,*] = tdc[0,*,ncolstep+11]
 		initialGasMass[n,*] = tdc[0,*,ncolstep+9]
 	ENDFOR
-	tdc[*,*,41-1]=(tdc[*,*,ncolstep+11]-initialStellarMass)  * 2.0*!pi*tdc[*,*,ncolstep+8]*dlnx*tdc[*,*,ncolstep+8] * pcperkpc*pcperkpc
-	tdc[*,*,42-1]=(tdc[*,*,ncolstep+9]-InitialGasMass) * 2.0*!pi*tdc[*,*,ncolstep+8]*dlnx*tdc[*,*,ncolstep+8] * pcperkpc*pcperkpc
+;;;;;	tdc[*,*,41-1]=(tdc[*,*,ncolstep+11]-initialStellarMass)  * 2.0*!pi*tdc[*,*,ncolstep+8]*dlnx*tdc[*,*,ncolstep+8] * pcperkpc*pcperkpc
+;;;;;	tdc[*,*,42-1]=(tdc[*,*,ncolstep+9]-InitialGasMass) * 2.0*!pi*tdc[*,*,ncolstep+8]*dlnx*tdc[*,*,ncolstep+8] * pcperkpc*pcperkpc
 
-	tdc[*,0:nx-2,45-1]=tdc[*,1:nx-1,38-1]
-	tdc[*,0:nx-2,46-1]=tdc[*,1:nx-1,39-1]
-	tdc[*,nx-1,45-1] = evArray[17-1,*]*0 ;; stars (no stars migrating through the boundary)
-	tdc[*,nx-1,46-1] = evArray[17-1,*] ;; gas
-	tdc[*,*,ncolstep+20-1] = tdc[*,*,46-1] - tdc[*,*,39-1] - (Rf+MLF)*tdc[*,*,40-1] ;gas
-	tdc[*,*,ncolstep+21-1] = tdc[*,*,45-1] - tdc[*,*,38-1] + Rf*tdc[*,*,40-1] ;star
+;;;;;	tdc[*,0:nx-2,45-1]=tdc[*,1:nx-1,38-1]
+;;;;;	tdc[*,0:nx-2,46-1]=tdc[*,1:nx-1,39-1]
+;;;;;	tdc[*,nx-1,45-1] = evArray[17-1,*]*0 ;; stars (no stars migrating through the boundary)
+;;;;;	tdc[*,nx-1,46-1] = evArray[17-1,*] ;; gas
+;;;;;	tdc[*,*,ncolstep+20-1] = tdc[*,*,46-1] - tdc[*,*,39-1] - (Rf+MLF)*tdc[*,*,40-1] ;gas
+;;;;;;	tdc[*,*,ncolstep+21-1] = tdc[*,*,45-1] - tdc[*,*,38-1] + Rf*tdc[*,*,40-1] ;star
 	
-	fracErrGas=dblarr(nt,nx)
-	fracErrSt =dblarr(nt,nx)
-;	tdc[*,*,ncolstep+22-1] 
-	fracErrGas = abs((tdc[*,*,ncolstep+20-1] - tdc[*,*,42-1])/(ABS(tdc[*,*,42-1])+.0000001))
-;	tdc[*,*,ncolstep+23-1] 
-	fracErrSt= abs((tdc[*,*,ncolstep+21-1] - tdc[*,*,41-1])/(ABS(tdc[*,*,41-1])+.0000001))
+;;;;;	fracErrGas=dblarr(nt,nx)
+;;;;;	fracErrSt =dblarr(nt,nx)
+;;;;;;	tdc[*,*,ncolstep+22-1] 
+;;;;;	fracErrGas = abs((tdc[*,*,ncolstep+20-1] - tdc[*,*,42-1])/(ABS(tdc[*,*,42-1])+.0000001))
+;;;;;;	tdc[*,*,ncolstep+23-1] 
+;;;;;	fracErrSt= abs((tdc[*,*,ncolstep+21-1] - tdc[*,*,41-1])/(ABS(tdc[*,*,41-1])+.0000001))
 
-	largeErr = where(ABS(fracErrGas - .5) GE .5 ,ctr)
-	IF(ctr NE 0 ) THEN fracErrGas[largeErr]=1
-	tdc[*,*,ncolstep+22-1]=fracErrGas
-	largeErr = where(ABS(fracErrSt - .5) GE .5,ctr)
-	IF(ctr NE 0) THEN fracErrSt[largeErr]=1
-	tdc[*,*,ncolstep+23-1]=fracErrSt
+;;;;;	largeErr = where(ABS(fracErrGas - .5) GE .5 ,ctr)
+;;;;;	IF(ctr NE 0 ) THEN fracErrGas[largeErr]=1
+;;;;;	tdc[*,*,ncolstep+22-1]=fracErrGas
+;;;;;	largeErr = where(ABS(fracErrSt - .5) GE .5,ctr)
+;;;;;	IF(ctr NE 0) THEN fracErrSt[largeErr]=1
+;;;;;	tdc[*,*,ncolstep+23-1]=fracErrSt
 
 	;;; 	tdc    index mapping (indexed from 1)
 	; 1- x,     2- tau,    3- tau',     4- S,        5- s,   6- S_*,    7- s_*

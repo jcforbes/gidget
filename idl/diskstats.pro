@@ -53,6 +53,7 @@ FUNCTION diskStats,model,z=z
 	mdotbulgeSt = -model.dataCube[zj,0,40-1] * model.mdotext0
 	mdotbulgeG = -model.dataCube[zj,0,3-1] * model.mdotext0
 
+;	stop
 
 	IF(xoutInd LT xinInd) THEN BEGIN 
 		xoutInd = xinInd

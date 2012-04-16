@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
                    zstart,NActive,NPassive,
                    alphaMRI,sigth,
                    diskIC,accr);
-  int result = simIC.runToConvergence(1, true, filename+"_icgen"); // set false-> true to debug initial condition generator
+  int result = simIC.runToConvergence(1, false, filename+"_icgen"); // set false-> true to debug initial condition generator
   if(result!=5) // The simulation converges when the time step reaches 1*TOL.
     errormsg("Initial Condition generator failed to converge, code "+str(result));
 

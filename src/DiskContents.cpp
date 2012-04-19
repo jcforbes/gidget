@@ -152,7 +152,8 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 			   OldIthBin(0,cos,NActive));
   StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
 			   OldIthBin(0,cos,NPassive));
-  
+  double maxsig=0.0;
+  unsigned int maxsign=1;
   for(unsigned int n=1; n<=nx; ++n) {
     x[n] = XMIN*exp(dlnx*(n-1.0));
 
@@ -173,6 +174,10 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
       initialStarsA.spsig[n] = Qlim*M_PI*x[n]*initialStarsA.spcol[n] *dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]);
     }
 
+    if(initialStarsA.spsig[n] > maxsig) { 
+	maxsig=initialStarsA.spsig[n];
+	maxsign=n;
+    }
     initialStarsA.spZ[n] = Z_Init;
     initialStarsA.spZV[n] = 0.0;
 
@@ -188,6 +193,11 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "+str(initialStarsA.spsig[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsig[n]/(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
     }
   }
+
+//  // make sig_st monotonically increasing towards the center of the disk.
+//  for(unsigned int n=1; n<=maxsign; ++n ) {
+//	if(initialStarsA.spsig[n] < maxsig) initialStarsA.spsig[n] = maxsig;
+//  }
 
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
   initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
@@ -333,7 +343,8 @@ void DiskContents::ComputeDerivs(double ** tauvec)
 
 double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int * whichCell)
 {
-  
+  // Compute a bunch of timescales for variation in each cell, i.e. Quantity / (dQuantity/dt)
+  // Find the maximum value of the inverse of all such timescales. 
   double dmax=0.;
   for(unsigned int n=1; n<=nx; ++n) {
     if(fabs(dZDiskdt[n]/ZDisk[n]) > dmax) {
@@ -422,7 +433,8 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
     else {
       for(unsigned int n=1; n<=nx; ++n) {
         currentlyForming.spcol[n] = RfREC*dSSFdt(n)*dt;
-        currentlyForming.spsig[n] = sig[n];
+        if(sigth <= sig[n]) currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
+	else currentlyForming.spsig[n] = 0.1*sigth;
         currentlyForming.spZ[n]   = ZDisk[n];
         currentlyForming.spZV[n]  = 0.0;
 
@@ -461,9 +473,10 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
     currentlyForming.spZ[n]=ZDisk[n];             // the metallicity of the gas
     currentlyForming.spZV[n]=0.0;
     if(sigth<=sig[n])
-      currentlyForming.spsig[n] = sig[n]; // the velocity dispersion of the gas
+      currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
     else
-      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
+	currentlyForming.spsig[n] = 0.1*sigth;
+//      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
     if(currentlyForming.spcol[n] < 0.)
       errormsg(std::string("UpdateStateVars: currently forming stars have negative")
@@ -944,8 +957,14 @@ double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,st
   double val =  - 2.*M_PI*yy[n]*((1.+beta[n])*uu[n]*uu[n]
              /(3.*sig_st[n]*x[n]) + ddx(sig_st,n,x)  );
   if(sps[sp].IsForming(cos,redshift)) {
-    val += (sig[n]*sig[n] - sig_st[n]*sig_st[n])*RfREC*dSSFdt(n)
+    if(sigth <= sig[n]) {
+      val += (sig[n]*sig[n] - sigth*sigth - sig_st[n]*sig_st[n])*RfREC*dSSFdt(n)
              /(2.0*col_st[n]*sig_st[n]);
+    }
+    else { // in this case, the new stellar population will have velocity dispersion = 0
+      val += (.01*sigth*sigth - sig_st[n]*sig_st[n] ) *RfREC * dSSFdt(n)
+	    /(2.0*col_st[n]*sig_st[n]);
+    }
   }
   return val;
 }
@@ -1277,7 +1296,7 @@ void DiskContents::ComputeY()
     //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
       yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
 
-
+      if(yy[n-1] > 0.0) yy[n-1]=0.0;
 
 //     ////// Set y = 0 if Qst > Qlim
 //     if(Qst < Qlim) {

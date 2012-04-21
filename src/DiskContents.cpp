@@ -194,10 +194,19 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     }
   }
 
-//  // make sig_st monotonically increasing towards the center of the disk.
-//  for(unsigned int n=1; n<=maxsign; ++n ) {
-//	if(initialStarsA.spsig[n] < maxsig) initialStarsA.spsig[n] = maxsig;
-//  }
+ // make sig_st monotonically increasing towards the center of the disk.
+  for(unsigned int n=1; n<=maxsign; ++n ) {
+    if(initialStarsA.spsig[n] < maxsig) { 
+      initialStarsA.spsig[n] = maxsig;
+      initialStarsP.spsig[n] = maxsig;
+    }
+  }
+
+  for(unsigned int n=1; n<=maxsign; ++n) {
+    if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) > Qlim) {
+      initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (Qlim*M_PI*x[n]*dim.chi()) ;
+    }
+  }
 
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
   initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
@@ -364,13 +373,13 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
 	*whichCell=n;
       }
     }
-    else { 
-      if(fabs(dsigdt[n]/sig[n]) > dmax) {
-	dmax = fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth));
-	*whichVar = 3;
-	*whichCell=n;
-      }
-    }
+//    else { 
+//      if(fabs(dsigdt[n]/sqrt(sigth*sigth-sig[n]*sig[n])) > dmax) {
+//	dmax = fabs(dsigdt[n]/sqrt(sigth*sigth - sig[n]*sig[n]));
+//	*whichVar = 4;
+//	*whichCell=n;
+//      }
+//    }
 
 //    if(fabs((ZFlux[n]-ZFlux[n-1])/(x[n]*x[n]*dlnx*col[n]*ZDisk[n])) > dmax) {
 //      dmax = fabs((ZFlux[n]-ZFlux[n-1])/(col[n]*ZDisk[n]));
@@ -400,14 +409,27 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
         *whichVar=7;
 	*whichCell=n;
       }
+      if(fabs(flux(n,yy,x,spsActive[i].spcol) / spsActive[i].spcol[n]) > dmax) {
+	dmax=fabs(flux(n,yy,x,spsActive[i].spcol)/spsActive[i].spcol[n]);
+	*whichVar=8;
+	*whichCell=n;
+      }
+      if(fabs(flux(n-1,yy,x,spsActive[i].spcol) / spsActive[i].spcol[n]) > dmax) {
+	dmax=fabs(flux(n-1,yy,x,spsActive[i].spcol)/spsActive[i].spcol[n]);
+	*whichVar=9;
+	*whichCell=n;
+      }
     } // end loop over stellar populations
     //    if(fabs(2*PI*yy[n]/(x[n]*dlnx))>dmax) {
     //      dmax = fabs(2*PI*yy[n]/(x[n]*dlnx)) ;
     //      *which=7;
     //    }
 
+
+    if(dmax!=dmax) errormsg("Error setting timestep. n, whichVar, whichCell: "+str(n)+" "+str(*whichVar)+" "+str(*whichCell));
+
   } // end loop over cells
-  return TOL/max(dmax,100.*TOL); // maximum stepsize of .01 outer orbits
+  return TOL/max(dmax,10.0*TOL/x[1]); // maximum stepsize of .1 innermost orbital times
 }
 
 bool DiskContents::CheckStellarPops(const double dt, const double redshift,
@@ -536,8 +558,14 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
 	dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
     }
     col[n] += dcoldt[n] * dt;
+
+    // The gas velocity dispersion should always be above sigth.
+    // If it is not, e.g. a semi-pathological initial condition or
+    // some numerical issue, set it to sigth.
+    // 
     if(sig[n] < sigth) {
       sig[n]=sigth;
+      keepTorqueOff[n] = 1;
     }
     else {
       sig[n] += dsigdt[n] * dt;
@@ -686,27 +714,37 @@ void DiskContents::ComputeTorques(double ** tauvec,
       errormsg("Poorly posed torque eq: H,h0,h1,h2: "+str(n)+" "
          +str(H[n])+" "+str(h0[n])+" "+str(h1[n])+" "+str(h2[n]));
   }
+
+  // Set the forcing terms as the boundaries. OBC is the value of tau' at the outer boundary
+  // while IBC is the value of tau at the inner boundary.
   gsl_vector_set(forcing,nx-1, 
      H[nx] - OBC*x[nx]*dmdinv*(h2[nx]*sqd/(x[nx]*x[nx]*dm1*dm1) 
          + h1[nx]/(x[nx]*dmdinv)));
   gsl_vector_set(forcing,0  , 
      H[1] - IBC * (h2[1]/(x[1]*x[1]*dmm1*dmm1*sqd) -h1[1]/(x[1]*dmdinv)));
 
+  // Loop over all cells to set the sub- and super-diagonal matrix elements
   for(unsigned int n=1; n<nx-1; ++n) {
     gsl_vector_set(lr,  n-1,  
          (h2[n+1]/(x[n+1]*x[n+1]*dmm1*dmm1*sqd) - h1[n+1]/(x[n+1]*dmdinv) ));
     gsl_vector_set(ur,  n  ,  
          (h2[n+1]*sqd/(x[n+1]*x[n+1]*dm1*dm1) + h1[n+1]/(x[n+1]*dmdinv) ));
   }
+
+  // Set the edge cases of the sub- and super-diagonal matrix elements.
   gsl_vector_set(ur,  0,   
       (h2[1]*sqd/(x[1]*x[1]*dm1*dm1) + h1[1]/(x[1]*dmdinv)));
   gsl_vector_set(lr, nx-2, 
       (h2[nx]/(x[nx]*x[nx])) * (sqd/(dm1*dm1) + 1./(sqd*dmm1*dmm1)) );
   
+
+  // Compute the torque (tau) given a tridiagonal matrix equation.
   int status = gsl_linalg_solve_tridiag(diag,ur,lr,forcing,tau);
   if(status!=GSL_SUCCESS)
     errormsg("Failed to solve torque equation");
 
+  // Now the we have solved the torque equation, read the solution back in to the
+  // data structures used in the rest of the code, i.e. tauvec.
   for(unsigned int n=1; n<=nx; ++n) {
     tauvec[1][n] = gsl_vector_get(tau,n-1);
     if(tauvec[1][n]!=tauvec[1][n]) {
@@ -718,9 +756,12 @@ void DiskContents::ComputeTorques(double ** tauvec,
           +spc+str(h0[n])+spc+str(h1[n])+spc+str(h2[n]));
     }
   }
+  // Take the given values of tau and use them to self-consistently calculate tau'.
   for(unsigned int n=2; n<=nx-1; ++n) {
     tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(x[n]*dmdinv);
   }
+
+  // Set the boundaries of tau' such that they will obey the boundary conditions
   tauvec[2][nx]=OBC;
   tauvec[2][1] = (tauvec[1][2]-IBC)/(x[1]*dmdinv);
 
@@ -735,6 +776,10 @@ void DiskContents::ComputeTorques(double ** tauvec,
   d2taudx2[nx] = OBC - (sqd/(x[nx]*x[nx])) * 
        (  - (tauvec[1][nx]-tauvec[1][nx-1])/(dmm1*dmm1*dd));
 
+
+  // Take the solution to the torque equation which has just been calculated
+  // and plug it back in to the original ODE. Accumulate the degree to which
+  // the equation is not satisfied in each cell.
   for(unsigned int n=1; n<=nx; ++n) {
     CumulativeTorqueErr2[n] += d2taudx2[n] * h2[n] 
         + tauvec[2][n] * h1[n] + tauvec[1][n] * h0[n] - H[n];
@@ -1277,44 +1322,63 @@ void DiskContents::ComputeY()
 //    double Qst = sqrt(2.*(beta[n-1]+1.))*uu[n-1]*sig_st[n-1] /(M_PI*dim.chi()*col_st[n-1]*x[n-1]);
 
 
-    double Qst = sqrt(2.*(beta[n-1]+1.)) * sqrt(uu[n-1]*uu[n-1]*sig_st[n-1]*sig_st[n-1]) / (M_PI*dim.chi() * sqrt(col_st[n-1]*col_st[n-1]*x[n-1]*x[n-1]));
+    double Qst = sqrt(2.*(beta[n]+1.)) * sqrt(uu[n]*uu[n]*sig_st[n]*sig_st[n]) / (M_PI*dim.chi() * sqrt(col_st[n]*col_st[n]*x[n]*x[n]));
     double forcing, f0;
 
-    //////// Forcing = 0 if Qst > Qlim
-    if(Qst < Qlim) {
-      forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst - 1.);
-    }
-    else
-      forcing = 0.0;
-
-      f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
-       /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
-       -ddx(sig_st,n-1,x)/sig_st[n-1]
-       +ddx(col_st,n-1,x)/col_st[n-1];
-      //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
-      //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
-    //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
-      yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
-
-      if(yy[n-1] > 0.0) yy[n-1]=0.0;
-
-//     ////// Set y = 0 if Qst > Qlim
+//     //////// Forcing = 0 if Qst > Qlim
 //     if(Qst < Qlim) {
 //       forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst - 1.);
-
+//     }
+//     else
+//       forcing = 0.0;
+//
 //       f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
 //        /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
 //        -ddx(sig_st,n-1,x)/sig_st[n-1]
 //        +ddx(col_st,n-1,x)/col_st[n-1];
 //       //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
 //       //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
-//     //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
+//       //      + 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
 //       yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
-//     }
-//     else {
-//       yy[n-1]=0.0;
-//     }
+//
+//       if(yy[n-1] > 0.0) yy[n-1]=0.0;
 
+
+//    ////// Set y = 0 if Qst > Qlim
+//    if(Qst < Qlim) {
+//      forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst - 1.);
+//
+//      f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
+//       /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
+//       -ddx(sig_st,n-1,x)/sig_st[n-1]
+//       +ddx(col_st,n-1,x)/col_st[n-1];
+//      //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
+//      //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
+//    //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
+//      yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
+//    }
+//    else {
+//      yy[n-1]=0.0;
+//    }
+
+
+
+    ////// Set y = 0 if Qst > Qlim
+    if(Qst < Qlim) {
+      forcing=(1./(2.*M_PI*x[n]*tauHeat/uu[n])) * (Qlim/Qst - 1.);
+
+      f0 = (3.0*sig_st[n]*sig_st[n] - (1.+beta[n])*uu[n]*uu[n])
+       /(3.0*sig_st[n]*sig_st[n]*sqrt(x[n]*x[n]))
+       -ddx(sig_st,n,x)/sig_st[n]
+       +ddx(col_st,n,x)/col_st[n];
+      //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
+      //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
+    //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
+      yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
+    }
+    else {
+      yy[n-1]=0.0;
+    }
 
 
 

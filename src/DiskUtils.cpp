@@ -116,7 +116,8 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
     double cst = col_st[n+1];
     if(ym > 0.0) cst = col_st[n];
 
-    fluxn= 2.0*M_PI*sqrt(x[n]*x[n+1]) * ym * cst;
+//    fluxn= 2.0*M_PI*sqrt(x[n]*x[n+1]) * ym * cst;
+    fluxn = 2.0*M_PI* x[n+1] * ym * cst;
   }
   else if(n==x.size()-1) {
     fluxn=0.0;
@@ -127,7 +128,8 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
       // something bad has happened
     }
     double cst = col_st[n+1];
-    fluxn = 2.0*M_PI*sqrt(x[n+1]*x[n+1] * (x[1]/x[2])) * ym *cst;
+//    fluxn = 2.0*M_PI*sqrt(x[n+1]*x[n+1] * (x[1]/x[2])) * ym *cst;
+    fluxn = 2.0*M_PI * x[1]*ym*cst;
     if(fluxn > 0.0) {
       std::cout << "The bulge is leaking stars! flux, ym, cst, n;  "<<fluxn<<", "<<ym<<", "<<cst<<", "<<n<<std::endl;
       fluxn=0.0;

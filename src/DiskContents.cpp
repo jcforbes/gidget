@@ -506,16 +506,14 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
     currentlyForming.spcol[n] = RfREC* dSSFdt(n) * dt; // col. density of SF*dt 
     currentlyForming.spZ[n]=ZDisk[n];             // the metallicity of the gas
     currentlyForming.spZV[n]=0.0;
-    if(sigth*sigth*(1.0+minsigstF*minsigstF)<=sig[n])
+    if(sigth*sigth*(1.0+minsigstF*minsigstF)<=sig[n]*sig[n])
       currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
     else
 	currentlyForming.spsig[n] = minsigstF*sigth;
 //      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
-    if(currentlyForming.spcol[n] < 0.)
-      errormsg(std::string("UpdateStateVars: currently forming stars have negative")
-        +std::string(" surface density!  n, spcol, dSSFdt, dt  ") +str(n)+std::string(" ")
-        +str(currentlyForming.spcol[n])+std::string(" ")+str(dSSFdt(n)) +std::string(" ")+str(dt));
+    if(currentlyForming.spcol[n] < 0. || currentlyForming.spsig[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsig[n]!=currentlyForming.spsig[n])
+      errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, dSSFdt, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsig[n])+", "+str(dSSFdt(n)) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
   }
   currentlyForming.ageAtz0 = cos.lbt(redshift);
 

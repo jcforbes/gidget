@@ -57,7 +57,7 @@ FUNCTION diskStats,model,z=z
 
 	IF(xoutInd LT xinInd) THEN BEGIN 
 		xoutInd = xinInd
-		PRINT,"diskstats: Warning: changing xoutInd to xinInd "
+;		PRINT,"diskstats: Warning: changing xoutInd to xinInd "
 	ENDIF
  
         xnuc=x[0:xinInd]

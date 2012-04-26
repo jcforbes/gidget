@@ -12,6 +12,10 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 		lth=5
 	ENDIF
 
+	ranges[*,0] = [MIN(data[*,*,0,*]),MAX(data[*,*,0,*])]
+	IF(ranges[0,0] LE 0.0 AND wrtXlog[0] EQ 1) THEN ranges[0,0] = 1d-4 * ranges[1,0]
+
+
 	FOR k=1,n_elements(labels)-1 DO BEGIN ;; loop over y-axis variables to be plotted (except the first one, which is just radius!)
 		fn=name+"_"+labels[k]
 		dn="movie_"+name+"_"+labels[k]
@@ -23,6 +27,10 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 		IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
 			FILE_MKDIR,dn
 		ENDIF
+		
+		ranges[*,k] = [MIN(data[*,*,k,*]),MAX(data[*,*,k,*])]
+		IF(ranges[0,k] LE 0.0 AND wrtXlog[k] EQ 1) THEN ranges[0,k] = 1d-4 * ranges[1,k]
+
 		count=0
 		tailLength = fix(3.0/(float(n_elements(styles))/928.0)^(.25)) ; length of a tail to put on each point which represents a galaxy when prev=1
 		FOR ti=0,n_elements(time)-1 DO BEGIN  ;; loop over time

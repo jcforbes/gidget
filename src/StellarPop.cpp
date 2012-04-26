@@ -105,7 +105,7 @@ void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskConte
     flux[n] = 2.0*M_PI*sqrt(disk.GetX()[n]*disk.GetX()[n+1]) * ym * cst ;
     if(n==1 && flux[n]>1.0) {
 	flux[n]=0.0; // no stars can come out of the bulge.
-	std::cerr << "Warning: positive flux of stars out of the bulge. flux= "+str(flux[n]) << std::endl;
+//	std::cerr << "Warning: positive flux of stars out of the bulge. flux= "+str(flux[n]) << std::endl;
     }
   }
   flux[spcol.size()-1]=0.0;
@@ -115,7 +115,14 @@ void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskConte
 //  double sum3=0;
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
 //    dcolh[n] = -2.*M_PI*((*this).spcol[n]*ddx(yy,n,disk.GetX()) + ddx((*this).spcol,n,disk.GetX()) *yy[n] + (*this).spcol[n]*yy[n]/disk.GetX()[n]);
-    dsigh[n] = -2.*M_PI*yy[n]*((1.+disk.GetBeta()[n])*disk.GetUu()[n]*disk.GetUu()[n]/(3.*(*this).spsig[n]*disk.GetX()[n]) + ddx((*this).spsig,n,disk.GetX()));
+//    dsigh[n] = -2.*M_PI*yy[n]*((1.+disk.GetBeta()[n])*disk.GetUu()[n]*disk.GetUu()[n]/(3.*(*this).spsig[n]*disk.GetX()[n]) + ddx((*this).spsig,n,disk.GetX()));
+    if(n<spcol.size()-1) {
+     double sigp2 = (2./3.) * (disk.GetPsi()[n+1]-disk.GetPsi()[n]) + (1./3.) * (disk.GetUu()[n+1]*disk.GetUu()[n+1]-disk.GetUu()[n]*disk.GetUu()[n]) + spsig[n+1]*spsig[n+1];
+     dsigh[n] = -2.0*M_PI/ (2.0*disk.GetX()[n]*disk.GetX()[n]*disk.GetDlnx()*spcol[n]*spsig[n]) * (disk.GetX()[n+1]*yy[n+1]*spcol[n+1]*(sigp2-spsig[n]*spsig[n]));
+    }
+    else dsigh[n] = 0.0;
+     
+
     dZh[n] = -2.*M_PI*yy[n]*ddx((*this).spZ,n,disk.GetX());
     
     //    dcolh[n] = (flux[n-1]-flux[n])  / (disk.GetX()[n] * disk.GetX()[n] * disk.GetDlnx());

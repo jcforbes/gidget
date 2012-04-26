@@ -50,6 +50,7 @@ class DiskContents {
 
   double activeColSt(unsigned int n);
   double activeSigSt(unsigned int n);
+  double ComputeQst(unsigned int n);
 
   // At a given cell, compute the fraction of gas which is 
   // in H2, i.e. what fraction of the gas is available to 
@@ -85,6 +86,7 @@ class DiskContents {
   double GetDlnx() {return dlnx;};
   std::vector<double>& GetX() {return x;};
   std::vector<double>& GetUu() { return uu;};
+  std::vector<double>& GetPsi() { return psi;};
   std::vector<double>& GetBeta() {return beta;};
   std::vector<double>& GetSig() { return sig;};
   std::vector<double>& GetCol() { return col;};
@@ -101,7 +103,7 @@ class DiskContents {
   // i.e.  the stars will attempt to reach Qlim if they are 
   // less stable than Qlim.
   void ComputeY();
-
+  void ComputeY2();
   // Compute the time derivatives of all state variables 
   // at all radii.
   void ComputeDerivs(double **tauvec);
@@ -171,7 +173,7 @@ class DiskContents {
 
   // Given the information stored in the Initializer object, 
   // initialize the simulation
-  void Initialize(Initializer& in);
+  void Initialize(Initializer& in, bool fixedPhi0);
  private:
   std::vector<double> col,sig; // gas column density and velocity dispersion
   std::vector<double> dQdS,dQds; // partial derivatives dQ/dS and dQ/ds
@@ -205,7 +207,8 @@ class DiskContents {
     beta,  // power law index of rotation curve
     uu,    // local circular velocity
     yy,    // inward velocity of stars
-    betap; //d(beta)/dx 
+    betap, //d(beta)/dx 
+    psi;
 
   std::vector<double>
     h2,h1,h0,H; // coefficients of the torque equation

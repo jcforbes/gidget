@@ -85,6 +85,23 @@ int Simulation::runToConvergence(const double fCondition,
         dt<fCondition*TOL)  // the simulation has converged
   {
 
+    // Every 10th of an outer orbit, write out the data from the simulation
+    // Note that we'd like to use last step's timestep here to determine whether
+    // to write out a file, since we would like to avoid a situation where a sudden
+    // decrease in the size of dt causes us to skip a checkpoint
+    bool timeOut = (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
+    //    bool timeOut = true; // write out at every time step. Use only if 
+                               // things crash and burn very quickly
+    if(timeOut) {
+      // Separate files for the active & passive stellar populations..
+      theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
+      theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
+      
+      theDisk.WriteOutStepFile(filename,t,z,dt,step,tauvec);
+      writeIndex++;
+    }
+
+
     // Make sure that stars formed this time step have a stellar 
     // population to which they belong. If they don't, create
     // one and add it to the appropriate vector of stellar populations
@@ -145,22 +162,6 @@ int Simulation::runToConvergence(const double fCondition,
     // derivatives of the state variables
     theDisk.ComputeDerivs(tauvec);
 
-    // Every 10th of an outer orbit, write out the data from the simulation
-    // Note that we'd like to use last step's timestep here to determine whether
-    // to write out a file, since we would like to avoid a situation where a sudden
-    // decrease in the size of dt causes us to skip a checkpoint
-    bool timeOut = ((floor(25.0*(t-dt)) < floor(25.0*t)) && writeOut);
-    //    bool timeOut = true; // write out at every time step. Use only if 
-                               // things crash and burn very quickly
-    if(timeOut) {
-      // Separate files for the active & passive stellar populations..
-      theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
-      theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-      
-      theDisk.WriteOutStepFile(filename,t,z,dt,step,tauvec);
-      writeIndex++;
-    }
-
     // Given the derivatives, compute a time step over which none of the variables
     // change by too much
     dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell); // which tells us which statevar is limiting the timestep
@@ -176,7 +177,7 @@ int Simulation::runToConvergence(const double fCondition,
     outSF4.Update(theDisk.GetColSFR(),t,theDisk.GetX()); outSF25.Update(theDisk.GetColSFR(),t,theDisk.GetX()); 
 
     // Give the user a bit of information on the progress of the simulation
-    if(step%10000==0 || step<5)
+    if(step%5000==0 || step<5)
       std::cout << "Step "<<step<<", t="<<t<<" Outer Orbits, z="<<z<<", dt="<<dt
                 <<", "<<whichVar<<", "<<whichCell<<std::endl;
 

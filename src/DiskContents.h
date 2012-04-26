@@ -235,7 +235,7 @@ class DiskContents {
     sigth, // dimensionless thermal velocity dispersion (set by T_gas)
     EPS_ff, // star formation efficiency per free fall time
     Qlim, // Q below which transient spirals heat the stellar disk
-
+    minsigstF, // the minimum sig_st = minsigstF * sigth.
     thickness, // correction to Q owing to finite thickness
 
     // ratio of rate at which mass is ejected from a given cell 

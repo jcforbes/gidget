@@ -49,7 +49,8 @@ DiskContents::DiskContents(unsigned int nnx,double xm,
   spsActive(std::vector<StellarPop>(0)),
   spsPassive(std::vector<StellarPop>(0)),
   dlnx(-log(xm)/(nx-1.)),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
-  yREC(.054),RfREC(0.46),zetaREC(1.0),analyticQ(aq),
+  yREC(.054),RfREC(0.46),zetaREC(1.0),minsigstF(.1),
+  analyticQ(aq),
   thickness(thk), migratePassive(migP),
   col(std::vector<double>(nnx+1,0.)),
   sig(std::vector<double>(nnx+1,0.)),  
@@ -466,8 +467,8 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
     else {
       for(unsigned int n=1; n<=nx; ++n) {
         currentlyForming.spcol[n] = RfREC*dSSFdt(n)*dt;
-        if(sigth <= sig[n]) currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
-	else currentlyForming.spsig[n] = 0.1*sigth;
+        if(sigth*sigth*(1.0+minsigstF*minsigstF) <= sig[n]*sig[n]) currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
+	else currentlyForming.spsig[n] = minsigstF*sigth;
         currentlyForming.spZ[n]   = ZDisk[n];
         currentlyForming.spZV[n]  = 0.0;
 
@@ -505,10 +506,10 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
     currentlyForming.spcol[n] = RfREC* dSSFdt(n) * dt; // col. density of SF*dt 
     currentlyForming.spZ[n]=ZDisk[n];             // the metallicity of the gas
     currentlyForming.spZV[n]=0.0;
-    if(sigth<=sig[n])
+    if(sigth*sigth*(1.0+minsigstF*minsigstF)<=sig[n])
       currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
     else
-	currentlyForming.spsig[n] = 0.1*sigth;
+	currentlyForming.spsig[n] = minsigstF*sigth;
 //      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
     if(currentlyForming.spcol[n] < 0.)
@@ -680,6 +681,7 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha)
     double MRItau = 2.0*M_PI*x[n]*x[n]*col[n]*alpha*sigth*sig[n]*(beta[n]-1);
     double MRItaup = MRItau * (2.0/x[n] + ddx(col,n,x)/col[n] 
        + ddx(sig,n,x)/sig[n] + betap[n]/(beta[n]-1));
+
 
     // Where GI has shut down and no longer transports mass inwards, 
     // allow another source of viscosity to drive gas inwards.
@@ -1020,12 +1022,12 @@ double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,st
     val = -2.0*M_PI/ (2.0*x[n]*x[n]*dlnx*col_st[n]*sig_st[n]) * (x[n+1]*yy[n+1]*col_st[n+1]*(sigp2-sig_st[n]*sig_st[n]));
   }
   if(sps[sp].IsForming(cos,redshift)) {
-    if(sigth <= sig[n]) {
+    if(sigth*sigth*(1.0+minsigstF*minsigstF) <= sig[n]*sig[n]) {
       val += (sig[n]*sig[n] - sigth*sigth - sig_st[n]*sig_st[n])*RfREC*dSSFdt(n)
              /(2.0*col_st[n]*sig_st[n]);
     }
-    else { // in this case, the new stellar population will have velocity dispersion = 0
-      val += (.01*sigth*sigth - sig_st[n]*sig_st[n] ) *RfREC * dSSFdt(n)
+    else { // in this case, the new stellar population will have velocity dispersion = sigth * minsigstF
+      val += (minsigstF*minsigstF*sigth*sigth - sig_st[n]*sig_st[n] ) *RfREC * dSSFdt(n)
 	    /(2.0*col_st[n]*sig_st[n]);
     }
   }

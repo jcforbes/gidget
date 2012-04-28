@@ -139,7 +139,8 @@ PRO variability2,expName,keys,N,sv
 		[1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9]]
 	wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0,0,1]
 
-
+	dummy = where(keys EQ 13, n1)
+	
 	tk = [[0],keys]
 	wrtXyt=wrtXyt[tk]
 	wrtXyy=wrtXyy[tk]
@@ -259,16 +260,19 @@ PRO variability2,expName,keys,N,sv
 	simpleMovie,sortdData,time,wrtXyn,indgen(n_elements(sortdData[0,0,0,*])),intarr(n_elements(sortdData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_sorted",sv,intarr(n_elements(wrtXyl))
 
 	setct,3,n_elements(theData[0,0,0,*]),0
-	simpleMovie,theData,time,wrtXyn,indgen(n_elements(theData[0,0,0,*])),intarr(n_elements(theData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl))
-
+	IF(n_elements(nameList2) LT 100) THEN BEGIN 	
+		simpleMovie,theData,time,wrtXyn,indgen(n_elements(theData[0,0,0,*])),intarr(n_elements(theData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl))
+	ENDIF
 	
 
 	setct,3,n_elements(vsMdot[0,0,0,*]),0
-	simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'],$
-		indgen(n_elements(vsMdot[0,0,0,*])), $
-		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
-		[1,1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
+	IF(n1 EQ 1) THEN BEGIN
+		simpleMovie, sortdVsMdot,time,['mdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'],$
+			indgen(n_elements(vsMdot[0,0,0,*])), $
+			intarr(n_elements(vsMdot[0,0,0,*])), $
+			[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
+			[1,1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
+	ENDIF
 
 	;; average mdot over a number of time steps nt
 	nt = 50
@@ -279,22 +283,28 @@ PRO variability2,expName,keys,N,sv
 			avgdVsMdot[ti,0,0,mm] = TOTAL(sortdVsMdot[MAX([0,ti-nt]):ti,0,0,mm]) / (ti - MAX([0,ti-nt]) + 1)
 		ENDFOR
 	ENDFOR
-	simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'],$
-		indgen(n_elements(vsMdot[0,0,0,*])), $
-		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
-		[1,1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
+	IF(n1 EQ 1) THEN BEGIN
+		simpleMovie, avgdVsMdot,time,['avgMdot','SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'],$
+			indgen(n_elements(vsMdot[0,0,0,*])), $
+			intarr(n_elements(vsMdot[0,0,0,*])), $
+			[[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
+			[1,1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
+	ENDIF
 
 
+	;; Plot these quantities vs. the star formation rate.
 	setct,3,n_elements(vsMdot[0,0,0,*]),0
 	vsSFR = sortdVsMdot[*,*,1:n_elements(sortdVsMdot[0,0,*,0])-1,*] ;; cut out the mdot slice of the array
-	simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'], $
-		indgen(n_elements(vsMdot[0,0,0,*])), $
-		intarr(n_elements(vsMdot[0,0,0,*])), $
-		[[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
-		[1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsSFR",sv,[1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
+	IF(n1 EQ 1) THEN BEGIN 
+		simpleMovie, vsSFR, time, ['SFR','stMass','rPeak','rHI','colsol','sSFR','BulgeMass','BulgeFSt','fH2','mdotBulgeGas','mdotBulgeStars'], $
+			indgen(n_elements(vsMdot[0,0,0,*])), $
+			intarr(n_elements(vsMdot[0,0,0,*])), $
+			[[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2]], $
+			[1,1,1,0,1,1,1,0,0,1,1],expName2+"_vsSFR",sv,[1,0,0,0,0,0,0,0,0,1,1],PSYM=1,prev=1
+	ENDIF
 
 	
+	;; Plot the accretion rates.
 	SETCT,3,n_elements(vsMdot[0,0,0,*]),0
 	FIGUREInit,(expName2+'_accRates'),1,1,1
 	Plot,time,sortdVsMdot[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=[.03,200],YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Accretion Rate"

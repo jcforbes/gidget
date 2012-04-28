@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
 
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();
-    
+   
 
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0,NActive,NPassive,BulgeRadius);
   else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, NActive, NPassive, BulgeRadius, stScaleLength);
 
-  Simulation simIC(10.0,100000000,
+  Simulation simIC(1000.0,1000000000,
                    false, nx,TOL,
                    zstart,NActive,NPassive,
                    alphaMRI,sigth,

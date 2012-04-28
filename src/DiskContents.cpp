@@ -49,7 +49,7 @@ DiskContents::DiskContents(unsigned int nnx,double xm,
   spsActive(std::vector<StellarPop>(0)),
   spsPassive(std::vector<StellarPop>(0)),
   dlnx(-log(xm)/(nx-1.)),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
-  yREC(.054),RfREC(0.46),zetaREC(1.0),minsigstF(.1),
+  yREC(.054),RfREC(0.46),zetaREC(1.0),minsigstF(.1), 
   analyticQ(aq),
   thickness(thk), migratePassive(migP),
   col(std::vector<double>(nnx+1,0.)),
@@ -110,6 +110,7 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
     uu[n] = x[n]/sqrt(b*b + x[n]*x[n]);
     beta[n] = b*b/(b*b+x[n]*x[n]);
     betap[n] = -2.*b*b*x[n] / ((b*b+x[n]*x[n])*(b*b+x[n]*x[n]));
+    psi[n] = -.5*log((1.0+b*b)/(x[n]*x[n]+b*b));
 
     keepTorqueOff[n] = 0;
     ZDisk[n] = Z_Init;
@@ -156,6 +157,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 			   OldIthBin(0,cos,NPassive));
   double maxsig=0.0;
   unsigned int maxsign=1;
+  bool lowQst;
   for(unsigned int n=1; n<=nx; ++n) {
     x[n] = XMIN*exp(dlnx*(n-1.0));
 
@@ -163,7 +165,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     uu[n] = x[n]/sqrt(b*b + x[n]*x[n]);
     beta[n]=b*b/(b*b+x[n]*x[n]);
     betap[n]= -2.*b*b*x[n] / ((b*b+x[n]*x[n])*(b*b+x[n]*x[n]));
-    psi[n] = .5*log((1.0+b*b)/(x[n]*x[n]+b*b));
+    psi[n] = -.5*log((1.0+b*b)/(x[n]*x[n]+b*b));
 
     keepTorqueOff[n] = 0;
     ZDisk[n] = Z_Init;
@@ -174,7 +176,9 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     initialStarsA.spsig[n] = sigst0;
     // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by heating the stars beyond what the user requested.
     if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
-      initialStarsA.spsig[n] = Qlim*M_PI*x[n]*initialStarsA.spcol[n] *dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]);
+      lowQst = true;
+      initialStarsA.spsig[n] = Qlim/ComputeQst(n) * initialStarsA.spsig[n];
+//M_PI*x[n]*initialStarsA.spcol[n] *dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]);
     }
 
     if(initialStarsA.spsig[n] > maxsig) { 
@@ -197,19 +201,39 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     }
   }
 
- // make sig_st monotonically increasing towards the center of the disk.
-  for(unsigned int n=1; n<=maxsign; ++n ) {
-    if(initialStarsA.spsig[n] < maxsig) { 
-      initialStarsA.spsig[n] = maxsig;
-      initialStarsP.spsig[n] = maxsig;
+  if(lowQst) {
+   // make sig_st monotonically increasing towards the center of the disk.
+    for(unsigned int n=1; n<=maxsign; ++n ) {
+      if(initialStarsA.spsig[n] < maxsig) { 
+        initialStarsA.spsig[n] = maxsig;
+        initialStarsP.spsig[n] = maxsig;
+      }
     }
+  
+//    for(unsigned int n=1; n<=maxsign; ++n) {
+//       if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) > Qlim) {
+//        initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (Qlim*M_PI*x[n]*dim.chi()) ;
+//      }
+//    }
   }
 
-  for(unsigned int n=1; n<=maxsign; ++n) {
-    if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) > Qlim) {
-      initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (Qlim*M_PI*x[n]*dim.chi()) ;
+  double minQst=1.0e30;
+  unsigned int minQstN=0;
+  for(unsigned int n=1; n<=nx; ++n) {
+    if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n]/(initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
+	minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi());
+	minQstN = n;
     }
   }
+  if(minQst < Qlim*.99999) errormsg("Minimum Qst is somehow below Qlim. "+str(Qlim)+" "+str(minQst));
+  for(unsigned int n=1; n<=minQstN; ++n) {
+    initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (minQst*M_PI*x[n]*dim.chi());
+    //(ComputeQst(n)/minQst) *initialStarsA.spcol[n];
+  }
+  for(unsigned int n=1; n<=nx; ++n) {
+    initialStarsA.spsig[n] *= Qlim / minQst;
+  }
+
 
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
   initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
@@ -413,16 +437,16 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
         *whichVar=7;
 	*whichCell=n;
       }
-      if(fabs(flux(n,yy,x,spsActive[i].spcol) / (2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n])) > dmax) {
-	dmax=fabs(flux(n,yy,x,spsActive[i].spcol)/(2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n]));
-	*whichVar=8;
-	*whichCell=n;
-      }
-      if(fabs(flux(n-1,yy,x,spsActive[i].spcol) /(2.0*M_PI*x[n]*yy[n]* spsActive[i].spcol[n])) > dmax) {
-	dmax=fabs(flux(n-1,yy,x,spsActive[i].spcol)/(2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n]));
-	*whichVar=9;
-	*whichCell=n;
-      }
+//      if(fabs(flux(n,yy,x,spsActive[i].spcol) / (2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n])) > dmax) {
+//	dmax=fabs(flux(n,yy,x,spsActive[i].spcol)/(2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n]));
+//	*whichVar=8;
+//	*whichCell=n;
+//      }
+//      if(fabs(flux(n-1,yy,x,spsActive[i].spcol) /(2.0*M_PI*x[n]*yy[n]* spsActive[i].spcol[n])) > dmax) {
+//	dmax=fabs(flux(n-1,yy,x,spsActive[i].spcol)/(2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n]));
+//	*whichVar=9;
+//	*whichCell=n;
+//      }
     } // end loop over stellar populations
 
 //    double Qst = ComputeQst(n);
@@ -1071,11 +1095,11 @@ void DiskContents::UpdateCoeffs(double redshift)
       if(spsActive[i].IsForming(cos,redshift)) {
         H[n] -= spsActive[i].dQdS[n] * RfREC * dSSFdt(n);
       }
-      H[n] -= spsActive[i].dQds[n]*dSigstdt(n,i,redshift,spsActive) 
+      H[n] -= spsActive[i].dQds[n] * dSigstdt(n,i,redshift,spsActive) 
             + spsActive[i].dQdS[n] * dSMigdt(n,yy,x,spsActive[i].spcol);
     }
 
-    // turn torque off it it's on and torque is destabilizing this cell
+    // turn torque off if it's on and torque is destabilizing this cell
     if(keepTorqueOff[n]==0 && H[n] < 0 ) {
       keepTorqueOff[n]=1;
     }
@@ -1095,7 +1119,8 @@ void DiskContents::UpdateCoeffs(double redshift)
          +std::string("   col,sig  dQdS,dQds,dQdSst,dQdsst ")+str(H[n])+" "+str(h0[n])
          +spc+str(h1[n])+spc+str(h2[n])+spc+spc+str(col[n])+spc+str(sig[n])
          +spc+spc+str(dQdS[n])+" "+str(dQds[n])+spc+str(spsActive[0].dQdS[n])
-         +spc+str(spsActive[0].dQds[n]));
+         +spc+str(spsActive[0].dQds[n])+spc+spc+str(dSigstdt(n,0,redshift,spsActive))+spc
+	+str(dSMigdt(n,yy,x,spsActive[0].spcol)));
     }
   }
 }
@@ -1480,7 +1505,8 @@ void DiskContents::ComputeY()
     else {
         double sigp = sqrt(2./3. * (psi[n]-psi[n-1]) +1./3. * (uu[n]*uu[n] - uu[n-1]*uu[n-1]) + sig_st[n]*sig_st[n] );
         yy[n-1] = yy[n] * x[n]*col_st[n] / (x[n-1]*col_st[n-1]) * (1.5 - sigp*sigp/(2.0*sig_st[n-1]*sig_st[n-1]))
-	    - max(Qlim - Qst[n-1],0.0) *uu[n-1] * x[n-1]*dlnx / (2.0*M_PI*x[n-1]*tauHeat * Qst[n-1]);	
+	    - max(Qlim - Qst[n-1],0.0) *uu[n-1] * x[n-1]*dlnx / (2.0*M_PI*x[n-1]*tauHeat * Qst[n-1]);
+	if(yy[n-1]!=yy[n-1] || yy[n-1]>0.00001) errormsg("Error computing y! n,y,sigp,sig_st,dpsi: "+str(n)+" "+str(yy[n-1])+" "+str(sigp)+" "+str(sig_st[n])+" "+str(psi[n]-psi[n-1]));
     }
 
 

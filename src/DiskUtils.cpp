@@ -130,15 +130,15 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
     double cst = col_st[n+1];
 //    fluxn = 2.0*M_PI*sqrt(x[n+1]*x[n+1] * (x[1]/x[2])) * ym *cst;
     fluxn = 2.0*M_PI * x[1]*ym*cst;
-    if(fluxn > 0.0) {
-      std::cout << "The bulge is leaking stars! flux, ym, cst, n;  "<<fluxn<<", "<<ym<<", "<<cst<<", "<<n<<std::endl;
-      fluxn=0.0;
-    }
+//    if(fluxn > 0.0) {
+//      std::cout << "The bulge is leaking stars! flux, ym, cst, n;  "<<fluxn<<", "<<ym<<", "<<cst<<", "<<n<<std::endl;
+//      fluxn=0.0;
+//    }
   }
 
   return fluxn;
 }
-
+ 
 
 double dSMigdt(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std::vector<double>& col_st)
 {

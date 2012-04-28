@@ -235,7 +235,7 @@ int Simulation::runToConvergence(const double fCondition,
     theDisk.WriteOutStepFile(filename,t,z,dt,step,tauvec);
   }
 
-
+ 
   // de-allocate memory
   for(unsigned int k=1; k<=2; ++k) {
     delete tauvec[k];

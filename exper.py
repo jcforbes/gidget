@@ -15,17 +15,17 @@ import math
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,500,1.5,.02,2.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1e-4,1.0,0,-1.0,0,0.0,1.0,1,1.333333333,.01]
+        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1e-4,1.0,0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12]
         self.pl=[self.p[:]]
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0']
         self.keys={}
         ctr=0
         for n in self.names:
             self.keys[n]=ctr
             ctr=ctr+1
         self.expName=name
-        self.base=os.getcwd() # Assume we are in the base directory
+        self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
         self.src=self.base+'/src'
         self.analysis=self.base+'/analysis'
         self.bin=self.base+'/bin'
@@ -51,8 +51,12 @@ class experiment:
         one of which corresponds to a run of the program. This list can
         then be sent to the xgrid or run on your machine. See other
         methods for details on how to do that.'''
-        for j in range(len(self.p)):
-            param = self.p[j]
+	# for each separate parameter (e.g. number of cells, dissipation rate, etc.)
+        for j in range(len(self.p)): 
+            param = self.p[j] 
+	    # if instead of a single value of the parameter, we have a whole list, create a set of runs
+	    # such that for every previous run we had, we now have len(param) more, each with a different
+	    # value from the list param.
             if(type(param)==list):
                 # make len(param) copies of the current pl
                 pl2=[]
@@ -60,9 +64,10 @@ class experiment:
                     f=copy.deepcopy(self.pl)
                     pl2.append(f) # pl2 ~ [pl,pl,pl]~[[p,p,p],[p,p,p],[p,p,p]]
                     # in each copy, set the jth parameter in p to param[i]
-                    for a_p in pl2[i]:
+                    for a_p in pl2[i]: # each element is a list of parameters for
                         a_p[j]=param[i]
-                        # in each copy, append to the name a...z corresponding to which copy is currently being edited
+                        # in each copy, append to the name a...z corresponding to 
+			# which copy is currently being edited
                         if(i<=25):
                             base='a'
                             app=''
@@ -72,16 +77,19 @@ class experiment:
                         a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
                     # end loop over p's in pl2
                 # end loop over range of this varied parameter
-                self.pl=[element for sub in pl2 for
- element in sub] # collapse pl to be a 1d array of p's.
+		
+		# collapse pl to be a 1d array of p's.
+                self.pl=[element for sub in pl2 for element in sub] 
             else : #just a regular non-varying parameter
                 # If the user has used vary() but with N=1, the new argument will
-                # not be a list!
+                # not be a list! In this case, we set this parameter in each element 
+		# of pl to be the value the user picked, instead of the default value.
                 for i in range(len(self.pl)):
                     if(self.pl[i][j]!=param):
                         self.pl[i][j]=param
                     else:
                         pass # nothing to do- just use default value
+	
             
             
     def write(self,name):
@@ -171,32 +179,25 @@ class experiment:
 
 
 if __name__ == "__main__":
-    # Set up the experiment:
-    # Usage is e.g.
-    # $ python exper.py 'ex1'
     expName=sys.argv[1]
     a=experiment(expName)
 
+ 
+#    # rj2
+#    a.vary('nx',200,200,1,0)
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',4,3003,3000,0)
 
-#   These parameters used to generate the figures in Forbes, Krumholz, and Burkert (2012)
-#    a.vary('epsff',.01,.01,1,0) # not varying
-#    a.vary('Qlim',2.5,2.5,1,0) #not varying
-#    a.vary('mu',1.0,1.0,1,0) # not varying
-#    a.vary('phi0',2.0,2.0,2,0) # not varying
-#    a.vary('whichAccretionHistory',0,2,3,0)
-#    a.vary('migratePassive',0,1,2,0)
-#    a.vary('thickness',1.5,1.5,1,0) # not varying
-#    a.vary('fixedQ',2.0,2.0,1,0) #not varying
-#    a.vary('kappaMetals',1.0e-4,1.0e-2,9,1)
+    #rj3, rj4 (with monotonic Qst, even when Qst min > Qlim.
+    a.vary('nx',200,200,1,0)
+    a.vary('diskScaleLength',2.0,2.0,1,0)
+    a.vary('whichAccretionHistory',4,3003,3000,0)
+    a.vary('Mh0',1.0e10,1.0e10,1,0)
 
-    # The example in the README file:
-    a.vary('nx',1000,1000,1,0) # not varying
-    a.vary('fg',.1,.9,9,0) # vary gas fraction linearly
+
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.
-    a.generatePl() 
-
-    # Now run the experiment! 
+    a.generatePl()  
 #    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
-    a.localRun(4) # run (in serial) on four processors.
+    a.localRun(16) # run (in serial) on four processors.

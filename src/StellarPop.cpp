@@ -154,6 +154,8 @@ void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskConte
   for(unsigned int n=1; n<=dZh.size()-1; ++n) {
 //    (*this).spcol[n] += dcolh[n]*dt;
     (*this).spsig[n] += dsigh[n]*dt;
+    if(spsig[n] < disk.GetMinSigSt()*.9999999) 
+	errormsg("Sigst below floor!");
     (*this).spZ[n] += dZh[n]*dt ;
     (*this).spcol[n] += dSMigdt(n,yy,disk.GetX(),(*this).spcol)*dt;
     double wt1 = cellMass[n] - outgoingMass[n];

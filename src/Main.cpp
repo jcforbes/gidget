@@ -107,10 +107,6 @@ int main(int argc, char **argv) {
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
 
-  // Done reading in arguments. Write out a comment file containing all of the arguments.
-  as.~ArgumentSetter();
-   
-
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
 
@@ -120,6 +116,11 @@ int main(int argc, char **argv) {
 		      thick, false,Qinit,kappaMetals);
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0,NActive,NPassive,BulgeRadius);
   else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, NActive, NPassive, BulgeRadius, stScaleLength);
+
+  as.Set(diskIC.GetMinSigSt()*vphiR/1.e5, "Minimum stellar velocity dispersion (km/s)");
+  // Done reading in arguments. Write out a comment file containing all of the arguments.
+  as.~ArgumentSetter();
+   
 
   Simulation simIC(1000.0,1000000000,
                    false, nx,TOL,

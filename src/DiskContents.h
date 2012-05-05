@@ -84,6 +84,7 @@ class DiskContents {
 
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};
+  double GetMinSigSt() { return minsigst; };
   std::vector<double>& GetX() {return x;};
   std::vector<double>& GetUu() { return uu;};
   std::vector<double>& GetPsi() { return psi;};
@@ -118,6 +119,8 @@ class DiskContents {
   // derivatives, do a forward Euler step
   void UpdateStateVars(const double dt, 
 		       const double redshift,double **);
+
+  void InitializeGrid(double bulgeRadius);
 
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
@@ -235,7 +238,6 @@ class DiskContents {
     sigth, // dimensionless thermal velocity dispersion (set by T_gas)
     EPS_ff, // star formation efficiency per free fall time
     Qlim, // Q below which transient spirals heat the stellar disk
-    minsigstF, // the minimum sig_st = minsigstF * sigth.
     thickness, // correction to Q owing to finite thickness
 
     // ratio of rate at which mass is ejected from a given cell 
@@ -247,6 +249,9 @@ class DiskContents {
     // thickness correction used (if any). See Elmegreen (2011) for
     // details on why one should probably choose a number >1.
     fixedQ; 
+
+  // the minimum sig_st = minsigst
+  double minsigst;
 
   // properties of the "bulge", i.e. the region inside the inner
   // truncation radius of the disk

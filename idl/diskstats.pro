@@ -80,7 +80,7 @@ FUNCTION diskStats,model,z=z
                 xout*model.Radius,$ ;; outer edge of SF region- 3
                 colsol,$            ;; column density at r=8 kpc- 4
                 fgnuc,fgsf,fgHI,sSFR, $   ;; gas fraction, specific SFR- 5,6,7,8
-		BulgeM,BulgeMSt/BulgeM, totfH2, $  ; - 9,10,11
+		BulgeM,BulgeMSt, totfH2, $  ; - 9,10,11
 		mdotBulgeG,mdotbulgeSt]; - 12,13
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]

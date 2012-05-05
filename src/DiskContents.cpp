@@ -49,7 +49,7 @@ DiskContents::DiskContents(unsigned int nnx,double xm,
   spsActive(std::vector<StellarPop>(0)),
   spsPassive(std::vector<StellarPop>(0)),
   dlnx(-log(xm)/(nx-1.)),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
-  yREC(.054),RfREC(0.46),zetaREC(1.0),minsigstF(.1), 
+  yREC(.054),RfREC(0.46),zetaREC(1.0), 
   analyticQ(aq),
   thickness(thk), migratePassive(migP),
   col(std::vector<double>(nnx+1,0.)),
@@ -87,16 +87,10 @@ DiskContents::DiskContents(unsigned int nnx,double xm,
   return;
 }
 
-void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
+void DiskContents::InitializeGrid(double bulgeRadius)
 {
-  StellarPop initialStarsA(nx,
-         YoungIthBin(0,cos,in.NActive),
-         OldIthBin(0,cos,in.NActive));
-  StellarPop initialStarsP(nx,
-         YoungIthBin(0,cos,in.NPassive),
-         OldIthBin(0,cos,in.NPassive));
-
-  double Z_Init = 0.1 * Z_Sol;
+  double Z_Init = 0.1* Z_Sol;
+  double maxdE=0.0;
   for(unsigned int n=1; n<=nx; ++n) {
     x[n] = XMIN*exp(dlnx*(n-1.));
 
@@ -106,20 +100,40 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
     // of the outer edge of the disk in kpc, thus the 
     // ratio is the bulge radius in the dimensionless 
     // units of the simulation
-    double b = in.BulgeRadius / dim.d(1.0);
+
+    double b= bulgeRadius/dim.d(1.0);
     uu[n] = x[n]/sqrt(b*b + x[n]*x[n]);
     beta[n] = b*b/(b*b+x[n]*x[n]);
     betap[n] = -2.*b*b*x[n] / ((b*b+x[n]*x[n])*(b*b+x[n]*x[n]));
     psi[n] = -.5*log((1.0+b*b)/(x[n]*x[n]+b*b));
+    keepTorqueOff[n]=0;
+  }
+  for(unsigned int n=2; n<=nx; ++n) {
+    maxdE = max((1./3.)*(psi[n]-psi[n-1]) + (1./6.)*(uu[n]*uu[n] - uu[n-1]*uu[n-1]), maxdE);
+  }
+  minsigst = 2.0*sqrt(maxdE);
+//  std::cout << "Setting minsigst = "<<minsigst<<std::endl;
+}
 
-    keepTorqueOff[n] = 0;
+void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
+{
+  StellarPop initialStarsA(nx,
+         YoungIthBin(0,cos,in.NActive),
+         OldIthBin(0,cos,in.NActive));
+  StellarPop initialStarsP(nx,
+         YoungIthBin(0,cos,in.NPassive),
+         OldIthBin(0,cos,in.NPassive));
+
+  InitializeGrid(in.BulgeRadius);
+
+  double Z_Init = 0.1 * Z_Sol;
+  for(unsigned int n=1; n<=nx; ++n) {
     ZDisk[n] = Z_Init;
     
     col[n] = in.col[n];
     sig[n] = in.sig[n];
     initialStarsA.spcol[n] = in.col_st[n];
     initialStarsA.spsig[n] = in.sig_st[n];
-
     initialStarsA.spZ[n]   = Z_Init;
     initialStarsA.spZV[n]  = 0.0;
 
@@ -155,30 +169,25 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 			   OldIthBin(0,cos,NActive));
   StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
 			   OldIthBin(0,cos,NPassive));
+
+  InitializeGrid(BulgeRadius);
+
   double maxsig=0.0;
   unsigned int maxsign=1;
   bool lowQst;
   for(unsigned int n=1; n<=nx; ++n) {
-    x[n] = XMIN*exp(dlnx*(n-1.0));
-
-    double b = BulgeRadius / dim.d(1.0); // matching radius at 1 kpc
-    uu[n] = x[n]/sqrt(b*b + x[n]*x[n]);
-    beta[n]=b*b/(b*b+x[n]*x[n]);
-    betap[n]= -2.*b*b*x[n] / ((b*b+x[n]*x[n])*(b*b+x[n]*x[n]));
-    psi[n] = -.5*log((1.0+b*b)/(x[n]*x[n]+b*b));
-
-    keepTorqueOff[n] = 0;
     ZDisk[n] = Z_Init;
 
     double xd = stScaleLength/dim.d(1.0);
     double S0 = 0.18 * fcool * (1-fg0) * Mh0*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
     initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
-    initialStarsA.spsig[n] = sigst0;
+    initialStarsA.spsig[n] = max(sigst0,minsigst);
     // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by heating the stars beyond what the user requested.
     if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
       lowQst = true;
-      initialStarsA.spsig[n] = Qlim/ComputeQst(n) * initialStarsA.spsig[n];
+      //      initialStarsA.spsig[n] = Qlim/ComputeQst(n) * initialStarsA.spsig[n];
 //M_PI*x[n]*initialStarsA.spcol[n] *dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]);
+      initialStarsA.spsig[n] = max(Qlim*M_PI*x[n]*initialStarsA.spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
     }
 
     if(initialStarsA.spsig[n] > maxsig) { 
@@ -205,8 +214,8 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
    // make sig_st monotonically increasing towards the center of the disk.
     for(unsigned int n=1; n<=maxsign; ++n ) {
       if(initialStarsA.spsig[n] < maxsig) { 
-        initialStarsA.spsig[n] = maxsig;
-        initialStarsP.spsig[n] = maxsig;
+        initialStarsA.spsig[n] = max(maxsig,minsigst);
+        initialStarsP.spsig[n] = max(maxsig,minsigst);
       }
     }
   
@@ -231,7 +240,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     //(ComputeQst(n)/minQst) *initialStarsA.spcol[n];
   }
   for(unsigned int n=1; n<=nx; ++n) {
-    initialStarsA.spsig[n] *= Qlim / minQst;
+    initialStarsA.spsig[n] = max(initialStarsA.spsig[n] * Qlim / minQst,minsigst);
   }
 
 
@@ -260,25 +269,17 @@ void DiskContents::Initialize(double tempRatio, double fg0,
       YoungIthBin(0,cos,NPassive),
       OldIthBin(0,cos,NPassive));
 
+  InitializeGrid(BulgeRadius);
+
   // Metallicity
   double Z_Init = 0.1*Z_Sol;
   for(unsigned int n=1; n<=nx; ++n) {
-    x[n] = XMIN*exp(dlnx*(n-1.));
-
-    //// Harmonic sum
-    double b = BulgeRadius / dim.d(1.0); // matching radius at 1 kpc
-    uu[n] = x[n]/sqrt(b*b + x[n]*x[n]);
-    beta[n] = b*b/(b*b+x[n]*x[n]);
-    betap[n] = -2.*b*b*x[n] / ((b*b+x[n]*x[n])*(b*b+x[n]*x[n]));
-    psi[n] = -0.5*log((1.0+b*b)/(b*b+x[n]*x[n]));
-
-    keepTorqueOff[n] = 0;
     ZDisk[n] = Z_Init;
     sig[n] = pow(dim.chi()/(ETA*fg0),1./3.)/sqrt(2.);
     col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
          tempRatio/(x[n]*M_PI*dim.chi() * (tempRatio + (1.-fg0)/fg0));
     initialStarsA.spcol[n] = col[n]*(1.-fg0)/fg0;
-    initialStarsA.spsig[n] = tempRatio*sig[n];
+    initialStarsA.spsig[n] = max(tempRatio*sig[n],minsigst);
     initialStarsA.spZ[n]   = Z_Init;
     initialStarsA.spZV[n]  = 0.0;
     initialStarsP.spcol[n] = initialStarsA.spcol[n];
@@ -491,8 +492,8 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
     else {
       for(unsigned int n=1; n<=nx; ++n) {
         currentlyForming.spcol[n] = RfREC*dSSFdt(n)*dt;
-        if(sigth*sigth*(1.0+minsigstF*minsigstF) <= sig[n]*sig[n]) currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
-	else currentlyForming.spsig[n] = minsigstF*sigth;
+        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
+	else currentlyForming.spsig[n] = minsigst;
         currentlyForming.spZ[n]   = ZDisk[n];
         currentlyForming.spZV[n]  = 0.0;
 
@@ -530,10 +531,10 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
     currentlyForming.spcol[n] = RfREC* dSSFdt(n) * dt; // col. density of SF*dt 
     currentlyForming.spZ[n]=ZDisk[n];             // the metallicity of the gas
     currentlyForming.spZV[n]=0.0;
-    if(sigth*sigth*(1.0+minsigstF*minsigstF)<=sig[n]*sig[n])
+    if(sigth*sigth+minsigst*minsigst<=sig[n]*sig[n])
       currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
     else
-	currentlyForming.spsig[n] = minsigstF*sigth;
+	currentlyForming.spsig[n] = minsigst;
 //      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
     if(currentlyForming.spcol[n] < 0. || currentlyForming.spsig[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsig[n]!=currentlyForming.spsig[n])
@@ -1044,12 +1045,12 @@ double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,st
     val = -2.0*M_PI/ (2.0*x[n]*x[n]*dlnx*col_st[n]*sig_st[n]) * (x[n+1]*yy[n+1]*col_st[n+1]*(sigp2-sig_st[n]*sig_st[n]));
   }
   if(sps[sp].IsForming(cos,redshift)) {
-    if(sigth*sigth*(1.0+minsigstF*minsigstF) <= sig[n]*sig[n]) {
+    if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
       val += (sig[n]*sig[n] - sigth*sigth - sig_st[n]*sig_st[n])*RfREC*dSSFdt(n)
              /(2.0*col_st[n]*sig_st[n]);
     }
-    else { // in this case, the new stellar population will have velocity dispersion = sigth * minsigstF
-      val += (minsigstF*minsigstF*sigth*sigth - sig_st[n]*sig_st[n] ) *RfREC * dSSFdt(n)
+    else { // in this case, the new stellar population will have velocity dispersion = minsigst
+      val += (minsigst*minsigst - sig_st[n]*sig_st[n] ) *RfREC * dSSFdt(n)
 	    /(2.0*col_st[n]*sig_st[n]);
     }
   }
@@ -1506,7 +1507,8 @@ void DiskContents::ComputeY()
         double sigp = sqrt(2./3. * (psi[n]-psi[n-1]) +1./3. * (uu[n]*uu[n] - uu[n-1]*uu[n-1]) + sig_st[n]*sig_st[n] );
         yy[n-1] = yy[n] * x[n]*col_st[n] / (x[n-1]*col_st[n-1]) * (1.5 - sigp*sigp/(2.0*sig_st[n-1]*sig_st[n-1]))
 	    - max(Qlim - Qst[n-1],0.0) *uu[n-1] * x[n-1]*dlnx / (2.0*M_PI*x[n-1]*tauHeat * Qst[n-1]);
-	if(yy[n-1]!=yy[n-1] || yy[n-1]>0.00001) errormsg("Error computing y! n,y,sigp,sig_st,dpsi: "+str(n)+" "+str(yy[n-1])+" "+str(sigp)+" "+str(sig_st[n])+" "+str(psi[n]-psi[n-1]));
+	if(yy[n-1]!=yy[n-1] || yy[n-1]>0.00001) 
+		errormsg("Error computing y! n,y,sigp,sig_st,dpsi: "+str(n)+" "+str(yy[n-1])+" "+str(sigp)+" "+str(sig_st[n])+" "+str(psi[n]-psi[n-1]));
     }
 
 

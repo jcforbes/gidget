@@ -188,12 +188,23 @@ if __name__ == "__main__":
 #    a.vary('diskScaleLength',2.0,2.0,1,0)
 #    a.vary('whichAccretionHistory',4,3003,3000,0)
 
-    #rj3, rj4 (with monotonic Qst, even when Qst min > Qlim.
+#    #rj3, rj4 (with monotonic Qst, even when Qst min > Qlim.)
+#    a.vary('nx',200,200,1,0)
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',4,3003,3000,0)
+#    a.vary('Mh0',1.0e10,1.0e10,1,0)
+
+    # rj5: rj4 w/ Mh0=1e12; turns out rj4 had a bug; fixed in rj5+
+    # rj6: rj5 w/ Mh0=1e10
+
+    # to summarize: rj5: Mh0=1e12, rj6: Mh0=1e10, rj7:Mh0=1e11
+    # rj8: Mh0=1e10 with fg=.9
+    # rj9: Mh0=1e11 with fg=.9
     a.vary('nx',200,200,1,0)
     a.vary('diskScaleLength',2.0,2.0,1,0)
     a.vary('whichAccretionHistory',4,3003,3000,0)
-    a.vary('Mh0',1.0e10,1.0e10,1,0)
-
+    a.vary('Mh0',1.0e11,1.0e11,1,0)
+    a.vary('fg0',.9,.9,1,0)
 
 
     # expand all the vary-ing into the appropriate number of 

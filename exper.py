@@ -200,11 +200,16 @@ if __name__ == "__main__":
     # to summarize: rj5: Mh0=1e12, rj6: Mh0=1e10, rj7:Mh0=1e11
     # rj8: Mh0=1e10 with fg=.9
     # rj9: Mh0=1e11 with fg=.9
-    a.vary('nx',200,200,1,0)
+    # rj10: Mh0=1e12 with fg=.9
+    # rj11: Mh0=1e12 with fg=.5
+    # rj12: Mh0=1e10 with fg=.9, b=1, higher res, smaller radius
+    a.vary('nx',1000,1000,1,0)
     a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',4,3003,3000,0)
-    a.vary('Mh0',1.0e11,1.0e11,1,0)
-    a.vary('fg0',.9,.9,1,0)
+    a.vary('whichAccretionHistory',4,1003,1000,0)
+    a.vary('R',10.0,10.0,1,0)
+    a.vary('Mh0',1.0e12,1.0e12,1,0)
+    a.vary('fg0',.5,.5,1,0)
+#    a.vary('b',1.0,1.0,1,0)
 
 
     # expand all the vary-ing into the appropriate number of 

@@ -134,7 +134,7 @@ class DiskContents {
   // Similar to the above, except put in an exponential scale 
   // length and constant velocity dispersion for the stars
   void Initialize(double Z_Init, double fcool, double fg0,
-		  double sigst0, double Mh0,
+		  double sigst0, double Mh0, double MhZs,
 		  unsigned int NActive, unsigned int NPassive,
 		  double BulgeRadius, double stScaleLength);
 

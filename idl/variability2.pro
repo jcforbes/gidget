@@ -57,7 +57,7 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 	  findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
           COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=labels[0],YTITLE=labels[k],XRANGE=ranges[*,0], $
           YRANGE=ranges[*,k],ylog=wrtXlog[k],xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth,THICK=lth,XTHICK=lth,YTHICK=lth
-      XYOUTS,.1,.9,string(time[ti]),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+      XYOUTS,.1,.05,string(time[ti]),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
       FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN ;; loop over models (4th column of data)	
         IF(n_elements(styles) GT 10) THEN setct,5,n_elements(styles),j
 ;        IF(n_elements(styles) GT 10) THEN setct,3,n_elements(styles),0	
@@ -124,24 +124,8 @@ PRO variability2,expName,keys,N,sv
   proftimes=dblarr(5)
   proftimes[0]=systime(1)
 
-  ;; take the experiment name and make a list of the names of all 
-  ;; runs in that experiment which were not terminated due to some
-  ;; fatal error!
-  nm=expName+'/'+expName+'_'
-  nameList=file_search(expName+'/*_comment.txt')
-  FOR i=0, n_elements(nameList)-1 DO nameList[i] = strmid(nameList[i], 0, strlen(nameList[i])-12)
-  nameList2=nameList
-  ctr=0
-  FOR i=0, n_elements(nameList2)-1 DO BEGIN
-    IF(success(nameList[i])) THEN BEGIN
-      nameList2[ctr]=nameList[i]
-      ctr=ctr+1
-    ENDIF
-  ENDFOR
-  nameList2=nameList2[0:ctr-1]
+  nameList2 = ListValidModels(expName,N)
 
-  IF(N LT ctr) THEN nameList2=nameList2[0:N-1]
-  ;; Now 
   ctr=0
 
   ;; variables to plot- title, column index, log plot, name, y-range

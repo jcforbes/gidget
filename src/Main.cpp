@@ -110,12 +110,14 @@ int main(int argc, char **argv) {
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
 
+  double MhZs = accr.MhOfZ(zstart);
+
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
   DiskContents diskIC(nx,xmin,1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
 		      TOL,analyticQ,MassLoadingFactor,cos,dim,
 		      thick, false,Qinit,kappaMetals);
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0,NActive,NPassive,BulgeRadius);
-  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, NActive, NPassive, BulgeRadius, stScaleLength);
+  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, MhZs, NActive, NPassive, BulgeRadius, stScaleLength);
 
   as.Set(diskIC.GetMinSigSt()*vphiR/1.e5, "Minimum stellar velocity dispersion (km/s)");
   // Done reading in arguments. Write out a comment file containing all of the arguments.

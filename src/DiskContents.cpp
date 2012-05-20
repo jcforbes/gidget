@@ -161,7 +161,7 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 // Z_Init is in absolute units (i.e solar metallicity would be ~0.02), Mh0 in solar masses
 // sigst0 is in units of vphiR. stScaleLength is, as usual in units of kpc, as is BulgeRadius.
 void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
-			      double sigst0, double Mh0,
+			      double sigst0, double Mh0,double MhZs,
 			      unsigned int NActive,unsigned int NPassive,
 			      double BulgeRadius, double stScaleLength)
 {			     
@@ -179,7 +179,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     ZDisk[n] = Z_Init;
 
     double xd = stScaleLength/dim.d(1.0);
-    double S0 = 0.18 * fcool * (1-fg0) * Mh0*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+    double S0 = 0.18 * fcool * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
     initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
     initialStarsA.spsig[n] = max(sigst0,minsigst);
     // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by heating the stars beyond what the user requested.
@@ -1411,93 +1411,16 @@ void DiskContents::ComputeY()
   yy[nx]=0.;
   std::vector<double> col_st(nx+1), sig_st(nx+1), Qst(nx+1);
   for(unsigned int n=nx; n>=1; --n) {
-//    for(unsigned int i=0; i!=spsActive.size(); ++i) {
-//      colst += spsActive[i].spcol[n];
-//      sig2  += spsActive[i].spcol[n] 
-//              * spsActive[i].spsig[n] * spsActive[i].spsig[n];
-//    }
-//    double sigst = sqrt(sig2 / colst);    
     col_st[n]=activeColSt(n);
     sig_st[n]=activeSigSt(n);
-//    Qst[n] = sqrt(2.*(beta[n]+1.)) * sqrt(uu[n]*uu[n]*sig_st[n]*sig_st[n]) / (M_PI*dim.chi() * sqrt(col_st[n]*col_st[n]*x[n]*x[n]));
     Qst[n] = ComputeQst(n);
-
   }
   Qst[0]=Qst[1];
 
   for(unsigned int n=nx; n>=2; --n) {
-//    double Qst = sqrt(2.*(beta[n-1]+1.))*uu[n-1]*sig_st[n-1]
-//       /(M_PI*dim.chi()*activeColSt(n-1)*x[n-1]);
-//    double forcing;
-//    if(Qst < Qlim)
-//      forcing = 1./(2*M_PI*x[n-1]*tauHeat/uu[n-1]) * (Qlim/Qst - 1.);
-//    else forcing = 0.;
-//    double f0 = (-1./3.)*(1.+beta[n-1])*uu[n-1]*uu[n-1]
-//       /(sig_st[n-1]*sig_st[n-1]*x[n-1]) 
-//      - ddx(sig_st,n-1,x)/sig_st[n-1] 
-//      + ddx(col_st,n-1,x)/col_st[n-1] 
-//      + 1/x[n-1];
-//    yy[n-1]=(forcing*(x[n]-x[n-1]) - yy[n])/(f0*(x[n]-x[n-1]) - 1.);
-
-//    double Qst = sqrt(2.*(beta[n-1]+1.))*uu[n-1]*sig_st[n-1] /(M_PI*dim.chi()*col_st[n-1]*x[n-1]);
-
 
     double forcing, f0;
 
-//     //////// Forcing = 0 if Qst > Qlim
-//     if(Qst < Qlim) {
-//       forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst - 1.);
-//     }
-//     else
-//       forcing = 0.0;
-//
-//       f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
-//        /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
-//        -ddx(sig_st,n-1,x)/sig_st[n-1]
-//        +ddx(col_st,n-1,x)/col_st[n-1];
-//       //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
-//       //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
-//       //      + 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
-//       yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
-//
-//       if(yy[n-1] > 0.0) yy[n-1]=0.0;
-
-
-//    ////// Set y = 0 if Qst > Qlim
-//    if(Qst < Qlim) {
-//      forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst - 1.);
-//
-//      f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
-//       /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
-//       -ddx(sig_st,n-1,x)/sig_st[n-1]
-//       +ddx(col_st,n-1,x)/col_st[n-1];
-//      //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
-//      //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
-//    //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
-//      yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
-//    }
-//    else {
-//      yy[n-1]=0.0;
-//    }
-
-
-
-//    ////// Set y = 0 if Qst > Qlim
-//    if(Qst[n-2] < Qlim) {
-//      forcing=(1./(2.*M_PI*x[n-1]*tauHeat/uu[n-1])) * (Qlim/Qst[n-2] - 1.);
-//
-//      f0 = (3.0*sig_st[n-1]*sig_st[n-1] - (1.+beta[n-1])*uu[n-1]*uu[n-1])
-//       /(3.0*sig_st[n-1]*sig_st[n-1]*sqrt(x[n-1]*x[n-1]))
-//       -ddx(sig_st,n-1,x)/sig_st[n-1]
-//       +ddx(col_st,n-1,x)/col_st[n-1];
-//      //      - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1])
-//      //      + (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]);
-//    //	+ 3.0*sig_st[n-1]*sig_st[n-1]/(3.0*sig_st[n-1]*sig_st[n-1]*x[n-1]);
-//      yy[n-1] = (forcing*(x[n]-x[n-1]) - yy[n]) / (f0*(x[n]-x[n-1]) -1.0);
-//    }
-//    else {
-//      yy[n-1]=0.0;
-//    }
 
     if(Qst[n-1] > Qlim) {
 	yy[n] = 0.0;

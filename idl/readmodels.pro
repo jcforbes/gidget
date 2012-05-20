@@ -28,243 +28,242 @@ END
 ;; the C++ program, so the correctness of this function depends on the C++ function
 ;; WriteOutput() and the IDL function (below) readOutput().
 FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed by 1
-	Labels=["x","tau","tau'","Gas Column Density","Gas Velocity Dispersion",$  ;; 1..5
-		"Stellar Column Density","Stellar Velocity Dispersion",$           ;; 6,7
-		"d/dt Gas Column Density","d/dT Gas Velocity Dispersion",$         ;; 8,9
-		"d/dT Stellar Column Density","d/dT Stellar Velocity Dispersion",$ ;; 10,11
-		"Q","h0","h1","h2","H","Gas Fraction","q","Toomre Length",$        ;; 12..19
-		"Toomre Mass","dZ/dT","Z","Stellar Q","Gas Q","Rafikov Q",$	   ;; 20..25
-		"Wang-Silk Q","Romeo-Wiegert Q","Q(q)","SF Column Density",$       ;; 26..29
-		"tau''","dQdS","dQds","dQdS Error","dQds Error","yy",$		   ;; 30..35
-		"Error in Torque Eq.","vr gas","Cumulative Stars Out (MSol)",$     ;; 36..38
-		"Cumulative Gas Out (MSol)","Cumulative SF (MSol)",$               ;; 39,40
-		"Change in Stellar Mass (MSol)","Change in Gas Mass (MSol)",$      ;; 41,42
-		"zero","d/dx Gas Velocity Dispersion",$                               ;; 43,44
-		"Cumulative Stars In (MSol)","Cumulative Gas In (MSol)",$          ;; 45,46 
-		"alpha viscosity","fH2",$ ;; 47..48
-		"Cumulative Torque Err","Cumulative Torque Err 2","d2taudx2",$     ;; 49..51
-		"Cumulative SF"]						   ;; 52
-	tLabels=strarr(ncolstep+npostprocess+stvars*(npassive+1))
-	tLabels[0:(ncolstep-1)] = Labels[0:(ncolstep-1)]
-	tLabels[ncolstep:(ncolstep+npostprocess-1)]= [$					   ;; ncolev+...
-		"Col Timescale","Sig Timescale","Col_st Timescale", $              ;; 1..3
-		"Sig_st Timescale","Gas Vel. Disp. / Stellar Vel. Disp.",$         ;; 4..5
-		"Stellar Scale Height (kpc)","Gas Scale Height (kpc)",$            ;; 6..7
-		"Two-Dim Jeans Mass (MSol)","Radius (kpc)",$			   ;; 8..9
-		"Gas Col Density [MSol/pc^2]","Gas Vel Disp. [km/s]",$ 		   ;; 10..11
-		"Stellar Col Density [MSol/pc^2]","Stellar Vel Disp. [km/s]",$     ;; 12..13
-		"SFR Col Density [MSol/yr/kpc^2]","Cumulative SF [MSol/pc^2]",$    ;; 14..15
-		"Inward Stellar Velocity [km/s]","Inward Gas Velocity [km/s]",$    ;; 16..17
-		"Z_*","mdot","Gas(In-Out-(Rf+mu)SF)","St(In-Out+Rf*SF)",$          ;; 18..21
-		"Err in Mass Cons (Gas)","Err in Mass Cons (Stars)",$              ;; 22..23
-		"log col","log colst","log vrg","log vrst","gas J/area",$	   ;; 24..27
-		"star J/area","cumulative outflow J/area",$			   ;; 28..30
-		"average age at z=0","average present age"]			   ;; 31..32
+  Labels=["x","tau","tau'","Gas Column Density","Gas Velocity Dispersion",$  ;; 1..5
+    "Stellar Column Density","Stellar Velocity Dispersion",$           ;; 6,7
+    "d/dt Gas Column Density","d/dT Gas Velocity Dispersion",$         ;; 8,9
+    "d/dT Stellar Column Density","d/dT Stellar Velocity Dispersion",$ ;; 10,11
+    "Q","h0","h1","h2","H","Gas Fraction","q","Toomre Length",$        ;; 12..19
+    "Toomre Mass","dZ/dT","Z","Stellar Q","Gas Q","Rafikov Q",$	   ;; 20..25
+    "Wang-Silk Q","Romeo-Wiegert Q","Q(q)","SF Column Density",$       ;; 26..29
+    "tau''","dQdS","dQds","dQdS Error","dQds Error","yy",$		   ;; 30..35
+    "Error in Torque Eq.","vr gas","Cumulative Stars Out (MSol)",$     ;; 36..38
+    "Cumulative Gas Out (MSol)","Cumulative SF (MSol)",$               ;; 39,40
+    "Change in Stellar Mass (MSol)","Change in Gas Mass (MSol)",$      ;; 41,42
+    "zero","d/dx Gas Velocity Dispersion",$                               ;; 43,44
+    "Cumulative Stars In (MSol)","Cumulative Gas In (MSol)",$          ;; 45,46 
+    "alpha viscosity","fH2",$ ;; 47..48
+    "Cumulative Torque Err","Cumulative Torque Err 2","d2taudx2",$     ;; 49..51
+     "Cumulative SF"]						   ;; 52
+  tLabels=strarr(ncolstep+npostprocess+stvars*(npassive+1))
+  tLabels[0:(ncolstep-1)] = Labels[0:(ncolstep-1)]
+  tLabels[ncolstep:(ncolstep+npostprocess-1)]= [$					   ;; ncolev+...
+    "Col Timescale","Sig Timescale","Col_st Timescale", $              ;; 1..3
+    "Sig_st Timescale","Gas Vel. Disp. / Stellar Vel. Disp.",$         ;; 4..5
+    "Stellar Scale Height (kpc)","Gas Scale Height (kpc)",$            ;; 6..7
+    "Two-Dim Jeans Mass (MSol)","Radius (kpc)",$			   ;; 8..9
+    "Gas Col Density [MSol/pc^2]","Gas Vel Disp. [km/s]",$ 		   ;; 10..11
+    "Stellar Col Density [MSol/pc^2]","Stellar Vel Disp. [km/s]",$     ;; 12..13
+    "SFR Col Density [MSol/yr/kpc^2]","Cumulative SF [MSol/pc^2]",$    ;; 14..15
+    "Inward Stellar Velocity [km/s]","Inward Gas Velocity [km/s]",$    ;; 16..17
+    "Z_*","mdot","Gas(In-Out-(Rf+mu)SF)","St(In-Out+Rf*SF)",$          ;; 18..21
+    "Err in Mass Cons (Gas)","Err in Mass Cons (Stars)",$              ;; 22..23
+    "log col","log colst","log vrg","log vrst","gas J/area",$	   ;; 24..27
+    "star J/area","cumulative outflow J/area",$			   ;; 28..30
+    "average age at z=0","average present age"]			   ;; 31..32
 
-	FOR i=0, npassive DO BEGIN
-		pop=strcompress(STRING(i),/remove)
-		tLabels[ncolstep+npostprocess+i*stvars : ncolstep+npostprocess+(i+1)*stvars -1]$
-		=["Column Density "+pop,"Velocity Dispersion "+pop,$
-		"Metallicity "+pop,"Metallicity disp "+pop,"Scale Height "+pop,$
-		"Q_i "+pop,"[Z-sig_Z] "+pop,"[Z+sig_Z] "+pop]
-	ENDFOR
+  FOR i=0, npassive DO BEGIN
+    pop=strcompress(STRING(i),/remove)
+    tLabels[ncolstep+npostprocess+i*stvars : ncolstep+npostprocess+(i+1)*stvars -1]$
+    =["Column Density "+pop,"Velocity Dispersion "+pop,$
+    "Metallicity "+pop,"Metallicity disp "+pop,"Scale Height "+pop,$
+    "Q_i "+pop,"[Z-sig_Z] "+pop,"[Z+sig_Z] "+pop]
+  ENDFOR
 
-	RETURN,tLabels[ind-1]
+  RETURN,tLabels[ind-1]
 END
 
 
 ;; Is this index of the dataCube best plotted with
 ;; the y-axis logarithmic?
 FUNCTION logvar, ind, model
-        st0=model.ncolstep + model.NPostProcess
-        ncs=model.ncolstep
-        nsv=model.STVars
-        log=0
-        IF ( (ind GE 4 && ind LE 7) || ind EQ 19 || ind EQ 23 || ind EQ 20 || ind EQ 24 || ind EQ 38 || ind EQ 39 || ind EQ 40 || ind EQ 45 || ind EQ 46 || ind EQ 52) $
-          THEN log=1
-        IF (ind EQ ncs+8 || ind EQ ncs+22 || ind EQ ncs+23 || (ind GE ncs+10 AND ind LE ncs+17) || ind EQ 19 || (ind GE ncs+1 AND ind LE ncs+5) || (ind GE ncs+28 AND ind LE ncs+30) ) THEN log=1
-        FOR i=0,model.NPassive DO BEGIN
-                IF(ind EQ i*nsv+st0+1 || ind EQ i*nsv+st0+2 || ind EQ i*nsv+st0+4 ) THEN log=1
-        ENDFOR
+  st0=model.ncolstep + model.NPostProcess
+  ncs=model.ncolstep
+  nsv=model.STVars
+  log=0
+  IF ( (ind GE 4 && ind LE 7) || ind EQ 19 || ind EQ 23 || ind EQ 20 || ind EQ 24 || ind EQ 38 || ind EQ 39 || ind EQ 40 || ind EQ 45 || ind EQ 46 || ind EQ 52) $
+     THEN log=1
+  IF (ind EQ ncs+8 || ind EQ ncs+22 || ind EQ ncs+23 || (ind GE ncs+10 AND ind LE ncs+17) || ind EQ 19 || (ind GE ncs+1 AND ind LE ncs+5) || (ind GE ncs+28 AND ind LE ncs+30) ) THEN log=1
+  FOR i=0,model.NPassive DO BEGIN
+    IF(ind EQ i*nsv+st0+1 || ind EQ i*nsv+st0+2 || ind EQ i*nsv+st0+4 ) THEN log=1
+  ENDFOR
                 
-        RETURN,log
+  RETURN,log
 END
 
 ;; Given an already-open file's unit number, read a line from that file
 ;; and discard everything before the colon. Return a long int constructed
 ;; from the number following the colon.
 FUNCTION ExtractCmtL,lun
-	dummy=""
-	paramStr=""
-	READF,lun,dummy
-	paramStr = strsplit(dummy,':',/extract)
-	param = long(paramStr[1])
-	RETURN,param
+  dummy=""
+  paramStr=""
+  READF,lun,dummy
+  paramStr = strsplit(dummy,':',/extract)
+  param = long(paramStr[1])
+  RETURN,param
 END
 ;; Same as above, but for floats
 FUNCTION ExtractCmtFlt,lun
-	dummy=""
-	paramStr=""
-	READF,lun,dummy
-	paramStr = strsplit(dummy,':',/extract)
-	param = float(paramStr[1])
-	RETURN,param
+  dummy=""
+  paramStr=""
+  READF,lun,dummy
+  paramStr = strsplit(dummy,':',/extract)
+  param = float(paramStr[1])
+  RETURN,param
 END
 
 ;; Read in the output from one run, and do some post-processing.
 FUNCTION readOutput,name
-	ncolconv=11 ;; number of columns in _convergence.dat file
+  ncolconv=11 ;; number of columns in _convergence.dat file
 
-	;;; Read the comment file for this run. This contains all
-	;;; of the parameters that the user has the ability to provide.
-	comment=""
-	dummy=""
-	paramStr=""
-	OPENR,lunCom,(name+"_comment.txt"),/get_lun
-	READF,lunCom,dummy ;; first line is just dashes - ignore
-	READF,lunCom,comment ;; next line is the comment
-	nx=ExtractCmtL(lunCom)
-	eta=ExtractCmtFlt(lunCom)
-	EPS_ff=ExtractCmtFlt(lunCom)
-	tauHeat=ExtractCmtFlt(lunCom)
-	analyticQ=ExtractCmtL(lunCom)
-	cosmologyOn=ExtractCmtL(lunCom)
-	xmin=ExtractCmtFlt(lunCom)
-	NActive=ExtractCmtL(lunCom)
-	NPassive=ExtractCmtL(lunCom)
-	vphiR=ExtractCmtFlt(lunCom)
-	Radius=ExtractCmtFlt(lunCom)
-	GasTemp=ExtractCmtFlt(lunCom)
-	Qlim=ExtractCmtFlt(lunCom)
-	fg0=ExtractCmtFlt(lunCom)
-	tempRatio=ExtractCmtFlt(lunCom)
-	zstart=ExtractCmtFlt(lunCom)
-	tmax=ExtractCmtFlt(lunCom)
-	nstepmax=ExtractCmtL(lunCom)
-	TOL=ExtractCmtFlt(lunCom)
-	MLF=ExtractCmtFlt(lunCom)
-	b=ExtractCmtFlt(lunCom)
-;	md0=ExtractCmtFlt(lunCom)
- 	scaleLength=ExtractCmtFlt(lunCom)
-	whichAccHistory = ExtractCmtL(lunCom)
-	alphaMRI=ExtractCmtFlt(lunCom)
-	thick=ExtractCmtFlt(lunCom)
-	migPassivePop=ExtractCmtL(lunCom)
-        fixedQ=ExtractCmtFlt(lunCom)
-	kappaMetals=ExtractCmtFlt(lunCom)
-	mh0=ExtractCmtFlt(lunCom)
-	md0=ExtractCmtFlt(lunCom)
+  ;;; Read the comment file for this run. This contains all
+  ;;; of the parameters that the user has the ability to provide.
+  comment=""
+  dummy=""
+  paramStr=""
+  OPENR,lunCom,(name+"_comment.txt"),/get_lun
+  READF,lunCom,dummy ;; first line is just dashes - ignore
+  READF,lunCom,comment ;; next line is the comment
+  nx=ExtractCmtL(lunCom)
+  eta=ExtractCmtFlt(lunCom)
+  EPS_ff=ExtractCmtFlt(lunCom)
+  tauHeat=ExtractCmtFlt(lunCom)
+  analyticQ=ExtractCmtL(lunCom)
+  cosmologyOn=ExtractCmtL(lunCom)
+  xmin=ExtractCmtFlt(lunCom)
+  NActive=ExtractCmtL(lunCom)
+  NPassive=ExtractCmtL(lunCom)
+  vphiR=ExtractCmtFlt(lunCom)
+  Radius=ExtractCmtFlt(lunCom)
+  GasTemp=ExtractCmtFlt(lunCom)
+  Qlim=ExtractCmtFlt(lunCom)
+  fg0=ExtractCmtFlt(lunCom)
+  tempRatio=ExtractCmtFlt(lunCom)
+  zstart=ExtractCmtFlt(lunCom)
+  tmax=ExtractCmtFlt(lunCom)
+  nstepmax=ExtractCmtL(lunCom)
+  TOL=ExtractCmtFlt(lunCom)
+  MLF=ExtractCmtFlt(lunCom)
+  b=ExtractCmtFlt(lunCom)
+;  md0=ExtractCmtFlt(lunCom)
+  scaleLength=ExtractCmtFlt(lunCom)
+  whichAccHistory = ExtractCmtL(lunCom)
+  alphaMRI=ExtractCmtFlt(lunCom)
+  thick=ExtractCmtFlt(lunCom)
+  migPassivePop=ExtractCmtL(lunCom)
+  fixedQ=ExtractCmtFlt(lunCom)
+  kappaMetals=ExtractCmtFlt(lunCom)
+  mh0=ExtractCmtFlt(lunCom)
+  md0=ExtractCmtFlt(lunCom)
+  minStsig = ExtractCmtFlt(lunCom)
 
-	;; Now we need to rescale some values for mh0!=1e12
-	MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
-	vphiR = vphiR * (Mh0/1.0e12)^  (1.0/4.0)
+  ;; Now we need to rescale some values for mh0!=1e12
+  MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
+  vphiR = vphiR * (Mh0/1.0e12)^  (1.0/4.0)
 	
 
+  Rf = 0.46 ;; remnant fraction
+  b=b/Radius ;; b is read in in kpc (as is Radius). Now set b to its dimensionless value (incidentally, b is the turnover radius of the rotation curve)
+  FREE_LUN,luncom
 
-	Rf = 0.46 ;; remnant fraction
-	b=b/Radius ;; b is read in in kpc (as is Radius). Now set b to its dimensionless value (incidentally, b is the turnover radius of the rotation curve)
-	FREE_LUN,luncom
+  ;; The maximum number of outputs from the program we'll read in.
+  maxrec = 200000L;
+  ;; Open up the file which directly gives time-dependent information
+  ;; only, and no radial information. I.e. one line per timestep,
+  ;; as opposed to nx lines per time step.
+  OPENR,lunEv,(name+"_evolution.dat"),/get_lun;,/swap_if_big_endian
+  ;; Read in all the data from this file, keeping track of the number
+  ;; of lines it has, since the larger arrays of data will correspond
+  ;; to the same number of outputs.
+  ncolev = 0L
+  READU,lunEv,ncolev
+  evArray = dblarr(ncolev,maxrec)
+  evArrayStep = dblarr(ncolev)
+  currentStep = 0L
+  WHILE(EOF(lunEv) NE 1) DO BEGIN
+    READU,lunEv,evArrayStep
+    evArray[*,currentStep] = evArrayStep
+    currentStep += 1
+  ENDWHILE
+  FREE_LUN,lunEv
 
-	;; The maximum number of outputs from the program we'll read in.
-	maxrec = 200000L;
-	;; Open up the file which directly gives time-dependent information
-	;; only, and no radial information. I.e. one line per timestep,
-	;; as opposed to nx lines per time step.
-	OPENR,lunEv,(name+"_evolution.dat"),/get_lun;,/swap_if_big_endian
-	;; Read in all the data from this file, keeping track of the number
-	;; of lines it has, since the larger arrays of data will correspond
-	;; to the same number of outputs.
-	ncolev = 0L
-	READU,lunEv,ncolev
-	evArray = dblarr(ncolev,maxrec)
-	evArrayStep = dblarr(ncolev)
-	currentStep = 0L
-	WHILE(EOF(lunEv) NE 1) DO BEGIN
-		READU,lunEv,evArrayStep
-		evArray[*,currentStep] = evArrayStep
-		currentStep += 1
-	ENDWHILE
-	FREE_LUN,lunEv
+  evArray=(temporary(evArray))[*,0:(currentStep-1)] ;; reduce the array to its natural size
 
+  ;; This is the number of variables output for each stellar population		
+  ;; at each timestep at each radius.
+  STVars=4
+  ;; starsHyperCube stores the passive stars..
+  starsHyperCube = dblarr(currentStep,NPassive+1,nx,STVars) 
+      ;; (reduced nsteps) x (NAgeBins+1) x (nx) x (4) 
+  ;; starsHyperCubeA stores the active stars. The usual scenario
+  ;; is that NActive will be 1.
+  starsHyperCubeA= dblarr(currentStep,NActive+1,nx,STVars)
+	;; (reduced nsteps) x (NActive+1) x (nx) x (4)
+  stellarAges = dblarr(currentStep,NPassive+1) ;; these are the stellar ages at z=0
+	;; (reduced nsteps) x (NAgeBins+1)
+  stellarAgesIS = dblarr(currentStep,NPassive+1) ;; these are the stellar ages In Situ
+	;; (reduced nsteps) x (NAgeBins+1)
+  dataCube=dblarr(currentStep,nx,1) 
+	;; this should be the exact size necessary except for the 3rd dimension
 
-	evArray=(temporary(evArray))[*,0:(currentStep-1)] ;; reduce the array to its natural size
+  ;; Some useful constants
+  MSol = 1.98892d33 ;; solar masses in grams
+  G=6.673d-8 ;; newton's constant in cgs
+  speryear = 31556926d
+  cmperkpc = 3.08568025d21	
+  cmperpc =  3.08568025d18
 
-	;; This is the number of variables output for each stellar population		
-	;; at each timestep at each radius.
-	STVars=4
-	;; starsHyperCube stores the passive stars..
-	starsHyperCube = dblarr(currentStep,NPassive+1,nx,STVars) 
-			;; (reduced nsteps) x (NAgeBins+1) x (nx) x (4) 
-	;; starsHyperCubeA stores the active stars. The usual scenario
-	;; is that NActive will be 1.
-	starsHyperCubeA= dblarr(currentStep,NActive+1,nx,STVars)
-			;; (reduced nsteps) x (NActive+1) x (nx) x (4)
-	stellarAges = dblarr(currentStep,NPassive+1) ;; these are the stellar ages at z=0
-			;; (reduced nsteps) x (NAgeBins+1)
-	stellarAgesIS = dblarr(currentStep,NPassive+1) ;; these are the stellar ages In Situ
-			;; (reduced nsteps) x (NAgeBins+1)
-	dataCube=dblarr(currentStep,nx,1) 
-			;; this should be the exact size necessary except for the 3rd dimension
+  mdotext0=md0* MSol/speryear ;; in grams/s
+  chi = G*mdotext0/(vphiR*vphiR*vphiR*1d15)
+  timeOutputs=0
 
-	;; Some useful constants
-	MSol = 1.98892d33 ;; solar masses in grams
-	G=6.673d-8 ;; newton's constant in cgs
-	speryear = 31556926d
-	cmperkpc = 3.08568025d21	
-	cmperpc =  3.08568025d18
+  ;; Read in all the data which depends on radius.
+  fname=name+"_radial.dat"
+  OPENR,lunRadial,fname,/GET_LUN
+  OPENR,lunStars,(name+"_stars.dat"),/GET_LUN
+  OPENR,lunStarsA,(name+"_act_stars.dat"),/GET_LUN
+  ;; There will be a dataset at every timestep
+  FOR stp=0, currentStep-1 DO BEGIN
+    step=evArray[0,stp]
+    t  = evArray[1,stp]
+    dt = evArray[2,stp]
 
-	mdotext0=md0* MSol/speryear ;; in grams/s
-	chi = G*mdotext0/(vphiR*vphiR*vphiR*1d15)
-	timeOutputs=0
-
-	;; Read in all the data which depends on radius.
-	fname=name+"_radial.dat"
-	OPENR,lunRadial,fname,/GET_LUN
-	OPENR,lunStars,(name+"_stars.dat"),/GET_LUN
-	OPENR,lunStarsA,(name+"_act_stars.dat"),/GET_LUN
-	;; There will be a dataset at every timestep
-	FOR stp=0, currentStep-1 DO BEGIN
-		step=evArray[0,stp]
-		t  = evArray[1,stp]
-		dt = evArray[2,stp]
-
-		;; The files will tell us how many rows and columns
-		;; to read in for each timestep		
-		ncolStep = 0L
-		nrowStep = 0L
-		READU,lunRadial,ncolStep
-		READU,lunRadial,nrowStep
+    ;; The files will tell us how many rows and columns
+    ;; to read in for each timestep		
+    ncolStep = 0L
+    nrowStep = 0L
+    READU,lunRadial,ncolStep
+    READU,lunRadial,nrowStep
 		
-		;; Create the corresponding array..
-		dataSquare=dblarr(ncolStep,nrowStep)
-		IF(stp EQ 0) THEN dataCube=dblarr(currentStep,nx,ncolStep)
-		READU,lunRadial,dataSquare
+    ;; Create the corresponding array..
+    dataSquare=dblarr(ncolStep,nrowStep)
+    IF(stp EQ 0) THEN dataCube=dblarr(currentStep,nx,ncolStep)
+    READU,lunRadial,dataSquare
 
-		;; Read in that 2d array to its appropriate place
-		;; in the 3d array.
-		dataCube[stp,0:nrowStep-1,0:ncolStep-1] = TRANSPOSE(temporary(dataSquare))
-		timeOut = (1 EQ 1)
-		;; read in the stellar populations at this time.
-		IF timeOut THEN BEGIN
-;;;;			OPENR,lunSt,(name+"_stars_to20-"+strcompress(string(floor(20.*(t+dt)))$
-;;;;				,/remove)+".dat"),/GET_LUN
-;;;;			OPENR,lunStA,(name+"_act_stars_to20-"+strcompress(string(floor(20.*(t+dt)))$
-;;;;				,/remove)+".dat"),/GET_LUN
-			NABp1=0L
-			NABp1A=0L
-			stsSize=0L
-			stsSizeA=0L
-			age=double(0.)
-			nx2=0L
-			nx2A=0L
-			x=dblarr(nx)
-			contOfAgeBin=dblarr(nx,STVars)
-			contOfAgeBinA = dblarr(nx,STVars)
-			READU,lunStars, NABp1,stsSize,nx2
-			READU,lunStars,x
-			READU,lunStarsA,NABp1A,stsSizeA,nx2A
-			READU,lunStarsA,x
-			FOR i=0, stsSize-1 DO BEGIN
+    ;; Read in that 2d array to its appropriate place
+    ;; in the 3d array.
+    dataCube[stp,0:nrowStep-1,0:ncolStep-1] = TRANSPOSE(temporary(dataSquare))
+    timeOut = (1 EQ 1)
+    ;; read in the stellar populations at this time.
+    IF timeOut THEN BEGIN
+;;;;		OPENR,lunSt,(name+"_stars_to20-"+strcompress(string(floor(20.*(t+dt)))$
+;;;;			,/remove)+".dat"),/GET_LUN
+;;;;		OPENR,lunStA,(name+"_act_stars_to20-"+strcompress(string(floor(20.*(t+dt)))$
+;;;;			,/remove)+".dat"),/GET_LUN
+      NABp1=0L
+      NABp1A=0L
+      stsSize=0L
+      stsSizeA=0L
+      age=double(0.)
+      nx2=0L
+      nx2A=0L
+      x=dblarr(nx)
+      contOfAgeBin=dblarr(nx,STVars)
+      contOfAgeBinA = dblarr(nx,STVars)
+      READU,lunStars, NABp1,stsSize,nx2
+      READU,lunStars,x
+      READU,lunStarsA,NABp1A,stsSizeA,nx2A
+      READU,lunStarsA,x
+      FOR i=0, stsSize-1 DO BEGIN
 ;;;				IF(EOF(lunSt) NE 1) THEN BEGIN
 					READU,lunStars,age
 					stellarAges[timeOutputs,i]=age
@@ -513,7 +512,7 @@ FUNCTION readOutput,name
 		NPostProcess:NPostProcess,NPassive:NPassive,STVars:STVars, $
 		MLF:MLF,mdotext0:md0,Rf:Rf,whichAccHistory:whichAccHistory,$;}
 		fixedQ:fixedQ,diskScaleLength:scaleLength,Qlim:Qlim,dlnx:dlnx,$
-		mh0:mh0 }
+		mh0:mh0, minStsig:minStsig }
 	
 	RETURN,model ;; end of the readOutput function
 END

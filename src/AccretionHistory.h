@@ -11,6 +11,9 @@ class AccretionHistory {
   // This is implemented by doing an interpolation of a given 
   // tabulated accretion history
   double AccOfZ(double z);
+
+  double MhOfZ(double z);
+
   // Read a tabulated accretion history
   void ReadTabulated(std::string filename, 
 		     unsigned int zc, // column with redshifts
@@ -41,7 +44,8 @@ class AccretionHistory {
   // redshifts, fill in the GSL interpolation objects which will
   // be used to return the accretion rate at arbitrary redshifts.
   void InitializeGSLObjs(std::vector<double> z, 
-			 std::vector<double> tabulatedAcc);
+			 std::vector<double> tabulatedAcc,
+			 std::vector<double> haloMass);
 
   double epsin(double z, double Mh, Cosmology & cos);
 
@@ -53,12 +57,14 @@ class AccretionHistory {
   // vector of redshifts at which acc rate has been tabulated
   double * redshift;
 
+  double * hMass;
+
   // the earliest time the accretion histories know about = time the simulation will start
   double zstart;
 
   // objects used in the interpolation between the tabulated values
-  gsl_interp_accel *accel;
-  gsl_spline *spline;
+  gsl_interp_accel *accel, *accelMh;
+  gsl_spline *spline, *splineMh;
  
   // a switch to determine whether we're using a cubic spline or a linear
   // interpolation. If linear is true, we're using the linear interpolation.
@@ -67,4 +73,5 @@ class AccretionHistory {
   // true if the interpolator is ready to roll, i.e. if we
   // can call AccOfZ successfully
   bool allocated;
+
 };

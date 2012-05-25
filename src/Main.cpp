@@ -10,6 +10,8 @@
 #include "Cosmology.h"
 #include "Dimensions.h"
 #include "DiskUtils.h"
+#include "FixedMesh.h"
+
 
 /*
   This is the main method for the program GIDGET, the "Gravitational Instability-
@@ -109,12 +111,12 @@ int main(int argc, char **argv) {
 
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
-
+  FixedMesh mesh(.5,BulgeRadius/dim.d(1.0),2.0,xmin,nx);
   double MhZs = accr.MhOfZ(zstart);
 
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
-  DiskContents diskIC(nx,xmin,1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
-		      TOL,analyticQ,MassLoadingFactor,cos,dim,
+  DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
+		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,
 		      thick, false,Qinit,kappaMetals);
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0,NActive,NPassive,BulgeRadius);
   else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, MhZs, NActive, NPassive, BulgeRadius, stScaleLength);
@@ -136,8 +138,8 @@ int main(int argc, char **argv) {
   simIC.GetInitializer().BulgeRadius = BulgeRadius;
 
   // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
-  DiskContents disk(nx,xmin,tauHeat,eta,sigth,epsff,Qlim,
-		    TOL,analyticQ,MassLoadingFactor,cos,dim,
+  DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
+		    TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,
 		    thick,migratePassive,Qinit,kappaMetals);
   disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
   Simulation sim(tmax,stepmax,

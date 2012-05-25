@@ -7,17 +7,21 @@ class Cosmology;
 class Dimensions;
 struct RafikovQParams;
 struct Initializer;
+class FixedMesh;
 
 
 // Main container for the physical quantities which make up the disk.
 // Basic structure is a set of arrays of nx elements (indexed from 1).
 class DiskContents {
  public:
-  DiskContents(unsigned int nx,double xm,double tH,double eta,
-               double sigth,double epsff,double ql,double tol,
-               bool aq, double mlf,Cosmology&,Dimensions&,
-	       double thk,bool migratePassive,double Qinit,
-	       double km);
+  DiskContents(double tH,double eta,
+               double sigth,double epsff,
+	       double ql,double tol,
+               bool aq, double mlf,
+               Cosmology&,Dimensions&,
+               FixedMesh&,
+	       double thk,bool migratePassive,
+               double Qinit, double km);
   // Sum up a quantity over the entire disk, weighting 
   // by the area of each annulus
   double TotalWeightedByArea(const std::vector<double>&);
@@ -120,8 +124,6 @@ class DiskContents {
   void UpdateStateVars(const double dt, 
 		       const double redshift,double **);
 
-  void InitializeGrid(double bulgeRadius);
-
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
   // and fixed quantities (x, beta, u,... )
@@ -205,7 +207,7 @@ class DiskContents {
   unsigned int nx; // number of cells
   
   //  Dimensionless values of:
-  std::vector<double> 
+  std::vector<double> & 
     x,     // position of each cell
     beta,  // power law index of rotation curve
     uu,    // local circular velocity
@@ -222,7 +224,8 @@ class DiskContents {
 
   Dimensions& dim; // store dimensional quantities
   Cosmology& cos; // store cosmology
-  
+  FixedMesh& mesh;
+
   const bool migratePassive;
 
   // Physical parameters of the simulation:

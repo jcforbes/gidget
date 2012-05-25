@@ -6,12 +6,14 @@
 #include "Deriv.h"
 #include "DiskUtils.h"
 #include "Simulation.h"
+#include "FixedMesh.h"
 
 #include <gsl/gsl_deriv.h>
 #include <gsl/gsl_min.h>
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_spline.h>
 
 #include <iostream>
 #include <fstream>
@@ -31,89 +33,61 @@ void DiskContents::store(Initializer& in)
   }
 }
 
-DiskContents::DiskContents(unsigned int nnx,double xm, 
-			   double tH, double eta,
+DiskContents::DiskContents(double tH, double eta,
                            double sflr,double epsff,
 			   double ql,double tol,
                            bool aq, double mlf, 
 			   Cosmology& c,Dimensions& d,
+			   FixedMesh& m,
 			   double thk, bool migP,
                            double Qinit, double km) :
-  nx(nnx), x(std::vector<double>(nnx+1)), 
-  beta(std::vector<double>(nnx+1,0.)), 
-  uu(std::vector<double>(nnx+1,0.)),
-  betap(std::vector<double>(nnx+1,0.)),
-  dim(d),XMIN(xm),ZDisk(std::vector<double>(nnx+1,Z_IGM)),
+  nx(m.nx()),x(m.x()),beta(m.beta()),
+  uu(m.uu()), betap(m.betap()),
+  dim(d), mesh(m),
+  XMIN(m.xmin()),ZDisk(std::vector<double>(nx+1,Z_IGM)),
   cos(c),tauHeat(tH),sigth(sflr),
   EPS_ff(epsff),ETA(eta),MassLoadingFactor(mlf),
   spsActive(std::vector<StellarPop>(0)),
   spsPassive(std::vector<StellarPop>(0)),
-  dlnx(-log(xm)/(nx-1.)),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
+  dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
   yREC(.054),RfREC(0.46),zetaREC(1.0), 
   analyticQ(aq),
   thickness(thk), migratePassive(migP),
-  col(std::vector<double>(nnx+1,0.)),
-  sig(std::vector<double>(nnx+1,0.)),  
-  dQdS(std::vector<double>(nnx+1,0.)), 
-  dQds(std::vector<double>(nnx+1,0.)), 
-  dQdSerr(std::vector<double>(nnx+1)),
-  dQdserr(std::vector<double>(nnx+1,0.)),
-  dcoldt(std::vector<double>(nnx+1,0.)),
-  dsigdt(std::vector<double>(nnx+1,0.)),
-  dZDiskdt(std::vector<double>(nnx+1,0.)),
-  colSFR(std::vector<double>(nnx+1,0.)),
-  keepTorqueOff(std::vector<int>(nnx+1,0)),
-  diffused_dcoldt(std::vector<double>(nnx+1,0.)),
-  yy(std::vector<double>(nnx+1,0.)),
-  CumulativeSF(std::vector<double>(nnx+1,0.)),
-  CumulativeTorqueErr2(std::vector<double>(nnx+1,0.)),
-  CumulativeTorqueErr(std::vector<double>(nnx+1,0.)),
-  d2taudx2(std::vector<double>(nnx+1,0.)),
+  col(std::vector<double>(nx+1,0.)),
+  sig(std::vector<double>(nx+1,0.)),  
+  dQdS(std::vector<double>(nx+1,0.)), 
+  dQds(std::vector<double>(nx+1,0.)), 
+  dQdSerr(std::vector<double>(nx+1)),
+  dQdserr(std::vector<double>(nx+1,0.)),
+  dcoldt(std::vector<double>(nx+1,0.)),
+  dsigdt(std::vector<double>(nx+1,0.)),
+  dZDiskdt(std::vector<double>(nx+1,0.)),
+  colSFR(std::vector<double>(nx+1,0.)),
+  keepTorqueOff(std::vector<int>(nx+1,0)),
+  diffused_dcoldt(std::vector<double>(nx+1,0.)),
+  yy(std::vector<double>(nx+1,0.)),
+  CumulativeSF(std::vector<double>(nx+1,0.)),
+  CumulativeTorqueErr2(std::vector<double>(nx+1,0.)),
+  CumulativeTorqueErr(std::vector<double>(nx+1,0.)),
+  d2taudx2(std::vector<double>(nx+1,0.)),
   initialStellarMass(0.0),initialGasMass(0.0),
   cumulativeMassAccreted(0.0),
   cumulativeStarFormationMass(0.0),
   cumulativeGasMassThroughIB(0.0),
   cumulativeStellarMassThroughIB(0.0),
-  CuStarsOut(std::vector<double>(nnx+1,0.)), 
-  CuGasOut(std::vector<double>(nnx+1,0.)),
-  H(std::vector<double>(nnx+1,0.)),
-  h0(std::vector<double>(nnx+1,0.)),
-  h1(std::vector<double>(nnx+1,0.)),
-  h2(std::vector<double>(nnx+1,0.)),
-  psi(std::vector<double>(nnx+1,0.)),
+  CuStarsOut(std::vector<double>(nx+1,0.)), 
+  CuGasOut(std::vector<double>(nx+1,0.)),
+  H(std::vector<double>(nx+1,0.)),
+  h0(std::vector<double>(nx+1,0.)),
+  h1(std::vector<double>(nx+1,0.)),
+  h2(std::vector<double>(nx+1,0.)),
   fixedQ(Qinit),CumulativeTorque(0.0),
-  kappaMetals(km)
+  kappaMetals(km),
+  minsigst(1.0/d.v(1.0)) // 1 km/s
 { 
   return;
 }
 
-void DiskContents::InitializeGrid(double bulgeRadius)
-{
-  double Z_Init = 0.1* Z_Sol;
-  double maxdE=0.0;
-  for(unsigned int n=1; n<=nx; ++n) {
-    x[n] = XMIN*exp(dlnx*(n-1.));
-
-    //// Harmonic sum rotation curve
-    // BulgeRadius is the turnover radius in units 
-    // of kpc. Meanwhile dim.d(1) gives you the radius 
-    // of the outer edge of the disk in kpc, thus the 
-    // ratio is the bulge radius in the dimensionless 
-    // units of the simulation
-
-    double b= bulgeRadius/dim.d(1.0);
-    uu[n] = x[n]/sqrt(b*b + x[n]*x[n]);
-    beta[n] = b*b/(b*b+x[n]*x[n]);
-    betap[n] = -2.*b*b*x[n] / ((b*b+x[n]*x[n])*(b*b+x[n]*x[n]));
-    psi[n] = -.5*log((1.0+b*b)/(x[n]*x[n]+b*b));
-    keepTorqueOff[n]=0;
-  }
-  for(unsigned int n=2; n<=nx; ++n) {
-    maxdE = max((1./3.)*(psi[n]-psi[n-1]) + (1./6.)*(uu[n]*uu[n] - uu[n-1]*uu[n-1]), maxdE);
-  }
-  minsigst = 2.0*sqrt(maxdE);
-//  std::cout << "Setting minsigst = "<<minsigst<<std::endl;
-}
 
 void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 {
@@ -124,7 +98,7 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
          YoungIthBin(0,cos,in.NPassive),
          OldIthBin(0,cos,in.NPassive));
 
-  InitializeGrid(in.BulgeRadius);
+//  InitializeGrid(in.BulgeRadius);
 
   double Z_Init = 0.1 * Z_Sol;
   for(unsigned int n=1; n<=nx; ++n) {
@@ -170,7 +144,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
   StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
 			   OldIthBin(0,cos,NPassive));
 
-  InitializeGrid(BulgeRadius);
+//  InitializeGrid(BulgeRadius);
 
   double maxsig=0.0;
   unsigned int maxsign=1;
@@ -269,7 +243,7 @@ void DiskContents::Initialize(double tempRatio, double fg0,
       YoungIthBin(0,cos,NPassive),
       OldIthBin(0,cos,NPassive));
 
-  InitializeGrid(BulgeRadius);
+//  InitializeGrid(BulgeRadius);
 
   // Metallicity
   double Z_Init = 0.1*Z_Sol;
@@ -1407,40 +1381,61 @@ void DiskContents::ComputeY2()
 
 void DiskContents::ComputeY()
 {
-
+  // Set up interpolation objects for sigst,colst
+  gsl_interp_accel * accel_colst = gsl_interp_accel_alloc();
+  gsl_interp_accel * accel_sigst = gsl_interp_accel_alloc();
+  gsl_spline * spline_colst = gsl_spline_alloc(gsl_interp_cspline,nx-1);
+  gsl_spline * spline_sigst = gsl_spline_alloc(gsl_interp_cspline,nx-1);
+  double * colst_gsl = new double[nx];
+  double * sigst_gsl = new double[nx];
   yy[nx]=0.;
   std::vector<double> col_st(nx+1), sig_st(nx+1), Qst(nx+1);
   for(unsigned int n=nx; n>=1; --n) {
     col_st[n]=activeColSt(n);
     sig_st[n]=activeSigSt(n);
     Qst[n] = ComputeQst(n);
+    colst_gsl[n-1] = col_st[n];
+    sigst_gsl[n-1] = col_st[n];
   }
+  gsl_spline_init(spline_colst,mesh.x_GSL(),colst_gsl,nx);
+  gsl_spline_init(spline_sigst,mesh.x_GSL(),sigst_gsl,nx);
+
   Qst[0]=Qst[1];
 
-  for(unsigned int n=nx; n>=2; --n) {
-
-    double forcing, f0;
-
-
-    if(Qst[n-1] > Qlim) {
-	yy[n] = 0.0;
-        yy[n-1]=0.0;
+  unsigned int NN = mesh.necessaryN(minsigst);
+  double dn = 1.0/((double) NN*nx);
+  double yyn=0.0;
+  double yynm1=0.0;
+  for(double n=((double) nx); n>1; n-=dn) {  
+    double xnm1 = mesh.x(n-dn);
+    double xn = mesh.x(n);
+    double Qst_nm1 = sqrt(2.*(mesh.beta(xnm1)+1.0))*mesh.uu(xnm1)* gsl_spline_eval(spline_sigst,xnm1,accel_sigst)
+                       / (M_PI*dim.chi()*xnm1* gsl_spline_eval(spline_colst,xnm1,accel_colst)) ;
+    if(Qst_nm1 > Qlim) {
+      yyn=0.0;
+      yynm1=0.0;
     }
     else {
-        double sigp = sqrt(2./3. * (psi[n]-psi[n-1]) +1./3. * (uu[n]*uu[n] - uu[n-1]*uu[n-1]) + sig_st[n]*sig_st[n] );
-        yy[n-1] = yy[n] * x[n]*col_st[n] / (x[n-1]*col_st[n-1]) * (1.5 - sigp*sigp/(2.0*sig_st[n-1]*sig_st[n-1]))
-	    - max(Qlim - Qst[n-1],0.0) *uu[n-1] * x[n-1]*dlnx / (2.0*M_PI*x[n-1]*tauHeat * Qst[n-1]);
-	if(yy[n-1]!=yy[n-1] || yy[n-1]>0.00001) 
-		errormsg("Error computing y! n,y,sigp,sig_st,dpsi: "+str(n)+" "+str(yy[n-1])+" "+str(sigp)+" "+str(sig_st[n])+" "+str(psi[n]-psi[n-1]));
-    }
-
-
-//    if(yy[n-1] > 0.0) {
-    if(n==2) {
-//      std::cout << "Debug v_*,r! n-1, y[n-1], y[n], x[n-1], f0, forcing, forcing*dx-y, f0*dx-1; 3s^2-u^2/3s^2x, -dlns/dx, dlnS/dx; Qst, sig_st: "<<n-1<<" "<<yy[n-1]<<" "<<yy[n]<<" "<<x[n-1]<<" "<<f0<<" "<<forcing<<" "<<forcing*(x[n]-x[n-1])-yy[n]<<" "<<f0*(x[n]-x[n-1])-1.<<"; "<< (3.0*sig_st[n]*sig_st[n-1] - (1.+beta[n-1])*uu[n]*uu[n-1])/(3.0*sig_st[n]*sig_st[n-1]*sqrt(x[n-1]*x[n]))<<", "<< - (log(sig_st[n])-log(sig_st[n-1]))/(x[n]-x[n-1]) <<", "<<  (log(col_st[n])-log(col_st[n-1]))/(x[n]-x[n-1]) <<"; "<<Qst<<", "<<sig_st[n-1]<<std::endl;
+      double sigp2 = 2./3. * (mesh.psi(xn) - mesh.psi(xnm1) + 1./3. *(pow(mesh.uu(xn),2.0) - pow(mesh.uu(xnm1),2.0)) 
+                       + pow(gsl_spline_eval(spline_sigst,xn,accel_sigst),2.0));
+      double yynm1 = yyn * xn* gsl_spline_eval(spline_colst,xn,accel_colst) 
+                      / (xnm1*gsl_spline_eval(spline_colst,xnm1,accel_colst))
+		     *(1.5 - sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))
+		     - max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*xnm1*dlnx / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
+      if(yynm1!=yynm1 || yynm1>0.0000001)
+        errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" "+str(sigp2));
+      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
+        yy[((unsigned int) (n))] = yynm1;
+      yyn = yynm1;
     }
   }
-  
+
+  gsl_spline_free(spline_colst);
+  gsl_spline_free(spline_sigst);
+  gsl_interp_accel_free(accel_colst);
+  gsl_interp_accel_free(accel_sigst);
+  delete[] colst_gsl;
+  delete[] sigst_gsl;
 }
 
 void DiskContents::ComputePartials()

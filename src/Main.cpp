@@ -74,6 +74,8 @@ int main(int argc, char **argv) {
   const double TOL =               as.Set(.0001,"TOL (outer orbits)");
   const double MassLoadingFactorAtMh12=  as.Set(1,"Mass Loading Factor at Mh=10^12 MSun");
   const double BulgeRadius      =  as.Set(0,"Velocity Curve Turnover Radius (kpc)");
+  const double innerPowerLaw    =  as.Set(.5,"Index of the inner power law part of the rot curve");
+  const double softening        =  as.Set(2.0,"Softening of transition from flat to inner powerlaw rot curve");
   const double stScaleLength    =  as.Set(-1,"Initial Stellar Disk Scale Length (kpc)");
   const int whichAccretionHistory= as.Set(0,"Which Accretion History- 0-Bouche, 1-High, 2-Low");
   const double alphaMRI         =  as.Set(0,"alpha viscosity for the MRI");
@@ -83,11 +85,14 @@ int main(int argc, char **argv) {
   const double kappaMetals =       as.Set(.001,"Kappa Metals");
   const double Mh0 =  		   as.Set(1.0e12,"Halo Mass");
 
+
   // Scale the things which scale with halo mass.
   const double MassLoadingFactor = MassLoadingFactorAtMh12 * pow((Mh0/1.0e12) , -1./3.);
   const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./4.);
   const double sigth = sqrt(Tgas *kB/mH)/vphiR;
 
+  const double minSigSt =          as.Set(5.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
+  
   // Make an object to deal with things cosmological
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
 
@@ -111,17 +116,16 @@ int main(int argc, char **argv) {
 
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
-  FixedMesh mesh(.5,BulgeRadius/dim.d(1.0),2.0,xmin,nx);
+  FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,nx);
   double MhZs = accr.MhOfZ(zstart);
 
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
   DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
 		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,
-		      thick, false,Qinit,kappaMetals);
-  if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0,NActive,NPassive,BulgeRadius);
-  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, MhZs, NActive, NPassive, BulgeRadius, stScaleLength);
+		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt);
+  if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
+  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, MhZs, stScaleLength);
 
-  as.Set(diskIC.GetMinSigSt()*vphiR/1.e5, "Minimum stellar velocity dispersion (km/s)");
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();
    
@@ -135,12 +139,11 @@ int main(int argc, char **argv) {
   if(result!=5) // The simulation converges when the time step reaches 1*TOL.
     errormsg("Initial Condition generator failed to converge, code "+str(result));
 
-  simIC.GetInitializer().BulgeRadius = BulgeRadius;
 
   // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
   DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
 		    TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,
-		    thick,migratePassive,Qinit,kappaMetals);
+		    thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,minSigSt);
   disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
   Simulation sim(tmax,stepmax,
 		 cosmologyOn,nx,TOL,

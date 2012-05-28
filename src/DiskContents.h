@@ -1,6 +1,10 @@
 #include <vector>
 #include <string>
 #include <math.h>
+
+#include <gsl/gsl_spline.h>
+#include <gsl/gsl_vector.h>
+
 #include "StellarPop.h"
 
 class Cosmology;
@@ -21,7 +25,15 @@ class DiskContents {
                Cosmology&,Dimensions&,
                FixedMesh&,
 	       double thk,bool migratePassive,
-               double Qinit, double km);
+               double Qinit, double km,
+	       unsigned int NA, unsigned int NP,
+	       double minSigSt);
+
+  // Destructor. Cleans up a bunch of memory allocated by the constructor
+  // to speed up GSL-related activities (inverting the matrix to solve for
+  // the torque, interpolating state variables to compute Y).
+  ~DiskContents();
+
   // Sum up a quantity over the entire disk, weighting 
   // by the area of each annulus
   double TotalWeightedByArea(const std::vector<double>&);
@@ -91,7 +103,6 @@ class DiskContents {
   double GetMinSigSt() { return minsigst; };
   std::vector<double>& GetX() {return x;};
   std::vector<double>& GetUu() { return uu;};
-  std::vector<double>& GetPsi() { return psi;};
   std::vector<double>& GetBeta() {return beta;};
   std::vector<double>& GetSig() { return sig;};
   std::vector<double>& GetCol() { return col;};
@@ -101,6 +112,7 @@ class DiskContents {
   std::vector<double>& GetYy() {return yy;}
   Dimensions& GetDim() { return dim;}
   Cosmology& GetCos() { return cos;}
+  FixedMesh& GetMesh() { return mesh;}
 
   // Compute the dimensionless inward velocity of stars 
   // as a function of radius- computed such that 
@@ -129,16 +141,13 @@ class DiskContents {
   // and fixed quantities (x, beta, u,... )
   // This method assumes constant ratios sigst/sig, colst/col 
   // as functions of radius (i.e. constant fg and constant phi)
-  void Initialize(double phi0,double fg0,
-		  unsigned int NActive,unsigned int NPassive,
-		  double velCurveTurnoverRadius);
+  void Initialize(double phi0,double fg0);
 
   // Similar to the above, except put in an exponential scale 
   // length and constant velocity dispersion for the stars
   void Initialize(double Z_Init, double fcool, double fg0,
 		  double sigst0, double Mh0, double MhZs,
-		  unsigned int NActive, unsigned int NPassive,
-		  double BulgeRadius, double stScaleLength);
+		  double stScaleLength);
 
   // Is one of the current stellar populations 'currently forming'
   //, i.e. since stars are binned by age, is the age of stars 
@@ -207,13 +216,12 @@ class DiskContents {
   unsigned int nx; // number of cells
   
   //  Dimensionless values of:
-  std::vector<double> & 
+  std::vector<double> &
     x,     // position of each cell
     beta,  // power law index of rotation curve
     uu,    // local circular velocity
     yy,    // inward velocity of stars
-    betap, //d(beta)/dx 
-    psi;
+    betap; //d(beta)/dx 
 
   std::vector<double>
     h2,h1,h0,H; // coefficients of the torque equation
@@ -277,4 +285,18 @@ class DiskContents {
   double CumulativeTorque; // integral of tau(x=1) dt.
 
   double kappaMetals;
+
+  double * colst_gsl;
+  double * sigst_gsl;
+  gsl_interp_accel * accel_colst;
+  gsl_interp_accel * accel_sigst;
+  gsl_spline * spline_colst;
+  gsl_spline * spline_sigst;
+
+  gsl_vector *lr, *diag, *ur;
+  gsl_vector *tau, *forcing;
+  
+  const double dd,dm1,dmm1,dmdinv,sqd;
+
+  const unsigned int NActive, NPassive;
 };

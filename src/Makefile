@@ -1,5 +1,5 @@
 LDFLAGS		=  -mmacosx-version-min=10.4 -O3 libgsl.a libgslcblas.a -static-libgcc -static-libstdc++
-CFLAGS		= -O3 -I../inc -c
+CFLAGS		=  -O3 -I../inc -c 
 CC		= g++ 
 EXECUTABLE=../bin/gidget
 
@@ -15,4 +15,4 @@ $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -f *.o $(EXECUTABLE)
+	rm -rf *.o $(EXECUTABLE) $(EXECUTABLE).dSYM

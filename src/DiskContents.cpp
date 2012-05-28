@@ -40,54 +40,93 @@ DiskContents::DiskContents(double tH, double eta,
 			   Cosmology& c,Dimensions& d,
 			   FixedMesh& m,
 			   double thk, bool migP,
-                           double Qinit, double km) :
+                           double Qinit, double km,
+                           unsigned int NA, unsigned int NP,
+			   double minSigSt) :
   nx(m.nx()),x(m.x()),beta(m.beta()),
   uu(m.uu()), betap(m.betap()),
   dim(d), mesh(m),
-  XMIN(m.xmin()),ZDisk(std::vector<double>(nx+1,Z_IGM)),
+  XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
   cos(c),tauHeat(tH),sigth(sflr),
   EPS_ff(epsff),ETA(eta),MassLoadingFactor(mlf),
+//  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
+//  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
   spsActive(std::vector<StellarPop>(0)),
   spsPassive(std::vector<StellarPop>(0)),
   dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
   yREC(.054),RfREC(0.46),zetaREC(1.0), 
   analyticQ(aq),
   thickness(thk), migratePassive(migP),
-  col(std::vector<double>(nx+1,0.)),
-  sig(std::vector<double>(nx+1,0.)),  
-  dQdS(std::vector<double>(nx+1,0.)), 
-  dQds(std::vector<double>(nx+1,0.)), 
-  dQdSerr(std::vector<double>(nx+1)),
-  dQdserr(std::vector<double>(nx+1,0.)),
-  dcoldt(std::vector<double>(nx+1,0.)),
-  dsigdt(std::vector<double>(nx+1,0.)),
-  dZDiskdt(std::vector<double>(nx+1,0.)),
-  colSFR(std::vector<double>(nx+1,0.)),
-  keepTorqueOff(std::vector<int>(nx+1,0)),
-  diffused_dcoldt(std::vector<double>(nx+1,0.)),
-  yy(std::vector<double>(nx+1,0.)),
-  CumulativeSF(std::vector<double>(nx+1,0.)),
-  CumulativeTorqueErr2(std::vector<double>(nx+1,0.)),
-  CumulativeTorqueErr(std::vector<double>(nx+1,0.)),
-  d2taudx2(std::vector<double>(nx+1,0.)),
+  col(std::vector<double>(m.nx()+1,0.)),
+  sig(std::vector<double>(m.nx()+1,0.)),  
+  dQdS(std::vector<double>(m.nx()+1,0.)), 
+  dQds(std::vector<double>(m.nx()+1,0.)), 
+  dQdSerr(std::vector<double>(m.nx()+1)),
+  dQdserr(std::vector<double>(m.nx()+1,0.)),
+  dcoldt(std::vector<double>(m.nx()+1,0.)),
+  dsigdt(std::vector<double>(m.nx()+1,0.)),
+  dZDiskdt(std::vector<double>(m.nx()+1,0.)),
+  colSFR(std::vector<double>(m.nx()+1,0.)),
+  keepTorqueOff(std::vector<int>(m.nx()+1,0)),
+  diffused_dcoldt(std::vector<double>(m.nx()+1,0.)),
+  yy(std::vector<double>(m.nx()+1,0.)),
+  CumulativeSF(std::vector<double>(m.nx()+1,0.)),
+  CumulativeTorqueErr2(std::vector<double>(m.nx()+1,0.)),
+  CumulativeTorqueErr(std::vector<double>(m.nx()+1,0.)),
+  d2taudx2(std::vector<double>(m.nx()+1,0.)),
   initialStellarMass(0.0),initialGasMass(0.0),
   cumulativeMassAccreted(0.0),
   cumulativeStarFormationMass(0.0),
   cumulativeGasMassThroughIB(0.0),
   cumulativeStellarMassThroughIB(0.0),
-  CuStarsOut(std::vector<double>(nx+1,0.)), 
-  CuGasOut(std::vector<double>(nx+1,0.)),
-  H(std::vector<double>(nx+1,0.)),
-  h0(std::vector<double>(nx+1,0.)),
-  h1(std::vector<double>(nx+1,0.)),
-  h2(std::vector<double>(nx+1,0.)),
+  CuStarsOut(std::vector<double>(m.nx()+1,0.)), 
+  CuGasOut(std::vector<double>(m.nx()+1,0.)),
+  H(std::vector<double>(m.nx()+1,0.)),
+  h0(std::vector<double>(m.nx()+1,0.)),
+  h1(std::vector<double>(m.nx()+1,0.)),
+  h2(std::vector<double>(m.nx()+1,0.)),
   fixedQ(Qinit),CumulativeTorque(0.0),
   kappaMetals(km),
-  minsigst(1.0/d.v(1.0)) // 1 km/s
-{ 
+  minsigst(minSigSt),
+  NActive(NA),
+  NPassive(NP),
+  dd(exp(m.dlnx())),    // define the quantity d (a number slightly larger than 1)
+  dm1(expm1(m.dlnx())), // dm1 = d-1. Use expm1 to find this to high precision.
+  dmm1(-expm1(-m.dlnx())),   // dmm1 = 1 -d^-1
+  dmdinv(expm1(2.*m.dlnx())/exp(m.dlnx())),  // dmdinv = d -d^-1
+  sqd(exp(m.dlnx()/2.)) // sqd = square root of d
+{
+  accel_colst = gsl_interp_accel_alloc();
+  accel_sigst = gsl_interp_accel_alloc();
+  spline_colst = gsl_spline_alloc(gsl_interp_cspline,nx);
+  spline_sigst = gsl_spline_alloc(gsl_interp_cspline,nx);
+  colst_gsl = new double[nx];
+  sigst_gsl = new double[nx];
+
+  lr=gsl_vector_alloc(nx-1); 
+  diag=gsl_vector_alloc(nx); 
+  ur=gsl_vector_alloc(nx-1);
+  tau=gsl_vector_alloc(nx); 
+  forcing=gsl_vector_alloc(nx);
+
+
+
   return;
 }
 
+DiskContents::~DiskContents()
+{
+  gsl_spline_free(spline_colst);
+  gsl_spline_free(spline_sigst);
+  gsl_interp_accel_free(accel_colst);
+  gsl_interp_accel_free(accel_sigst);
+  delete[] colst_gsl;
+  delete[] sigst_gsl;
+
+  gsl_vector_free(lr); gsl_vector_free(diag); gsl_vector_free(ur);
+  gsl_vector_free(tau); gsl_vector_free(forcing);
+
+}
 
 void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 {
@@ -121,6 +160,9 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]);
   initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
   initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+
+//  spsActive.clear();
+//  spsPassive.clear();
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
   EnforceFixedQ(fixedPhi0);
@@ -136,8 +178,7 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 // sigst0 is in units of vphiR. stScaleLength is, as usual in units of kpc, as is BulgeRadius.
 void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 			      double sigst0, double Mh0,double MhZs,
-			      unsigned int NActive,unsigned int NPassive,
-			      double BulgeRadius, double stScaleLength)
+			      double stScaleLength)
 {			     
   StellarPop initialStarsA(nx,YoungIthBin(0,cos,NActive),
 			   OldIthBin(0,cos,NActive));
@@ -221,6 +262,10 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
   initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
   initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+
+//  spsActive.clear();
+//  spsPassive.clear();
+
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
   EnforceFixedQ(false);
@@ -231,9 +276,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
-void DiskContents::Initialize(double tempRatio, double fg0, 
-			      unsigned int NActive, unsigned int NPassive, 
-			      double BulgeRadius)
+void DiskContents::Initialize(double tempRatio, double fg0)
 {
   // an active and passive stellar population..
   StellarPop initialStarsA(nx,
@@ -693,24 +736,6 @@ void DiskContents::ComputeTorques(double ** tauvec,
                                   const double IBC, 
                                   const double OBC)
 {
-  gsl_vector *lr, *diag, *ur;
-  gsl_vector *tau, *forcing;
-  lr=gsl_vector_alloc(nx-1); 
-  diag=gsl_vector_alloc(nx); 
-  ur=gsl_vector_alloc(nx-1);
-  tau=gsl_vector_alloc(nx); 
-  forcing=gsl_vector_alloc(nx);
-
-  // define the quantity d (a number slightly larger than 1)
-  double dd = exp(dlnx);   
-  // dm1 = d-1. Use expm1 to find this to high precision.
-  double dm1 = expm1(dlnx); 
-  // dmm1 = 1 -d^-1
-  double dmm1= -expm1(-dlnx); 
-  // dmdinv = d -d^-1
-  double dmdinv = expm1(2.*dlnx)/dd; 
-  // sqd = square root of d
-  double sqd = exp(dlnx/2.);
 
   // Fill in some GSL vectors in preparation for inverting a tri-diagonal matrix
 
@@ -795,8 +820,6 @@ void DiskContents::ComputeTorques(double ** tauvec,
         + tauvec[2][n] * h1[n] + tauvec[1][n] * h0[n] - H[n];
   } 
 
-  gsl_vector_free(lr); gsl_vector_free(diag); gsl_vector_free(ur);
-  gsl_vector_free(tau); gsl_vector_free(forcing);
 }
 
 void DiskContents::DiffuseMetals(double dt)
@@ -1015,7 +1038,7 @@ double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,st
   double val = 0.0;
   
   if(n<nx) { 
-    double sigp2 = (2./3.) * (psi[n+1]-psi[n]) + (1./3.) * (uu[n+1]*uu[n+1]-uu[n]*uu[n]) + sig_st[n+1]*sig_st[n+1];
+    double sigp2 = (2./3.) * (mesh.psi(mesh.x(n+1))-mesh.psi(mesh.x(n))) + (1./3.) * (uu[n+1]*uu[n+1]-uu[n]*uu[n]) + sig_st[n+1]*sig_st[n+1];
     val = -2.0*M_PI/ (2.0*x[n]*x[n]*dlnx*col_st[n]*sig_st[n]) * (x[n+1]*yy[n+1]*col_st[n+1]*(sigp2-sig_st[n]*sig_st[n]));
   }
   if(sps[sp].IsForming(cos,redshift)) {
@@ -1311,83 +1334,10 @@ void DiskContents::WriteOutStepFile(std::string filename,
   file2.close();
 }
 
-void DiskContents::ComputeY2()
-{
-  gsl_vector *lr, *diag, *ur;
-  gsl_vector *y, *forcing;
-  lr=gsl_vector_alloc(nx-1);
-  diag=gsl_vector_alloc(nx);
-  ur=gsl_vector_alloc(nx-1);
-  y=gsl_vector_alloc(nx);
-  forcing=gsl_vector_alloc(nx);
-  double dd=exp(dlnx);
-  std::vector<double> col_st(nx+1), sig_st(nx+1), Qst(nx+1), f0(nx+1);
-
-  for(unsigned int n=1; n<=nx; ++n) {
-    col_st[n]=activeColSt(n);
-    sig_st[n]=activeSigSt(n);
-  }
-
-  for(unsigned int n=1; n<=nx; ++n) {
-//    Qst[n] =  sqrt(2.*(beta[n]+1.)) * sqrt(uu[n]*uu[n]*sig_st[n]*sig_st[n]) / (M_PI*dim.chi() * sqrt(col_st[n]*col_st[n]*x[n]*x[n]));
-    Qst[n] =ComputeQst(n);
-    f0[n] = (3*sig_st[n]*sig_st[n] - uu[n]*uu[n]*(1.0+beta[n])) / (sig_st[n]*sig_st[n]*3.0*x[n]) - ddx(sig_st,n,x)/sig_st[n] + ddx(col_st,n,x)/col_st[n];
-  }
-  Qst[0]=Qst[1];
-
-
-  for(unsigned int n=1; n<=nx; ++n) {
-    if(Qst[n-1] < Qlim)
-     gsl_vector_set(forcing, n-1, (1./(2.*M_PI*x[n]*tauHeat/uu[n])) * (Qlim/Qst[n-1] - 1.));
-    else
-     gsl_vector_set(forcing, n-1, 0.0);
-
-    gsl_vector_set(diag, n-1, f0[n]);
-
-  }
-  gsl_vector_set(diag,0, gsl_vector_get(diag,0) - 1.0 / (x[2]-x[1]));
-  gsl_vector_set(diag,nx-1,1.0);
-  gsl_vector_set(forcing,nx-1,0.0);
-  
-  for(unsigned int n=2; n<=nx-1; ++n) {
-    gsl_vector_set(ur, n-1, 1.0 / (x[n+1] - x[n-1]));
-    gsl_vector_set(lr, n-2, -1.0/ (x[n+1] - x[n-1]));
-  }
-  gsl_vector_set(lr,nx-2,0.0);
-  gsl_vector_set(ur,0, 1.0/(x[2]-x[1]));
-
-  for(unsigned int n=1; n<=nx-2; ++n) {
-    if(Qst[n] > Qlim) {
-       // y[n+1]=0;
-       gsl_vector_set(diag, n, 1.0);
-       gsl_vector_set(ur, n, 0.0);
-       gsl_vector_set(lr,n-1,0.0);
-       gsl_vector_set(forcing,n,0.0);
-    }
-  }
-
-  int status = gsl_linalg_solve_tridiag(diag,ur,lr,forcing,y);
-  if(status!=GSL_SUCCESS)
-    errormsg("Failed to solve stellar migration equation.");
-
-  for(unsigned int n=1; n<=nx; ++n) { 
-    yy[n] = gsl_vector_get(y,n-1);
-  }
-
-  gsl_vector_free(lr); gsl_vector_free(diag); gsl_vector_free(ur);
-  gsl_vector_free(y); gsl_vector_free(forcing);
-
-}
 
 void DiskContents::ComputeY()
 {
-  // Set up interpolation objects for sigst,colst
-  gsl_interp_accel * accel_colst = gsl_interp_accel_alloc();
-  gsl_interp_accel * accel_sigst = gsl_interp_accel_alloc();
-  gsl_spline * spline_colst = gsl_spline_alloc(gsl_interp_cspline,nx-1);
-  gsl_spline * spline_sigst = gsl_spline_alloc(gsl_interp_cspline,nx-1);
-  double * colst_gsl = new double[nx];
-  double * sigst_gsl = new double[nx];
+
   yy[nx]=0.;
   std::vector<double> col_st(nx+1), sig_st(nx+1), Qst(nx+1);
   for(unsigned int n=nx; n>=1; --n) {
@@ -1395,7 +1345,7 @@ void DiskContents::ComputeY()
     sig_st[n]=activeSigSt(n);
     Qst[n] = ComputeQst(n);
     colst_gsl[n-1] = col_st[n];
-    sigst_gsl[n-1] = col_st[n];
+    sigst_gsl[n-1] = sig_st[n];
   }
   gsl_spline_init(spline_colst,mesh.x_GSL(),colst_gsl,nx);
   gsl_spline_init(spline_sigst,mesh.x_GSL(),sigst_gsl,nx);
@@ -1403,11 +1353,13 @@ void DiskContents::ComputeY()
   Qst[0]=Qst[1];
 
   unsigned int NN = mesh.necessaryN(minsigst);
-  double dn = 1.0/((double) NN*nx);
+  double dn = 1.0/(((double) NN)*((double) nx));
   double yyn=0.0;
   double yynm1=0.0;
-  for(double n=((double) nx); n>1; n-=dn) {  
-    double xnm1 = mesh.x(n-dn);
+  for(unsigned int i=NN*nx; i>1 ; --i) {
+    double n = ((double) i)/((double) NN);
+//  for(double n=((double) nx); n-dn>=1.0; n-=dn) {  
+    double xnm1 = mesh.x(((double) i-1)/((double) NN));
     double xn = mesh.x(n);
     double Qst_nm1 = sqrt(2.*(mesh.beta(xnm1)+1.0))*mesh.uu(xnm1)* gsl_spline_eval(spline_sigst,xnm1,accel_sigst)
                        / (M_PI*dim.chi()*xnm1* gsl_spline_eval(spline_colst,xnm1,accel_colst)) ;
@@ -1424,18 +1376,12 @@ void DiskContents::ComputeY()
 		     - max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*xnm1*dlnx / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
       if(yynm1!=yynm1 || yynm1>0.0000001)
         errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" "+str(sigp2));
-      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
-        yy[((unsigned int) (n))] = yynm1;
+//      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
+      if(i-1 % NN == 0)
+        yy[(i-1)/NN] = yynm1;
       yyn = yynm1;
     }
   }
-
-  gsl_spline_free(spline_colst);
-  gsl_spline_free(spline_sigst);
-  gsl_interp_accel_free(accel_colst);
-  gsl_interp_accel_free(accel_sigst);
-  delete[] colst_gsl;
-  delete[] sigst_gsl;
 }
 
 void DiskContents::ComputePartials()
@@ -1501,7 +1447,7 @@ void DiskContents::ComputePartials()
 
   else {
     if(spsActive.size()>1)
-      std::cerr << "WARNING: More active stellar populations than assumed!" << std::endl;
+      std::cerr << "WARNING: More active stellar populations than assumed: " << spsActive.size()<< std::endl;
     for(unsigned int n=1; n<=nx; ++n) {
       double col_st=activeColSt(n);
       double sig_st=activeSigSt(n);

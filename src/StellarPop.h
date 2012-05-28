@@ -9,6 +9,8 @@ class Cosmology;
 class StellarPop {
  public:
   StellarPop();
+  StellarPop(const StellarPop&);
+  StellarPop & operator=(const StellarPop&);
 
   // Create a stellar Population which will form between 
   // lookback times youngest and oldest (in seconds)
@@ -33,6 +35,18 @@ class StellarPop {
   // stellar population is formed and therefore Sigma_*/(dSigma_*/dt) is 
   // potentially very small
   void extract(StellarPop& sp2, double f);
+
+  std::vector<double> GetSpCol() const { return spcol; };
+  std::vector<double> GetSpSig() const { return spsig; };
+  std::vector<double> GetSpZ() const { return spZ; };
+  std::vector<double> GetSpZV() const { return spZV; };
+  std::vector<double> GetdQdS() const { return dQdS; };
+  std::vector<double> GetdQds() const { return dQds; };
+  std::vector<double> GetdQdSerr() const { return dQdSerr;};
+  std::vector<double> GetdQdserr() const { return dQdserr;};
+  double GetYoungest() const { return youngest; };
+  double GetOldest() const { return oldest; };
+  double GetAgeAtz0() const { return ageAtz0; };
 
  private:
   std::vector<double> spcol; // column density as a function of position.

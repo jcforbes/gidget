@@ -8,17 +8,20 @@
 #include <gsl/gsl_spline.h>
 
 FixedMesh::FixedMesh(double innerPowerlaw, double turnoverRadius, double sft, double xm, unsigned int nnx):
-    ip(innerPowerlaw), b(turnoverRadius),nxc(nnx), soft(sft), dlnxc(exp(-log(xm)/(nnx-1.))), xminc(xm),
-    xv(std::vector<double>(nnx+1,0.)),
+    ip(innerPowerlaw), b(turnoverRadius),nxc(nnx), soft(sft), dlnxc(-log(xm)/(((double) nnx)-1.)), 
+    xminc(xm), xv(std::vector<double>(nnx+1,0.)),
     betav(std::vector<double>(nnx+1,0.)), betapv(std::vector<double>(nnx+1,0.)),
     uuv(std::vector<double>(nnx+1,0.)), psiv(std::vector<double>(nnx+1,0.)),
     stored(false)
 {
   bsf = pow(b,sft);
   bmsf = 1.0/bsf;
-  psi1=  (1.0 / (2.0*ip)) * (pow(1.0+bmsf, 2.0/sft)*pow(1.0+bsf, -2.0/sft)*
+  if(b!=0.0)   psi1=  (1.0 / (2.0*ip)) * (pow(1.0+bmsf, 2.0/sft)*pow(1.0+bsf, -2.0/sft)*
                   gsl_sf_hyperg_2F1(2./sft,2./sft,(2.+sft)/sft,-bmsf));
-  
+  else psi1 = 0.0;
+ 
+  x_gsl = new double[nxc];
+ 
   for(unsigned int n=1; n<=nxc; ++n) {
     xv[n] = x(n);
     psiv[n] = psi(xv[n]);
@@ -41,15 +44,21 @@ double FixedMesh::x(unsigned int n)
 
 double FixedMesh::x(double n)
 {
-  return xminc*exp(dlnxc*(n-1.));
+  double val = xminc*exp(dlnxc*(n-1.));
+  if(val<xminc) return xminc;
+  if(val>1.0) return 1.0;
+  return val;
 }
 
 double FixedMesh::psi(double x)
 {
   double xipsf = pow(x,ip*soft);
   double xip = pow(x,ip);
-  return psi1 - 1.0/(2.0*ip) * xip*xip * pow(bsf + xipsf,-2.0/soft) * pow(1.0+bmsf*xipsf,2.0/soft)
+  if(b!=0.0)
+      return psi1 - 1.0/(2.0*ip) * xip*xip * pow(bsf + xipsf,-2.0/soft) * pow(1.0+bmsf*xipsf,2.0/soft)
           *gsl_sf_hyperg_2F1(2./soft,2./soft,(2.+soft)/soft,-bmsf*xipsf);
+  else
+     return log(x);
 }
 
 double FixedMesh::uu(double x)

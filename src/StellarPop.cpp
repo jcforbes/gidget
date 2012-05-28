@@ -2,21 +2,116 @@
 #include "Cosmology.h"
 #include "DiskContents.h"
 #include "DiskUtils.h"
+#include "FixedMesh.h"
+
 #include <math.h>
 #include <vector>
 #include <iostream>
 
+// typical constructor
 StellarPop::StellarPop(unsigned int nx,double y,double o) :
   spcol(std::vector<double>(nx+1,0.)), spsig(std::vector<double>(nx+1,0.)),
   spZ(std::vector<double>(nx+1,0.)), spZV(std::vector<double>(nx+1,0.)),
   dQdS(std::vector<double>(nx+1,0.)),
   dQds(std::vector<double>(nx+1,0.)), dQdSerr(std::vector<double>(nx+1,0.)),
-  dQdserr(std::vector<double>(nx+1,0.)),youngest(y),oldest(o),ageAtz0((o+y)/2.0)
+  dQdserr(std::vector<double>(nx+1,0.)),
+  youngest(y),oldest(o),ageAtz0((o+y)/2.0)
 { }
 
+// default constructor
 StellarPop::StellarPop() :  
+  spcol(std::vector<double>(1,0.)), 
+  spsig(std::vector<double>(1,0.)),
+  spZ(std::vector<double>(1,0.)), 
+  spZV(std::vector<double>(1,0.)),
+  dQdS(std::vector<double>(1,0.)),
+  dQds(std::vector<double>(1,0.)), 
+  dQdSerr(std::vector<double>(1,0.)),
+  dQdserr(std::vector<double>(1,0.)),
   youngest(-1.),oldest(-1.),ageAtz0(-1.)      
 { }
+
+//// copy constructor
+//StellarPop::StellarPop(const StellarPop& copy_from) :
+//  spcol(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  spsig(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  spZ(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  spZV(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  dQdS(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  dQds(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  dQdSerr(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  dQdserr(std::vector<double>(copy_from.GetSpCol().size(),0.)),
+//  youngest(copy_from.GetYoungest()),
+//  oldest(copy_from.GetOldest()),
+//  ageAtz0(copy_from.GetAgeAtz0())
+//{
+//  for(unsigned int n=1; n<=spcol.size(); ++n) {
+//    spcol[n] = copy_from.GetSpCol()[n];
+//    spsig[n] = copy_from.GetSpSig()[n];
+//    spZ[n] = copy_from.GetSpZ()[n];
+//    spZV[n] = copy_from.GetSpZV()[n];
+//    dQdS[n] = copy_from.GetdQdS()[n];
+//    dQds[n] = copy_from.GetdQds()[n];
+//    dQdSerr[n] = copy_from.GetdQdSerr()[n];
+//    dQdserr[n] = copy_from.GetdQdserr()[n];
+//  }
+//}
+
+// copy constructor
+StellarPop::StellarPop(const StellarPop& copy_from) :
+  spcol(copy_from.GetSpCol()),
+  spsig(copy_from.GetSpSig()),
+  spZ(copy_from.GetSpZ()),
+  spZV(copy_from.GetSpZV()),
+  dQdS(copy_from.GetdQdS()),
+  dQds(copy_from.GetdQds()),
+  dQdSerr(copy_from.GetdQdSerr()),
+  dQdserr(copy_from.GetdQdserr()),
+  youngest(copy_from.GetYoungest()),
+  oldest(copy_from.GetOldest()),
+  ageAtz0(copy_from.GetAgeAtz0())
+{
+  return;
+}
+
+// assignment operator
+StellarPop & StellarPop::operator= (const StellarPop& copy_from) 
+{
+  const unsigned int nxp1= copy_from.GetSpCol().size();
+  spcol.resize(nxp1);
+  spsig.resize(nxp1);
+  spZ.resize(nxp1);
+  spZV.resize(nxp1);
+  dQdS.resize(nxp1);
+  dQds.resize(nxp1);
+  dQdSerr.resize(nxp1);
+  dQdserr.resize(nxp1);
+
+  ageAtz0 = copy_from.GetAgeAtz0();
+  youngest = copy_from.GetYoungest();
+  oldest=copy_from.GetOldest();
+  spcol = copy_from.GetSpCol();
+  spsig = copy_from.GetSpSig();
+  spZ = copy_from.GetSpZ();
+  spZV = copy_from.GetSpZV();
+  dQdS = copy_from.GetdQdS();
+  dQds = copy_from.GetdQds();
+  dQdSerr = copy_from.GetdQdSerr();
+  dQdserr = copy_from.GetdQdserr();
+//
+//  for(unsigned int n=1; n<=spcol.size(); ++n) {
+//    spcol[n] = copy_from.GetSpCol()[n];
+//    spsig[n] = copy_from.GetSpSig()[n];
+//    spZ[n] = copy_from.GetSpZ()[n];
+//    spZV[n] = copy_from.GetSpZV()[n];
+//    dQdS[n] = copy_from.GetdQdS()[n];
+//    dQds[n] = copy_from.GetdQds()[n];
+//    dQdSerr[n] = copy_from.GetdQdSerr()[n];
+//    dQdserr[n] = copy_from.GetdQdserr()[n];
+//  }
+  return *this;
+}
+
 
 bool StellarPop::IsForming(Cosmology& cos, double redshift)
 {
@@ -117,7 +212,7 @@ void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskConte
 //    dcolh[n] = -2.*M_PI*((*this).spcol[n]*ddx(yy,n,disk.GetX()) + ddx((*this).spcol,n,disk.GetX()) *yy[n] + (*this).spcol[n]*yy[n]/disk.GetX()[n]);
 //    dsigh[n] = -2.*M_PI*yy[n]*((1.+disk.GetBeta()[n])*disk.GetUu()[n]*disk.GetUu()[n]/(3.*(*this).spsig[n]*disk.GetX()[n]) + ddx((*this).spsig,n,disk.GetX()));
     if(n<spcol.size()-1) {
-     double sigp2 = (2./3.) * (disk.GetPsi()[n+1]-disk.GetPsi()[n]) + (1./3.) * (disk.GetUu()[n+1]*disk.GetUu()[n+1]-disk.GetUu()[n]*disk.GetUu()[n]) + spsig[n+1]*spsig[n+1];
+     double sigp2 = (2./3.) * (disk.GetMesh().psi(disk.GetX()[n+1])-disk.GetMesh().psi(disk.GetX()[n])) + (1./3.) * (disk.GetUu()[n+1]*disk.GetUu()[n+1]-disk.GetUu()[n]*disk.GetUu()[n]) + spsig[n+1]*spsig[n+1];
      dsigh[n] = -2.0*M_PI/ (2.0*disk.GetX()[n]*disk.GetX()[n]*disk.GetDlnx()*spcol[n]*spsig[n]) * (disk.GetX()[n+1]*yy[n+1]*spcol[n+1]*(sigp2-spsig[n]*spsig[n]));
     }
     else dsigh[n] = 0.0;

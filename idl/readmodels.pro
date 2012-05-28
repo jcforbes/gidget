@@ -144,6 +144,8 @@ FUNCTION readOutput,name
   TOL=ExtractCmtFlt(lunCom)
   MLF=ExtractCmtFlt(lunCom)
   b=ExtractCmtFlt(lunCom)
+  innerPowerLaw=ExtractCmtFlt(lunCom)
+  softening=ExtractCmtFlt(lunCom)
 ;  md0=ExtractCmtFlt(lunCom)
   scaleLength=ExtractCmtFlt(lunCom)
   whichAccHistory = ExtractCmtL(lunCom)
@@ -153,8 +155,8 @@ FUNCTION readOutput,name
   fixedQ=ExtractCmtFlt(lunCom)
   kappaMetals=ExtractCmtFlt(lunCom)
   mh0=ExtractCmtFlt(lunCom)
-  md0=ExtractCmtFlt(lunCom)
   minStsig = ExtractCmtFlt(lunCom)
+  md0=ExtractCmtFlt(lunCom)
 
   ;; Now we need to rescale some values for mh0!=1e12
   MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);

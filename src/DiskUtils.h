@@ -43,10 +43,10 @@ double I0Exp(double x);
 double I1Exp(double x);
 
 // Convert various numerical values into strings
-std::string str(double);
-std::string str(int);
-std::string str(unsigned int);
-std::string str(long int);
+std::string str(const double);
+std::string str(const int);
+std::string str(const unsigned int);
+std::string str(const long int);
 
 // Compute Q given a set of parameters qp and a guess at
 // the most unstable dimensionless wavenumber absc.

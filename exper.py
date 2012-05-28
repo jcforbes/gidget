@@ -15,10 +15,10 @@ import math
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1e-4,1.0,0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12]
+        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-4,1.0,0,.5,2.0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12,10.0]
         self.pl=[self.p[:]]
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -39,7 +39,9 @@ class experiment:
         if(n>1 and log==0):
             self.p[self.keys[name]]=[mmin + (mmax-mmin)*type(self.p[self.keys[name]])(i)/type(self.p[self.keys[name]])(n-1) for i in range(n)]
         elif(n>1 and log==1 and mmin!=0 and mmin!=0.0):
-            self.p[self.keys[name]]=[type(self.p[self.keys[name]])(float(mmin) * (float(mmax)/float(mmin))**(float(i)/float(n-1))) for i in range(n)]
+            rat = (float(mmax)/float(mmin))
+            typ = type(self.p[self.keys[name]])
+            self.p[self.keys[name]]=[typ(float(mmin) * (rat)**(float(i)/float(n-1))) for i in range(n)]
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
             
@@ -79,7 +81,7 @@ class experiment:
                 # end loop over range of this varied parameter
 		
 		# collapse pl to be a 1d array of p's.
-                self.pl=[element for sub in pl2 for element in sub] 
+                self.pl=[element for sub in pl2 for element in sub]
             else : #just a regular non-varying parameter
                 # If the user has used vary() but with N=1, the new argument will
                 # not be a list! In this case, we set this parameter in each element 
@@ -182,31 +184,11 @@ if __name__ == "__main__":
     expName=sys.argv[1]
     a=experiment(expName)
 
- 
-#    # rj2
-#    a.vary('nx',200,200,1,0)
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',4,3003,3000,0)
-
-#    #rj3, rj4 (with monotonic Qst, even when Qst min > Qlim.)
-#    a.vary('nx',200,200,1,0)
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',4,3003,3000,0)
-#    a.vary('Mh0',1.0e10,1.0e10,1,0)
-
-    # rj5: rj4 w/ Mh0=1e12; turns out rj4 had a bug; fixed in rj5+
-    # rj6: rj5 w/ Mh0=1e10
-
-    # to summarize: rj5: Mh0=1e12, rj6: Mh0=1e10, rj7:Mh0=1e11
-    # rj8: Mh0=1e10 with fg=.9
-    # rj9: Mh0=1e11 with fg=.9
-    # rj10: Mh0=1e12 with fg=.9
-    # rj11: Mh0=1e12 with fg=.5
-    # rj12: Mh0=1e10 with fg=.9, b=1, higher res, smaller radius
-    a.vary('nx',1000,1000,1,0)
+    # rk1
+    a.vary('nx',200,200,1,0)
     a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',4,1003,1000,0)
-    a.vary('R',10.0,10.0,1,0)
+    a.vary('whichAccretionHistory',4,103,100,0)
+    a.vary('R',20.0,20.0,1,0)
     a.vary('Mh0',1.0e12,1.0e12,1,0)
     a.vary('fg0',.5,.5,1,0)
 #    a.vary('b',1.0,1.0,1,0)
@@ -216,4 +198,4 @@ if __name__ == "__main__":
     # parameter lists for individual runs.
     a.generatePl()  
 #    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
-    a.localRun(16) # run (in serial) on four processors.
+    a.localRun(15) # run (in serial) on four processors.

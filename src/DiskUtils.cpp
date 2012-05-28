@@ -217,25 +217,25 @@ double max(double a, double b)
   return b;
 }
 
-std::string str(int val)
+std::string str(const int val)
 {
   std::stringstream s;
   s << val;
   return s.str();
 }
-std::string str(double val)
+std::string str(const double val)
 {
   std::stringstream s;
   s<<val;
   return s.str();
 }
-std::string str(unsigned int val)
+std::string str(const unsigned int val)
 {
   std::stringstream s;
   s << val;
   return s.str();
 }
-std::string str(long int val)
+std::string str(const long int val)
 {
   std::stringstream s;
   s<<val;

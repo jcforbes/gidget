@@ -1,8 +1,9 @@
 #include <vector>
+#include <gsl/gsl_spline.h>
 
 class FixedMesh {
  public:
-  FixedMesh(double,double,double,double,unsigned int);
+  FixedMesh(double,double,double,double,double,unsigned int);
   ~FixedMesh();
   double * x_GSL() { return x_gsl;};
   std::vector<double> & x() {return xv;};
@@ -19,11 +20,12 @@ class FixedMesh {
   double dlnx() { return dlnxc;};
   double xmin() { return xminc;};
   unsigned int nx() { return nxc;};
-  unsigned int necessaryN(double minsigst);
+  unsigned int necessaryN();
   double n(unsigned int index,unsigned int neff);
+  bool InitializePsi();
  private:
   std::vector<double> xv;
-  std::vector<double> psiv;
+//  std::vector<double> psiv;
   std::vector<double> uuv;
   std::vector<double> betav;
   std::vector<double> betapv;
@@ -33,8 +35,16 @@ class FixedMesh {
             dlnxc,
             xminc;
   double * x_gsl;
+  double * x_HR_GSL;
+  double * psi_HR_GSL;
+
+  gsl_spline * spline_psi;
+  gsl_interp_accel * accel_psi;
+
   const unsigned int nxc;
   double psi1, bsf,bmsf;
-  bool stored;
+  bool stored, PsiInitialized;
   unsigned int necesN;
+
+  double minsigst;
 };

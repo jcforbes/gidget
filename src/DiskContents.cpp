@@ -1352,7 +1352,7 @@ void DiskContents::ComputeY()
 
   Qst[0]=Qst[1];
 
-  unsigned int NN = mesh.necessaryN(minsigst);
+  unsigned int NN = mesh.necessaryN();
   double dn = 1.0/(((double) NN)*((double) nx));
   double yyn=0.0;
   double yynm1=0.0;

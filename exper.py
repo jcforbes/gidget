@@ -184,14 +184,23 @@ if __name__ == "__main__":
     expName=sys.argv[1]
     a=experiment(expName)
 
-    # rk1
+#    # rk1 - test high-res y computation.
+#    a.vary('nx',200,200,1,0)
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',4,103,100,0)
+#    a.vary('R',20.0,20.0,1,0)
+#    a.vary('Mh0',1.0e12,1.0e12,1,0)
+#    a.vary('fg0',.5,.5,1,0)
+
+    # rk2 - find out in what parameter space we're allowed to work in terms of rotation curves
     a.vary('nx',200,200,1,0)
     a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',4,103,100,0)
+    a.vary('whichAccretionHistory',4,4,1,0)
     a.vary('R',20.0,20.0,1,0)
     a.vary('Mh0',1.0e12,1.0e12,1,0)
-    a.vary('fg0',.5,.5,1,0)
-#    a.vary('b',1.0,1.0,1,0)
+    a.vary('b',0.0,5.0,10,0)
+    a.vary('softening',1.0,4.0,3,1)
+    a.vary('innerPowerLaw',.1,1,10,0)
 
 
     # expand all the vary-ing into the appropriate number of 

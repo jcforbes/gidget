@@ -266,154 +266,153 @@ FUNCTION readOutput,name
       READU,lunStarsA,NABp1A,stsSizeA,nx2A
       READU,lunStarsA,x
       FOR i=0, stsSize-1 DO BEGIN
-;;;				IF(EOF(lunSt) NE 1) THEN BEGIN
-					READU,lunStars,age
-					stellarAges[timeOutputs,i]=age
-					READU,lunStars,contOfAgeBin
-					starsHyperCube[timeOutputs,i,0:nx-1,0:(STVars-1)]=contOfAgeBin
-;;;				ENDIF
-			ENDFOR
-			FOR ii=0, stsSizeA-1 DO BEGIN
-;;;				IF(EOF(lunStA) NE 1) THEN BEGIN
-					READU,lunStarsA,age
-					READU,lunStarsA,contOfAgeBinA
-					starsHyperCubeA[timeOutputs,ii,0:nx-1,0:(STVars-1)]=contOfAgeBinA
-;;;				ENDIF
-			ENDFOR
+;;;	IF(EOF(lunSt) NE 1) THEN BEGIN
+		READU,lunStars,age
+		stellarAges[timeOutputs,i]=age
+		READU,lunStars,contOfAgeBin
+		starsHyperCube[timeOutputs,i,0:nx-1,0:(STVars-1)]=contOfAgeBin
+;;;	ENDIF
+      ENDFOR
+      FOR ii=0, stsSizeA-1 DO BEGIN
+;;;	IF(EOF(lunStA) NE 1) THEN BEGIN
+		READU,lunStarsA,age
+		READU,lunStarsA,contOfAgeBinA
+		starsHyperCubeA[timeOutputs,ii,0:nx-1,0:(STVars-1)]=contOfAgeBinA
+;;;	ENDIF
+      ENDFOR
 					
-;;			FREE_LUN,lunSt
-;;			FREE_LUN,lunStA
+;;    FREE_LUN,lunSt
+;;    FREE_LUN,lunStA
 			timeOutputs+=1
-		ENDIF
+    ENDIF
 
-	ENDFOR ;; end loop over steps in the evolution file
-	FREE_LUN,lunRadial
-	FREE_LUN,lunStars
-	FREE_LUN,lunStarsA
-
-
-	starsHyperCube=(temporary(starsHyperCube))[0:(timeOutputs-1),0:(NABp1-1),0:(nx-1),0:STVars-1] ;; trim down the hypercube
-	starsHyperCubeA=(temporary(starsHyperCubeA))[0:(timeOutputs-1),0:(NABp1A-1),0:(nx-1),0:STVars-1] ;; trim down the active hypercube
-
-	stvpp=4 ;; number of stellar properties calculated in this routine from the raw output
-	STVars=STVars+stvpp ;; add room for scale height & Q_i & Z-s_Z & Z+s_Z
-
-	shc=dblarr(timeOutputs,NABp1,nx,STVars)
-	shcA=dblarr(timeOutputs,NABp1A,nx,STVars)
-	shc[*,*,*,0:(STVars-stvpp-1)] = (temporary(starsHyperCube))[0:(timeOutputs-1),0:(NABp1-1),0:(nx-1),0:(STVars-stvpp-1)]
-	shcA[*,*,*,0:(STVars-stvpp-1)] = (temporary(starsHyperCubeA))[0:(timeOutputs-1),0:(NABp1A-1),0:(nx-1),0:(STVars-stvpp-1)]
-
-	x=dataCube[*,*,0]
-	u=x/sqrt(b*b+x*x)
-	beta=b*b/(b*b+x*x)
-
-	FOR i=0,NPassive DO BEGIN
-		shc[*,i,*,STVars-4] = shc[*,i,*,1]*dataCube[*,*,0]*Radius/u;; scale height
-		shc[*,i,*,STVars-3] = shc[*,i,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shc[*,i,*,0]) ;; Q_i
-		shc[*,i,*,STVars-2] = shc[*,i,*,2] - shc[*,i,*,3] ;; Z - sigma_Z
-		shc[*,i,*,STVars-1] = shc[*,i,*,2] + shc[*,i,*,3] ;; Z + sigma_Z
-	ENDFOR
-	FOR ii=0,NActive DO BEGIN
-		shcA[*,ii,*,STVars-4] = shcA[*,ii,*,1]*dataCube[*,*,0]*Radius/u;; scale height
-		shcA[*,ii,*,STVars-3] = shcA[*,ii,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shcA[*,ii,*,0]) ;; Q_i
-		shcA[*,ii,*,STVars-2] = shcA[*,ii,*,2] - shcA[*,ii,*,3] ;; Z - sigma_Z
-		shcA[*,ii,*,STVars-1] = shcA[*,ii,*,2] + shcA[*,ii,*,3] ;; Z + sigma_Z
-	ENDFOR
-	starsHyperCube=(temporary(shc))[*,*,*,*]
-	starsHyperCubeA=(temporary(shcA))[*,*,*,*]
-	stellarAges=(temporary(stellarAges))[0:timeOutputs-1,0:NABp1-1] ;; trim down the stellarAges array
+    ENDFOR ;; end loop over steps in the evolution file
+    FREE_LUN,lunRadial
+    FREE_LUN,lunStars
+    FREE_LUN,lunStarsA
 
 
-;	OPENR,lunConv,(name+"_convergence.dat"),/GET_LUN
-	conv=dblarr(ncolconv)
-;	IF(MAX(evArray[1,*]) GT 25.2) THEN READF,lunConv,conv
-;	FREE_LUN,lunConv
+    starsHyperCube=(temporary(starsHyperCube))[0:(timeOutputs-1),0:(NABp1-1),0:(nx-1),0:STVars-1] ;; trim down the hypercube
+    starsHyperCubeA=(temporary(starsHyperCubeA))[0:(timeOutputs-1),0:(NABp1A-1),0:(nx-1),0:STVars-1] ;; trim down the active hypercube
 
-	;; Change the reported errors in the numerical derivatives to absolute values
-;	errs = dataCube[*,*,60:63]
-;	errs=abs(errs)
-;	errs[where(errs LT 1.e-21)] = 1.e-21
-;	dataCube[*,*,60:63] = errs
+    stvpp=4 ;; number of stellar properties calculated in this routine from the raw output
+    STVars=STVars+stvpp ;; add room for scale height & Q_i & Z-s_Z & Z+s_Z
 
-	NPostProcess= 32
-	tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
-	tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
-	ZstNum = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
-	ZstDen = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
-	FOR i=0,NPassive DO BEGIN
-;		tdc[*,*,ncolstep+npostprocess+i*STVars:ncolstep+npostprocess+i*STVars-1] = starsHyperCube[*,i,*,*]
-		tdc[*,*,ncolstep+npostprocess+i*STVars] = starsHyperCube[*,i,*,0] * mdotext0/(vphiR*1d5*Radius*cmperkpc) * cmperpc*cmperpc/MSol ;; g/cm^2 * (cm/pc)^2 *msol/g
-		tdc[*,*,ncolstep+npostprocess+i*STVars+1] = starsHyperCube[*,i,*,1] * vphiR
-;		ZstNum[*,0,*,0] += starsHyperCube[*,i,*,2]*starsHyperCube[*,i,*,0]
-;		ZstDen[*,0,*,0] += starsHyperCube[*,i,*,0]
-		tdc[*,*,ncolstep+npostprocess+i*STVars+2:ncolstep+npostprocess+(i+1)*STVars-1] = starsHyperCube[*,i,*,2:STVars-1]
-	ENDFOR
-	FOR ii=0,NActive DO BEGIN
-		ZstNum[*,0,*,0] += starsHyperCubeA[*,ii,*,2]*starsHyperCube[*,ii,*,0]
-		ZstDen[*,0,*,0] += starsHyperCubeA[*,ii,*,0]
-	ENDFOR
+    shc=dblarr(timeOutputs,NABp1,nx,STVars)
+    shcA=dblarr(timeOutputs,NABp1A,nx,STVars)
+    shc[*,*,*,0:(STVars-stvpp-1)] = (temporary(starsHyperCube))[0:(timeOutputs-1),0:(NABp1-1),0:(nx-1),0:(STVars-stvpp-1)]
+    shcA[*,*,*,0:(STVars-stvpp-1)] = (temporary(starsHyperCubeA))[0:(timeOutputs-1),0:(NABp1A-1),0:(nx-1),0:(STVars-stvpp-1)]
+
+    x=dataCube[*,*,0]
+    u=x/sqrt(b*b+x*x)
+    beta=b*b/(b*b+x*x)
+
+    FOR i=0,NPassive DO BEGIN
+	shc[*,i,*,STVars-4] = shc[*,i,*,1]*dataCube[*,*,0]*Radius/u;; scale height
+	shc[*,i,*,STVars-3] = shc[*,i,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shc[*,i,*,0]) ;; Q_i
+	shc[*,i,*,STVars-2] = shc[*,i,*,2] - shc[*,i,*,3] ;; Z - sigma_Z
+	shc[*,i,*,STVars-1] = shc[*,i,*,2] + shc[*,i,*,3] ;; Z + sigma_Z
+    ENDFOR
+    FOR ii=0,NActive DO BEGIN
+	shcA[*,ii,*,STVars-4] = shcA[*,ii,*,1]*dataCube[*,*,0]*Radius/u;; scale height
+	shcA[*,ii,*,STVars-3] = shcA[*,ii,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shcA[*,ii,*,0]) ;; Q_i
+	shcA[*,ii,*,STVars-2] = shcA[*,ii,*,2] - shcA[*,ii,*,3] ;; Z - sigma_Z
+	shcA[*,ii,*,STVars-1] = shcA[*,ii,*,2] + shcA[*,ii,*,3] ;; Z + sigma_Z
+    ENDFOR
+    starsHyperCube=(temporary(shc))[*,*,*,*]
+    starsHyperCubeA=(temporary(shcA))[*,*,*,*]
+    stellarAges=(temporary(stellarAges))[0:timeOutputs-1,0:NABp1-1] ;; trim down the stellarAges array
+
+
+;    OPENR,lunConv,(name+"_convergence.dat"),/GET_LUN
+    conv=dblarr(ncolconv)
+;    IF(MAX(evArray[1,*]) GT 25.2) THEN READF,lunConv,conv
+;    FREE_LUN,lunConv
+
+;;   Change the reported errors in the numerical derivatives to absolute values
+;    errs = dataCube[*,*,60:63]
+;    errs=abs(errs)
+;    errs[where(errs LT 1.e-21)] = 1.e-21
+;    dataCube[*,*,60:63] = errs
+
+    NPostProcess= 32
+    tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
+    tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
+    ZstNum = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
+    ZstDen = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
+    FOR i=0,NPassive DO BEGIN
+;	tdc[*,*,ncolstep+npostprocess+i*STVars:ncolstep+npostprocess+i*STVars-1] = starsHyperCube[*,i,*,*]
+	tdc[*,*,ncolstep+npostprocess+i*STVars] = starsHyperCube[*,i,*,0] * mdotext0/(vphiR*1d5*Radius*cmperkpc) * cmperpc*cmperpc/MSol ;; g/cm^2 * (cm/pc)^2 *msol/g
+	tdc[*,*,ncolstep+npostprocess+i*STVars+1] = starsHyperCube[*,i,*,1] * vphiR
+;	ZstNum[*,0,*,0] += starsHyperCube[*,i,*,2]*starsHyperCube[*,i,*,0]
+;	ZstDen[*,0,*,0] += starsHyperCube[*,i,*,0]
+	tdc[*,*,ncolstep+npostprocess+i*STVars+2:ncolstep+npostprocess+(i+1)*STVars-1] = starsHyperCube[*,i,*,2:STVars-1]
+    ENDFOR
+    FOR ii=0,NActive DO BEGIN
+	ZstNum[*,0,*,0] += starsHyperCubeA[*,ii,*,2]*starsHyperCube[*,ii,*,0]
+	ZstDen[*,0,*,0] += starsHyperCubeA[*,ii,*,0]
+    ENDFOR
 		
-	tdc[*,*,ncolStep]=  abs(tdc[*,*,3])/(abs(tdc[*,*,7]) + .00001)
-	tdc[*,*,ncolStep+1]=abs(tdc[*,*,4])/(abs(tdc[*,*,8]) + .00001)
-	tdc[*,*,ncolStep+2]=abs(tdc[*,*,5])/(abs(tdc[*,*,9]) + .00001)
-	tdc[*,*,ncolStep+3]=abs(tdc[*,*,6])/(abs(tdc[*,*,10]) + .00001)
-	tdc[*,*,ncolStep+4]=abs(tdc[*,*,4])/(abs(tdc[*,*,6])) ;; gas / stellar temp
-	;; scale heights: 
-	tdc[*,*,ncolStep+5]=tdc[*,*,6]*(tdc[*,*,6]/(tdc[*,*,5]+tdc[*,*,3]))*Radius/(chi*!pi) ;; stellar scale height
-	tdc[*,*,ncolStep+6]=tdc[*,*,4]*(tdc[*,*,4]/(tdc[*,*,5]*tdc[*,*,4]/tdc[*,*,6]+tdc[*,*,3]))*Radius/(chi*!pi) ;; gas scale height
+    tdc[*,*,ncolStep]=  abs(tdc[*,*,3])/(abs(tdc[*,*,7]) + .00001)
+    tdc[*,*,ncolStep+1]=abs(tdc[*,*,4])/(abs(tdc[*,*,8]) + .00001)
+    tdc[*,*,ncolStep+2]=abs(tdc[*,*,5])/(abs(tdc[*,*,9]) + .00001)
+    tdc[*,*,ncolStep+3]=abs(tdc[*,*,6])/(abs(tdc[*,*,10]) + .00001)
+    tdc[*,*,ncolStep+4]=abs(tdc[*,*,4])/(abs(tdc[*,*,6])) ;; gas / stellar temp
+    ;; scale heights: 
+    tdc[*,*,ncolStep+5]=tdc[*,*,6]*(tdc[*,*,6]/(tdc[*,*,5]+tdc[*,*,3]))*Radius/(chi*!pi) ;; stellar scale height
+    tdc[*,*,ncolStep+6]=tdc[*,*,4]*(tdc[*,*,4]/(tdc[*,*,5]*tdc[*,*,4]/tdc[*,*,6]+tdc[*,*,3]))*Radius/(chi*!pi) ;; gas scale height
 
-	tdc[*,*,ncolStep+7]=tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*Radius*cmperkpc*mdotext0/(chi*chi*vphiR*1d5*tdc[*,*,3] * MSol)  ;;;  2d Jeans Mass in Solar Masses
+    tdc[*,*,ncolStep+7]=tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*Radius*cmperkpc*mdotext0/(chi*chi*vphiR*1d5*tdc[*,*,3] * MSol)  ;;;  2d Jeans Mass in Solar Masses
 
-	evArray[1,*] = evArray[1,*]*2*!pi*Radius/(vphiR*.977813952) ;; kpc/(km/s) = .9778 Gyr -- convert times to Ga.
+    evArray[1,*] = evArray[1,*]*2*!pi*Radius/(vphiR*.977813952) ;; kpc/(km/s) = .9778 Gyr -- convert times to Ga.
 
-	;;; Replace Toomre Mass with 2d Jeans Mass
-	FOR i=0,n_elements(evArray[7,*])-1 DO BEGIN
-		evArray[7,i] = MAX(tdc[i,*,ncolStep+7])
-	ENDFOR
-	;;; Replace Disk Mass with its Dimensional Version
-	evArray[5,*] = evArray[5,*] * mdotext0*Radius*cmperkpc/(vphiR*1d5*MSol) ;; g/s*kpc*cm/kpc / (km/s*cm/km*g/msol) = msol
-	evArray[10,*] = evArray[10,*] * mdotext0 /(MSol/speryear) 
-	evArray[8,*] = evArray[8,*] * mdotext0 /(MSol/speryear) 
+    ;;; Replace Toomre Mass with 2d Jeans Mass
+    FOR i=0,n_elements(evArray[7,*])-1 DO BEGIN
+	evArray[7,i] = MAX(tdc[i,*,ncolStep+7])
+    ENDFOR
+    ;;; Replace Disk Mass with its Dimensional Version
+    evArray[5,*] = evArray[5,*] * mdotext0*Radius*cmperkpc/(vphiR*1d5*MSol) ;; g/s*kpc*cm/kpc / (km/s*cm/km*g/msol) = msol
+    evArray[10,*] = evArray[10,*] * mdotext0 /(MSol/speryear) 
+    evArray[8,*] = evArray[8,*] * mdotext0 /(MSol/speryear) 
 
-
-	tdc[*,*,ncolStep+8] = tdc[*,*,0]*Radius ;; r
-	tdc[*,*,ncolStep+9] = tdc[*,*,3]*mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*Msol)  ;; Sigma_g
-	tdc[*,*,ncolStep+24-1]=alog10(tdc[*,*,ncolStep+9])
-	tdc[*,*,ncolStep+10] = tdc[*,*,4]*vphiR ;; sigma_g
-	tdc[*,*,ncolStep+11] = tdc[*,*,5]*mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) ;; Sigma_* --  solar masses / pc^2
-	tdc[*,*,ncolStep+25-1]=alog10(tdc[*,*,ncolStep+11])
-	tdc[*,*,ncolStep+12] = tdc[*,*,6]*vphiR ;; sigma_*
-	tdc[*,*,ncolStep+13] = tdc[*,*,28] * mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) *1d6 *(vphiR*1d5*speryear)/(2*!pi*Radius*cmperkpc) ;; col SFR-  solar masses/kpc^2/yr
-	tdc[*,*,ncolStep+14] = tdc[*,*,51] * mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) ;; cumulative SF
-	tdc[*,*,ncolStep+15] = -1.0*tdc[*,*,34] * vphiR ;; vr_*
-	tdc[*,*,ncolStep+16] = -1.0*tdc[*,*,36] * vphiR ;; vr_gas
-	tdc[*,*,ncolStep+26-1] = alog10(tdc[*,*,ncolStep+16])
-	tdc[*,*,ncolStep+27-1] = alog10(tdc[*,*,ncolStep+15])	
+    tdc[*,*,ncolStep+8] = tdc[*,*,0]*Radius ;; r
+    tdc[*,*,ncolStep+9] = tdc[*,*,3]*mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*Msol)  ;; Sigma_g
+    tdc[*,*,ncolStep+24-1]=alog10(tdc[*,*,ncolStep+9])
+    tdc[*,*,ncolStep+10] = tdc[*,*,4]*vphiR ;; sigma_g
+    tdc[*,*,ncolStep+11] = tdc[*,*,5]*mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) ;; Sigma_* --  solar masses / pc^2
+    tdc[*,*,ncolStep+25-1]=alog10(tdc[*,*,ncolStep+11])
+    tdc[*,*,ncolStep+12] = tdc[*,*,6]*vphiR ;; sigma_*
+    tdc[*,*,ncolStep+13] = tdc[*,*,28] * mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) *1d6 *(vphiR*1d5*speryear)/(2*!pi*Radius*cmperkpc) ;; col SFR-  solar masses/kpc^2/yr
+    tdc[*,*,ncolStep+14] = tdc[*,*,51] * mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) ;; cumulative SF
+    tdc[*,*,ncolStep+15] = -1.0*tdc[*,*,34] * vphiR ;; vr_*
+    tdc[*,*,ncolStep+16] = -1.0*tdc[*,*,36] * vphiR ;; vr_gas
+    tdc[*,*,ncolStep+26-1] = alog10(tdc[*,*,ncolStep+16])
+    tdc[*,*,ncolStep+27-1] = alog10(tdc[*,*,ncolStep+15])	
 	
-	;;ang. mom. of.. 
-	tdc[*,*,ncolstep+28-1]= tdc[*,*,3]*tdc[*,*,0] ;; gas
-	tdc[*,*,ncolstep+29-1]= tdc[*,*,5]*tdc[*,*,0] ;; stars
-	tdc[*,*,ncolstep+30-1]= tdc[*,*,51]*tdc[*,*,0]*MLF ;; cumulative outflow
+    ;;ang. mom. of.. 
+    tdc[*,*,ncolstep+28-1]= tdc[*,*,3]*tdc[*,*,0] ;; gas
+    tdc[*,*,ncolstep+29-1]= tdc[*,*,5]*tdc[*,*,0] ;; stars
+    tdc[*,*,ncolstep+30-1]= tdc[*,*,51]*tdc[*,*,0]*MLF ;; cumulative outflow
 
-	;; compute the average age of stars as a function of radius and time
-	;; compute both the average age at z=0, and the age in situ.
-	FOR i=0,NPassive DO BEGIN
-		stellarAgesIS[*,i] = stellarAges[*,i] - (evArray[1,n_elements(evArray[1,*])-1]-evArray[1,*]) * 1.0e9
+    ;; compute the average age of stars as a function of radius and time
+    ;; compute both the average age at z=0, and the age in situ.
+    FOR i=0,NPassive DO BEGIN
+	stellarAgesIS[*,i] = stellarAges[*,i] - (evArray[1,n_elements(evArray[1,*])-1]-evArray[1,*]) * 1.0e9
+    ENDFOR
+    FOR xi=0,nx-1 DO BEGIN ;; loop over space
+	FOR zi=0,n_elements(tdc[*,0,0])-1 DO BEGIN ;; loop over time
+  	    tdc[zi,xi,ncolstep+31-1] = $
+		TOTAL(starsHyperCube[zi,*,xi,0] * stellarAges[zi,*])/TOTAL(starsHyperCube[zi,*,xi,0])
+	    tdc[zi,xi,ncolstep+32-1] = $
+		TOTAL(starsHyperCube[zi,*,xi,0] * stellarAgesIS[zi,*])/TOTAL(starsHyperCube[zi,*,xi,0])
 	ENDFOR
-	FOR xi=0,nx-1 DO BEGIN ;; loop over space
-		FOR zi=0,n_elements(tdc[*,0,0])-1 DO BEGIN ;; loop over time
-			tdc[zi,xi,ncolstep+31-1] = $
-				TOTAL(starsHyperCube[zi,*,xi,0] * stellarAges[zi,*])/TOTAL(starsHyperCube[zi,*,xi,0])
-			tdc[zi,xi,ncolstep+32-1] = $
-				TOTAL(starsHyperCube[zi,*,xi,0] * stellarAgesIS[zi,*])/TOTAL(starsHyperCube[zi,*,xi,0])
-		ENDFOR
-	ENDFOR
+    ENDFOR
 
-	tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
-	tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr)
+    tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
+    tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr)
 
-	dlnx=-alog(tdc[0,0,0])/float(n_elements(tdc[0,*,0])-1)
-	speryear=31556926.0
+    dlnx=-alog(tdc[0,0,0])/float(n_elements(tdc[0,*,0])-1)
+    speryear=31556926.0
 	kmperkpc=3.08568025d16
 	pcperkpc=1d3
 ;;;;;	tdc[*,*,40-1]=tdc[*,*,52-1] * 2*!pi*tdc[*,*,0]*tdc[*,*,0]*dlnx*md0*radius/vphiR * kmperkpc/speryear ;; cumulative star formation in a given cell - solar masses

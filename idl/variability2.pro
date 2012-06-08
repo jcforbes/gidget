@@ -250,7 +250,7 @@ PRO variability2,expName,keys,N,sv
   intervals[*,*,*, 3]=sortdData[*,*,*, fix(.84*ctr)]
   intervals[*,*,*, 4]=sortdData[*,*,*, fix(.975*ctr)]
 
-  expName2 = expName+'_'+strcompress(string(MIN([n_elements(nameList2),N])),/remove)
+  expName2 = expName+'_'+strcompress(string(MIN([n_elements(nameList2),N])),/remove) ;; e.g. rk5_113
 
   setct,1,0,0
   simpleMovie,intervals,time,wrtXyn,[2,1,0,1,2],[2,2,0,2,2],wrtXyr,wrtXyl,expName2+"_intervals",sv,intarr(n_elements(wrtXyl))
@@ -316,7 +316,7 @@ PRO variability2,expName,keys,N,sv
   ENDFOR
   FIGURECLEAN,(expName2+'_accRates'),1
 
-  FIGUREInit,(expName+'_z0AccRates'),1,1,1
+  FIGUREInit,(expName2+'_z0AccRates'),1,1,1
   cgHistoplot, alog10(sortdVsMdot[n_elements(sortdVsMdot[*,0,0,0])-1,0,0,*]), BinSize=.1
   FIGURECLEAN,(expName2+'_z0AccRates'),1
 	

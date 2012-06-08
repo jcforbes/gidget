@@ -28,6 +28,7 @@ FUNCTION diskStats,model,z=z
         fg=col/(col+colst)
 	stMass = model.evArray[5,zj]/model.evArray[6,zj] * (1.0-model.evArray[6,zj])
 	sSFR = model.evArray[11-1,zj]/stMass
+        metallicity = model.dataCube[zj,*,22-1]
 
 
 	gasS=model.dataCube[*,*,3] ;; dimensionless gas column density
@@ -60,6 +61,8 @@ FUNCTION diskStats,model,z=z
 ;		PRINT,"diskstats: Warning: changing xoutInd to xinInd "
 	ENDIF
  
+
+
         xnuc=x[0:xinInd]
         xsf=x[xinInd:xoutInd]
         xHI=x[xoutInd:model.nx-1]
@@ -74,6 +77,9 @@ FUNCTION diskStats,model,z=z
         vstHI = TOTAL(xHI*xHI*vst[xoutInd:model.nx-1])/TOTAL(xHI*xHI)   
         colsol= col[nearest("position",1,model,8.0/model.Radius)]
 	totfH2 = TOTAL(x[*] * x[*] * fH2[*])/TOTAL(x[*]*x[*])
+        totFg = TOTAL(x[*] * x[*] * fg[*]) / TOTAL(x[*] * x[*])
+        totZ = TOTAL(x[*] * x[*] * (10.0^metallicity)  )/TOTAL(x[*]*x[*])
+        eff = stMass/(model.mh0*.18)
 
         info=[xin*model.Radius,$    ;; inner edge of SF region  - 1
                 xpeak*model.Radius,$ ;; peak of the column density - 2
@@ -82,7 +88,7 @@ FUNCTION diskStats,model,z=z
                 fgnuc,fgsf,fgHI,sSFR, $   ;; gas fraction, specific SFR- 5,6,7,8
 		BulgeM,BulgeMSt, totfH2, $  ; - 9,10,11
 		mdotBulgeG,mdotbulgeSt, $ ; 12,13
-		sfr,stMass]; - 14,15
+		sfr,stMass,totFg,totZ,eff]; - 14,15,16,17,18
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

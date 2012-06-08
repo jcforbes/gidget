@@ -44,6 +44,7 @@ class experiment:
             self.p[self.keys[name]]=[typ(float(mmin) * (rat)**(float(i)/float(n-1))) for i in range(n)]
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
+
             
     def generatePl(self):
         '''vary() will change a certain element of self.p into a list
@@ -77,7 +78,7 @@ class experiment:
                             base='a'
                             app=str((i-(i%26))/26)
                         a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
-                    # end loop over p's in pl2
+                    # end loop over p's in pl2[i]
                 # end loop over range of this varied parameter
 		
 		# collapse pl to be a 1d array of p's.
@@ -118,10 +119,10 @@ class experiment:
         os.mkdir(self.xgrid+'/output/'+self.expName) # make gidget/xgrid/output/name to store stde and stdo files.
 
 
-    def localRun(self,nproc):
+    def localRun(self,nproc,startAt):
         procs=[]
         ctr=0
-        for a_p in self.pl:
+        for a_p in self.pl[startAt:]:
             ctr+=1
             tmpap=a_p[:]
             binary=self.bin+'/gidget'
@@ -132,7 +133,7 @@ class experiment:
                 os.mkdir(expDir)
             with open(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt','w') as stdo:
                 with open(expDir+'/'+a_p[self.keys['name']]+'_stde.txt','w') as stde:
-                    print "Sending run #",ctr,"/",len(self.pl)," , ",tmpap[0]," to a local core."
+                    print "Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core."
                     print "Parameters: "
                     print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
                     os.chdir(expDir)
@@ -180,6 +181,7 @@ class experiment:
                 print "Still waiting for ",nPrev, " processes to finish."
 
 
+
 if __name__ == "__main__":
     expName=sys.argv[1]
     a=experiment(expName)
@@ -193,18 +195,30 @@ if __name__ == "__main__":
 #    a.vary('fg0',.5,.5,1,0)
 
     # rk2 - find out in what parameter space we're allowed to work in terms of rotation curves
+#    a.vary('nx',200,200,1,0)
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',4,4,1,0)
+#    a.vary('R',20.0,20.0,1,0)
+#    a.vary('Mh0',1.0e12,1.0e12,1,0)
+#    a.vary('b',0.0,5.0,10,0)
+#    a.vary('softening',1.0,4.0,3,1)
+#    a.vary('innerPowerLaw',.1,1,10,0)
+
+
+    # rk3 4-103,100;  1e9,1e12,30
+    # rk4 4-53,50;   1e9,1e12,16
+    # rk5 4-503,500  1e9,1e12,16
     a.vary('nx',200,200,1,0)
     a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',4,4,1,0)
-    a.vary('R',20.0,20.0,1,0)
-    a.vary('Mh0',1.0e12,1.0e12,1,0)
-    a.vary('b',0.0,5.0,10,0)
-    a.vary('softening',1.0,4.0,3,1)
-    a.vary('innerPowerLaw',.1,1,10,0)
-
+    a.vary('whichAccretionHistory',4,503,500,0)
+    a.vary('Mh0',1.0e9,1.0e12,16,1)
+    # rk6: rk5+ the following:
+    a.vary('b',2.0,2.0,1,0)
+    a.vary('softening',2.0,2.0,1,0)
+    a.vary('innerPowerLaw',.6,.6,1,0)
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.
     a.generatePl()  
 #    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
-    a.localRun(15) # run (in serial) on four processors.
+    a.localRun(15,0) # run (in serial) on four processors.

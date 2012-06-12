@@ -1,99 +1,101 @@
 FUNCTION OP,j
-	IF(j EQ 0) THEN ret=0 ELSE ret=1
-	RETURN,ret
+  IF(j EQ 0) THEN ret=0 ELSE ret=1
+  RETURN,ret
 END
 
 PRO MakeComparisonMovie,modelList,Xind,ind,npx,npy,fname,xranges,ranges,sv,cmt,leg
-        !p.multi=[0,npx,npy]
-        IF(sv EQ 3) THEN cg=1 ELSE cg=0
-        IF(cg EQ 1) THEN cs = 1 ELSE cs=2
-        nxwin=1024
-        nywin=nxwin
+  !p.multi=[0,npx,npy]
+  IF(sv EQ 3) THEN cg=1 ELSE cg=0
+  IF(cg EQ 1) THEN cs = 1 ELSE cs=2
+  nxwin=1024
+  nywin=nxwin
 
-        fn=""
-        IF(n_elements(modelList) LT 6) THEN $
-		FOR i=0,n_elements(modelList)-1 DO $
-			fn+= (ExtractSlash((modelList[i]),1) + "_") $
-	ELSE fn+= ExtractSlash((modelList[0]),0)+"_"
-        fn+=fname
-        dn="movie_"+fn
-        set_plot,'x'
-        if(sv EQ 3 ) THEN set_plot,'z' 
-        if(cg NE 1) THEN WINDOW,1,XSIZE=nxwin,YSIZE=nywin,RETAIN=2
-        if(sv EQ 3) THEN cgDisplay,nxwin,nywin
-        IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([nxwin,nywin],FILENAME=(fn+".mpg"))
-        IF (sv EQ 2 || sv EQ 3) THEN BEGIN
-                FILE_MKDIR,dn
+  fn=""
+  IF(n_elements(modelList) LT 6) THEN $
+    FOR i=0,n_elements(modelList)-1 DO $
+      fn+= (ExtractSlash((modelList[i]),1) + "_") $
+   ELSE fn+= ExtractSlash((modelList[0]),0)+"_"
+  fn+=fname
+  dn="movie_"+fn
+  set_plot,'x'
+  if(sv EQ 3 ) THEN set_plot,'z' 
+  if(cg NE 1) THEN WINDOW,1,XSIZE=nxwin,YSIZE=nywin,RETAIN=2
+  if(sv EQ 3) THEN cgDisplay,nxwin,nywin
+  IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([nxwin,nywin],FILENAME=(fn+".mpg"))
+  IF (sv EQ 2 || sv EQ 3) THEN BEGIN
+    FILE_MKDIR,dn
+  ENDIF
+  count=0
+
+  maxTime=0.
+  whichmodel=0
+  nts=1
+  FOR i=0,n_elements(modelList)-1 DO BEGIN
+    maxTime=MAX([maxTime,MAX((*(modelList[i])).evArray[1,*])],replaced)
+    IF(replaced EQ 1) THEN BEGIN
+      whichmodel=i
+      nts=n_elements( (*(modelList[i])).evArray[1,*])
+    ENDIF
+  ENDFOR
+  FOR n=1,nts DO BEGIN
+    theTime=(*(modelList[whichmodel])).evArray[1,n-1]
+    theRedshift=(*(modelList[whichmodel])).evArray[9,n-1]
+    ls=intarr(n_elements(modelList))                
+    ti=intarr(n_elements(modelList))
+    FOR i=0,n_elements(modelList)-1 DO BEGIN
+      nts2 = n_elements((*(modelList[i])).evArray[1,*])
+;      ti[i] = MIN([n,nts])-1
+      ti[i] = nearest("time",1,(*(modelList[i])),theTime)
+      IF(nts2-1 EQ ti[i])THEN ls[i] = 1 ;; make the line dotted if that run has stopped
+    ENDFOR
+
+    count=count+1
+    ;; make the plots for this frame
+    ns=0.
+    ns2=0.
+    FOR i=1,n_elements(ind) DO BEGIN
+      IF(ind[i-1] GT 0) THEN BEGIN
+                               
+        FOR j=0,n_elements(modelList)-1 DO PlotVsXind,*(modelList[j]),ti[j],Xind[i-1],ind[i-1],OP(j),1,XRANGE=xranges[*,i-1], $
+          YRANGE=ranges[*,i-1],CHARSIZE=cs,COLOR=j,LINESTYLE=ls[j];;,THICK=3,YSTYLE=1
+        FOR j=0,n_elements(modelList)-1 DO PlotVsXind,*(modelList[j]),0,Xind[i-1],ind[i-1],1,1,COLOR=j,LINESTYLE=2;;,THICK=3
+        IF i EQ 1 THEN BEGIN
+          XYOUTS, .1,2./float(npy)-.008,/NORMAL,("z = "+strcompress(string(theRedshift),/remove)+" "+ CMT),COLOR=0,CHARSIZE=.8*cs,WIDTH=ns
+          XYOUTS, .1,1./float(npy)-.008,/NORMAL,("T = "+strcompress(string(theTime),/remove)+" Ga "+ CMT),COLOR=0,CHARSIZE=.8*cs,WIDTH=ns
+          ns2=.1+ns
+          FOR k=0,n_elements(leg)-1 DO BEGIN
+            XYOUTS, ns2,1./float(npy)-.008,/NORMAL," "+leg[k],COLOR=k,CHARSIZE=.7*cs,WIDTH=ns
+            ns2=ns2+ns
+          ENDFOR
         ENDIF
-        count=0
-
-        maxTime=0.
-        whichmodel=0
-	nts=1
-        FOR i=0,n_elements(modelList)-1 DO BEGIN
-                maxTime=MAX([maxTime,MAX((*(modelList[i])).evArray[1,*])],replaced)
-                IF(replaced EQ 1) THEN BEGIN
-                        whichmodel=i
-                        nts=n_elements( (*(modelList[i])).evArray[1,*])
-                ENDIF
-        ENDFOR
-        FOR n=1,nts DO BEGIN
-                theTime=(*(modelList[whichmodel])).evArray[1,n-1]
-                theRedshift=(*(modelList[whichmodel])).evArray[9,n-1]
-                ls=intarr(n_elements(modelList))                
-                ti=intarr(n_elements(modelList))
-                FOR i=0,n_elements(modelList)-1 DO BEGIN
-                        nts2 = n_elements((*(modelList[i])).evArray[1,*])
-;                       ti[i] = MIN([n,nts])-1
-                        ti[i] = nearest("time",1,(*(modelList[i])),theTime)
-                        IF(nts2-1 EQ ti[i])THEN ls[i] = 1 ;; make the line dotted if that run has stopped
-                ENDFOR
-                
-
-                count=count+1
-                ;; make the plots for this frame
-                ns=0.
-                ns2=0.
-                FOR i=1,n_elements(ind) DO BEGIN
-                        IF(ind[i-1] GT 0) THEN BEGIN
-                                
-                                FOR j=0,n_elements(modelList)-1 DO PlotVsXind,*(modelList[j]),ti[j],Xind[i-1],ind[i-1],OP(j),1,XRANGE=xranges[*,i-1],YRANGE=ranges[*,i-1],CHARSIZE=cs,COLOR=j,LINESTYLE=ls[j];;,THICK=3,YSTYLE=1
-                                FOR j=0,n_elements(modelList)-1 DO PlotVsXind,*(modelList[j]),0,Xind[i-1],ind[i-1],1,1,COLOR=j,LINESTYLE=2;;,THICK=3
-                                IF i EQ 1 THEN BEGIN
-                                        XYOUTS, .1,2./float(npy)-.008,/NORMAL,("z = "+strcompress(string(theRedshift),/remove)+" "+ CMT),COLOR=0,CHARSIZE=.8*cs,WIDTH=ns
-                                        XYOUTS, .1,1./float(npy)-.008,/NORMAL,("T = "+strcompress(string(theTime),/remove)+" Ga "+ CMT),COLOR=0,CHARSIZE=.8*cs,WIDTH=ns
-                                        ns2=.1+ns
-                                        FOR k=0,n_elements(leg)-1 DO BEGIN
-                                                XYOUTS, ns2,1./float(npy)-.008,/NORMAL," "+leg[k],COLOR=k,CHARSIZE=.7*cs,WIDTH=ns
-                                                ns2=ns2+ns
-                                        ENDFOR
-                                ENDIF
-                        ENDIF ELSE BEGIN
-                                IF(ind[i-1] EQ -1) THEN dQdqContour,*(modelList[0]),ti[0]
-                                IF(ind[i-1] EQ -2) THEN dQdqContour,*(modelList[1]),ti[1]
-                                IF(ind[i-1] EQ -3) THEN Raf3,*(modelList[0]),ti[0]
-                                IF(ind[i-1] EQ -4) THEN Raf3,*(modelList[1]),ti[1]
-                        END
-                ENDFOR
-                IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
-                IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_' + STRING(count, FORMAT="(I4.4)") + '.png', TVRD(TRUE=1)
-                IF(sv EQ 3) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count,FORMAT="(I4.4)")),/png,/true,/nodialog)
-                IF(sv EQ 0) THEN wait,.05
-        ENDFOR
-        IF(sv EQ 1) THEN MPEG_SAVE, mpeg_id
-        IF(sv EQ 1) THEN MPEG_CLOSE, mpeg_id
-        IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm "+ fn+".mpg")
-        IF(sv EQ 2 || sv EQ 3) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
-        IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm -rf " + dn)
+      ENDIF ELSE BEGIN
+        IF(ind[i-1] EQ -1) THEN dQdqContour,*(modelList[0]),ti[0]
+        IF(ind[i-1] EQ -2) THEN dQdqContour,*(modelList[1]),ti[1]
+        IF(ind[i-1] EQ -3) THEN Raf3,*(modelList[0]),ti[0]
+        IF(ind[i-1] EQ -4) THEN Raf3,*(modelList[1]),ti[1]
+      END
+    ENDFOR
+    IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
+    IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_' + STRING(count, FORMAT="(I4.4)") + '.png', TVRD(TRUE=1)
+    IF(sv EQ 3) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count,FORMAT="(I4.4)")),/png,/true,/nodialog)
+    IF(sv EQ 0) THEN wait,.05
+  ENDFOR
+  IF(sv EQ 1) THEN MPEG_SAVE, mpeg_id
+  IF(sv EQ 1) THEN MPEG_CLOSE, mpeg_id
+  IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm "+ fn+".mpg")
+  IF(sv EQ 2 || sv EQ 3) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
+  IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm -rf " + dn)
         
-        !p.multi=[0,1,1] ; clean up
-        set_plot,'x'
+  !p.multi=[0,1,1] ; clean up
+  set_plot,'x'
 END
 
 
 PRO diskAnalyzeCompare,modelList,sv,cmt,leg
 	IF(n_elements(modelList) EQ 0 || n_elements(sv) EQ 0 || n_elements(cmt) EQ 0 || n_elements(leg) EQ 0) THEN BEGIN
-		message,"Usage: diskAnalyzeCompare,['<name1>','<name2>',...],sv,comment -- sv=0->don't save sv=1->save as mpg sv=2->save png images to be constructed into a movie by ffmpeg, sv=3->same as 2 but don't plot in an X window."
+		message,("Usage: diskAnalyzeCompare,['<name1>','<name2>',...],sv,comment,['<legend1>','<legend2>',...] "+ $
+                  "-- sv=0->don't save sv=1->save as mpg sv=2->save png images to be constructed into a movie by ffmpeg,"+ $
+                  " sv=3->same as 2 but don't plot in an X window.")
 	ENDIF
 
 	SETCT,0,0,0

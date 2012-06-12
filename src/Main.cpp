@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
   Dimensions dim(radius,vphiR,mdot0);
   FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
   double dummy = mesh.psi(0.5);
-  double MhZs = accr.MhOfZ(zstart);
+  double MhZs = accr.MhOfZ(zstart)*Mh0;
 
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
   DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars

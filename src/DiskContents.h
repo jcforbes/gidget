@@ -67,6 +67,8 @@ class DiskContents {
   double activeColSt(unsigned int n);
   double activeSigSt(unsigned int n);
   double ComputeQst(unsigned int n);
+  void TridiagonalWrapper(unsigned int,unsigned int);
+  void ComputeGItorque(double**, unsigned int,unsigned int, double, double);
 
   // At a given cell, compute the fraction of gas which is 
   // in H2, i.e. what fraction of the gas is available to 

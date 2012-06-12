@@ -178,7 +178,8 @@ class experiment:
                 nPrev=nStillRunning
                 if(nPrev == 0):
                     break # we're done!
-                print "Still waiting for ",nPrev, " processes to finish."
+                print "Still waiting for ",nPrev, " processes to finish; I'll check every two minutes for changes."
+        print "Local run complete!"
 
 
 
@@ -205,17 +206,31 @@ if __name__ == "__main__":
 #    a.vary('innerPowerLaw',.1,1,10,0)
 
 
-    # rk3 4-103,100;  1e9,1e12,30
-    # rk4 4-53,50;   1e9,1e12,16
-    # rk5 4-503,500  1e9,1e12,16
-    a.vary('nx',200,200,1,0)
+#    # rk3 4-103,100;  1e9,1e12,30
+#    # rk4 4-53,50;   1e9,1e12,16
+#    # rk5 4-503,500  1e9,1e12,16
+#    a.vary('nx',200,200,1,0)
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',4,503,500,0)
+#    a.vary('Mh0',1.0e9,1.0e12,16,1)
+#    # rk6: rk5+ the following:
+#    a.vary('b',2.0,2.0,1,0)
+#    a.vary('softening',2.0,2.0,1,0)
+#    a.vary('innerPowerLaw',.6,.6,1,0)
+
+#    # rk7, rk8: various situations that generate grav. stable disks:
+#    a.vary('Mh0',1.0e9,1.0e12,4,1)
+#    a.vary('mu',1,3,2,0)
+#    # rk9 adds:
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    # rk10 = rk9 w/ UpdateCoeffs bug fix (h1=1, but h2 and h0 were unspecified) - made no difference
+#    # rk11 = rk10 but reverting back to just settting H[n]=0 to confirm that that even worked!
+#    # rk12 = rk11 w/ MhZs bug fix... how did things even work before? Answer: random accretion history had correct units of MhofZ, whereas Bouche accr history did not. Now both should work.
+#    # rk13: again try h2=h1=H=0, h0=1
+
+    # rk14: redo varied accretion histories w/ new tau=0 in stable regions
     a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',4,503,500,0)
-    a.vary('Mh0',1.0e9,1.0e12,16,1)
-    # rk6: rk5+ the following:
-    a.vary('b',2.0,2.0,1,0)
-    a.vary('softening',2.0,2.0,1,0)
-    a.vary('innerPowerLaw',.6,.6,1,0)
+    a.vary('whichAccretionHistory',4,103,100,0)
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.

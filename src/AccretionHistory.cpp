@@ -133,7 +133,7 @@ double AccretionHistory::GenerateNeistein08(double Mh0, double zst, Cosmology& c
     double x= gsl_ran_gaussian(r,1.0);
     double s= log10(SS);
     double deltaS= exp((1.367+0.012*s+0.234*s*s)*x + (-3.682+0.76*s-0.36*s*s));
-    zs.push_back(zOfOmega(om));
+    zs.push_back(zOfOmega(om)-1.0e-13);
     masses.push_back(MofS(SS,sp.sigma8,sp.OmegaM)/cos.h()); // solar masses
     std::cout<<"z,om;S,M;ds,s,x: "<<zs[zs.size()-1]<<" "<<om<<"; "<<SS<<" "<<
 	masses[masses.size()-1]<<"; "<<deltaS<<" "<<s<<" "<<x<<std::endl;
@@ -338,7 +338,7 @@ double AccretionHistory::MhOfZ(double z)
 {
   if(z>zstart) errormsg("MhOfZ: The halo mass at this z is unspecified.");
 
-  return gsl_spline_eval(splineMh,z,accelMh);
+  return gsl_spline_eval(splineMh,z,accelMh)/gsl_spline_eval(splineMh,0.0,accelMh);
 }
 
 

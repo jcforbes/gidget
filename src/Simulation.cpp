@@ -163,8 +163,10 @@ int Simulation::runToConvergence(const double fCondition,
     theDisk.ComputeDerivs(tauvec);
 
     // Given the derivatives, compute a time step over which none of the variables
-    // change by too much
-    dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell); // which tells us which statevar is limiting the timestep
+    // change by too much. whichVar tells us which state variable is limiting the timestep
+    // and whichCell tells us which cell is limiting the timestep. Both of these values
+    // are printed every 5000 timesteps (see below).
+    dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell); 
 
     // Every time step, check whether each of the convergence checks has a value
     // which needs to be updated.

@@ -1419,6 +1419,9 @@ void DiskContents::ComputeY()
     double xn = mesh.x(n);
     double Qst_nm1 = sqrt(2.*(mesh.beta(xnm1)+1.0))*mesh.uu(xnm1)* gsl_spline_eval(spline_sigst,xnm1,accel_sigst)
                        / (M_PI*dim.chi()*xnm1* gsl_spline_eval(spline_colst,xnm1,accel_colst)) ;
+    if(Qst_nm1 < 0.0 || Qst_nm1!=Qst_nm1) {
+      errormsg("Error computing Qst_nm1. Qst_nm1, beta, u, sigst, colst, xnm1:   "+str(Qst_nm1)+" "+str(mesh.beta(xnm1))+" "+str(mesh.uu(xnm1))+" "+str(gsl_spline_eval(spline_sigst,xnm1,accel_sigst))+" "+str(gsl_spline_eval(spline_colst,xnm1,accel_colst))+" "+str(xnm1));
+    }
     if(Qst_nm1 > Qlim) {
       yyn=0.0;
       yynm1=0.0;
@@ -1431,7 +1434,7 @@ void DiskContents::ComputeY()
 		     *(1.5 - sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))
 		     - max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*xnm1*dlnx / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
       if(yynm1!=yynm1 || yynm1>0.0000001)
-        errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" "+str(sigp2));
+        errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" "+str(sigp2)+" "+str(sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))+" "+str(NN)+" "+str(i));
 //      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
       if(i-1 % NN == 0)
         yy[(i-1)/NN] = yynm1;

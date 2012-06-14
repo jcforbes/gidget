@@ -228,9 +228,19 @@ if __name__ == "__main__":
 #    # rk12 = rk11 w/ MhZs bug fix... how did things even work before? Answer: random accretion history had correct units of MhofZ, whereas Bouche accr history did not. Now both should work.
 #    # rk13: again try h2=h1=H=0, h0=1
 
-    # rk14: redo varied accretion histories w/ new tau=0 in stable regions
+#    # rk14: redo varied accretion histories w/ new tau=0 in stable regions
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',4,103,100,0)
+#    # rk15 - same thing with slightly more debug info for errors computing y.
+
+    # rk16: concentrate on a particular case which is known to fail:
     a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',4,103,100,0)
+    a.vary('whichAccretionHistory',30,30,1,0)
+#    a.vary('epsff',0.0,.02,9,0)
+    # rk17: test resolution instead of epsff
+#    a.vary('nx',100,1000,10,0)
+    # rk18: back to epsff; look in higher time and parameter res around failure region
+    a.vary('epsff',.005,.0125,13,0)
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.

@@ -89,7 +89,7 @@ int Simulation::runToConvergence(const double fCondition,
     // Note that we'd like to use last step's timestep here to determine whether
     // to write out a file, since we would like to avoid a situation where a sudden
     // decrease in the size of dt causes us to skip a checkpoint
-    bool timeOut = (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
+    bool timeOut = (((floor(100.0*(t-dt)) < floor(100.0*t)) || step<2) && writeOut);
     //    bool timeOut = true; // write out at every time step. Use only if 
                                // things crash and burn very quickly
     if(timeOut) {

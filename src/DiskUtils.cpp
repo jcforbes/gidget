@@ -217,6 +217,13 @@ double max(double a, double b)
   return b;
 }
 
+double min(double a, double b)
+{
+  if(a > b)
+    return b;
+  return a;
+}
+
 std::string str(const int val)
 {
   std::stringstream s;

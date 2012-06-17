@@ -227,6 +227,8 @@ class DiskContents {
 
   std::vector<double>
     h2,h1,h0,H; // coefficients of the torque equation
+  std::vector<double>
+    h2_sm,h1_sm,h0_sm,H_sm;
 
   // inner truncation radius, logarithmic width of a cell,
   // and factor by which to reduce the timestep TOL

@@ -85,6 +85,10 @@ DiskContents::DiskContents(double tH, double eta,
   h0(std::vector<double>(m.nx()+1,0.)),
   h1(std::vector<double>(m.nx()+1,0.)),
   h2(std::vector<double>(m.nx()+1,0.)),
+  H_sm(std::vector<double>(m.nx()+1,0.)),
+  h0_sm(std::vector<double>(m.nx()+1,0.)),
+  h1_sm(std::vector<double>(m.nx()+1,0.)),
+  h2_sm(std::vector<double>(m.nx()+1,0.)),
   fixedQ(Qinit),CumulativeTorque(0.0),
   kappaMetals(km),
   minsigst(minSigSt),
@@ -1149,6 +1153,10 @@ void DiskContents::UpdateCoeffs(double redshift)
       H[n] -= spsActive[i].dQds[n] * dSigstdt(n,i,redshift,spsActive) 
             + spsActive[i].dQdS[n] * dSMigdt(n,yy,x,spsActive[i].spcol);
     }
+  } // end first loop over n
+
+
+  for(unsigned int n=1; n<=nx; ++n) { // now that we've evaluated all the coefficients, check whether to turn on the torque
 
     // turn torque off if it's on and torque is destabilizing this cell
     if(keepTorqueOff[n]==0 && H[n] < 0 ) {
@@ -1159,25 +1167,56 @@ void DiskContents::UpdateCoeffs(double redshift)
     if(keepTorqueOff[n] == 1 && H[n]>=0. && Q(&rqp,&absc)<=fixedQ ) { 
       keepTorqueOff[n]=0;
     }
+  
     // if the torque is currently off, turn off forcing of the torque equation.
-    if(keepTorqueOff[n]==1) { 
+    if(keepTorqueOff[n]==1) { // || (n!=1 && keepTorqueOff[n-1]==1) || (n!=nx && keepTorqueOff[n+1]==1)) { 
       H[n]  = 0.0;
       h2[n] = 0.0;
       h0[n] = 1.0; // set tau = 0
       h1[n] = 0.0; // set dtau/dx = 0
-    }   
-
-    if(H[n]!=H[n] || h0[n]!=h0[n] || h1[n]!=h1[n] || h2[n]!=h2[n]) {
-      std::string spc(" ");
-      errormsg(std::string("Error calculating torque eq. coefficients: H,h0,h1,h2")
-         +std::string("   col,sig  dQdS,dQds,dQdSst,dQdsst ")+str(H[n])+" "+str(h0[n])
-         +spc+str(h1[n])+spc+str(h2[n])+spc+spc+str(col[n])+spc+str(sig[n])
-         +spc+spc+str(dQdS[n])+" "+str(dQds[n])+spc+str(spsActive[0].dQdS[n])
-         +spc+str(spsActive[0].dQds[n])+spc+spc+str(dSigstdt(n,0,redshift,spsActive))+spc
-	+str(dSMigdt(n,yy,x,spsActive[0].spcol)));
-    }
+    }  
+    H_sm[n] = H[n];
+    h2_sm[n] = h2[n];
+    h1_sm[n] = h1[n];
+    h0_sm[n] = h0[n]; 
   }
-}
+
+  int nsm = 5;
+  double nsmd = ((double) nsm);
+  
+  for(int n=1; n<=nx; ++n){
+    if(keepTorqueOff[n]==1) {
+      double nd=((double) n);
+      H[n]=0.0;
+      h0[n]=0.0;
+      h1[n]=0.0;
+      h2[n]=0.0;
+      double norm=0.0;
+      for(int np=max(n-nsm*3,1); np<=min(n+nsm*3,nx); ++np) { 
+        double npd = ((double) np);
+        norm+=exp(-(npd-nd)*(npd-nd)/(2.0*nsmd*nsmd));
+      }
+      for(int np=max(n-nsm*4,1); np<=min(n+nsm*4,nx); ++np) {
+        double npd = ((double) np);
+        double weight = exp(-(npd-nd)*(npd-nd)/(2.0*nsmd*nsmd))/norm;
+        H[n] += H_sm[np] * weight;
+        h0[n]+= h0_sm[np]* weight;
+        h1[n]+= h1_sm[np]* weight;
+        h2[n]+= h2_sm[np]* weight;
+      }
+  
+      if(H[n]!=H[n] || h0[n]!=h0[n] || h1[n]!=h1[n] || h2[n]!=h2[n]) {
+        std::string spc(" ");
+        errormsg(std::string("Error calculating torque eq. coefficients: H,h0,h1,h2")
+           +std::string("   col,sig  dQdS,dQds,dQdSst,dQdsst ")+str(H[n])+" "+str(h0[n])
+           +spc+str(h1[n])+spc+str(h2[n])+spc+spc+str(col[n])+spc+str(sig[n])
+           +spc+spc+str(dQdS[n])+" "+str(dQds[n])+spc+str(spsActive[0].dQdS[n])
+           +spc+str(spsActive[0].dQds[n])+spc+spc+str(dSigstdt(n,0,redshift,spsActive))+spc
+  	+str(dSMigdt(n,yy,x,spsActive[0].spcol)));
+      } // end error check
+    } 
+  } // end loop over n
+} // end method UpdateCoeffs
 
 void DiskContents::WriteOutStarsFile(std::string filename,
 				     std::vector<StellarPop>& sps,

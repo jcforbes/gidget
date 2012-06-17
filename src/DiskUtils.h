@@ -35,6 +35,8 @@ double YoungIthBin(unsigned int,Cosmology&,unsigned int);
 // return the maximum of a and b.
 double max(double a, double b);
 
+double min(double a, double b);
+
 // return I0(x)*exp(-x), where I0 is a modified Bessel function o
 // of the first kind
 double I0Exp(double x);

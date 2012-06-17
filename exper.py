@@ -240,7 +240,18 @@ if __name__ == "__main__":
     # rk17: test resolution instead of epsff
 #    a.vary('nx',100,1000,10,0)
     # rk18: back to epsff; look in higher time and parameter res around failure region
-    a.vary('epsff',.005,.0125,13,0)
+    a.vary('epsff',.005,.0125,4,0)
+    # rk19 - attempt a smoother off switch.
+    # rk20 - gaussian smoothing.
+    # rk21: filter normalized
+    # rk22: int-> double
+    # rk23: higher res time debugging
+    # rk24: higher spatial resolution:
+#    a.vary('nx',10000,10000,1,0)
+    # rk25: shorter smoothing length
+    # rk26: back to larger smoothing length, but only when keepTorqueOff[n]=1.
+    # rk27: back to lower res
+    # rk28: nsm = 5
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.

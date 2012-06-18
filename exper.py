@@ -240,7 +240,10 @@ if __name__ == "__main__":
     # rk17: test resolution instead of epsff
 #    a.vary('nx',100,1000,10,0)
     # rk18: back to epsff; look in higher time and parameter res around failure region
-    a.vary('epsff',.005,.0125,13,0)
+    a.vary('epsff',.005,.0125,4,0)
+    # rk29 - back on this branch! Try exponential decays in tau @ stable boundaries.
+    # rk30 - increase decay length from 2 to 4; next thing to try will be double-checking self-consistent 
+    # calculation of tau' from tau.
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.

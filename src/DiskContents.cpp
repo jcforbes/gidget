@@ -7,6 +7,7 @@
 #include "DiskUtils.h"
 #include "Simulation.h"
 #include "FixedMesh.h"
+#include "Interfaces.h"
 
 #include <gsl/gsl_deriv.h>
 #include <gsl/gsl_min.h>
@@ -724,18 +725,28 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0)
 
 void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha)
 {
+  std::vector<double> tauMRI(nx+1,0.0);
+  std::vector<double> taupMRI(nx+1,0.0);
   for(unsigned int n=1; n<=nx; ++n) {
     // Compute a torque and its derivative given an alpha.
-    double MRItau = 2.0*M_PI*x[n]*x[n]*col[n]*alpha*sigth*sig[n]*(beta[n]-1);
-    double MRItaup = MRItau * (2.0/x[n] + ddx(col,n,x)/col[n] 
+    tauMRI[n] = 2.0*M_PI*x[n]*x[n]*col[n]*alpha*sigth*sig[n]*(beta[n]-1);
+    taupMRI[n] = tauMRI[n] * (2.0/x[n] + ddx(col,n,x)/col[n] 
        + ddx(sig,n,x)/sig[n] + betap[n]/(beta[n]-1));
 
 
     // Where GI has shut down and no longer transports mass inwards, 
     // allow another source of viscosity to drive gas inwards.
-    if(fabs(MRItaup) > fabs(tauvec[2][n])) {
-      tauvec[1][n]=MRItau;
-      tauvec[2][n]=MRItaup;
+    if(taupMRI[n] < tauvec[2][n]) { // larger negative value
+      tauvec[1][n]=tauMRI[n];
+      tauvec[2][n]=taupMRI[n];
+    }
+  }
+  Interfaces inters(keepTorqueOff,x);
+  for(unsigned int n=1; n<=nx; ++n) {
+    if(keepTorqueOff[n]==1) {
+      double weight = inters.weight(n,true,4);
+      tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
+      tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
     }
   }
 }

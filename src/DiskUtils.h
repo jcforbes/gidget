@@ -2,15 +2,21 @@ class Cosmology;
 class DiskContents;
 class Dimensions;
 struct RafikovQParams;
+
+#include "Str.h"
+#include "Ddx.h"
+
 #include <vector>
 #include <string>
 #include <gsl/gsl_math.h>
 
 // Methods to compute radial derivatives in the disk.
 // Each uses a min-mod slope limiter
-double ddx(double,double);
-double ddx(std::vector<double>&,unsigned int,std::vector<double>&);
-double ddx(double *,unsigned int,std::vector<double>&);
+//double ddx(double,double);
+//double ddx(std::vector<double>&,unsigned int,std::vector<double>&);
+//double ddx(double *,unsigned int,std::vector<double>&);
+//template <class T>
+//double ddx(T & arr, unsigned int n, std::vector<double>& x);
 
 // Print an error message and exit to the system
 void errormsg(const std::string);
@@ -42,11 +48,11 @@ double I0Exp(double x);
 // return I1(x)*exp(-x)
 double I1Exp(double x);
 
-// Convert various numerical values into strings
-std::string str(const double);
-std::string str(const int);
-std::string str(const unsigned int);
-std::string str(const long int);
+//// Convert various numerical values into strings
+//std::string str(const double);
+//std::string str(const int);
+//std::string str(const unsigned int);
+//std::string str(const long int);
 
 // Compute Q given a set of parameters qp and a guess at
 // the most unstable dimensionless wavenumber absc.

@@ -90,16 +90,29 @@ FUNCTION getranges5,modelList,ind
         nm=n_elements(modelList)
         ranges=dblarr(2,ni)
         ranges2=dblarr(2,ni)
+
+
         FOR i=0,ni-1 DO BEGIN
+	        log = logvar(ind[i],(*(modelList[0])))
                 IF(ind[i] GE 0) THEN BEGIN
-                        max=-1.e50
-                        min=1.e50
+                        max=-1.e30
+                        min=1.e30
+			;; take the max so far and compare it to the MAX from this model
                         FOR j=0,nm-1 DO max=MAX([max,MAX((*(modelList[j])).dataCube[*,*,ind[i]-1])])
-                        FOR j=0,nm-1 DO min=MIN([min,MIN((*(modelList[j])).dataCube[*,*,ind[i]-1])])
-                        ranges2[*,i] = [min,max]
+			;; take the min so far and compare it to the MIN from this model
+                        IF(log EQ 0) THEN FOR j=0,nm-1 DO min=MIN([min,MIN((*(modelList[j])).dataCube[*,*,ind[i]-1])])
+			IF(log EQ 1) THEN BEGIN
+				FOR j=0,nm-1 DO BEGIN 
+					minTry=MIN([min,MIN((*(modelList[j])).dataCube[*,*,ind[i]-1])])
+					IF(minTry GT 0.0) THEN min=minTry
+				ENDFOR
+			ENDIF
+			IF(log EQ 1) THEN IF(max LE 0) THEN max=1.0
+			IF(log EQ 1 AND min GE max) THEN min=.001*max
+			ranges2[*,i] = [min,max]
                 END ELSE ranges2[*,i]=[0.,1.]
         ENDFOR
-
+        
 	;;; just return the min and max...
 	RETURN,ranges2
 

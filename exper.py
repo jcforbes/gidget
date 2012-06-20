@@ -244,6 +244,13 @@ if __name__ == "__main__":
     # rk29 - back on this branch! Try exponential decays in tau @ stable boundaries.
     # rk30 - increase decay length from 2 to 4; next thing to try will be double-checking self-consistent 
     # calculation of tau' from tau.
+    # rk31 - same, but now be careful to self-consistently calculate tau'
+    # rk32 - much longer decay length (12 units)
+    # rk33 - muck with ddx, keep decay length of 6.
+    # rk34 - remove some bugs causing problem in IDL analysis
+    # rk35 - set tau'' = d2taudx2 instead of ddx(tau') -failed horribly
+    # rk36 - back to tau''=ddx(..), now plotting a few new things.
+    # rk37 - back to ddx @ boundaries = ddx @ 1 away from boundaries, i.e. d2dx2 = 0
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.

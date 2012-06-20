@@ -39,7 +39,7 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "Error in Torque Eq.","vr gas","Cumulative Stars Out (MSol)",$     ;; 36..38
     "Cumulative Gas Out (MSol)","Cumulative SF (MSol)",$               ;; 39,40
     "Change in Stellar Mass (MSol)","Change in Gas Mass (MSol)",$      ;; 41,42
-    "zero","d/dx Gas Velocity Dispersion",$                               ;; 43,44
+    "d/dx tau'","d/dx Gas Velocity Dispersion",$                               ;; 43,44
     "Cumulative Stars In (MSol)","Cumulative Gas In (MSol)",$          ;; 45,46 
     "alpha viscosity","fH2",$ ;; 47..48
     "Cumulative Torque Err","Cumulative Torque Err 2","d2taudx2",$     ;; 49..51
@@ -59,7 +59,8 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "Err in Mass Cons (Gas)","Err in Mass Cons (Stars)",$              ;; 22..23
     "log col","log colst","log vrg","log vrst","gas J/area",$	   ;; 24..27
     "star J/area","cumulative outflow J/area",$			   ;; 28..30
-    "average age at z=0","average present age"]			   ;; 31..32
+    "average age at z=0","average present age",$		   ;; 31..32
+    "-tau","-tau'"]						   ;; 33..34
 
   FOR i=0, npassive DO BEGIN
     pop=strcompress(STRING(i),/remove)
@@ -82,7 +83,7 @@ FUNCTION logvar, ind, model
   log=0
   IF ( (ind GE 4 && ind LE 7) || ind EQ 19 || ind EQ 23 || ind EQ 20 || ind EQ 24 || ind EQ 38 || ind EQ 39 || ind EQ 40 || ind EQ 45 || ind EQ 46 || ind EQ 52) $
      THEN log=1
-  IF (ind EQ ncs+8 || ind EQ ncs+22 || ind EQ ncs+23 || (ind GE ncs+10 AND ind LE ncs+17) || ind EQ 19 || (ind GE ncs+1 AND ind LE ncs+5) || (ind GE ncs+28 AND ind LE ncs+30) ) THEN log=1
+  IF (ind EQ ncs+8 || ind EQ ncs+22 || ind EQ ncs+23 || (ind GE ncs+10 AND ind LE ncs+17) || ind EQ 19 || (ind GE ncs+1 AND ind LE ncs+5) || (ind GE ncs+28 AND ind LE ncs+30) || ind EQ ncs+33 || ind EQ ncs+34 || ind EQ ncs+6 || ind EQ ncs+7) THEN log=1
   FOR i=0,model.NPassive DO BEGIN
     IF(ind EQ i*nsv+st0+1 || ind EQ i*nsv+st0+2 || ind EQ i*nsv+st0+4 ) THEN log=1
   ENDFOR
@@ -335,7 +336,7 @@ FUNCTION readOutput,name
 ;    errs[where(errs LT 1.e-21)] = 1.e-21
 ;    dataCube[*,*,60:63] = errs
 
-    NPostProcess= 32
+    NPostProcess= 34
     tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ZstNum = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
@@ -408,6 +409,9 @@ FUNCTION readOutput,name
 	ENDFOR
     ENDFOR
 
+    tdc[*,*,ncolstep+33-1] = -tdc[*,*,1] ;; - tau ( for purposes of log plotting)
+    tdc[*,*,ncolstep+34-1] = -tdc[*,*,2] ;; - tau'    '''
+
     tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
     tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr)
 
@@ -456,7 +460,7 @@ FUNCTION readOutput,name
 	;34- dQ/ds_err 35- y, 36- torqueErr 37- vrg, 38- Cumulative Stars Out, 
 	;39- Cumulative Gas Out, 40- dimensional Cumulative SF, 
 	;41- dimensional change in st mass in a cell, 
-	;42- dimensional change in gas mass in a cell, 43- 0, 44- s', 
+	;42- dimensional change in gas mass in a cell, 43- ddx(tau'), 44- s', 
 	;45- Cumulative Stars In, 46- Cumulative Gas in, 47- alpha, 
 	;48- f_H2, 49- cuTorqueErr, 50- cuTorqueErr2,
 	;51- tau''(meas),52- cuSF
@@ -474,6 +478,7 @@ FUNCTION readOutput,name
 	;26- log vr_g, 27- log vr_*
 	;28- ang. mom of gas, 29- ang. mom of stars
 	;30- ang. mom of cumulative outflows
+        ;; 33,34 = -tau, -tau'
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )

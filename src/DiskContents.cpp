@@ -353,6 +353,7 @@ void DiskContents::ComputeDerivs(double ** tauvec)
     }
     dlnZdx = ddx(dlnZdxL,dlnZdxR);
     double taupp = ddx(tauvec[2],n,x);
+//    double taupp = d2taudx2[n];
     
     if(taupp!=taupp) {
       taupp=0.;
@@ -368,12 +369,12 @@ void DiskContents::ComputeDerivs(double ** tauvec)
 
     double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
     dsigdt[n] = uu[n]*(beta[n]-1.)*tauvec[1][n]/
-                   (3.*sig[n]*col[n]*x[n]*x[n]*x[n])
-      + (sig[n]*(beta[n]+beta[n]*beta[n]+x[n]*betap[n])
-             /(3.*(beta[n]+1.)*(beta[n]+1.)*col[n]*uu[n]*x[n]*x[n])
-         -5.*ddx(sig,n,x)/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]))
-              *tauvec[2][n]
-      - sig[n]*taupp/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]);
+                                      (3.*sig[n]*col[n]*x[n]*x[n]*x[n])
+                + (sig[n]*(beta[n]+beta[n]*beta[n]+x[n]*betap[n])
+                               /(3.*(beta[n]+1.)*(beta[n]+1.)*col[n]*uu[n]*x[n]*x[n])
+                        -5.*ddx(sig,n,x)/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]))
+                  *tauvec[2][n]
+               - sig[n]*taupp/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]);
     if(sigth<=sig[n]) {
       dsigdt[n]-= 2.*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
          *col[n]*dim.chi()*(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/(3.);
@@ -604,11 +605,11 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
 	  dt * 2.0*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR  * (1.0/MSol);
       }
       CuGasOut[n] +=  
-	sqrt(tauvec[2][n]*tauvec[2][n-1]) 
+	sqrt(max(tauvec[2][n]*tauvec[2][n-1],1.0e-20))
 	/ (sqrt(uu[n]*uu[n-1] * (1. + beta[n])*(1.+beta[n-1]))) 
 	* dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
     }
-    CuGasOut[1]+=(sqrt(tauvec[1][1]*tauvec[1][2])-0.)
+    CuGasOut[1]+=(sqrt(max(tauvec[1][1]*tauvec[1][2],1.0e-20))-0.)
       /((XMIN*exp(dlnx/2.)*expm1(dlnx))*uu[1]*(1+beta[1])) * 
       dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
     for(unsigned int j=0; j!=spsActive.size(); ++j) {
@@ -723,7 +724,8 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0)
   }
 }
 
-void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha)
+void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha, 
+                                    const double IBC, const double OBC)
 {
   std::vector<double> tauMRI(nx+1,0.0);
   std::vector<double> taupMRI(nx+1,0.0);
@@ -744,11 +746,13 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha)
   Interfaces inters(keepTorqueOff,x);
   for(unsigned int n=1; n<=nx; ++n) {
     if(keepTorqueOff[n]==1) {
-      double weight = inters.weight(n,true,4);
+      double weight = inters.weight(n,true,6.0);
       tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
-      tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
+//      tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
     }
   }
+
+  TauPrimeFromTau(tauvec,1,nx,IBC,OBC);
 }
 
 void DiskContents::ComputeTorques(double ** tauvec, const double IBC, const double OBC)
@@ -854,6 +858,23 @@ void DiskContents::ComputeGItorque(double ** tauvec,
           +spc+str(h0[n])+spc+str(h1[n])+spc+str(h2[n]));
     }
   }
+
+  TauPrimeFromTau(tauvec,nmin,nmax,IBC,OBC);
+
+  // Take the solution to the torque equation which has just been calculated
+  // and plug it back in to the original ODE. Accumulate the degree to which
+  // the equation is not satisfied in each cell.
+  for(unsigned int n=nmin; n<=nmax; ++n) {
+    CumulativeTorqueErr2[n] += d2taudx2[n] * h2[n] 
+        + tauvec[2][n] * h1[n] + tauvec[1][n] * h0[n] - H[n];
+  } 
+
+}
+
+void DiskContents::TauPrimeFromTau(double ** tauvec, 
+		     unsigned int nmin, unsigned int nmax, 
+                     const double IBC, const double OBC)
+{
   // Take the given values of tau and use them to self-consistently calculate tau'.
   for(unsigned int n=nmin+1; n<=nmax-1; ++n) {
     tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(x[n]*dmdinv);
@@ -868,22 +889,26 @@ void DiskContents::ComputeGItorque(double ** tauvec,
     d2taudx2[n] = (sqd/(x[n]*x[n])) * 
          ((tauvec[1][n+1]-tauvec[1][n])/(dm1*dm1) 
             - (tauvec[1][n]-tauvec[1][n-1])/(dmm1*dmm1*dd));
+    if(d2taudx2[n]!=d2taudx2[n]) {
+      errormsg("Error computing tau''. tauvec[1][n-1,n,n+1], dm1, dmm1, dd: "+str(tauvec[1][n-1])+" "+str(tauvec[1][n])+" "+str(tauvec[1][n+1])+" "+str(dm1)+" "+str(dmm1)+" "+str(dd)+" "+str(n));
+    }
   }
   d2taudx2[nmin] = (sqd/(x[nmin]*x[nmin])) * ((tauvec[1][nmin+1]-tauvec[1][nmin])/(dm1*dm1) 
         - (tauvec[1][nmin]-IBC)/(dmm1*dmm1*dd));
   d2taudx2[nx] = OBC - (sqd/(x[nx]*x[nx])) * 
        (  - (tauvec[1][nmax]-tauvec[1][nmax-1])/(dmm1*dmm1*dd));
 
-
-  // Take the solution to the torque equation which has just been calculated
-  // and plug it back in to the original ODE. Accumulate the degree to which
-  // the equation is not satisfied in each cell.
+  // Check for errors..
   for(unsigned int n=nmin; n<=nmax; ++n) {
-    CumulativeTorqueErr2[n] += d2taudx2[n] * h2[n] 
-        + tauvec[2][n] * h1[n] + tauvec[1][n] * h0[n] - H[n];
-  } 
-
+    if(tauvec[2][n]!=tauvec[2][n]) {
+      errormsg("Error computing tau'");
+    }
+    if(d2taudx2[n]!=d2taudx2[n]) {
+      errormsg("Error computing tau''. tauvec[1][n-1,n,n+1], dm1, dmm1, dd: "+str(tauvec[1][n-1])+" "+str(tauvec[1][n])+" "+str(tauvec[1][n+1])+" "+str(dm1)+" "+str(dmm1)+" "+str(dd)+" "+str(n));
+    }
+  }
 }
+
 
 void DiskContents::DiffuseMetals(double dt)
 {
@@ -1279,6 +1304,8 @@ void DiskContents::WriteOutStepFile(std::string filename,
     sig_st[n]=activeSigSt(n);
   }
   
+  int kError=-1;
+  int nError=-1;
 
   // loop over each cell.
   // Print out a bunch of quantities, some of which we'll have to do
@@ -1312,7 +1339,8 @@ void DiskContents::WriteOutStepFile(std::string filename,
       + col_st[n]*yy[n]/x[n]) + RfREC*colSFR[n];
     vrg = tauvec[2][n] / (2.*M_PI*x[n]*uu[n]*col[n]*(1.+beta[n]));
     fh2 = ComputeH2Fraction(n);
-    taupp = (H[n] - h1[n]*tauvec[2][n] - h0[n]*tauvec[1][n])/h2[n];
+//    taupp = (H[n] - h1[n]*tauvec[2][n] - h0[n]*tauvec[1][n])/h2[n];
+    taupp = d2taudx2[n];
     if(mrq<=0) mrq=1.;
     // lambdaT is the dimensionless Toomre length
     lambdaT = 2.*M_PI*sig[n]*x[n]/(temp2*sqrt(2.*(beta[n]+1.))*uu[n]); 
@@ -1337,7 +1365,7 @@ void DiskContents::WriteOutStepFile(std::string filename,
     wrt.push_back(dQdserr[n]);wrt.push_back(yy[n]);wrt.push_back(torqueErr); // 34..36
     wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back(CuGasOut[n]); // 37..39
     wrt.push_back(flux(n-1,yy,x,col_st));wrt.push_back(0);wrt.push_back(0);//40..42
-    wrt.push_back(0);wrt.push_back(ddx(sig,n,x));wrt.push_back(0); // 43..45
+    wrt.push_back(ddx(tauvec[2],n,x));wrt.push_back(ddx(sig,n,x));wrt.push_back(0); // 43..45
     wrt.push_back(0);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
     wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
     wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52
@@ -1350,10 +1378,17 @@ void DiskContents::WriteOutStepFile(std::string filename,
     }
     for(unsigned int k=0;k!=wrt.size();++k) {
       double a=wrt[k];
+      if(a!=a) {
+        kError = k;
+        nError = n;
+      }
       file.write((char *) &a,sizeof(a));
     }
   }
   file.close();
+
+  if(kError!=-1)
+    errormsg("Error writing file!  k,n: "+str(kError)+" "+str(nError));
 
   std::ofstream file2;
   if(step==0) {

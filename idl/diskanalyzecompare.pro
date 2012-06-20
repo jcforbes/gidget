@@ -106,7 +106,10 @@ PRO diskAnalyzeCompare,modelList,sv,cmt,leg
 
 	ind=[2,3,30,4,5,24,6,7,23];;;tau,tau',tau'',S,s,Qg,S*,s*,Qs
 	Xind=ind*0+1
-	MakeComparisonMovie,modelList,(ind*0+1),ind,3,3,"stt",getranges5(modelList,Xind),getranges5(modelList,ind),sv,CMT,leg
+	xr = getranges5(modelList,Xind)
+	xr[0,*]*=.5
+        xr[1,*]*=2
+	MakeComparisonMovie,modelList,(ind*0+1),ind,3,3,"stt",xr,getranges5(modelList,ind),sv,CMT,leg
 
 	ind=[62,63,64,65,66,67,68,69]
 	Xind=ind*0+61
@@ -133,6 +136,14 @@ PRO diskAnalyzeCompare,modelList,sv,cmt,leg
 	xind=ind*0+61
 ;	MakeComparisonMovie,modelList,Xind,ind,2,4,"massBudget",getranges5(modelList,Xind),getranges5(modelList,ind),sv,CMT,leg
 
+
+        ind = [ncs+33, ncs+34,12,44,   8,9,43,11,  13,14,15,16] ;; -tau, -tau', Q, sig',   Sdot, sdot, tau'', s*dot,    h0,h1,h2,H
+        xind=ind*0+1
+        xr=getranges5(modelList,Xind)
+	xr[0,*]*=.5
+	xr[1,*]*=2
+        MakeComparisonMovie,modelList,Xind,ind,4,3,"dg",xr,getranges5(modelList,ind),sv,CMT,leg
+
 	ind=[ncs+npp+stv*0 + 1, ncs+npp+stv*1 + 1, ncs+npp+stv*3 + 1, ncs+npp+stv*np + 1,$
 		ncs+npp+stv*0 +2,ncs+npp+stv*1+ 2, ncs+npp+stv*3 + 2, ncs+npp+stv*np + 2,$
 		ncs+npp+stv*0 +3,ncs+npp+stv*1+ 3, ncs+npp+stv*3 + 3, ncs+npp+stv*np + 3]
@@ -144,7 +155,7 @@ PRO diskAnalyzeCompare,modelList,sv,cmt,leg
 	ranges[1,4:7]=100
 	ranges[0,8:11]=-1.5
 	ranges[1,8:11]=.5
-	MakeComparisonMovie,modelList,Xind,ind,4,3,"stars",getranges5(modelList,Xind),ranges,sv,CMT,leg
+	MakeComparisonMovie,modelList,Xind,ind,4,3,"stars",getranges5(modelList,Xind),getranges5(modelList,ind),sv,CMT,leg
 
 ;;	ind=[4,6,17]
 ;;	xind=ind*0+1

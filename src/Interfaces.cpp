@@ -60,7 +60,7 @@ double Interfaces::weight(unsigned int n, bool cells, double dist)
 unsigned int Interfaces::index(unsigned int n, bool right)
 {
   if(keepTorquesOff[n]==0)
-    return 0;
+    return n;
 
   if(right)
     return DistanceToRightInterface[n]+n;

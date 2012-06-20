@@ -151,12 +151,14 @@ int Simulation::runToConvergence(const double fCondition,
     // for the boundary conditions
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin/pow(xmin,1./(1.-nx)),-1.*AccRate);
     //    disk.ComputeTorques(tauvec,0.,-1.*AccRate);
-    theDisk.ComputeTorques(tauvec,2*M_PI*theDisk.GetX()[1]*theDisk.GetX()[1]*theDisk.GetCol()[1]*alphaMRI*sigth*theDisk.GetSig()[1]*(theDisk.GetBeta()[1]-1),-1.*AccRate);
+    double IBC = 2*M_PI*theDisk.GetX()[1]*theDisk.GetX()[1]*theDisk.GetCol()[1]*alphaMRI*sigth*theDisk.GetSig()[1]*(theDisk.GetBeta()[1]-1);
+    double OBC=-1.*AccRate;
+    theDisk.ComputeTorques(tauvec,IBC,OBC);
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 
     // In situations where the alpha viscosity produces larger torques 
     // than the GI viscosity, use the alpha viscosity instead:
-    theDisk.ComputeMRItorque(tauvec,alphaMRI);
+    theDisk.ComputeMRItorque(tauvec,alphaMRI,IBC,OBC);
 
     // Given the solution to the torque equation, compute time 
     // derivatives of the state variables

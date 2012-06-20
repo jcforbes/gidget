@@ -13,90 +13,84 @@
 #include <iostream>
 #include <sstream>
 
-double ddx(double left, double right)
-{
-  if(left*right <=0.)
-    return 0.0;
-  if(fabs(left)>fabs(right))
-    return right;
-  return left;
-}
 
-double ddx(double* arr, unsigned int n, std::vector<double>& x)
-{
-/*   if(n<nx && n>1) */
-/*     return (arr[n+1]-arr[n-1])/(x[n+1]-x[n-1]); */
-  unsigned int nx = x.size()-1;
-  if(n<nx && n>1) {
-    // slope limiter!
-    double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-    double left = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-    return ddx(left,right);
-  }
-  if(n==nx) {
-    double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-    double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
-    double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
-//    return ddx(center,right); 
-    return ddx(left,right);
-    return right;
-  }
-  if(n==1) {
-    double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-    double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
-    double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
-    return left; // bbbbb
-    //    return right; // bbbb
-    return ddx(left,center); // bbb
-    //    return ddx(left,right); bb
-    return center;
-    return ddx(left,center);
-    return left;
-  }
+////double ddx(double* arr, unsigned int n, std::vector<double>& x)
+////{
+/////*   if(n<nx && n>1) */
+/////*     return (arr[n+1]-arr[n-1])/(x[n+1]-x[n-1]); */
+////  unsigned int nx = x.size()-1;
+////  if(n<nx && n>1) {
+////    // slope limiter!
+////    double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
+////    double left = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
+////    return ddx(left,right);
+////  }
+////  if(n==nx) {
+////    double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
+////    double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
+////    double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
+//////    return ddx(center,right); 
+////    return ddx(left,right);
+////    return right;
+////  }
+////  if(n==1) {
+////    double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
+////    double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
+////    double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
+////    return left; // bbbbb
+////    //    return right; // bbbb
+////    return ddx(left,center); // bbb
+////    //    return ddx(left,right); bb
+////    return center;
+////    return ddx(left,center);
+////    return left;
+////  }
+////
+////  return 0.; // never get here
+////
+////}
 
-  return 0.; // never get here
+////double ddx(std::vector<double>& arr, unsigned int n, std::vector<double>& x)
+////{
+/////*   if(n<nx && n>1) */
+/////*     return (arr[n+1]-arr[n-1])/(x[n+1]-x[n-1]); */
+////  unsigned int nx = x.size()-1;
+////  if(n<nx && n>1) {
+////    // slope limiter!
+////    double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
+////    double left = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
+////    return ddx(left,right);
+////    if(left*right <=0.) 
+////      return 0.; 
+////    if(fabs(left)>fabs(right))
+////      return right;
+////    return left;
+////  }
+////  if(n==nx) {
+////    double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
+////    double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
+////    double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
+////    return ddx(left,right);
+////    return right;
+////  }
+////  if(n==1) {
+////    double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
+////    double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
+////    double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
+////    return left; // bbbbb
+////    return right; // bbbb
+////    return ddx(left,center);
+////    //    return ddx(left,right);
+////    return center;
+////    return ddx(left,center);
+////    return left;
+////  }
+////
+////  return 0.; // never get here
+////
+////}
 
-}
 
-double ddx(std::vector<double>& arr, unsigned int n, std::vector<double>& x)
-{
-/*   if(n<nx && n>1) */
-/*     return (arr[n+1]-arr[n-1])/(x[n+1]-x[n-1]); */
-  unsigned int nx = x.size()-1;
-  if(n<nx && n>1) {
-    // slope limiter!
-    double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-    double left = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-    return ddx(left,right);
-    if(left*right <=0.) 
-      return 0.; 
-    if(fabs(left)>fabs(right))
-      return right;
-    return left;
-  }
-  if(n==nx) {
-    double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-    double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
-    double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
-    return ddx(left,right);
-    return right;
-  }
-  if(n==1) {
-    double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-    double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
-    double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
-    return left; // bbbbb
-    return right; // bbbb
-    return ddx(left,center);
-    //    return ddx(left,right);
-    return center;
-    return ddx(left,center);
-    return left;
-  }
-
-  return 0.; // never get here
-
-}
 
 void errormsg(const std::string msg)
 {

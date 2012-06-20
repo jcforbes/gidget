@@ -69,6 +69,7 @@ class DiskContents {
   double ComputeQst(unsigned int n);
   void TridiagonalWrapper(unsigned int,unsigned int);
   void ComputeGItorque(double**, unsigned int,unsigned int, double, double);
+  void TauPrimeFromTau(double**, unsigned int,unsigned int, const double, const double);
 
   // At a given cell, compute the fraction of gas which is 
   // in H2, i.e. what fraction of the gas is available to 
@@ -181,7 +182,7 @@ class DiskContents {
   // computed by ComputeTorques, replace tau and tau' with 
   // the values computed here. The idea is that if GI shuts down
   // and MRI still operates, let the gas be transported by MRI.
-  void ComputeMRItorque(double **tauvec, const double alphaMRI);
+  void ComputeMRItorque(double **tauvec, const double alphaMRI, const double IBC, const double OBC);
 
   // Store enough information to initialize a simulation in 
   // the Initializer object in.

@@ -8,7 +8,8 @@ END
 ;; which=3 <=> a gradual progression within a certain set of colors, determined by color
 ;;                  n refers to the number of gradations in this color
 PRO setct,which,n,color
-	IF(which EQ 0) THEN BEGIN
+
+	IF((n_elements(which) EQ 0 AND n_elements(n) EQ 0 AND n_elements(color EQ 0))   OR which EQ 0) THEN BEGIN
 		compile_opt idl2
 		set_plot,'x'
 		DEVICE,DECOMPOSED=0

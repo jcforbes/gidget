@@ -1501,7 +1501,9 @@ void DiskContents::ComputeY()
 		     *(1.5 - sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))
 	- max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*(xn-xnm1) / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
       if(yynm1!=yynm1 || yynm1>0.0000001 || fabs(yynm1) > 100.0)
-        errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" "+str(sigp2)+" "+str(sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))+" "+str(NN)+" "+str(i));
+        errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" " +str(sigp2)+" "
+		 +str(sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))
+		 +" "+str(NN)+" "+str(i));
 //      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
       if((i-1) % NN == 0)
         yy[(i-1)/NN] = yynm1;

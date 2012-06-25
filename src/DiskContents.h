@@ -182,7 +182,7 @@ class DiskContents {
   // computed by ComputeTorques, replace tau and tau' with 
   // the values computed here. The idea is that if GI shuts down
   // and MRI still operates, let the gas be transported by MRI.
-  void ComputeMRItorque(double **tauvec, const double alphaMRI, const double IBC, const double OBC);
+  void ComputeMRItorque(double **tauvec, const double alphaMRI, const double IBC, const double OBC,const double ndecay);
 
   // Store enough information to initialize a simulation in 
   // the Initializer object in.

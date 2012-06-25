@@ -5,6 +5,8 @@ struct RafikovQParams;
 
 #include "Str.h"
 #include "Ddx.h"
+#include "Min.h"
+#include "Max.h"
 
 #include <vector>
 #include <string>
@@ -37,9 +39,6 @@ double OldIthBin(unsigned int i,Cosmology&,unsigned int N);
 
 // Return the age in seconds of the youngest star in bin i out of N.
 double YoungIthBin(unsigned int,Cosmology&,unsigned int);
-
-// return the maximum of a and b.
-double max(double a, double b);
 
 // return I0(x)*exp(-x), where I0 is a modified Bessel function o
 // of the first kind

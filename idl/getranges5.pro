@@ -103,8 +103,11 @@ FUNCTION getranges5,modelList,ind
                         IF(log EQ 0) THEN FOR j=0,nm-1 DO min=MIN([min,MIN((*(modelList[j])).dataCube[*,*,ind[i]-1])])
 			IF(log EQ 1) THEN BEGIN
 				FOR j=0,nm-1 DO BEGIN 
-					minTry=MIN([min,MIN((*(modelList[j])).dataCube[*,*,ind[i]-1])])
-					IF(minTry GT 0.0) THEN min=minTry
+                                        arr = (*(modelList[j])).dataCube[*,*,ind[i]-1]
+					valInd = WHERE(arr GT 0.0, ct)
+					IF(ct GT 0) THEN min=MIN([min,MIN(arr[valInd])])
+;					minTry=MIN([min,MIN((*(modelList[j])).dataCube[*,*,ind[i]-1])])
+;					IF(minTry GT 0.0) THEN min=minTry
 				ENDFOR
 			ENDIF
 			IF(log EQ 1) THEN IF(max LE 0) THEN max=1.0
@@ -113,6 +116,7 @@ FUNCTION getranges5,modelList,ind
                 END ELSE ranges2[*,i]=[0.,1.]
         ENDFOR
         
+;	stop,ind
 	;;; just return the min and max...
 	RETURN,ranges2
 

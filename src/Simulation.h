@@ -17,7 +17,7 @@ class Simulation {
 	     const bool cosmologyOn, const unsigned int nnx,
 	     const double TOL, const double zs,
 	     const unsigned int na, const unsigned int np,
-	     const double alphaMRI, const double sigth,
+	     const double alphaMRI, const double sigth, const double ndecay,
 	     DiskContents&,
 	     AccretionHistory&);
   int runToConvergence(const double fCondition,
@@ -33,6 +33,7 @@ class Simulation {
   const double zstart;
   const unsigned int NPassive,NActive;
   const double alphaMRI,sigth;
+  const double ndecay;
   DiskContents& theDisk;
   AccretionHistory& accr;
   Initializer ini;

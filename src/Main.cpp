@@ -31,14 +31,14 @@ int main(int argc, char **argv) {
   std::cout.precision(7);  
   if(argc<2) {
     std::vector<std::string> errmgLine(0);
-    errmgLine.push_back("Need at least one argument (filename)-- Arguments are ");
+    errmgLine.push_back("Need at least one argument (filename)-- All possible arguments are ");
     errmgLine.push_back(" \nrunName, \nnx, \neta, \nepsff, \nTmig (local orbital times), \n");
     errmgLine.push_back("analyticQ (1 or 0),\ncosmologyOn (1 or 0), \nxmin, \nNActive, \n");
     errmgLine.push_back("NPassive, \nvphiR (km/s), \nradius (kpc), \ngasTemp (K), \nQlim, \n");
     errmgLine.push_back("fg0, \ntempRatio (sig_*/sig_g), \nzstart, \ntmax, \nstepmax, \n");
     errmgLine.push_back("TOL (t_orb),\nMassLoadingFactor, \nBulgeRadius (kpc), \n");
     errmgLine.push_back("stDiskScale (kpc, or -1 for powerlaw),\nwhichAccretionHistory,\nalphaMRI");
-    errmgLine.push_back(", \nthick,\nmigratePassive,\nQinit,\nkappaMetals,\nMh0\n");
+    errmgLine.push_back(", \nthick,\nmigratePassive,\nQinit,\nkappaMetals,\nMh0,\nminSigSt,\nndecay");
     std::string msg="";
     for(unsigned int i=0; i!=errmgLine.size();++i) {
       msg+=errmgLine[i];
@@ -91,7 +91,8 @@ int main(int argc, char **argv) {
   const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./4.);
   const double sigth = sqrt(Tgas *kB/mH)/vphiR;
 
-  const double minSigSt =          as.Set(5.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
+  const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
+  const double ndecay =            as.Set(6,"Decay length of GI in stable regions (cells)");
   
   // Make an object to deal with things cosmological
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
@@ -134,7 +135,7 @@ int main(int argc, char **argv) {
   Simulation simIC(1000.0,1000000000,
                    false, nx,TOL,
                    zstart,NActive,NPassive,
-                   alphaMRI,sigth,
+                   alphaMRI,sigth,ndecay,
                    diskIC,accr);
   int result = simIC.runToConvergence(1, true, filename+"_icgen"); // set false-> true to debug initial condition generator
   if(result!=5) // The simulation converges when the time step reaches 1*TOL.
@@ -149,7 +150,7 @@ int main(int argc, char **argv) {
   Simulation sim(tmax,stepmax,
 		 cosmologyOn,nx,TOL,
 		 zstart,NActive,NPassive,
-		 alphaMRI,sigth,
+		 alphaMRI,sigth,ndecay,
 		 disk,accr);
   sim.runToConvergence(1.0e10, true, filename); 
 }

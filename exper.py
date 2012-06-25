@@ -15,10 +15,10 @@ import math
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-4,1.0,0,.5,2.0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12,10.0]
+        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-4,1.0,0,.5,2.0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12,1.0,6.0]
         self.pl=[self.p[:]]
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -233,14 +233,14 @@ if __name__ == "__main__":
 #    a.vary('whichAccretionHistory',4,103,100,0)
 #    # rk15 - same thing with slightly more debug info for errors computing y.
 
-    # rk16: concentrate on a particular case which is known to fail:
-    a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',30,30,1,0)
-#    a.vary('epsff',0.0,.02,9,0)
-    # rk17: test resolution instead of epsff
-#    a.vary('nx',100,1000,10,0)
-    # rk18: back to epsff; look in higher time and parameter res around failure region
-    a.vary('epsff',.005,.0125,4,0)
+#    # rk16: concentrate on a particular case which is known to fail:
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',30,30,1,0)
+##    a.vary('epsff',0.0,.02,9,0)
+#    # rk17: test resolution instead of epsff
+##    a.vary('nx',100,1000,10,0)
+#    # rk18: back to epsff; look in higher time and parameter res around failure region
+#    a.vary('epsff',.005,.0125,4,0)
     # rk29 - back on this branch! Try exponential decays in tau @ stable boundaries.
     # rk30 - increase decay length from 2 to 4; next thing to try will be double-checking self-consistent 
     # calculation of tau' from tau.
@@ -251,9 +251,45 @@ if __name__ == "__main__":
     # rk35 - set tau'' = d2taudx2 instead of ddx(tau') -failed horribly
     # rk36 - back to tau''=ddx(..), now plotting a few new things.
     # rk37 - back to ddx @ boundaries = ddx @ 1 away from boundaries, i.e. d2dx2 = 0
+    # rk38 - lower resolution in time.
+
+#    # rk39 - vary ndecay, taking forever for some reason
+#    a.vary('diskScaleLength',2.0,2.0,1,0)
+#    a.vary('whichAccretionHistory',30,30,1,0)
+#    a.vary('ndecay',-1,6,3,0)
+    # rk40 - vary decay length, include prescription for smoothing out base torque.
+#    a.vary('ndecay',2,16,4,1)
+    # rk41 - again, this time weight only to the right.
+    # rk42 - try something completely crazy- manually smooth tau on a grid scale.
+    # rk43 - decrease the y-resolution, with manually-smoothed tau.
+#    a.vary('minSigSt',10.0,10.0,1,0)
+    # rk44 - roll back the crazy - only avg the base torque to the right, no smoothing.
+
+    # rk45 - previous runs had a bug in the weight. Try again weighting to the right.
+    # rk46 - weight on the left also.
+    # rk47 - just replace tau with tau gaussian smoothed.
+
+    # rk48 - All previous post-bug-fix tests fail. More stringent check of finding roots.
+#    a.vary('ndecay',-1,11,4,0)
+    # rk49 - fix ri bug. Still doing Gaussian weighting.
+    # rk50 - 2-sided smoothing
+    # rk51 - right-sided smoothing
+    # rk52 - manual smoothing @ all grid points instead of just those with keepTorqueOff[n]==1
+
+    # rk53 Permanantly use Gaussian weighting in stable regions. Redo large-ish varied-accretion history runs.
+    a.vary('diskScaleLength',2.0,2.0,1,0)
+    a.vary('whichAccretionHistory',4,103,100,0)
+ #   a.vary('ndecay',-1,-1,1,0)
+    a.vary('nx',200,200,1,0)
+    a.vary('minSigSt',10.0,10.0,1,0)
+    a.vary('Mh0',1.0e9,1.0e12,4,1)
+
+    # rk54 - ndecay = 3 instead of -1.
+    a.vary('ndecay',3,3,1,0)
+    
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.
     a.generatePl()  
 #    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
-    a.localRun(15,0) # run (in serial) on four processors.
+    a.localRun(8,0) # run (in serial) on four processors.

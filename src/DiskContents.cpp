@@ -725,7 +725,7 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0)
 }
 
 void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha, 
-                                    const double IBC, const double OBC)
+                                    const double IBC, const double OBC, const double ndecay)
 {
   std::vector<double> tauMRI(nx+1,0.0);
   std::vector<double> taupMRI(nx+1,0.0);
@@ -743,12 +743,30 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
       tauvec[2][n]=taupMRI[n];
     }
   }
-  Interfaces inters(keepTorqueOff,x);
-  for(unsigned int n=1; n<=nx; ++n) {
-    if(keepTorqueOff[n]==1) {
-      double weight = inters.weight(n,true,6.0);
-      tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
-//      tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
+
+  int nsmooth = (int) (ndecay/2.0 + 1);
+  std::vector<double> tauSmooth(nx+1,0.0);
+  for(int n=1; n<=nx; ++n) {
+    double norm = 0.0;
+    for(int np = max(1,min(n-3*nsmooth,n)); np<=min((int) nx,max(n,n+3*nsmooth)); ++np) {
+//    for(int np=n; np<=min((int) nx,n+3*nsmooth); ++np) {
+      double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
+      tauSmooth[n] += wght*tauvec[1][np];
+      norm += wght;
+    }
+    tauSmooth[n]/=norm;
+  }
+
+  if(ndecay > 0.0) {
+    Interfaces inters(keepTorqueOff,x);
+    for(unsigned int n=1; n<=nx; ++n) {
+      if( keepTorqueOff[n]==1) {
+        double weight = inters.weight(n,true,ndecay);
+	//        tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
+//	tauvec[1][n] = tauSmooth[inters.index(n,true)]*weight + (1.0-weight)*tauMRI[n];
+	tauvec[1][n] = tauSmooth[n];
+//        tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
+      }
     }
   }
 
@@ -1465,6 +1483,9 @@ void DiskContents::ComputeY()
     double xn = mesh.x(n);
     double Qst_nm1 = sqrt(2.*(mesh.beta(xnm1)+1.0))*mesh.uu(xnm1)* gsl_spline_eval(spline_sigst,xnm1,accel_sigst)
                        / (M_PI*dim.chi()*xnm1* gsl_spline_eval(spline_colst,xnm1,accel_colst)) ;
+    if(Qst_nm1 < 1.0)
+      double dummy=0.0;
+
     if(Qst_nm1 < 0.0 || Qst_nm1!=Qst_nm1) {
       errormsg("Error computing Qst_nm1. Qst_nm1, beta, u, sigst, colst, xnm1:   "+str(Qst_nm1)+" "+str(mesh.beta(xnm1))+" "+str(mesh.uu(xnm1))+" "+str(gsl_spline_eval(spline_sigst,xnm1,accel_sigst))+" "+str(gsl_spline_eval(spline_colst,xnm1,accel_colst))+" "+str(xnm1));
     }
@@ -1478,11 +1499,11 @@ void DiskContents::ComputeY()
       double yynm1 = yyn * xn* gsl_spline_eval(spline_colst,xn,accel_colst) 
                       / (xnm1*gsl_spline_eval(spline_colst,xnm1,accel_colst))
 		     *(1.5 - sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))
-		     - max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*xnm1*dlnx / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
-      if(yynm1!=yynm1 || yynm1>0.0000001)
+	- max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*(xn-xnm1) / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
+      if(yynm1!=yynm1 || yynm1>0.0000001 || fabs(yynm1) > 100.0)
         errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" "+str(sigp2)+" "+str(sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))+" "+str(NN)+" "+str(i));
 //      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
-      if(i-1 % NN == 0)
+      if((i-1) % NN == 0)
         yy[(i-1)/NN] = yynm1;
       yyn = yynm1;
     }

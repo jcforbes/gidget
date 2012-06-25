@@ -43,7 +43,7 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "Cumulative Stars In (MSol)","Cumulative Gas In (MSol)",$          ;; 45,46 
     "alpha viscosity","fH2",$ ;; 47..48
     "Cumulative Torque Err","Cumulative Torque Err 2","d2taudx2",$     ;; 49..51
-     "Cumulative SF"]						   ;; 52
+     "Cumulative SF"]						   ;; 52 
   tLabels=strarr(ncolstep+npostprocess+stvars*(npassive+1))
   tLabels[0:(ncolstep-1)] = Labels[0:(ncolstep-1)]
   tLabels[ncolstep:(ncolstep+npostprocess-1)]= [$					   ;; ncolev+...
@@ -81,9 +81,12 @@ FUNCTION logvar, ind, model
   ncs=model.ncolstep
   nsv=model.STVars
   log=0
-  IF ( (ind GE 4 && ind LE 7) || ind EQ 19 || ind EQ 23 || ind EQ 20 || ind EQ 24 || ind EQ 38 || ind EQ 39 || ind EQ 40 || ind EQ 45 || ind EQ 46 || ind EQ 52) $
+  IF ( (ind GE 4 && ind LE 7) || ind EQ 19 || ind EQ 23 || ind EQ 20 || ind EQ 24 $
+        || ind EQ 38 || ind EQ 39 || ind EQ 40 || ind EQ 45 || ind EQ 46 || ind EQ 52) $
      THEN log=1
-  IF (ind EQ ncs+8 || ind EQ ncs+22 || ind EQ ncs+23 || (ind GE ncs+10 AND ind LE ncs+17) || ind EQ 19 || (ind GE ncs+1 AND ind LE ncs+5) || (ind GE ncs+28 AND ind LE ncs+30) || ind EQ ncs+33 || ind EQ ncs+34 || ind EQ ncs+6 || ind EQ ncs+7) THEN log=1
+  IF (ind EQ ncs+8 || ind EQ ncs+22 || ind EQ ncs+23 || (ind GE ncs+10 AND ind LE ncs+17) $
+      || ind EQ 19 || (ind GE ncs+1 AND ind LE ncs+5) || (ind GE ncs+28 AND ind LE ncs+30) $
+      || ind EQ ncs+33 || ind EQ ncs+34 || ind EQ ncs+6 || ind EQ ncs+7) THEN log=1
   FOR i=0,model.NPassive DO BEGIN
     IF(ind EQ i*nsv+st0+1 || ind EQ i*nsv+st0+2 || ind EQ i*nsv+st0+4 ) THEN log=1
   ENDFOR
@@ -485,7 +488,9 @@ FUNCTION readOutput,name
 	; stv*i+1- S_*,  stv*i+2- s_*i,  stv*i+3- Z_*i   --- i=0 thru NPassive+1
 
 	;; Normalize all metallicities to solar and take the log10.
-	convert = [22,ncolstep+18,ncolstep+npostprocess+indgen(NPassive+1)*STVars+3,ncolstep+npostprocess+indgen(NPassive+1)*STVars+7,ncolstep+npostprocess+indgen(NPassive+1)*STVars+8]-1
+	convert = [22,ncolstep+18,ncolstep+npostprocess+indgen(NPassive+1)*STVars+3, $
+		   ncolstep+npostprocess+indgen(NPassive+1)*STVars+7,  $
+		   ncolstep+npostprocess+indgen(NPassive+1)*STVars+8]-1
 	tdc[*,*,convert] = alog10(tdc[*,*,convert]/0.02)
 	FOR j=0,n_elements(convert)-1 DO BEGIN
 		convSquare = tdc[*,*,convert[j]] 

@@ -155,7 +155,7 @@ unsigned int FixedMesh::necessaryN()
   double psi1 = psi0;
   double u1 = u0;
   double x1=xminc;
-  for(double mm=1.0; mm<=1000; ++mm) {
+  for(double mm=1.0; mm<=100000; ++mm) {
     double theMax =0.0;
     for(double n=1; n<=nxc; ++n) {
       for(double m=1.0; m<=mm; ++m) {

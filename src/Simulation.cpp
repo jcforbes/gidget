@@ -15,7 +15,7 @@ Simulation::Simulation(const double tm, const long int sm,
                        const bool co,   const unsigned int nnx,
 		       const double tl, const double zs, 
 		       const unsigned int na, const unsigned int np,
-                       const double amri,const double sth, 
+                       const double amri,const double sth, const double nd,
                        DiskContents& td,
                        AccretionHistory& ah):
   tmax(tm), stepmax(sm),
@@ -23,6 +23,7 @@ Simulation::Simulation(const double tm, const long int sm,
   TOL(tl), zstart(zs),
   NActive(na),NPassive(np),
   alphaMRI(amri),sigth(sth),
+  ndecay(nd),
   theDisk(td),
   accr(ah)
 {
@@ -89,7 +90,7 @@ int Simulation::runToConvergence(const double fCondition,
     // Note that we'd like to use last step's timestep here to determine whether
     // to write out a file, since we would like to avoid a situation where a sudden
     // decrease in the size of dt causes us to skip a checkpoint
-    bool timeOut = (((floor(100.0*(t-dt)) < floor(100.0*t)) || step<2) && writeOut);
+    bool timeOut = (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
     //    bool timeOut = true; // write out at every time step. Use only if 
                                // things crash and burn very quickly
     if(timeOut) {
@@ -158,7 +159,7 @@ int Simulation::runToConvergence(const double fCondition,
 
     // In situations where the alpha viscosity produces larger torques 
     // than the GI viscosity, use the alpha viscosity instead:
-    theDisk.ComputeMRItorque(tauvec,alphaMRI,IBC,OBC);
+    theDisk.ComputeMRItorque(tauvec,alphaMRI,IBC,OBC,ndecay);
 
     // Given the solution to the torque equation, compute time 
     // derivatives of the state variables

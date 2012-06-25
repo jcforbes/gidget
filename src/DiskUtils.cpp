@@ -14,84 +14,6 @@
 #include <sstream>
 
 
-////double ddx(double* arr, unsigned int n, std::vector<double>& x)
-////{
-/////*   if(n<nx && n>1) */
-/////*     return (arr[n+1]-arr[n-1])/(x[n+1]-x[n-1]); */
-////  unsigned int nx = x.size()-1;
-////  if(n<nx && n>1) {
-////    // slope limiter!
-////    double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-////    double left = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-////    return ddx(left,right);
-////  }
-////  if(n==nx) {
-////    double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-////    double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
-////    double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
-//////    return ddx(center,right); 
-////    return ddx(left,right);
-////    return right;
-////  }
-////  if(n==1) {
-////    double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-////    double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
-////    double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
-////    return left; // bbbbb
-////    //    return right; // bbbb
-////    return ddx(left,center); // bbb
-////    //    return ddx(left,right); bb
-////    return center;
-////    return ddx(left,center);
-////    return left;
-////  }
-////
-////  return 0.; // never get here
-////
-////}
-
-////double ddx(std::vector<double>& arr, unsigned int n, std::vector<double>& x)
-////{
-/////*   if(n<nx && n>1) */
-/////*     return (arr[n+1]-arr[n-1])/(x[n+1]-x[n-1]); */
-////  unsigned int nx = x.size()-1;
-////  if(n<nx && n>1) {
-////    // slope limiter!
-////    double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-////    double left = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-////    return ddx(left,right);
-////    if(left*right <=0.) 
-////      return 0.; 
-////    if(fabs(left)>fabs(right))
-////      return right;
-////    return left;
-////  }
-////  if(n==nx) {
-////    double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-////    double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
-////    double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
-////    return ddx(left,right);
-////    return right;
-////  }
-////  if(n==1) {
-////    double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
-////    double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
-////    double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
-////    return left; // bbbbb
-////    return right; // bbbb
-////    return ddx(left,center);
-////    //    return ddx(left,right);
-////    return center;
-////    return ddx(left,center);
-////    return left;
-////  }
-////
-////  return 0.; // never get here
-////
-////}
-
-
-
 void errormsg(const std::string msg)
 {
   std::cerr << "Fatal problem encountered: "<<std::endl;
@@ -136,48 +58,7 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
 
 double dSMigdt(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std::vector<double>& col_st)
 {
-//   double fluxn;
-//   double fluxnm1;
-// //  return -2*M_PI*(col_st[n]*ddx(yy,n,x) + ddx(col_st,n,x)*yy[n] +col_st[n]*yy[n]/x[n] );
 
-//   if(n!=x.size()-1) {
-//     double ym = yy[n+1];
-//     if(fabs(ym) > fabs(yy[n])) ym=yy[n]; //minmod
-//     if(yy[n] * yy[n+1] <= 0.0) ym=0.0;
-//     double cst = col_st[n+1];
-//     if(ym > 0.0) cst = col_st[n];
-  
-//     fluxn = 2.0*M_PI*sqrt(x[n]*x[n+1]) * ym * cst ;
-//   }
-//   else fluxn=0.0;
-
-// //  if(n==1 && fluxn>1.0) {
-// //    fluxn=0.0; // no stars can come out of the bulge.
-// //    std::cerr << "Warning: positive flux of stars out of the bulge. flux= "+str(flux[n]) << std::endl;
-// //  }
-
-
-//   if(n!=1) {
-//     double ymA = yy[n];
-//     if(fabs(ymA) > fabs(yy[n-1])) ymA=yy[n-1]; //minmod
-//     if(yy[n-1] * yy[n] <= 0.0) ymA=0.0;
-//     double cstA = col_st[n];
-//     if(ymA > 0.0) cstA = col_st[n-1];
-  
-//     fluxnm1 = 2.0*M_PI*sqrt(x[n-1]*x[n]) * ymA * cstA ;
-//   }
-//   else {
-//     double ymA=yy[n];
-//     double cstA=col_st[n];
-//     fluxnm1 = 2.0*M_PI*sqrt(x[n]*x[n] * x[4]/x[5]) *ymA * cstA;
-
-
-//     if(fluxnm1 > 0.0) {
-//       std::cout << "Warning: positive flux of stars out of the bulge. flux= "+str(fluxnm1) << std::endl;	
-//       fluxnm1=0.0; // no stars can come out of the bulge.
-//     }
-//   }
-//  return (fluxnm1 - fluxn) / (x[n]*x[n]*log(x[5]/x[4]));
 
   double val = - (flux(n,yy,x,col_st) - flux(n-1,yy,x,col_st))/ (x[n]*x[n]*log(x[2]/x[1]));
   if(n==1) {
@@ -204,37 +85,6 @@ double YoungIthBin(unsigned int i,Cosmology& cos,unsigned int NAgeBins)
   return cos.lbt(cos.ZStart()) * ((double) NAgeBins - i)/((double) NAgeBins);
 }
 
-double max(double a, double b)
-{
-  if(a > b)
-    return a;
-  return b;
-}
-
-std::string str(const int val)
-{
-  std::stringstream s;
-  s << val;
-  return s.str();
-}
-std::string str(const double val)
-{
-  std::stringstream s;
-  s<<val;
-  return s.str();
-}
-std::string str(const unsigned int val)
-{
-  std::stringstream s;
-  s << val;
-  return s.str();
-}
-std::string str(const long int val)
-{
-  std::stringstream s;
-  s<<val;
-  return s.str();
-}
 double Qsimple(unsigned int n,DiskContents& disk)
 {
   RafikovQParams rqp;
@@ -251,9 +101,15 @@ double QmfQfst(double sv, void *p)
   struct RafikovQParams * qp = (RafikovQParams *) p;
   (*qp).var=-1;
   (*qp).Qg *= sv;
+  for(unsigned int i=0; i!=(*qp).ri.size(); ++i) {
+    (*qp).ri[i] /= sv;
+  }
   if((*qp).fixedQ < 0.0) errormsg("The fixedQ passed to QmfQfst (in DiskUtils) was not initialized.");
   double val = Q(qp,&((*qp).mostRecentq))-(*qp).fixedQ;
   (*qp).Qg /=sv;
+  for(unsigned int i=0; i!=(*qp).ri.size(); ++i) {
+    (*qp).ri[i] *= sv;
+  }
 
   return val;
 }
@@ -417,7 +273,7 @@ int findRoot(gsl_function & F, double * guess)
     r=gsl_root_fsolver_root(s);
     low =gsl_root_fsolver_x_lower(s);
     high=gsl_root_fsolver_x_upper(s);
-    status = gsl_root_test_interval(low,high,0.0,1.0e-6);
+    status = gsl_root_test_interval(low,high,0.0,1.0e-12);
   } while (status==GSL_CONTINUE && iter < max_iter);
   if(status==GSL_SUCCESS) {
     *guess=r;
@@ -425,6 +281,11 @@ int findRoot(gsl_function & F, double * guess)
   else {
     errormsg("findRoot failed to converge");
   }
+
+  gsl_root_fsolver_free(s);
+
+  double sanity = GSL_FN_EVAL(&F,*guess);  
+
   return status;
 }
 

@@ -11,6 +11,7 @@
 #include "Dimensions.h"
 #include "DiskUtils.h"
 #include "FixedMesh.h"
+#include "Debug.h"
 
 
 /*
@@ -93,6 +94,7 @@ int main(int argc, char **argv) {
 
   const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
   const double ndecay =            as.Set(6,"Decay length of GI in stable regions (cells)");
+  const unsigned int Experimental= as.Set(0,"Debug parameter");
   
   // Make an object to deal with things cosmological
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
@@ -118,12 +120,14 @@ int main(int argc, char **argv) {
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
   FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
+  Debug dbg(Experimental);
+  testDebug();
   double dummy = mesh.psi(0.5);
   double MhZs = accr.MhOfZ(zstart)*Mh0;
 
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
   DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
-		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,
+		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
 		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt);
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
   else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, MhZs, stScaleLength);
@@ -144,7 +148,7 @@ int main(int argc, char **argv) {
 
   // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
   DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
-		    TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,
+		    TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
 		    thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,minSigSt);
   disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
   Simulation sim(tmax,stepmax,

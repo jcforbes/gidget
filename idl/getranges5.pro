@@ -112,6 +112,7 @@ FUNCTION getranges5,modelList,ind
 			ENDIF
 			IF(log EQ 1) THEN IF(max LE 0) THEN max=1.0
 			IF(log EQ 1 AND min GE max) THEN min=.001*max
+			IF(log EQ 1 and max/min GT 1000000.0) THEN min=max/1000000.0
 			ranges2[*,i] = [min,max]
                 END ELSE ranges2[*,i]=[0.,1.]
         ENDFOR
@@ -158,3 +159,5 @@ FUNCTION getranges5,modelList,ind
 
         RETURN,ranges
 END
+
+

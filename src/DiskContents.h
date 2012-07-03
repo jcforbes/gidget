@@ -12,7 +12,7 @@ class Dimensions;
 struct RafikovQParams;
 struct Initializer;
 class FixedMesh;
-
+class Debug;
 
 // Main container for the physical quantities which make up the disk.
 // Basic structure is a set of arrays of nx elements (indexed from 1).
@@ -23,7 +23,7 @@ class DiskContents {
 	       double ql,double tol,
                bool aq, double mlf,
                Cosmology&,Dimensions&,
-               FixedMesh&,
+               FixedMesh&,Debug&,
 	       double thk,bool migratePassive,
                double Qinit, double km,
 	       unsigned int NA, unsigned int NP,
@@ -122,7 +122,7 @@ class DiskContents {
   // dQ_*/dt = max((Qlim - Q_*),0)/(T_mig (2 pi Omega)^-1), 
   // i.e.  the stars will attempt to reach Qlim if they are 
   // less stable than Qlim.
-  void ComputeY();
+  void ComputeY(const double ndecay);
   void ComputeY2();
   // Compute the time derivatives of all state variables 
   // at all radii.
@@ -236,6 +236,7 @@ class DiskContents {
   Dimensions& dim; // store dimensional quantities
   Cosmology& cos; // store cosmology
   FixedMesh& mesh;
+  Debug& dbg;
 
   const bool migratePassive;
 

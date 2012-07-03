@@ -129,7 +129,7 @@ int Simulation::runToConvergence(const double fCondition,
     }
     */
 
-    theDisk.ComputeY();
+    theDisk.ComputeY(ndecay);
 
     // Compute dQ/dA and its error, where A is a stand-in for every state variable
     theDisk.ComputePartials();

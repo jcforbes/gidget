@@ -8,6 +8,7 @@
 #include "Simulation.h"
 #include "FixedMesh.h"
 #include "Interfaces.h"
+#include "Debug.h"
 
 #include <gsl/gsl_deriv.h>
 #include <gsl/gsl_min.h>
@@ -39,14 +40,14 @@ DiskContents::DiskContents(double tH, double eta,
 			   double ql,double tol,
                            bool aq, double mlf, 
 			   Cosmology& c,Dimensions& d,
-			   FixedMesh& m,
+			   FixedMesh& m, Debug& ddbg,
 			   double thk, bool migP,
                            double Qinit, double km,
                            unsigned int NA, unsigned int NP,
 			   double minSigSt) :
   nx(m.nx()),x(m.x()),beta(m.beta()),
   uu(m.uu()), betap(m.betap()),
-  dim(d), mesh(m),
+  dim(d), mesh(m), dbg(ddbg),
   XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
   cos(c),tauHeat(tH),sigth(sflr),
   EPS_ff(epsff),ETA(eta),MassLoadingFactor(mlf),
@@ -738,7 +739,7 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
 
     // Where GI has shut down and no longer transports mass inwards, 
     // allow another source of viscosity to drive gas inwards.
-    if(taupMRI[n] < tauvec[2][n]) { // larger negative value
+    if(tauMRI[n] < tauvec[1][n]) { // larger negative value
       tauvec[1][n]=tauMRI[n];
       tauvec[2][n]=taupMRI[n];
     }
@@ -748,11 +749,20 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
   std::vector<double> tauSmooth(nx+1,0.0);
   for(int n=1; n<=nx; ++n) {
     double norm = 0.0;
-    for(int np = max(1,min(n-3*nsmooth,n)); np<=min((int) nx,max(n,n+3*nsmooth)); ++np) {
+    if(dbg.opt(0)) { // RH smoothing only
+      for(int np = max(1,min(n-3*nsmooth,n)); np<=min((int) nx,max(n,n+3*nsmooth)); ++np) {
 //    for(int np=n; np<=min((int) nx,n+3*nsmooth); ++np) {
-      double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
-      tauSmooth[n] += wght*tauvec[1][np];
-      norm += wght;
+        double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
+        tauSmooth[n] += wght*tauvec[1][np];
+        norm += wght;
+      }
+    }
+    else {
+      for(int np=n; np<=min((int) nx,n+3*nsmooth); ++np) {
+        double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
+        tauSmooth[n] += wght*tauvec[1][np];
+        norm += wght;
+      }
     }
     tauSmooth[n]/=norm;
   }
@@ -760,12 +770,12 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
   if(ndecay > 0.0) {
     Interfaces inters(keepTorqueOff,x);
     for(unsigned int n=1; n<=nx; ++n) {
-      if( keepTorqueOff[n]==1) {
+      if( (dbg.opt(3) && keepTorqueOff[n]==1) || !dbg.opt(3)) {
         double weight = inters.weight(n,true,ndecay);
-	//        tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
-//	tauvec[1][n] = tauSmooth[inters.index(n,true)]*weight + (1.0-weight)*tauMRI[n];
-	tauvec[1][n] = tauSmooth[n];
-//        tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
+	if(dbg.opt(1))    tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
+        else if(dbg.opt(2)) tauvec[1][n] = tauSmooth[inters.index(n,true)]*weight + (1.0-weight)*tauMRI[n];
+	else tauvec[1][n] = tauSmooth[n];
+////        tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
       }
     }
   }
@@ -1455,7 +1465,7 @@ void DiskContents::WriteOutStepFile(std::string filename,
 }
 
 
-void DiskContents::ComputeY()
+void DiskContents::ComputeY(const double ndecay)
 {
 
   yy[nx]=0.;
@@ -1476,7 +1486,7 @@ void DiskContents::ComputeY()
   double dn = 1.0/(((double) NN)*((double) nx));
   double yyn=0.0;
   double yynm1=0.0;
-  for(unsigned int i=NN*nx; i>1 ; --i) {
+  for(unsigned int i=NN*nx; i>NN ; --i) {
     double n = ((double) i)/((double) NN);
 //  for(double n=((double) nx); n-dn>=1.0; n-=dn) {  
     double xnm1 = mesh.x(((double) i-1)/((double) NN));
@@ -1494,18 +1504,34 @@ void DiskContents::ComputeY()
       yynm1=0.0;
     }
     else {
-      double sigp2 = 2./3. * (mesh.psi(xn) - mesh.psi(xnm1) + 1./3. *(pow(mesh.uu(xn),2.0) - pow(mesh.uu(xnm1),2.0)) 
-                       + pow(gsl_spline_eval(spline_sigst,xn,accel_sigst),2.0));
+      double sigp2 = (2.0/3.0) * (mesh.psi(xn) - mesh.psi(xnm1)) 
+                    +(1.0/3.0) *(pow(mesh.uu(xn),2.0) - pow(mesh.uu(xnm1),2.0)) 
+                    + pow(gsl_spline_eval(spline_sigst,xn,accel_sigst),2.0);
       double yynm1 = yyn * xn* gsl_spline_eval(spline_colst,xn,accel_colst) 
                       / (xnm1*gsl_spline_eval(spline_colst,xnm1,accel_colst))
 		     *(1.5 - sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))
 	- max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*(xn-xnm1) / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
       if(yynm1!=yynm1 || yynm1>0.0000001 || fabs(yynm1) > 100.0)
-        errormsg("Error computing y! n,y,sigp2: "+str(n)+" "+str(yynm1)+" "+str(sigp2)+" "+str(sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))+" "+str(NN)+" "+str(i));
+        errormsg("Error computing y!   n,y,sigp2,  sigp2/2sig0^2, NN, i    dPsi, sig1^2   : "+str(n)+" "+str(yynm1)+" "+str(sigp2)+"   "+str(sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))+" "+str(NN)+" "+str(i)+"   "+str(mesh.psi(xn)-mesh.psi(xnm1))+" "+str(pow(gsl_spline_eval(spline_sigst,xn,accel_sigst),2.0)));
 //      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
       if((i-1) % NN == 0)
         yy[(i-1)/NN] = yynm1;
       yyn = yynm1;
+    }
+  }
+
+  if(dbg.opt(4)) {
+    std::vector<double> yysmooth(nx+1,0.0);
+    int nsmooth = (int) (ndecay/2.0 + 1.0);
+    for(unsigned int n=1; n<=nx; ++n) {
+      double norm=0.0;
+      for(int np=n; np<=min((int) nx,(int) n+3*nsmooth); ++np) {
+        double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
+        yysmooth[n] += wght*yy[np];
+        norm += wght;
+      }
+      yysmooth[n]/=norm;
+      yy[n] = yysmooth[n];
     }
   }
 }

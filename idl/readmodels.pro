@@ -81,7 +81,7 @@ FUNCTION logvar, ind, model
   ncs=model.ncolstep
   nsv=model.STVars
   log=0
-  IF ( (ind GE 4 && ind LE 7) || ind EQ 19 || ind EQ 23 || ind EQ 20 || ind EQ 24 $
+  IF ( (ind GE 4 && ind LE 7) || ind EQ 16 || ind EQ 19 || ind EQ 23 || ind EQ 20 || ind EQ 24 $
         || ind EQ 38 || ind EQ 39 || ind EQ 40 || ind EQ 45 || ind EQ 46 || ind EQ 52) $
      THEN log=1
   IF (ind EQ ncs+8 || ind EQ ncs+22 || ind EQ ncs+23 || (ind GE ncs+10 AND ind LE ncs+17) $
@@ -160,6 +160,8 @@ FUNCTION readOutput,name
   kappaMetals=ExtractCmtFlt(lunCom)
   mh0=ExtractCmtFlt(lunCom)
   minStsig = ExtractCmtFlt(lunCom)
+  ndecay = ExtractCmtFlt(lunCom)
+  debugParam = ExtractCmtL(lunCom)
   md0=ExtractCmtFlt(lunCom)
 
   ;; Now we need to rescale some values for mh0!=1e12

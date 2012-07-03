@@ -1,10 +1,11 @@
 import copy
-import os
+import os, argparse
 import sys
 import shutil
 import subprocess
 import time
 import math
+import numpy as np
 
 # This is a somewhat straightforward script to allow you to run the GIDGET code with
 # a wide variety of systematically varied parameters. The functions here are described
@@ -12,19 +13,43 @@ import math
 # examples of what you can run from the command line, e.g.
 #  $ python exper.py 'ex1'
 # will execute the example used in the README file.
+
+def successCode(filename):
+    ''' Given a file assumed to contain the standard error output of
+    a run of the gidget code, return 0 for success (file is empty)
+    1 for a time step below floor result, 2 for a problem with Qst,
+    or 3 for a miscellaneous error code.  '''
+    if (not os.path.exists(filename)):
+      return -1
+
+    if os.stat(filename).st_size == 0:
+      return 0
+
+    with open(filename,'r') as f:
+        contents = f.read()
+        if 'floor' in contents:
+            return 1
+        if 'Qst' in contents:
+            return 2
+    return 3
+    
+
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-4,1.0,0,.5,2.0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12,1.0,6.0]
-        self.pl=[self.p[:]]
+        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-4,1.0,0,.5,2.0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12,1.0,3.0,0]
+        self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
+        self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay','dbg']
         self.keys={}
         ctr=0
         for n in self.names:
             self.keys[n]=ctr
             ctr=ctr+1
         self.expName=name
+
+        # store the location of various expected subdirectories in the gidget distribution.
         self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
         self.src=self.base+'/src'
         self.analysis=self.base+'/analysis'
@@ -45,6 +70,16 @@ class experiment:
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
 
+    def irregularVary(self,name,values):
+        ''' Similar to vary, except, rather than generating the
+        array of parameter values to use for parameter "name",
+        this list is specified explicitly in "values"'''
+        keyNum = self.keys[name]
+        typ = type(self.p[keyNum])
+        if(type(values) == type([1])): # if values is a list..
+            self.p[keyNum]=[typ(value) for value in values]
+        else:
+            self.p[keyNum]=[typ(values)]
             
     def generatePl(self):
         '''vary() will change a certain element of self.p into a list
@@ -54,6 +89,7 @@ class experiment:
         one of which corresponds to a run of the program. This list can
         then be sent to the xgrid or run on your machine. See other
         methods for details on how to do that.'''
+        self.pl=[self.p_orig[:]] # in case generatePl() has already been run, reset pl.
 	# for each separate parameter (e.g. number of cells, dissipation rate, etc.)
         for j in range(len(self.p)): 
             param = self.p[j] 
@@ -118,19 +154,76 @@ class experiment:
         os.rename(name,self.xgrid+'/'+name) # move the text file to gidget/xgrid
         os.mkdir(self.xgrid+'/output/'+self.expName) # make gidget/xgrid/output/name to store stde and stdo files.
 
+    def ExamineExperiment(self):
+	self.generatePl()
+        varied=[] # which elements of p are lists
+	Nvaried=[] # how many variations for each such list.
+	theLists=[] # a copy of each list.
+        for j in range(len(self.p)): 
+            param = self.p[j] 
+            if(type(param)==list ):
+		varied.append(j)
+		Nvaried.append(len(param))
+		theLists.append(param[:])
+	successTable = np.zeros(tuple(Nvaried[:]))
+	successTableKeys = np.zeros(tuple(Nvaried[:]))
+	for a_p in self.pl: # for each run..
+	    successTableKey =[]
+	    for i in range(len(varied)): # for each parameter that was varied
+                j = varied[i]
+                successTableKey.append(theLists[i].index(a_p[j]))
+            successTable[tuple(successTableKey)] = successCode(self.analysis+'/'+self.expName+'/'+a_p[0]+"_stde.txt")
+            successTableKeys[tuple(successTableKey)] = 1#tuple(successTableKey)
+	print
+	print "Success Table:"
+        print successTable.T
+	print 
+        return successTable.T
+
+#        for 
+#        for flatInd in range(len(successTableKeys.size)):
+#            theKey = successTableKeys.flat[flatInd]
+#	    message=""
+#            for i in range(len(theKey)):
+#                message+=(theLists[theKey[i]]+' ')
+#
+#        for a_p in self.pl: # for each run
+#            for success in range(4): # for each possible success code
+#                successTableKey = [] 
+#                for i in range(len(varied)): # for each quantity varied
+#                    j = varied[i]
+#                    if(successTabl
+#
+#        for varA in range(len(varied)):
+#	    for varB in range(len(varied)):
+#		if(varA!=varB) :
+#		    pass
+	            
+
 
     def localRun(self,nproc,startAt):
+        ''' Run the specified experiment on this machine,
+        using no more than nproc processors, and starting
+        at the "startAt"th run in the experiment '''
+        self.generatePl()
         procs=[]
         ctr=0
+        binary=self.bin+'/gidget'
+        expDir=self.analysis+'/'+self.expName #directory for output files
+        if(os.path.exists(expDir)):
+            print "This directory already contains output. CANCELLING this run!"
+            print
+            print "This is fine if you've already run the desired models and are"
+            print "just interested in looking at the results of ExamineExperiment."
+            print "Otherwise, just delete the appropriate directory and run this"
+            print "script again."
+            return
+        else:
+            os.mkdir(expDir)
+
         for a_p in self.pl[startAt:]:
             ctr+=1
             tmpap=a_p[:]
-            binary=self.bin+'/gidget'
-            expDir=self.analysis+'/'+self.expName #directory for output files
-            if(os.path.exists(expDir)):
-                pass # no need to do anything
-            else:
-                os.mkdir(expDir)
             with open(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt','w') as stdo:
                 with open(expDir+'/'+a_p[self.keys['name']]+'_stde.txt','w') as stde:
                     print "Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core."
@@ -184,112 +277,102 @@ class experiment:
 
 
 if __name__ == "__main__":
-    expName=sys.argv[1]
-    a=experiment(expName)
 
-#    # rk1 - test high-res y computation.
-#    a.vary('nx',200,200,1,0)
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',4,103,100,0)
-#    a.vary('R',20.0,20.0,1,0)
-#    a.vary('Mh0',1.0e12,1.0e12,1,0)
-#    a.vary('fg0',.5,.5,1,0)
-
-    # rk2 - find out in what parameter space we're allowed to work in terms of rotation curves
-#    a.vary('nx',200,200,1,0)
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',4,4,1,0)
-#    a.vary('R',20.0,20.0,1,0)
-#    a.vary('Mh0',1.0e12,1.0e12,1,0)
-#    a.vary('b',0.0,5.0,10,0)
-#    a.vary('softening',1.0,4.0,3,1)
-#    a.vary('innerPowerLaw',.1,1,10,0)
-
-
-#    # rk3 4-103,100;  1e9,1e12,30
-#    # rk4 4-53,50;   1e9,1e12,16
-#    # rk5 4-503,500  1e9,1e12,16
-#    a.vary('nx',200,200,1,0)
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',4,503,500,0)
-#    a.vary('Mh0',1.0e9,1.0e12,16,1)
-#    # rk6: rk5+ the following:
-#    a.vary('b',2.0,2.0,1,0)
-#    a.vary('softening',2.0,2.0,1,0)
-#    a.vary('innerPowerLaw',.6,.6,1,0)
-
-#    # rk7, rk8: various situations that generate grav. stable disks:
-#    a.vary('Mh0',1.0e9,1.0e12,4,1)
-#    a.vary('mu',1,3,2,0)
-#    # rk9 adds:
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    # rk10 = rk9 w/ UpdateCoeffs bug fix (h1=1, but h2 and h0 were unspecified) - made no difference
-#    # rk11 = rk10 but reverting back to just settting H[n]=0 to confirm that that even worked!
-#    # rk12 = rk11 w/ MhZs bug fix... how did things even work before? Answer: random accretion history had correct units of MhofZ, whereas Bouche accr history did not. Now both should work.
-#    # rk13: again try h2=h1=H=0, h0=1
-
-#    # rk14: redo varied accretion histories w/ new tau=0 in stable regions
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',4,103,100,0)
-#    # rk15 - same thing with slightly more debug info for errors computing y.
-
-#    # rk16: concentrate on a particular case which is known to fail:
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',30,30,1,0)
-##    a.vary('epsff',0.0,.02,9,0)
-#    # rk17: test resolution instead of epsff
-##    a.vary('nx',100,1000,10,0)
-#    # rk18: back to epsff; look in higher time and parameter res around failure region
-#    a.vary('epsff',.005,.0125,4,0)
-    # rk29 - back on this branch! Try exponential decays in tau @ stable boundaries.
-    # rk30 - increase decay length from 2 to 4; next thing to try will be double-checking self-consistent 
-    # calculation of tau' from tau.
-    # rk31 - same, but now be careful to self-consistently calculate tau'
-    # rk32 - much longer decay length (12 units)
-    # rk33 - muck with ddx, keep decay length of 6.
-    # rk34 - remove some bugs causing problem in IDL analysis
-    # rk35 - set tau'' = d2taudx2 instead of ddx(tau') -failed horribly
-    # rk36 - back to tau''=ddx(..), now plotting a few new things.
-    # rk37 - back to ddx @ boundaries = ddx @ 1 away from boundaries, i.e. d2dx2 = 0
-    # rk38 - lower resolution in time.
-
-#    # rk39 - vary ndecay, taking forever for some reason
-#    a.vary('diskScaleLength',2.0,2.0,1,0)
-#    a.vary('whichAccretionHistory',30,30,1,0)
-#    a.vary('ndecay',-1,6,3,0)
-    # rk40 - vary decay length, include prescription for smoothing out base torque.
-#    a.vary('ndecay',2,16,4,1)
-    # rk41 - again, this time weight only to the right.
-    # rk42 - try something completely crazy- manually smooth tau on a grid scale.
-    # rk43 - decrease the y-resolution, with manually-smoothed tau.
-#    a.vary('minSigSt',10.0,10.0,1,0)
-    # rk44 - roll back the crazy - only avg the base torque to the right, no smoothing.
-
-    # rk45 - previous runs had a bug in the weight. Try again weighting to the right.
-    # rk46 - weight on the left also.
-    # rk47 - just replace tau with tau gaussian smoothed.
-
-    # rk48 - All previous post-bug-fix tests fail. More stringent check of finding roots.
-#    a.vary('ndecay',-1,11,4,0)
-    # rk49 - fix ri bug. Still doing Gaussian weighting.
-    # rk50 - 2-sided smoothing
-    # rk51 - right-sided smoothing
-    # rk52 - manual smoothing @ all grid points instead of just those with keepTorqueOff[n]==1
-
-    # rk53 Permanantly use Gaussian weighting in stable regions. Redo large-ish varied-accretion history runs.
-    a.vary('diskScaleLength',2.0,2.0,1,0)
-    a.vary('whichAccretionHistory',4,103,100,0)
- #   a.vary('ndecay',-1,-1,1,0)
-    a.vary('nx',200,200,1,0)
-    a.vary('minSigSt',10.0,10.0,1,0)
-    a.vary('Mh0',1.0e9,1.0e12,4,1)
-
-    # rk54 - ndecay = 3 instead of -1.
-    a.vary('ndecay',3,3,1,0)
+    # http://docs.python.org/library/argparse.html#module-argparse
+    parser = argparse.ArgumentParser(description='Analyze data and/or run experiments associated with a list of experiment names.')
+    parser.add_argument('models', metavar='model', type=str, nargs='+',
+                   help='a model to be run / analyzed')
+    parser.add_argument('--nproc',type=int,help="maximum number of processors to use (default: 16)",default=16)
+    parser.add_argument('--start',metavar='startingModel',type=int,
+                   help='The number of the model in the experiment (as ordered by GeneratePl) at which we will start sending experiments to the processors to run. (default: 0)',default=0)
+    args = parser.parse_args()
     
+    modelList=[]
+    for modelName in args.models:
+        modelList.append(modelName)
+
+    
+    allModels={} # empty dictionary into which we'll place all model definitions
+ 
+#    expName=sys.argv[1]
+#    a=experiment(expName)
+
+    rk1=experiment('rk1') #  test high-res y computation.
+    rk1.vary('nx',200,200,1,0)
+    rk1.vary('diskScaleLength',2.0,2.0,1,0)
+    rk1.vary('whichAccretionHistory',4,103,100,0)
+    rk1.vary('R',20.0,20.0,1,0)
+    rk1.vary('Mh0',1.0e12,1.0e12,1,0)
+    rk1.vary('fg0',.5,.5,1,0)
+    allModels['rk1']=rk1
+
+    rk2=experiment('rk2')# - find out in what parameter space we're allowed to work in terms of rotation curves
+    rk2.vary('nx',200,200,1,0)
+    rk2.vary('diskScaleLength',2.0,2.0,1,0)
+    rk2.vary('whichAccretionHistory',4,4,1,0)
+    rk2.vary('R',20.0,20.0,1,0)
+    rk2.vary('Mh0',1.0e12,1.0e12,1,0)
+    rk2.vary('b',0.0,5.0,10,0)
+    rk2.vary('softening',1.0,4.0,3,1)
+    rk2.vary('innerPowerLaw',.1,1,10,0)
+    allModels['rk2']=rk2
+
+
+    rk59=experiment("rk59") # Vary debug and ndecay parameters on one particular run that fails by Qst error.
+    rk59.vary('whichAccretionHistory',23,23,1,0)
+    rk59.vary('dbg',0,32,33,0)
+    rk59.vary('ndecay',-1,7,5,0)
+    allModels['rk59']=rk59
+
+    rk60=experiment("rk60") # fails by dt falling below floor
+    rk60.vary('whichAccretionHistory',31,31,1,0)
+    rk60.vary('dbg',0,32,33,0)
+    rk60.vary('ndecay',-1,7,5,0)
+    allModels['rk60']=rk60
+
+    rk61=experiment('rk61')  # no failures yet
+    rk61.vary('whichAccretionHistory',4,4,1,0)
+    rk61.vary('dbg',0,32,33,0)
+    rk61.vary('ndecay',-1,7,5,0)
+    allModels['rk61']=rk61
+
+    rk62=experiment('rk62') # originally rk58b3d
+    rk62.vary('whichAccretionHistory',83,83,1,0)
+    rk62.vary('dbg',0,32,33,0)
+    rk62.vary('ndecay',-1,7,5,0)
+    allModels['rk62']=rk62
+
+    rk63=experiment('rk63') # originally rk58g1d
+    rk63.vary('whichAccretionHistory',36,36,1,0)
+    rk63.vary('dbg',0,32,33,0)
+    rk63.vary('ndecay',-1,7,5,0)
+    allModels['rk63']=rk63
+
+    rk64=experiment('rk64') # originally rk58o1d
+    rk64.vary('whichAccretionHistory',44,44,1,0)
+    rk64.vary('dbg',0,32,33,0)
+    rk64.vary('ndecay',-1,7,5,0)
+    allModels['rk64']=rk64
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.
-    a.generatePl()  
-#    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
-    a.localRun(8,0) # run (in serial) on four processors.
+##    a.generatePl()  
+##    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
+#    a.localRun(16,0) # run (in serial) on four processors.
+#    a.ExamineExperiment()
+
+    successTables=[]   
+    for model in modelList:
+        allModels[model].localRun(args.nproc,args.start)
+        successTables.append(allModels[model].ExamineExperiment())
+
+#    print len(successTables)
+#    print type(successTables[0])
+
+    sumOfSuccessTables = np.zeros(successTables[0].shape)
+    for i in range(len(successTables)):
+        table = successTables[i]
+        sumOfSuccessTables += (table * (10**i))
+
+    print sumOfSuccessTables
+

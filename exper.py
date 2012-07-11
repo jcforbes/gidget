@@ -14,24 +14,43 @@ import numpy as np
 #  $ python exper.py 'ex1'
 # will execute the example used in the README file.
 
+
+class covary:
+    def __init__(self):
+        self.names=[]
+        # listOfVariants contains all the necessary information to covary two parameters together.
+        self.listOfVariants=[] # [ [p_ind1^A, p_ind1^B, p_ind1^C, ...], [p_ind2^A, p_ind2^B,...], ...]
+    def addVariable(name,theList):
+        if(len(self.listOfVariants) == 0 and len(listOfVariants[0]) == len(theList)):
+            self.names.append(name)
+            self.listOfVariants.append(theList)
+        else:
+            raise ValueError('Length of given list incompatible with first list')
+            
+
 def successCode(filename):
     ''' Given a file assumed to contain the standard error output of
     a run of the gidget code, return 0 for success (file is empty)
     1 for a time step below floor result, 2 for a problem with Qst,
-    or 3 for a miscellaneous error code.  '''
+    3 for a rejected accr. history, or 4 for a miscellaneous error code.  '''
     if (not os.path.exists(filename)):
-      return -1
+      return -1 # if the file *stde.txt doesn't exist, this particular run has not been started.
 
     if os.stat(filename).st_size == 0:
-      return 0
+      return 0 # the *_stde.txt file is empty, i.e. there were no errors (so far) for this run
 
     with open(filename,'r') as f:
         contents = f.read()
         if 'floor' in contents:
-            return 1
-        if 'Qst' in contents:
-            return 2
-    return 3
+            return 1 # the time step has gotten very small. Typically
+                     # this is caused by 1 cell in the gas column density
+                     # distribution becoming very small.
+        if 'Qst' in contents:  
+            return 2 # a spike in the stellar column density distribution
+                     # which in turn causes an interpolation error
+        if 'merger' in contents:
+            return 3 # accretion history rejected because of a merger
+    return 4 # none of the most common types of failures
     
 
 class experiment:
@@ -165,7 +184,7 @@ class experiment:
 		varied.append(j)
 		Nvaried.append(len(param))
 		theLists.append(param[:])
-	successTable = np.zeros(tuple(Nvaried[:]))
+	successTable = np.ndarray(shape=tuple(Nvaried[:]),dtype=np.int64)
 	successTableKeys = np.zeros(tuple(Nvaried[:]))
 	for a_p in self.pl: # for each run..
 	    successTableKey =[]
@@ -200,6 +219,12 @@ class experiment:
 #		    pass
 	            
 
+    def fast(self):
+        '''Set a few parameters to still-reasonable parameters
+        which will speed up the simulation '''
+        self.vary('nx',200,200,1,0)
+        self.vary('minSigSt',10,10,1,0)
+        self.vary('diskScaleLength',2.0,2.0,1,0) # not actually faster, but I often forget it.
 
     def localRun(self,nproc,startAt):
         ''' Run the specified experiment on this machine,
@@ -322,37 +347,216 @@ if __name__ == "__main__":
     rk59.vary('whichAccretionHistory',23,23,1,0)
     rk59.vary('dbg',0,32,33,0)
     rk59.vary('ndecay',-1,7,5,0)
+    rk59.vary('nx',200,200,1,0)
+    rk59.vary('diskScaleLength',2.0,2.0,1,0)
+    rk59.vary('minSigSt',10,10,1,0)
     allModels['rk59']=rk59
 
     rk60=experiment("rk60") # fails by dt falling below floor
     rk60.vary('whichAccretionHistory',31,31,1,0)
     rk60.vary('dbg',0,32,33,0)
     rk60.vary('ndecay',-1,7,5,0)
+    rk60.fast()
     allModels['rk60']=rk60
 
     rk61=experiment('rk61')  # no failures yet
     rk61.vary('whichAccretionHistory',4,4,1,0)
     rk61.vary('dbg',0,32,33,0)
     rk61.vary('ndecay',-1,7,5,0)
+    rk61.fast()
     allModels['rk61']=rk61
 
     rk62=experiment('rk62') # originally rk58b3d
     rk62.vary('whichAccretionHistory',83,83,1,0)
     rk62.vary('dbg',0,32,33,0)
     rk62.vary('ndecay',-1,7,5,0)
+    rk62.fast()
     allModels['rk62']=rk62
 
     rk63=experiment('rk63') # originally rk58g1d
     rk63.vary('whichAccretionHistory',36,36,1,0)
     rk63.vary('dbg',0,32,33,0)
     rk63.vary('ndecay',-1,7,5,0)
+    rk63.fast()
     allModels['rk63']=rk63
 
     rk64=experiment('rk64') # originally rk58o1d
     rk64.vary('whichAccretionHistory',44,44,1,0)
     rk64.vary('dbg',0,32,33,0)
     rk64.vary('ndecay',-1,7,5,0)
+    rk64.fast()
     allModels['rk64']=rk64
+
+    rk65=experiment('rk65') #originally rk58o2d
+    rk65.fast()
+    rk65.vary('whichAccretionHistory',70,70,1,0)
+    rk65.vary('dbg',0,32,33,0)
+    rk65.vary('ndecay',-1,7,5,0)
+    allModels['rk65']=rk65
+
+    rk66=experiment('rk66') #originally rk58sd
+    rk66.fast()
+    rk66.vary('whichAccretionHistory',22,22,1,0)
+    rk66.vary('dbg',0,32,33,0)
+    rk66.vary('ndecay',-1,7,5,0)
+    allModels['rk66']=rk66
+
+    rk67=experiment('rk67') #originally rk58f2d
+    rk67.fast()
+    rk67.vary('whichAccretionHistory',61,61,1,0)
+    rk67.vary('dbg',0,32,33,0)
+    rk67.vary('ndecay',-1,7,5,0)
+    allModels['rk67']=rk67
+
+
+    rk68=experiment('rk68') # From the previous experiments we infer that dbg=26 works well,
+    # so long as ndecay>~2
+    # Let's now make sure this is quite robust by doing a small version of a full variation
+    # over halo mass and accretion history
+    rk68.vary('nx',200,200,1,0)
+    rk68.vary('minSigSt',5,5,1,0)
+    rk68.vary('diskScaleLength',2,2,1,0)
+    rk68.vary('dbg',26,26,1,0)
+    rk68.vary('ndecay',3,3,1,0)
+    rk68.vary('whichAccretionHistory',500,599,100,0)
+    rk68.vary('Mh0',1.0e9,1.0e12,4,1)
+    allModels['rk68']=rk68
+
+    rk69=experiment('rk69')
+    rk69.fast()
+    rk69.vary('dbg',0,32,33,0)
+    rk69.vary('ndecay',-1,7,5,0)
+    rk69.vary('whichAccretionHistory',526,526,1,0)
+    allModels['rk69']=rk69
+
+    # similar to rk68, except indcrease ndecay and verify on a new set of accr. histories:
+    rk70=experiment('rk70') 
+    rk70.vary('nx',200,200,1,0)
+    rk70.vary('minSigSt',8,8,1,0)
+    rk70.vary('diskScaleLength',2,2,1,0)
+    rk70.vary('dbg',26,26,1,0)
+    rk70.vary('ndecay',5,5,1,0)
+    rk70.vary('whichAccretionHistory',600,799,200,0)
+    rk70.vary('Mh0',1.0e10,1.0e12,3,1)
+    allModels['rk70']=rk70
+    
+    rk71=experiment('rk71') #originally rk70k1c
+    rk71.fast()
+    rk71.vary('dbg',0,32,33,0)
+    rk71.vary('ndecay',-1,7,5,0)
+    rk71.vary('whichAccretionHistory',636,636,1,0)
+    allModels['rk71']=rk71    
+
+    rk72=experiment('rk72') # originally rk70b5c
+    rk72.fast()
+    rk72.vary('dbg',0,32,33,0)
+    rk72.vary('ndecay',-1,7,5,0)
+    rk72.vary('whichAccretionHistory',731,731,1,0)
+    allModels['rk72']=rk72
+
+    rk73=experiment('rk73') # originally rk70b6c
+    rk73.fast()
+    rk73.vary('dbg',0,32,33,0)
+    rk73.vary('ndecay',-1,7,5,0)
+    rk73.vary('whichAccretionHistory',757,757,1,0)
+    allModels['rk73']=rk73
+
+    rk73=experiment('rk73') # originally rk70f6c
+    rk73.fast()
+    rk73.vary('dbg',0,32,33,0)
+    rk73.vary('ndecay',-1,7,5,0)
+    rk73.vary('whichAccretionHistory',761,761,1,0)
+    allModels['rk73']=rk73
+
+    rk74=experiment('rk74') # originally rk70o6c
+    rk74.fast()
+    rk74.vary('dbg',0,32,33,0)
+    rk74.vary('ndecay',-1,7,5,0)
+    rk74.vary('whichAccretionHistory',770,770,1,0)
+    allModels['rk74']=rk74
+
+########################
+# try some known troublesome models again w/ weights by dist instead of cell #
+
+    rn1=experiment('rn1') # originally rk69
+    rn1.fast()
+    rn1.vary('dbg',0,31,32,0)
+    rn1.vary('ndecay',-.02,.1,4,0) #-.02, .02, .06, .1 
+    rn1.vary('whichAccretionHistory',526,526,1,0)
+    allModels['rn1']=rn1
+    
+    rn2=experiment('rn2') #originally rk70k1c, then rk71
+    rn2.fast()
+    rn2.vary('dbg',0,31,32,0)
+    rn2.vary('ndecay',-.02,.1,4,0)
+    rn2.vary('whichAccretionHistory',636,636,1,0)
+    allModels['rn2']=rn2    
+
+    rn3=experiment('rn3') # originally rk70b5c, then rk72
+    rn3.fast()
+    rn3.vary('dbg',0,31,32,0)
+    rn3.vary('ndecay',-.02,.1,4,0)
+    rn3.vary('whichAccretionHistory',731,731,1,0)
+    allModels['rn3']=rn3
+
+    rn4=experiment('rn4') # originally rk70b6c, then rk73
+    rn4.fast()
+    rn4.vary('dbg',0,31,32,0)
+    rn4.vary('ndecay',-.02,0.1,4,0)
+    rn4.vary('whichAccretionHistory',757,757,1,0)
+    allModels['rn4']=rn4
+
+    rn5=experiment('rn5') # originally rk70f6c, then rk73 (again?!)
+    rn5.fast()
+    rn5.vary('dbg',0,31,32,0)
+    rn5.vary('ndecay',-.02,0.1,4,0)
+    rn5.vary('whichAccretionHistory',761,761,1,0)
+    allModels['rn5']=rn5
+
+    rn6=experiment('rn6') # originally rk70o6c
+    rn6.fast()
+    rn6.vary('dbg',0,31,32,0)
+    rn6.vary('ndecay',-.02,0.1,4,0)
+    rn6.vary('whichAccretionHistory',770,770,1,0)
+    allModels['rn6']=rn6
+
+
+    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
+    rn7=experiment('rn7') 
+    rn7.vary('nx',200,200,1,0)
+    rn7.vary('minSigSt',8,8,1,0)
+    rn7.vary('diskScaleLength',2,2,1,0)
+    rn7.vary('dbg',16,16,1,0)
+    rn7.vary('ndecay',-1,-1,1,0)
+    rn7.vary('alphaMRI',0.1,0.1,1,0)
+    rn7.vary('whichAccretionHistory',600,799,200,0)
+    rn7.vary('Mh0',1.0e10,1.0e12,3,1)
+    allModels['rn7']=rn7
+
+    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
+    rn8=experiment('rn8') 
+    rn8.vary('nx',200,200,1,0)
+    rn8.vary('minSigSt',8,8,1,0)
+    rn8.vary('diskScaleLength',2,2,1,0)
+    rn8.vary('dbg',16,16,1,0)
+    rn8.vary('ndecay',-1,-1,1,0)
+    rn8.vary('alphaMRI',0.1,0.1,1,0)
+    rn8.vary('whichAccretionHistory',100,599,500,0)
+    rn8.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn8']=rn8
+
+    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
+    rn9=experiment('rn9') 
+    rn9.vary('nx',200,200,1,0)
+    rn9.vary('minSigSt',8,8,1,0)
+    rn9.vary('diskScaleLength',2,2,1,0)
+    rn9.irregularVary('dbg',[16,32,48,80,112])
+    rn9.vary('ndecay',1,8,4,1)
+    rn9.vary('alphaMRI',0.1,0.1,1,0)
+    rn9.vary('whichAccretionHistory',100,139,40,0)
+    rn9.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn9']=rn9
+
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.
@@ -369,10 +573,22 @@ if __name__ == "__main__":
 #    print len(successTables)
 #    print type(successTables[0])
 
-    sumOfSuccessTables = np.zeros(successTables[0].shape)
+    sumOfSuccessTables = np.zeros(shape=successTables[0].shape,dtype=np.int64)
     for i in range(len(successTables)):
         table = successTables[i]
         sumOfSuccessTables += (table * (10**i))
 
-    print sumOfSuccessTables
+#    print sumOfSuccessTables
+
+    strSumOfSuccessTables = np.array(sumOfSuccessTables, dtype=str)
+    it = np.nditer(sumOfSuccessTables, flags=['multi_index'])
+    while not it.finished:
+        strSumOfSuccessTables[it.multi_index] = str(it[0]).zfill(len(successTables)-1)
+        it.iternext()
+
+
+    print
+    print "Here is the sum of all success tables, in homogenized form"
+    print
+    print strSumOfSuccessTables
 

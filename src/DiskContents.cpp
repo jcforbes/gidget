@@ -730,22 +730,40 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
 {
   std::vector<double> tauMRI(nx+1,0.0);
   std::vector<double> taupMRI(nx+1,0.0);
+  std::vector<int> replaceWithMRI(nx+1,0);
   for(unsigned int n=1; n<=nx; ++n) {
     // Compute a torque and its derivative given an alpha.
     tauMRI[n] = 2.0*M_PI*x[n]*x[n]*col[n]*alpha*sigth*sig[n]*(beta[n]-1);
-    taupMRI[n] = tauMRI[n] * (2.0/x[n] + ddx(col,n,x)/col[n] 
-       + ddx(sig,n,x)/sig[n] + betap[n]/(beta[n]-1));
+//    taupMRI[n] = tauMRI[n] * (2.0/x[n] + ddx(col,n,x)/col[n] 
+//       + ddx(sig,n,x)/sig[n] + betap[n]/(beta[n]-1));
 
 
     // Where GI has shut down and no longer transports mass inwards, 
     // allow another source of viscosity to drive gas inwards.
     if(tauMRI[n] < tauvec[1][n]) { // larger negative value
       tauvec[1][n]=tauMRI[n];
-      tauvec[2][n]=taupMRI[n];
+//      tauvec[2][n]=taupMRI[n];
+        replaceWithMRI[n] = 1;
     }
   }
 
-  int nsmooth = (int) (ndecay/2.0 + 1);
+  if(dbg.opt(5)) {
+    int navg=((int) ndecay);
+    for(int n=1; n<=nx; ++n) {
+      for(int np=n; np<=min(n+navg,((int) nx)); ++np) {
+        if(replaceWithMRI[n]==1 && replaceWithMRI[np]==0) {
+          double GIweight = ((double) np -n ) / ((double) navg);
+          double alphaWeight = 1.0 - GIweight;
+//          tauvec[1][np] = 0.5 * (tauvec[1][np] + tauMRI[np]);
+          tauvec[1][np] = (tauvec[1][np] * GIweight + tauMRI[np] * alphaWeight) / (GIweight+alphaWeight);
+        }
+      }
+    }
+  }
+
+
+  //  int nsmooth = (int) (ndecay/2.0 + 1);
+  int nsmooth = 3;
   std::vector<double> tauSmooth(nx+1,0.0);
   for(int n=1; n<=nx; ++n) {
     double norm = 0.0;
@@ -767,18 +785,18 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
     tauSmooth[n]/=norm;
   }
 
-  if(ndecay > 0.0) {
-    Interfaces inters(keepTorqueOff,x);
-    for(unsigned int n=1; n<=nx; ++n) {
-      if( (dbg.opt(3) && keepTorqueOff[n]==1) || !dbg.opt(3)) {
-        double weight = inters.weight(n,true,ndecay);
-	if(dbg.opt(1))    tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
-        else if(dbg.opt(2)) tauvec[1][n] = tauSmooth[inters.index(n,true)]*weight + (1.0-weight)*tauMRI[n];
-	else tauvec[1][n] = tauSmooth[n];
-////        tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
-      }
-    }
-  }
+//  if(ndecay > 0.0) {
+//    Interfaces inters(keepTorqueOff,x);
+//    for(unsigned int n=1; n<=nx; ++n) {
+//      if( (dbg.opt(3) && keepTorqueOff[n]==1) || !dbg.opt(3)) {
+//        double weight = inters.weight(x[n],false,ndecay);
+//	if(dbg.opt(1))    tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
+//        else if(dbg.opt(2)) tauvec[1][n] = tauSmooth[inters.index(n,true)]*weight + (1.0-weight)*tauMRI[n];
+//	else tauvec[1][n] = tauSmooth[n];
+//////        tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
+//      }
+//    }
+//  }
 
   TauPrimeFromTau(tauvec,1,nx,IBC,OBC);
 }
@@ -1520,12 +1538,18 @@ void DiskContents::ComputeY(const double ndecay)
     }
   }
 
-  if(dbg.opt(4)) {
+  if(dbg.opt(4) && ndecay >0) {
     std::vector<double> yysmooth(nx+1,0.0);
-    int nsmooth = (int) (ndecay/2.0 + 1.0);
+    int nsmooth = (int) ndecay;
     for(unsigned int n=1; n<=nx; ++n) {
       double norm=0.0;
-      for(int np=n; np<=min((int) nx,(int) n+3*nsmooth); ++np) {
+      int LH = 0;
+      if(dbg.opt(5))
+        LH = max(1,(int) n-3*nsmooth); 
+      else
+        LH = n;
+//      for(int np=n; np<=min((int) nx,(int) n+3*nsmooth); ++np) {
+      for(int np=LH; np<=min((int) nx, (int) n+3*nsmooth); ++np) {
         double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
         yysmooth[n] += wght*yy[np];
         norm += wght;

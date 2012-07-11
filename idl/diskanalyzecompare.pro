@@ -104,7 +104,7 @@ PRO diskAnalyzeCompare,modelList,sv,cmt,leg
 		(*(modelList[j])).evArray[9,n_elements((*(modelList[j])).evArray[9,*])-1]," with ", $
 		n_elements((*(modelList[j])).evArray[0,*])," outputs."
 
-	ind=[2,3,30,4,5,24,6,7,23]  ;;;tau,tau',tau'',S,s,Qg,S*,s*,Qs
+	ind=[2,3,43,4,5,24,6,7,23]  ;;;tau,tau',tau'',S,s,Qg,S*,s*,Qs
 	Xind=ind*0+1
 	xr = getranges5(modelList,Xind)
 	xr[0,*]*=.5

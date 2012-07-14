@@ -1,3 +1,6 @@
+;; Given a 4-d array of the form discussed in the procedures below,
+;; generate a 2-d array of the form [[min,max], [min,max], ...] for each variable
+;; where min and max should encompass the entire data range (for all times and models)
 FUNCTION simpleranges,data,wrtxlog
   ranges=dblarr(2,n_elements(data[0,0,*,0]))
   FOR k=0,n_elements(data[0,0,*,0])-1 DO BEGIN
@@ -6,6 +9,7 @@ FUNCTION simpleranges,data,wrtxlog
       flat = data[*,*,k,*]
       ind = WHERE(flat GT 0.0, ct)
       IF(ct NE 0) THEN ranges[0,k] = MIN(flat[ind])
+      IF(ranges[1,k] / ranges[0,k] GT 1.0e7) THEN ranges[0,k] = ranges[1,k]*1.0e-7
     ENDIF
   ENDFOR
   return,ranges
@@ -115,6 +119,20 @@ FUNCTION getElements,nvardim,i
   RETURN,elements
 END
 
+
+;;; Meant to do an analysis of many runs at once, particularly when those correspond to different accr. histories
+;;; expName is an experiment name, like one would specify in exper.py. This code assumes that you are 
+;;;     1) in the gidget/analysis directory, and 2) you have a bunch of runs in a folder with names of the form
+;;;      expName/expName<identifiers>_<filenames>, where identifiers can be anything as long as it is unique to each run
+;;;      and <filenames> encompasses all the files output by the code, e.g. evolution.dat, radial.dat, etc.
+;;; keys is an array which lets you specify which variable to plot from the list in wrtXyt. This is useful
+;;;    for very large experiments, where even storing the modest-size arrays here which take a limited amount of
+;;;    data for each run can become cumbersome. If you input an empty array, by default the code will analyze
+;;;    all the variables
+;;; N controls how many runs in the experiment to analyze. For large number runs, sometimes it's useful to just look
+;;;    at a few runs. If N is larger than the number of runs in the experiment, all the runs are analyzed.
+;;; sv- behaves like other instances of sv; 0 to just show the plots on the screen, 2 to save them as png's and 
+;;;    subsequently movies.
 PRO variability2,expName,keys,N,sv
   compile_opt idl2
   set_plot,'x'
@@ -125,7 +143,6 @@ PRO variability2,expName,keys,N,sv
   proftimes[0]=systime(1)
 
   nameList2 = ListValidModels(expName,N)
-
   ctr=0
 
   ;; variables to plot- title, column index, log plot, name, y-range
@@ -136,6 +153,8 @@ PRO variability2,expName,keys,N,sv
   wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
     [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9]]
   wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0,0,0]
+
+  IF(n_elements(keys) EQ 0) THEN keys=indgen(n_elements(wrtXyt)-1)+1
 
   dummy = where(keys EQ 13, n1)
 	

@@ -1540,7 +1540,10 @@ void DiskContents::ComputeY(const double ndecay)
 
   if(dbg.opt(4) && ndecay >0) {
     std::vector<double> yysmooth(nx+1,0.0);
-    int nsmooth = (int) ndecay;
+//    int nsmooth = 8; // (int) ndecay;
+    int nsmooth;
+    if(dbg.opt(7)) nsmooth = 8;
+    else nsmooth = (int) ndecay;
     for(unsigned int n=1; n<=nx; ++n) {
       double norm=0.0;
       int LH = 0;

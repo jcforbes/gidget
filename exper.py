@@ -557,6 +557,50 @@ if __name__ == "__main__":
     rn9.vary('Mh0',1.0e12,1.0e12,1,0)
     allModels['rn9']=rn9
 
+    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
+    rn10=experiment('rn10') 
+    rn10.vary('nx',200,200,1,0)
+    rn10.vary('minSigSt',8,8,1,0)
+    rn10.vary('diskScaleLength',2,2,1,0)
+    rn10.irregularVary('dbg',[16,32,48,80,112])
+    rn10.vary('ndecay',1,8,4,1)
+    rn10.vary('alphaMRI',0.1,0.1,1,0)
+    rn10.vary('whichAccretionHistory',100,139,40,0)
+    rn10.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn10']=rn10
+
+    rn11=experiment('rn11') # 1st cosmological run in a while. Using ysmoothing w/ ndecay = 8
+    rn11.vary('nx',200,200,1,0)
+    rn11.vary('minSigSt',8,8,1,0)
+    rn11.vary('diskScaleLength',2,2,1,0)
+    rn11.vary('dbg',16,16,1,0)
+    rn11.vary('alphaMRI',0.1,0.1,1,0)
+    rn11.vary('whichAccretionHistory',4,1003,1000,0)
+    rn11.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn11']=rn11
+
+    rn12=experiment('rn12') # ndecay = 2
+    rn12.vary('nx',200,200,1,0)
+    rn12.vary('minSigSt',8,8,1,0)
+    rn12.vary('diskScaleLength',2,2,1,0)
+    rn12.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
+    rn12.vary('ndecay',2,2,1,0)
+    rn12.vary('alphaMRI',.1,.1,1,0)
+    rn12.vary('whichAccretionHistory',4,1003,1000,0)
+    rn12.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn12']=rn12
+
+    rn13=experiment('rn13') # ndecay = 8, hires
+    rn13.vary('nx',1000,1000,1,0)
+    rn13.vary('minSigSt',8,8,1,0)
+    rn13.vary('diskScaleLength',2,2,1,0)
+    rn13.vary('dbg',144,144,1,0)
+    rn13.vary('alphaMRI',0.1,0.1,1,0)
+    rn13.vary('whichAccretionHistory',4,1003,1000,0)
+    rn13.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn13']=rn13
+
+
 
     # expand all the vary-ing into the appropriate number of 
     # parameter lists for individual runs.

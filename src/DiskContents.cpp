@@ -1703,7 +1703,7 @@ double DiskContents::activeColSt(unsigned int n)
     for(unsigned int i=0; i!=spsActive.size(); ++i) {
       msg+=str(spsActive[i].spcol[n]) + ", ";
     }
-    errormsg(msg);
+    errormsg(msg,true);
   }
   return val;
 }

@@ -7,6 +7,7 @@ struct RafikovQParams;
 #include "Ddx.h"
 #include "Min.h"
 #include "Max.h"
+#include "Errors.h"
 
 #include <vector>
 #include <string>
@@ -21,7 +22,7 @@ struct RafikovQParams;
 //double ddx(T & arr, unsigned int n, std::vector<double>& x);
 
 // Print an error message and exit to the system
-void errormsg(const std::string);
+//void errormsg(const std::string);
 
 // The flux from cell n to cell n+1 given the velocity and column density of the material.
 // Used to compute dSMigdt (i.e. the change in stellar column density = flux in - flux out.

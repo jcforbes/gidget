@@ -161,6 +161,7 @@ class experiment:
         your local xgrid, you use GridStuffer to create a new metajob
         with the "Input File" as the text file, and the "Output Folder"
         as gidget/output'''
+        self.generatePl()
         with open(name,'w') as f:
             for a_p in self.pl:
                 f.write('xgrid -job submit -in '+self.bin+' -out '+self.analysis+'/'+self.expName+' ./gidget')
@@ -172,6 +173,7 @@ class experiment:
             print "Warning: this experiment already exists! It would be a good idea to rename your experiment or delete the pre-existing one manually."
         os.rename(name,self.xgrid+'/'+name) # move the text file to gidget/xgrid
         os.mkdir(self.xgrid+'/output/'+self.expName) # make gidget/xgrid/output/name to store stde and stdo files.
+        print "Prepared file ",name," for submission to xGrid."
 
     def ExamineExperiment(self):
 	self.generatePl()
@@ -250,7 +252,7 @@ class experiment:
             ctr+=1
             tmpap=a_p[:]
             with open(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt','w') as stdo:
-                with open(expDir+'/'+a_p[self.keys['name']]+'_stde.txt','w') as stde:
+                with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','w') as stde:
                     print "Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core."
                     print "Parameters: "
                     print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
@@ -305,11 +307,12 @@ if __name__ == "__main__":
 
     # http://docs.python.org/library/argparse.html#module-argparse
     parser = argparse.ArgumentParser(description='Analyze data and/or run experiments associated with a list of experiment names.')
-    parser.add_argument('models', metavar='model', type=str, nargs='+',
-                   help='a model to be run / analyzed')
+    parser.add_argument('models', metavar='experiment', type=str, nargs='+',
+                   help='an experiment to be run / analyzed')
     parser.add_argument('--nproc',type=int,help="maximum number of processors to use (default: 16)",default=16)
     parser.add_argument('--start',metavar='startingModel',type=int,
                    help='The number of the model in the experiment (as ordered by GeneratePl) at which we will start sending experiments to the processors to run. (default: 0)',default=0)
+    parser.add_argument('--xgrid',type=bool,help="run on an xGrid (requires the user to do submit the generated file to an xGrid (default: False)",default=False)
     args = parser.parse_args()
     
     modelList=[]
@@ -600,6 +603,16 @@ if __name__ == "__main__":
     rn13.vary('Mh0',1.0e12,1.0e12,1,0)
     allModels['rn13']=rn13
 
+    rn14=experiment('rn14') # just do rn12, with lower masses!
+    rn14.vary('nx',200,200,1,0)
+    rn14.vary('minSigSt',4,4,1,0)
+    rn14.vary('diskScaleLength',2,2,1,0)
+    rn14.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
+    rn14.vary('ndecay',2,2,1,0)
+    rn14.vary('alphaMRI',.1,.1,1,0)
+    rn14.vary('whichAccretionHistory',4,1003,1000,0)
+    rn14.vary('Mh0',1.0e9,1.0e11,3,1)
+    allModels['rn14']=rn14
 
 
     # expand all the vary-ing into the appropriate number of 
@@ -611,7 +624,10 @@ if __name__ == "__main__":
 
     successTables=[]   
     for model in modelList:
-        allModels[model].localRun(args.nproc,args.start)
+        if(not args.xgrid): #local run
+          allModels[model].localRun(args.nproc,args.start)
+        else: # write a file to run on the xgrid
+          allModels[model].write('runExperiment_'+model+'.txt')
         successTables.append(allModels[model].ExamineExperiment())
 
 #    print len(successTables)

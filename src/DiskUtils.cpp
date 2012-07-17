@@ -14,13 +14,13 @@
 #include <sstream>
 
 
-void errormsg(const std::string msg)
-{
-  std::cerr << "Fatal problem encountered: "<<std::endl;
-  std::cerr << msg << std::endl;
-  std::cerr << "Your move." << std::endl;
-  exit(1);
-}
+//void errormsg(const std::string msg)
+//{
+//  std::cerr << "Fatal problem encountered: "<<std::endl;
+//  std::cerr << msg << std::endl;
+//  std::cerr << "Your move." << std::endl;
+//  exit(1);
+//}
 
 double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std::vector<double>& col_st)
 {

@@ -44,10 +44,14 @@ int main(int argc, char **argv) {
     for(unsigned int i=0; i!=errmgLine.size();++i) {
       msg+=errmgLine[i];
     }
-    errormsg(msg);
+//    errormsg(msg);
+    std::cerr << msg << std::endl;
+    return 1;
   }
 
   std::string filename(argv[1]);
+
+  errormsg::errorFile.open((filename+"_stde.txt").c_str());
   
   // Set various parameters based on the command line arguments. If an argument is not
   // specified on the command line, set that parameter to the default value (first 

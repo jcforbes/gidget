@@ -237,13 +237,13 @@ class experiment:
         ctr=0
         binary=self.bin+'/gidget'
         expDir=self.analysis+'/'+self.expName #directory for output files
-        if(os.path.exists(expDir)):
+        if(os.path.exists(expDir) and startAt == 0):
             print "This directory already contains output. CANCELLING this run!"
             print
             print "This is fine if you've already run the desired models and are"
             print "just interested in looking at the results of ExamineExperiment."
             print "Otherwise, just delete the appropriate directory and run this"
-            print "script again."
+            print "script again, or specify a nonzero starting run number."
             return
         else:
             os.mkdir(expDir)

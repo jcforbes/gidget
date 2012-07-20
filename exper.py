@@ -67,6 +67,7 @@ class experiment:
             self.keys[n]=ctr
             ctr=ctr+1
         self.expName=name
+	self.covariables=[]
 
         # store the location of various expected subdirectories in the gidget distribution.
         self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
@@ -245,6 +246,8 @@ class experiment:
             print "Otherwise, just delete the appropriate directory and run this"
             print "script again, or specify a nonzero starting run number."
             return
+        elif(os.path.exists(expDir) and startAt != 0):
+            pass # let the user overwrite whatever runs they so desire.
         else:
             os.mkdir(expDir)
 
@@ -293,13 +296,42 @@ class experiment:
             # has anything changed since the last time we checked?
             if(nStillRunning == nPrev):
                 # do nothing except wait a little bit
-                time.sleep(120)
+                time.sleep(5)
             else:
                 nPrev=nStillRunning
                 if(nPrev == 0):
                     break # we're done!
-                print "Still waiting for ",nPrev, " processes to finish; I'll check every two minutes for changes."
+                print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
         print "Local run complete!"
+
+
+# Take the results of all experiments named when this script was called
+# and sum them up such that it's obvious which runs succeeded and which failed.
+# A schematic example output for a situation where 5 different experiments were
+# run, each of which varied the same 2 variables, 2 values for 1, 3 for the other:
+#
+#   [ [ 00000,  00000 ], [ 00010, 00010], [00011, 00011] ]
+#
+# indicates that, as far as whether the runs crash or succeed,
+# the 2-value variable doesn't make a difference, but for increasing
+# values of the 3-value variable, fewer runs succeed. The numbers which
+# appear here are explained in the successCode function above.
+def PrintSuccessTables(successTables):
+    sumOfSuccessTables = np.zeros(shape=successTables[0].shape,dtype=np.int64)
+    for i in range(len(successTables)):
+        table = successTables[i]
+        sumOfSuccessTables += (table * (10**i))
+
+    strSumOfSuccessTables = np.array(sumOfSuccessTables, dtype=str)
+    it = np.nditer(sumOfSuccessTables, flags=['multi_index'])
+    while not it.finished:
+        strSumOfSuccessTables[it.multi_index] = str(it[0]).zfill(len(successTables)-1)
+        it.iternext()
+
+    print
+    print "Here is the sum of all success tables, in homogenized form"
+    print
+    print strSumOfSuccessTables
 
 
 
@@ -312,7 +344,7 @@ if __name__ == "__main__":
     parser.add_argument('--nproc',type=int,help="maximum number of processors to use (default: 16)",default=16)
     parser.add_argument('--start',metavar='startingModel',type=int,
                    help='The number of the model in the experiment (as ordered by GeneratePl) at which we will start sending experiments to the processors to run. (default: 0)',default=0)
-    parser.add_argument('--xgrid',type=bool,help="run on an xGrid (requires the user to do submit the generated file to an xGrid (default: False)",default=False)
+    parser.add_argument('--xgrid',type=bool,help="run on an xGrid (requires the user to submit the generated file to an xGrid (default: False)",default=False)
     args = parser.parse_args()
     
     modelList=[]
@@ -611,18 +643,68 @@ if __name__ == "__main__":
     rn14.vary('ndecay',2,2,1,0)
     rn14.vary('alphaMRI',.1,.1,1,0)
     rn14.vary('whichAccretionHistory',4,1003,1000,0)
-    rn14.vary('Mh0',1.0e9,1.0e11,3,1)
+    rn14.vary('Mh0',1.0e9,1.0e9,1,0)
     allModels['rn14']=rn14
 
+    rn15=experiment('rn15') # just do rn12, with lower masses!
+    rn15.vary('nx',200,200,1,0)
+    rn15.vary('minSigSt',4,4,1,0)
+    rn15.vary('diskScaleLength',2,2,1,0)
+    rn15.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
+    rn15.vary('ndecay',2,2,1,0)
+    rn15.vary('alphaMRI',.1,.1,1,0)
+    rn15.vary('whichAccretionHistory',4,1003,1000,0)
+    rn15.vary('Mh0',1.0e10,1.0e10,1,0)
+    allModels['rn15']=rn15
 
-    # expand all the vary-ing into the appropriate number of 
-    # parameter lists for individual runs.
-##    a.generatePl()  
-##    a.write('runExperiment_'+expName+'.txt') # to use with an xgrid
-#    a.localRun(16,0) # run (in serial) on four processors.
-#    a.ExamineExperiment()
+    rn16=experiment('rn16') # just do rn12, with lower masses!
+    rn16.vary('nx',200,200,1,0)
+    rn16.vary('minSigSt',4,4,1,0)
+    rn16.vary('diskScaleLength',2,2,1,0)
+    rn16.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
+    rn16.vary('ndecay',2,2,1,0)
+    rn16.vary('alphaMRI',.1,.1,1,0)
+    rn16.vary('whichAccretionHistory',4,1003,1000,0)
+    rn16.vary('Mh0',1.0e11,1.0e11,1,0)
+    allModels['rn16']=rn16
 
-    successTables=[]   
+    rn17=experiment('rn17') # just do rn12, with lower masses!
+    rn17.vary('nx',200,200,1,0)
+    rn17.vary('minSigSt',4,4,1,0)
+    rn17.vary('diskScaleLength',2,2,1,0)
+    rn17.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
+    rn17.vary('ndecay',2,2,1,0)
+    rn17.vary('alphaMRI',0,0,1,0)
+    rn17.vary('whichAccretionHistory',4,1003,1000,0)
+    rn17.vary('Mh0',1.0e9,1.0e9,1,0)
+    allModels['rn17']=rn17
+
+    rn18=experiment('rn18')
+    rn18.vary('nx',200,200,1,0)
+    rn18.vary('minSigSt',10,10,1,0)
+    rn18.vary('diskScaleLength',2,2,1,0)
+    rn18.vary('dbg',16,16,1,0)
+    rn18.vary('ndecay',2,2,1,0)
+    rn18.vary('alphaMRI',.1,.1,1,0)
+    rn18.irregularVary('whichAccretionHistory',[-100,-316,-1000]) #try out oscillation acc history
+    rn18.vary('Mh0',1.0e12,1.0e12,1,0) # shoudln't matter
+    allModels['rn18']=rn18
+
+    rn19=experiment('rn19')
+    rn19.vary('nx',200,200,1,0)
+    rn19.vary('minSigSt',10,10,1,0)
+    rn19.vary('diskScaleLength',2,2,1,0)
+    rn19.vary('epsff',0,.01,2,0)
+    rn19.irregularVary('dbg',[16, 2**8+16, 2**9, 2**9+2**8, 2**9+2**10, 2**9+16, 2**10 ])
+    rn19.vary('ndecay',2,2,1,0)
+    rn19.vary('alphaMRI',.1,.1,1,0)
+    rn19.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
+    rn19.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn19']=rn19
+
+
+    successTables=[]
+    # run all the models, and record which ones succeed.
     for model in modelList:
         if(not args.xgrid): #local run
           allModels[model].localRun(args.nproc,args.start)
@@ -630,25 +712,6 @@ if __name__ == "__main__":
           allModels[model].write('runExperiment_'+model+'.txt')
         successTables.append(allModels[model].ExamineExperiment())
 
-#    print len(successTables)
-#    print type(successTables[0])
+    PrintSuccessTables(successTables)
 
-    sumOfSuccessTables = np.zeros(shape=successTables[0].shape,dtype=np.int64)
-    for i in range(len(successTables)):
-        table = successTables[i]
-        sumOfSuccessTables += (table * (10**i))
-
-#    print sumOfSuccessTables
-
-    strSumOfSuccessTables = np.array(sumOfSuccessTables, dtype=str)
-    it = np.nditer(sumOfSuccessTables, flags=['multi_index'])
-    while not it.finished:
-        strSumOfSuccessTables[it.multi_index] = str(it[0]).zfill(len(successTables)-1)
-        it.iternext()
-
-
-    print
-    print "Here is the sum of all success tables, in homogenized form"
-    print
-    print strSumOfSuccessTables
 

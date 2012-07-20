@@ -199,7 +199,7 @@ int Simulation::runToConvergence(const double fCondition,
   // All time steps completed! Why?
   int terminationCondition=0;
   if( dt <=TOL*dtfloor) {
-    std::cerr << "Time step below floor" << std::endl;
+    errormsg("Time step below floor");
     terminationCondition=1;
   }
   if( step >= stepmax) {

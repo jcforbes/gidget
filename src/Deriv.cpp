@@ -3,14 +3,6 @@
 #include "Deriv.h"
 #include "DiskUtils.h"
 
-double maximum(const double a, const double b)
-{
-  if(a>b)
-    return a;
-  else 
-    return b;
-}
-
 
 // Compute the numerical derivative of a given function.
 // Arguments: 
@@ -30,7 +22,7 @@ double derivDriver(double (*f)(double,void*),const double x0, double etol,void* 
     result=deriv(f,x0,h0*red,p,&error);
     red*=0.5;
   } while(fabs(error) > etol && red>min);
-  if(red<=min) errormsg("Unable to get good derivative");
+  if(red<=min) errormsg("Unable to get good derivative",true);
   *err=error;
   return result;
 }
@@ -67,7 +59,7 @@ double deriv(double (*f)(double,void*),const double x0,const double h0,void *p,d
       tab[j][i]=(tab[j-1][i]*red - tab[j-1][i-1])/(red-1.);
       red*=c_red;
       
-      double temp_err = maximum(fabs(tab[j][i]-tab[j-1][i]),fabs(tab[j][i]-tab[j-1][i-1])); 
+      double temp_err = max(fabs(tab[j][i]-tab[j-1][i]),fabs(tab[j][i]-tab[j-1][i-1])); 
       if(temp_err <= err){
 	err=temp_err;
 	best=tab[j][i];

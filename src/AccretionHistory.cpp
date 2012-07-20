@@ -24,6 +24,47 @@ AccretionHistory::~AccretionHistory()
     delete[] hMass;
   }
 }
+
+double AccretionHistory::GenerateOscillatingAccretionHistory(double amp, double period,
+							     double phase,		     
+					double zst, bool inRedshift, // as opposed to in Gyr.
+					Cosmology& cosm, std::string fn, bool writeOut)
+{
+  zstart = zst;
+  std::ofstream file;
+  if(writeOut) file.open(fn.c_str());
+
+  double z=zstart;
+  double MdotExt0=0.0; 
+  double mass = 1.0e12 - (amp/2.0) * cosm.Tsim(0.0) / speryear;
+  unsigned int N=10000;
+
+  std::vector<double> redshifts(0), tabulatedAcc(0), masses(0);
+
+  double eps = 1.0e-8; // safety factor to make sure we never get Mdot<0
+
+  for(unsigned int i=0; i<=N; ++i) {
+    z=(((double) (N-i))/((double) N)) * (zstart - 0.0);
+    double MdotExt=0;
+    double t=cosm.Tsim(z);
+    if(inRedshift) 
+      MdotExt = (amp/(2.0-eps)) + 
+	(amp/2.0)*cos(2.0*M_PI*(z-zstart)/period-phase);
+    else           
+      MdotExt = (amp/(2.0-eps)) + 
+	(amp/2.0)*cos(2.0*M_PI*(t/speryear)*1.0e-6/period-phase);
+    if(i==0) MdotExt0 = MdotExt;
+
+    if(writeOut) file << z <<" "<<t<<" "<<MdotExt<<" "<<-1.0<<std::endl;
+    redshifts.push_back(z); tabulatedAcc.push_back(MdotExt); masses.push_back(mass);
+    mass += MdotExt * fabs(cosm.Tsim(redshifts[N-i+1]) - cosm.Tsim(z)) / speryear;
+  }
+  file.close();
+  InitializeGSLObjs(redshifts,tabulatedAcc,masses);
+  return MdotExt0;
+}
+
+
 double AccretionHistory::GenerateConstantAccretionHistory(double rate, double zst,
 					Cosmology& cos, std::string fn,bool writeOut)
 {

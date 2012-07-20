@@ -107,6 +107,8 @@ int main(int argc, char **argv) {
   AccretionHistory accr;
   double mdot0;
 
+  Debug dbg(Experimental);
+
   // Based on the user's choice of accretion history, generate the appropriate
   // mapping between redshift and accretion rate.
   if(whichAccretionHistory==0)
@@ -115,6 +117,13 @@ int main(int argc, char **argv) {
     mdot0 = accr.GenerateConstantAccretionHistory(2.34607,zstart,cos,filename+"_ConstAccHistory.dat",true) * MSol/speryear;
   else if(whichAccretionHistory==1)
     mdot0 = accr.GenerateConstantAccretionHistory(12.3368,zstart,cos,filename+"_ConstAccHistory2.dat",true)*MSol/speryear;
+  else if(whichAccretionHistory<0 ) {
+    if(! dbg.opt(8)) {
+      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,0.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
+    }
+    else
+      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,-3.0*M_PI/2.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
+  }
   else
     mdot0 = accr.GenerateNeistein08(Mh0,2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory)*MSol/speryear;
   // Note that the following line does nothing but put a line in the comment file to
@@ -124,8 +133,6 @@ int main(int argc, char **argv) {
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
   FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
-  Debug dbg(Experimental);
-  testDebug();
   double dummy = mesh.psi(0.5);
   double MhZs = accr.MhOfZ(zstart)*Mh0;
 
@@ -160,5 +167,6 @@ int main(int argc, char **argv) {
 		 zstart,NActive,NPassive,
 		 alphaMRI,sigth,ndecay,
 		 disk,accr);
-  sim.runToConvergence(1.0e10, true, filename); 
+  result = sim.runToConvergence(1.0e10, true, filename);
+ 
 }

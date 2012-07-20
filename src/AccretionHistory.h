@@ -40,6 +40,15 @@ class AccretionHistory {
   double GenerateConstantAccretionHistory(double rate,double zstart,Cosmology& cos,
 				std::string fn,bool writeOut);
 
+  double GenerateOscillatingAccretionHistory(
+                double amp, double period, // parameters for the oscillation
+		double phase, // angle by which to move the cosine to the right.
+		double zst,  // starting redshift
+		bool inRedshift, // the period is in redshift (otherwise the period is in time)
+		Cosmology& cos, std::string fn, bool writeOut);
+
+
+
   // Given a vector of redshifts and the accretion rates at those
   // redshifts, fill in the GSL interpolation objects which will
   // be used to return the accretion rate at arbitrary redshifts.

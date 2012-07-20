@@ -1,3 +1,5 @@
+#ifndef error_message_header
+#define error_message_header
 
 #include <fstream>
 #include <string>
@@ -8,6 +10,6 @@ class errormsg {
   static std::ofstream errorFile;
 };
 
-std::ofstream errormsg::errorFile;
 
+#endif
 

@@ -10,4 +10,7 @@ errormsg::errormsg(const std::string msg, bool fatal)
   }
 };
 
+std::ofstream errormsg::errorFile;
+
+
 

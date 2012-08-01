@@ -92,5 +92,8 @@ FUNCTION diskStats,model,z=z
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 
+	IF(BulgeM LT 0.0) THEN STOP,"Negative BulgeM: ",model.name," ",BulgeM
+
+
         return,info
 END

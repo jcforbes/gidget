@@ -20,12 +20,18 @@ class covary:
         self.names=[]
         # listOfVariants contains all the necessary information to covary two parameters together.
         self.listOfVariants=[] # [ [p_ind1^A, p_ind1^B, p_ind1^C, ...], [p_ind2^A, p_ind2^B,...], ...]
-    def addVariable(name,theList):
+    def addVariable(self,name,theList):
         if(len(self.listOfVariants) == 0 and len(listOfVariants[0]) == len(theList)):
             self.names.append(name)
             self.listOfVariants.append(theList)
         else:
             raise ValueError('Length of given list incompatible with first list')
+    def getIthVar(self,i):
+        return self.names[i],self.listOfVariants[i]
+    def getNVars(self):
+        return len(self.names)
+    def getNVals(self):
+        return len(self.listOfVariants[0])
             
 
 def successCode(filename):
@@ -97,6 +103,7 @@ class experiment:
         keyNum = self.keys[name]
         typ = type(self.p[keyNum])
         if(type(values) == type([1])): # if values is a list..
+            # replace the given index of p with the list given by values.
             self.p[keyNum]=[typ(value) for value in values]
         else:
             self.p[keyNum]=[typ(values)]
@@ -148,8 +155,25 @@ class experiment:
                         self.pl[i][j]=param
                     else:
                         pass # nothing to do- just use default value
-	
-            
+
+
+        # OK. The strategy is to take the existing pl ~ [[p,p,p..],[p,p,p..],...]
+        # and create cov.getNVals() copies of it stored in pl2 ~ [pl, pl, ...]
+        # For jth pl in pl2, change all the parameters listed in cov to the jth value of their list.
+        # Repeat for every set of covarying variables
+        
+#        # For every set of covarying variables:
+#	for i in range(len(self.covariables)):
+#            pl2=[]
+#            cov = self.covariables[i]
+#            # for each variable which is covarying
+#            for varj in range(cov.getNVals()):
+#                preCovPl = copy.deepcopy(self.pl)
+#                pl2.append(preCovPl)
+#                for k in range(cov.getNVars()):
+#                name,listForThisVar = cov.GetIthVar(varj)
+#                self.keys[name]
+
             
     def write(self,name):
         '''Write a text file which can be handled by GridStuffer to
@@ -702,6 +726,26 @@ if __name__ == "__main__":
     rn19.vary('Mh0',1.0e12,1.0e12,1,0)
     allModels['rn19']=rn19
 
+    experiments=[]
+    nacc = 100
+    nmh0 = 100
+    for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
+        theName = 'rn20_'+str(i)+'_'
+        experiments.append(experiment(theName))
+        experiments[i].vary('nx',200,200,1,0)
+        experiments[i].vary('diskScaleLength',2,2,1,0)
+        experiments[i].irregularVary('dbg',[2**10])
+        experiments[i].vary('alphaMRI',.1,.1,1,0)
+        Mh0 = 1.0e9 * (1000.0)**(float(i)/float(nmh0-1))
+        experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
+        experiments[i].irregularVary('Mh0',[Mh0])
+        experiments[i].vary('whichAccretionHistory',4+nacc*i,4+nacc*(i+1)-1,nacc,0)
+        allModels[theName]=experiments[i]
+        
+    if ('rn20' in modelList):
+        for ex in experiments:
+            modelList.append(ex.expName)
+        del modelList[modelList.index('rn20')]
 
     successTables=[]
     # run all the models, and record which ones succeed.

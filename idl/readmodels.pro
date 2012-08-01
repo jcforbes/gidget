@@ -6,7 +6,7 @@ compile_opt strictarr
 ;; taken from the internet; counts number of lines in a file
 ;; from http://physics.nyu.edu/grierlab/idl_html_help/F12.html#wp894303
 FUNCTION file_lines, filename 
-   OPENR, unit, filename, /GET_LUN 
+   genOPEN, unit, filename, /GET_LUN 
    str = '' 
    count = 0ll 
    WHILE ~ EOF(unit) DO BEGIN 
@@ -124,7 +124,7 @@ FUNCTION readOutput,name
   comment=""
   dummy=""
   paramStr=""
-  OPENR,lunCom,(name+"_comment.txt"),/get_lun
+  genOPEN,lunCom,(name+"_comment.txt"),/get_lun
   READF,lunCom,dummy ;; first line is just dashes - ignore
   READF,lunCom,comment ;; next line is the comment
   nx=ExtractCmtL(lunCom)
@@ -178,7 +178,7 @@ FUNCTION readOutput,name
   ;; Open up the file which directly gives time-dependent information
   ;; only, and no radial information. I.e. one line per timestep,
   ;; as opposed to nx lines per time step.
-  OPENR,lunEv,(name+"_evolution.dat"),/get_lun;,/swap_if_big_endian
+  genOPEN,lunEv,(name+"_evolution.dat"),/get_lun;,/swap_if_big_endian
   ;; Read in all the data from this file, keeping track of the number
   ;; of lines it has, since the larger arrays of data will correspond
   ;; to the same number of outputs.
@@ -226,9 +226,9 @@ FUNCTION readOutput,name
 
   ;; Read in all the data which depends on radius.
   fname=name+"_radial.dat"
-  OPENR,lunRadial,fname,/GET_LUN
-  OPENR,lunStars,(name+"_stars.dat"),/GET_LUN
-  OPENR,lunStarsA,(name+"_act_stars.dat"),/GET_LUN
+  genOPEN,lunRadial,fname,/GET_LUN
+  genOPEN,lunStars,(name+"_stars.dat"),/GET_LUN
+  genOPEN,lunStarsA,(name+"_act_stars.dat"),/GET_LUN
   ;; There will be a dataset at every timestep
   FOR stp=0, currentStep-1 DO BEGIN
     step=evArray[0,stp]

@@ -16,7 +16,7 @@ FUNCTION findindex,xbounds,ybounds,nx,ny,x,y
 END
 
 FUNCTION weight,weights,mh0
-  index = WHERE(ABS(weights[0,*]-alog10(mh0)) LT .00001, count)
+  index = WHERE(ABS(weights[0,*]-alog10(mh0)) LT .0001, count)
   if(count EQ 1) THEN RETURN,weights[1,index]
   MESSAGE,("Could not find the weight for Mh0 = "+string(mh0))
   RETURN,0.0 ;; never get here
@@ -32,8 +32,8 @@ FUNCTION ReadWeights,filename
   OPENR, WL, 'nM_z0.dat', /GET_LUN
   logmh12 = 0d
   theWeight = 0d
-  weights = dblarr(2,100000) ; a very large array
-  ctr=0
+  weights = dblarr(2,1000000) ; a very large array
+  ctr=0L
   WHILE (NOT EOF(WL)) DO BEGIN
     READF, WL, logmh12, theWeight
     weights[0,ctr] = logmh12+12.0
@@ -52,13 +52,17 @@ FUNCTION ReadFromDatFile,filename,N
   RETURN, data
 END
 
-FUNCTION ReadFromRawFiles,filename,namelist
+FUNCTION ReadFromRawFiles,filename,namelist,z
   data = dblarr(13,n_elements(namelist))
   FOR i=0,n_elements(namelist)-1 DO BEGIN ;; loop over every valid model
     IF(i MOD 50 EQ 0) THEN PRINT,"Reading in model #",i," of ",n_elements(namelist)
     modelPtr=ReadModels([nameList[i]])
     model = (*(modelPtr[0]))
-    modelinfo = diskstats(model,z=0.0) ;; get a bit of info about the model at z=0
+    modelinfo = diskstats(model,z=z) ;; get a bit of info about the model at z=z
+    ;;;; Mh0,    M*,        SFR,    Z
+    ;;;; f_g,    f_H2,      eff,    rSFinner,
+    ;;;; rPeak,  rSFouter,  colSol, BulgeM,
+    ;;;; BulgeMSt
     data[*,i] = [model.mh0,modelinfo[14],modelinfo[13],modelinfo[16],modelinfo[15],modelinfo[10],modelinfo[17],modelinfo[0],modelinfo[1],modelinfo[2],modelinfo[3],modelinfo[8],modelinfo[9]]
     ptr_free,modelPtr[0]
   ENDFOR ; end loop over every valid model
@@ -71,16 +75,19 @@ FUNCTION ReadFromRawFiles,filename,namelist
 END
 
 ;; Generate a grid (e.g. M* vs SFR) and populate it with a ton of models
-PRO populate,expName,N,sv
+PRO populate,expName,N,sv,z=z
   compile_opt idl2
   set_plot,'x'
   DEVICE,DECOMPOSED=0
   DEVICE,RETAIN=2
   SETCT,1,0,0
 
+  IF(n_elements(z) EQ 0) THEN z=0.0
+
   nameList = ListValidModels(expName,N)
 
-  expName2 = expName+'_'+strcompress(string(MIN([n_elements(nameList),N])),/remove) ;; e.g. rk5_113
+  expName2 = expName+'_'+strcompress(string(MIN([n_elements(nameList),N])),/remove) $ ;; e.g. rk5_113
+                    +'_'+strcompress(string(z),/remove)
   
   xbounds = [1.0d5,1.0d11] ; M* : MSol
   ySFRbounds = [1.0d-5,1.0d2] ; sfr: MSol/yr
@@ -88,13 +95,14 @@ PRO populate,expName,N,sv
   yFgbounds = [.01,1.5] ;; gas fraction
   yfH2bounds = [.01,1.5] ;; fH2 fraction
   yEffbounds = [1.0e-3,1.0e-1] ;; efficiency of turning baryons into stars
+  yBTbounds = [1.0e-4,1.0] ;; Bulge:Total Ratio
 
   Nx=500
   Ny=500
 
   exists=FILE_TEST(expname2+"_0d.dat")
   IF(exists) THEN theData= ReadFromDatFile(expname2+"_0d.dat",n_elements(namelist))$
-   ELSE theData = ReadFromRawFiles(expname2+"_0d.dat",namelist)
+   ELSE theData = ReadFromRawFiles(expname2+"_0d.dat",namelist,z)
   
   
 
@@ -103,6 +111,7 @@ PRO populate,expName,N,sv
   histo_mst_fg = dblarr(Nx,Ny)+1.0
   histo_mst_fH2 = dblarr(Nx,Ny)+1.0
   histo_mst_eff = dblarr(Nx,Ny)+1.0
+  histo_mst_BT = dblarr(Nx,Ny)+1.0
 
 
   weights= ReadWeights('nM_z0.dat')
@@ -111,11 +120,13 @@ PRO populate,expName,N,sv
 
   FOR i=0,n_elements(nameList)-1 DO BEGIN ;; loop over every valid model
     ;; M*, SFR, Z, Fg, fH2, efficiency
-    indSFR = findindex(xbounds,ySFRbounds,Nx,Ny,theData[1,i],theData[2,i])
-    indZ = findindex(xbounds,yZbounds,Nx,Ny,theData[1,i],theData[3,i])
-    indFg = findindex(xbounds,yFgbounds,Nx,Ny,theData[1,i],theData[4,i])
-    indfH2 = findindex(xbounds,yfH2bounds,Nx,Ny,theData[1,i],theData[5,i])
-    indEff = findindex(xbounds,yEffbounds,Nx,Ny,theData[1,i],theData[6,i])
+    Mst = theData[1,i] + theData[11,i]
+    indSFR = findindex(xbounds,ySFRbounds,Nx,Ny,Mst,theData[2,i])
+    indZ = findindex(xbounds,yZbounds,Nx,Ny,Mst,theData[3,i])
+    indFg = findindex(xbounds,yFgbounds,Nx,Ny,Mst,theData[4,i])
+    indfH2 = findindex(xbounds,yfH2bounds,Nx,Ny,Mst,theData[5,i])
+    indEff = findindex(xbounds,yEffbounds,Nx,Ny,Mst,theData[6,i])
+    indBT = findindex(xbounds,yBTbounds,Nx,Ny,Mst,theData[11,i]/(theData[1,i]+theData[11,i]))
 
     ;; weight = dN/dMh12 or 1 or 1/(# of successful runs in this Mh0 bin)?
     theWeight = weight(weights,theData[0,i])
@@ -124,6 +135,7 @@ PRO populate,expName,N,sv
     histo_mst_fg[indFg[0],indFg[1]] += theWeight
     histo_mst_fH2[indfH2[0],indfH2[1]] += theWeight
     histo_mst_eff[indEff[0],indEff[1]] += theWeight
+    histo_mst_BT[indBT[0],indBT[1]] += theWeight
 
   ENDFOR ; end loop over every valid model
 
@@ -149,6 +161,10 @@ PRO populate,expName,N,sv
   FigureInit,(expName2+'_Mst_eff'),sv,1,1
   CONTOUR,alog10(histo_mst_eff),x,GetAxis(yEffbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="SF eff",nlevels=NL,XSTYLE=1,YSTYLE=1
   FigureClean,(expName2+'_Mst_eff'),sv
+
+  FigureInit,(expName2+'_Mst_BT'),sv,1,1
+  CONTOUR,alog10(histo_mst_BT),x,GetAxis(yBTbounds,Ny),/xlog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="B:T",nlevels=NL,XSTYLE=1,YSTYLE=1
+  FigureClean,(expName2+'_Mst_BT'),sv
 
 
 END

@@ -87,6 +87,7 @@ DiskContents::DiskContents(double tH, double eta,
   h0(std::vector<double>(m.nx()+1,0.)),
   h1(std::vector<double>(m.nx()+1,0.)),
   h2(std::vector<double>(m.nx()+1,0.)),
+  MdotiPlusHalf(std::vector<double>(m.nx()+1,0.)),
   fixedQ(Qinit),CumulativeTorque(0.0),
   kappaMetals(km),
   minsigst(minSigSt),
@@ -340,6 +341,12 @@ void DiskContents::Initialize(double tempRatio, double fg0)
 
 void DiskContents::ComputeDerivs(double ** tauvec)
 {
+  for(unsigned int i=0; i<=nx-1; ++i) {
+    MdotiPlusHalf[i] = (-1.0 /  mesh.u1pbPlusHalf(i)) * (tauvec[1][i+1] - tauvec[1][i]) / (x[i+1]-mesh.x(i));
+  }
+  MdotiPlusHalf[nx] = -1.0 / (uu[nx] * (1.0+ beta[nx]))  * tauvec[2][nx];
+
+
   for(unsigned int n=1; n<=nx; ++n) {
     double dlnZdx; double dlnZdxL; double dlnZdxR;
     // dlnx=dx/x 
@@ -371,27 +378,46 @@ void DiskContents::ComputeDerivs(double ** tauvec)
           ", "<<tauvec[2][n]<<", "<<H[n]<<", "<<h0[n]<<", "<<h1[n]<<", "
           <<h2[n]<<std::endl;
     }
-    dcoldt[n] = -taupp/((beta[n]+1.)*uu[n]*x[n]) 
-      + (beta[n]*beta[n]+beta[n]+x[n]*betap[n])*tauvec[2][n]
-           /((beta[n]+1.)*(beta[n]+1.)*uu[n]*x[n]*x[n])
-      - RfREC * dSSFdt(n) - dSdtOutflows(n);
-
+    
     double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
-    dsigdt[n] = uu[n]*(beta[n]-1.)*tauvec[1][n]/
-                                      (3.*sig[n]*col[n]*x[n]*x[n]*x[n])
-                + (sig[n]*(beta[n]+beta[n]*beta[n]+x[n]*betap[n])
-                               /(3.*(beta[n]+1.)*(beta[n]+1.)*col[n]*uu[n]*x[n]*x[n])
-                        -5.*ddx(sig,n,x)/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]))
-                  *tauvec[2][n]
-               - sig[n]*taupp/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]);
-    if(sigth<=sig[n]) {
-      dsigdt[n]-= 2.*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
-         *col[n]*dim.chi()*(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/(3.);
+
+
+    if(dbg.opt(11)) {
+      dcoldt[n] = -taupp/((beta[n]+1.)*uu[n]*x[n]) 
+        + (beta[n]*beta[n]+beta[n]+x[n]*betap[n])*tauvec[2][n]
+             /((beta[n]+1.)*(beta[n]+1.)*uu[n]*x[n]*x[n])
+        - RfREC * dSSFdt(n) - dSdtOutflows(n);
+  
+      dsigdt[n] = uu[n]*(beta[n]-1.)*tauvec[1][n]/
+                                        (3.*sig[n]*col[n]*x[n]*x[n]*x[n])
+                  + (sig[n]*(beta[n]+beta[n]*beta[n]+x[n]*betap[n])
+                                 /(3.*(beta[n]+1.)*(beta[n]+1.)*col[n]*uu[n]*x[n]*x[n])
+                          -5.*ddx(sig,n,x)/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]))
+                    *tauvec[2][n]
+                 - sig[n]*taupp/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]);
+      if(sigth<=sig[n]) {
+        dsigdt[n]-= 2.*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
+           *col[n]*dim.chi()*(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/(3.);
+      }
+      else {
+        // do nothing - this term is zero.
+      }
     }
     else {
-      // do nothing - this term is zero.
+      dcoldt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) / (mesh.dx(n) * x[n])
+                    -RfREC * dSSFdt(n) - dSdtOutflows(n);
+      
+      dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
+                    - 5.0*ddx(sig,n,x)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
+                    +uu[n]*(beta[n]-1.)*tauvec[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+      if(sig[n] >= sigth) {
+        dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
+                        *col[n]*dim.chi()*(1.0+activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/3.0;
+      }
+      else {
+        // do nothing.
+      }
     }
-  
     
     colSFR[n] = dSSFdt(n);
     dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
@@ -937,6 +963,7 @@ void DiskContents::TauPrimeFromTau(double ** tauvec,
   // Set the boundaries of tau' such that they will obey the boundary conditions
   tauvec[2][nmax]=OBC;
   tauvec[2][nmin] = (tauvec[1][nmin+1]-IBC)/(x[1]*dmdinv);
+  tauvec[1][nmin-1] = IBC; // implicitly true in the above equation.
 
   // Compute second derivative of torque
   for(unsigned int n=nmin+1; n<=nmax-1; ++n) {

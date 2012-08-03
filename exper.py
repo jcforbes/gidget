@@ -318,7 +318,7 @@ class experiment:
                 if(proc.poll()==None): # still running
                     nStillRunning+=1
             # has anything changed since the last time we checked?
-            if(nStillRunning == nPrev):
+            if(nStillRunning == nPrev and nStillRunning != 0):
                 # do nothing except wait a little bit
                 time.sleep(5)
             else:
@@ -725,6 +725,55 @@ if __name__ == "__main__":
     rn19.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
     rn19.vary('Mh0',1.0e12,1.0e12,1,0)
     allModels['rn19']=rn19
+
+    rn21=experiment('rn21') # similar to rn19.
+    rn21.vary('nx',200,200,1,0)
+    rn21.vary('minSigSt',10,10,1,0)
+    rn21.vary('diskScaleLength',2,2,1,0)
+    rn21.vary('epsff',0,.01,2,0)
+    rn21.irregularVary('dbg',[2**10,2**10+2**11])
+    rn21.vary('ndecay',2,2,1,0) # this line shouldn't matter
+    rn21.vary('alphaMRI',.1,.1,1,0)
+    rn21.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
+    rn21.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn21']=rn21
+
+    rn22=experiment('rn22') # similar to rn19.
+    rn22.vary('nx',200,200,1,0)
+    rn22.vary('minSigSt',10,10,1,0)
+    rn22.vary('diskScaleLength',2,2,1,0)
+    rn22.vary('epsff',0,.01,2,0)
+    rn22.irregularVary('dbg',[2**10,2**10+2**11])
+    rn22.vary('ndecay',2,2,1,0) # this line shouldn't matter
+    rn22.vary('alphaMRI',0.0,0.0,1,0)
+    rn22.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
+    rn22.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn22']=rn22
+
+    rn23=experiment('rn23') # similar to rn21.
+    rn23.vary('nx',200,200,1,0)
+    rn23.vary('minSigSt',10,10,1,0)
+    rn23.vary('diskScaleLength',2,2,1,0)
+    rn23.vary('epsff',0,.01,2,0)
+    rn23.irregularVary('dbg',[2**10,2**10+2**11])
+    rn23.vary('ndecay',2,2,1,0) # this line shouldn't matter
+    rn23.vary('alphaMRI',0.1,0.1,1,0)
+    rn23.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
+    rn23.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn23']=rn23
+
+    rn24=experiment('rn24') # similar to rn21.
+    rn24.vary('nx',200,200,1,0)
+    rn24.vary('minSigSt',10,10,1,0)
+    rn24.vary('diskScaleLength',2,2,1,0)
+    rn24.vary('epsff',0,.01,2,0)
+    rn24.irregularVary('dbg',[2**10,2**10+2**11])
+    rn24.vary('ndecay',2,2,1,0) # this line shouldn't matter
+    rn24.vary('alphaMRI',0.1,0.1,1,0)
+    rn24.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
+    rn24.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn24']=rn24
+
 
     experiments=[]
     nacc = 100

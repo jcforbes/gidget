@@ -197,6 +197,8 @@ class DiskContents {
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
 
+  std::vector<double> MdotiPlusHalf;
+
   // store the cells where we have turned off forcing in the
   // torque equation.
   std::vector<int> keepTorqueOff;

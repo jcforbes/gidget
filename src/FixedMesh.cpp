@@ -1,5 +1,6 @@
 #include <math.h>
 #include <vector>
+#include <iostream>
 
 #include "FixedMesh.h"
 #include "DiskUtils.h"
@@ -19,6 +20,8 @@ FixedMesh::FixedMesh(double innerPowerlaw, double turnoverRadius, double sft, do
     ip(innerPowerlaw), b(turnoverRadius),nxc(nnx), soft(sft), dlnxc(-log(xm)/(((double) nnx)-1.)), 
     minsigst(mst), xminc(xm), xv(std::vector<double>(nnx+1,0.)),
     betav(std::vector<double>(nnx+1,0.)), betapv(std::vector<double>(nnx+1,0.)),
+    xiPlusHalf(std::vector<double>(nnx+1,0.)),dxi(std::vector<double>(nnx+1,0.)),
+    u1pbiPlusHalf(std::vector<double>(nnx+1,0.)),
     uuv(std::vector<double>(nnx+1,0.)),// psiv(std::vector<double>(nnx+1,0.)),
     stored(false),PsiInitialized(false)
 {
@@ -31,8 +34,13 @@ FixedMesh::FixedMesh(double innerPowerlaw, double turnoverRadius, double sft, do
  
   x_gsl = new double[nxc];
  
+  xiPlusHalf[0] = x(0.5);
+  u1pbiPlusHalf[0] = uu(x(0.5)) * (1.0 + beta(x(0.5)));
   for(unsigned int n=1; n<=nxc; ++n) {
     xv[n] = x(n);
+    xiPlusHalf[n] = x(((double) n) + 0.5);
+    u1pbiPlusHalf[n] = uu(xiPlusHalf[n])*(1.0+beta(xiPlusHalf[n]));
+    dxi[n] = xiPlusHalf[n]-xiPlusHalf[n-1];
 //    psiv[n] = psi(xv[n]);
     uuv[n] = uu(xv[n]);
     betav[n] = beta(xv[n]);
@@ -41,6 +49,16 @@ FixedMesh::FixedMesh(double innerPowerlaw, double turnoverRadius, double sft, do
   }
 
 
+}
+
+double FixedMesh::u1pbPlusHalf(unsigned int i)
+{
+  return u1pbiPlusHalf[i];
+}
+
+double FixedMesh::dx(unsigned int n)
+{
+  return dxi[n];
 }
 
 bool FixedMesh::InitializePsi()
@@ -70,6 +88,7 @@ bool FixedMesh::InitializePsi()
     double n = ((double) i+NN-1) / ((double) NN);
     double currentX = x(n);
     gsl_integration_qags( &F, 1.0, currentX, 0.0, 1.0e-10, NN * nxcm1, w, &result, &error );
+    std::cout << "currentX, n, i, NN: "<<currentX<<" "<<n<<" "<<i<<" "<<NN<<" "<<nxcm1<<" "<<NN*nxcm1-1<<std::endl;
     x_HR_GSL[i-1] = currentX;
     psi_HR_GSL[i-1] = result;
   }
@@ -103,13 +122,18 @@ double FixedMesh::x(unsigned int n)
   return xminc*exp(dlnxc*(((double) n) - 1.));
 }
 
+double FixedMesh::xPlusHalf(unsigned int n)
+{
+  return xiPlusHalf[n];
+}
+
 double FixedMesh::x(double n)
 {
   double val = xminc*exp(dlnxc*(n-1.));
-  if(val<xminc) 
-    return xminc;
-  if(val>1.0) 
-    return 1.0;
+//  if(val<xminc) 
+//    return xminc;
+//  if(val>1.0) 
+//    return 1.0;
   return val;
 }
 
@@ -157,7 +181,7 @@ unsigned int FixedMesh::necessaryN()
   double x1=xminc;
   for(double mm=1.0; mm<=100000; ++mm) {
     double theMax =0.0;
-    for(double n=1; n<=nxc; ++n) {
+    for(double n=1; n<=nxc-1.0; ++n) {
       for(double m=1.0; m<=mm; ++m) {
         theMax = max ( (psi(x(n+(m/mm))) - psi(x(n+((m-1.0)/mm))) ) / 3.0 
 	        + (pow(uu(x(n+(m/mm))),2.0) - pow(uu(x(n+((m-1.0)/mm))),2.0) )/6.0 , theMax);
@@ -172,4 +196,8 @@ unsigned int FixedMesh::necessaryN()
   // hopefully mm=1000 is enough!
   errormsg("The given minsigst "+str(minsigst)+" requires prohibitively high resolution.");
 }
+
+
+
+
 

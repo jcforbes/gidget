@@ -25,14 +25,16 @@ double ddx(T & arr, unsigned int n, std::vector<double>& x)
     double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
     double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
 //    return ddx(center,right); <= rk36
-    return ddx(left,right);
+    return ddx(left,right); // <= rn22
+//    return right; // rn23
   }
   if(n==1) {
     double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
     double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
     double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
 //    return ddx(left,center); <=rk36
-    return ddx(left,right);
+    return ddx(left,right); // <= rn22
+//    return left; // rn23
   }
 };
 

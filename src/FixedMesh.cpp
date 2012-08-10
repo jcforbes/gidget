@@ -88,7 +88,6 @@ bool FixedMesh::InitializePsi()
     double n = ((double) i+NN-1) / ((double) NN);
     double currentX = x(n);
     gsl_integration_qags( &F, 1.0, currentX, 0.0, 1.0e-10, NN * nxcm1, w, &result, &error );
-    std::cout << "currentX, n, i, NN: "<<currentX<<" "<<n<<" "<<i<<" "<<NN<<" "<<nxcm1<<" "<<NN*nxcm1-1<<std::endl;
     x_HR_GSL[i-1] = currentX;
     psi_HR_GSL[i-1] = result;
   }

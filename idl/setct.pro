@@ -5,7 +5,7 @@ END
 ;; Choose which color table to use.
 ;; which=1 <=> each color is quite distinct from the others
 ;; which=2 <=> a gradual progression from black to red to blue
-;; which=3 <=> a gradual progression within a certain set of colors, determined by color
+;; which=3 <=> a gradual progression within a certain set of colors, determined by "color"
 ;;                  n refers to the number of gradations in this color
 PRO setct,which,n,color
 	IF(which EQ 0) THEN BEGIN

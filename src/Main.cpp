@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
 
   // Scale the things which scale with halo mass.
   const double MassLoadingFactor = MassLoadingFactorAtMh12 * pow((Mh0/1.0e12) , -1./3.);
-  const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./4.);
+  const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./3.);
   const double sigth = sqrt(Tgas *kB/mH)/vphiR;
 
   const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
@@ -104,15 +104,20 @@ int main(int argc, char **argv) {
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
 
   // Make an object to deal with the accretion history
-  AccretionHistory accr;
+  AccretionHistory accr(Mh0);
   double mdot0;
 
+  testAccretionHistory();
+
   Debug dbg(Experimental);
+
+  double invMassRatio = .3;
+  if(dbg.opt(16)) invMassRatio=.5;
 
   // Based on the user's choice of accretion history, generate the appropriate
   // mapping between redshift and accretion rate.
   if(whichAccretionHistory==0)
-    mdot0 = accr.GenerateBoucheEtAl2009(Mh0*1.0e-12,2.0,cos,filename+"_Bouche09.dat",true,true) * MSol/speryear;
+    mdot0 = accr.GenerateBoucheEtAl2009(2.0,cos,filename+"_Bouche09.dat",true,true) * MSol/speryear;
   else if(whichAccretionHistory==2)
     mdot0 = accr.GenerateConstantAccretionHistory(2.34607,zstart,cos,filename+"_ConstAccHistory.dat",true) * MSol/speryear;
   else if(whichAccretionHistory==1)
@@ -125,7 +130,7 @@ int main(int argc, char **argv) {
       mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,-3.0*M_PI/2.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
   }
   else
-    mdot0 = accr.GenerateNeistein08(Mh0,2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory)*MSol/speryear;
+    mdot0 = accr.GenerateNeistein08(2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory,invMassRatio,true)*MSol/speryear;
   // Note that the following line does nothing but put a line in the comment file to
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
@@ -152,7 +157,7 @@ int main(int argc, char **argv) {
                    zstart,NActive,NPassive,
                    alphaMRI,sigth,ndecay,
                    diskIC,accr);
-  int result = simIC.runToConvergence(1, true, filename+"_icgen"); // set false-> true to debug initial condition generator
+  int result = simIC.runToConvergence(1, false, filename+"_icgen"); // set false-> true to debug initial condition generator
   if(result!=5) // The simulation converges when the time step reaches 1*TOL.
     errormsg("Initial Condition generator failed to converge, code "+str(result));
 

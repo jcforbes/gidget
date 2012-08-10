@@ -62,7 +62,7 @@ def successCode(filename):
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,500,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-4,1.0,0,.5,2.0,-1.0,0,0.0,1.5,1,2.0,.001,1.0e12,1.0,3.0,0]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -381,161 +381,6 @@ if __name__ == "__main__":
 #    expName=sys.argv[1]
 #    a=experiment(expName)
 
-    rk1=experiment('rk1') #  test high-res y computation.
-    rk1.vary('nx',200,200,1,0)
-    rk1.vary('diskScaleLength',2.0,2.0,1,0)
-    rk1.vary('whichAccretionHistory',4,103,100,0)
-    rk1.vary('R',20.0,20.0,1,0)
-    rk1.vary('Mh0',1.0e12,1.0e12,1,0)
-    rk1.vary('fg0',.5,.5,1,0)
-    allModels['rk1']=rk1
-
-    rk2=experiment('rk2')# - find out in what parameter space we're allowed to work in terms of rotation curves
-    rk2.vary('nx',200,200,1,0)
-    rk2.vary('diskScaleLength',2.0,2.0,1,0)
-    rk2.vary('whichAccretionHistory',4,4,1,0)
-    rk2.vary('R',20.0,20.0,1,0)
-    rk2.vary('Mh0',1.0e12,1.0e12,1,0)
-    rk2.vary('b',0.0,5.0,10,0)
-    rk2.vary('softening',1.0,4.0,3,1)
-    rk2.vary('innerPowerLaw',.1,1,10,0)
-    allModels['rk2']=rk2
-
-
-    rk59=experiment("rk59") # Vary debug and ndecay parameters on one particular run that fails by Qst error.
-    rk59.vary('whichAccretionHistory',23,23,1,0)
-    rk59.vary('dbg',0,32,33,0)
-    rk59.vary('ndecay',-1,7,5,0)
-    rk59.vary('nx',200,200,1,0)
-    rk59.vary('diskScaleLength',2.0,2.0,1,0)
-    rk59.vary('minSigSt',10,10,1,0)
-    allModels['rk59']=rk59
-
-    rk60=experiment("rk60") # fails by dt falling below floor
-    rk60.vary('whichAccretionHistory',31,31,1,0)
-    rk60.vary('dbg',0,32,33,0)
-    rk60.vary('ndecay',-1,7,5,0)
-    rk60.fast()
-    allModels['rk60']=rk60
-
-    rk61=experiment('rk61')  # no failures yet
-    rk61.vary('whichAccretionHistory',4,4,1,0)
-    rk61.vary('dbg',0,32,33,0)
-    rk61.vary('ndecay',-1,7,5,0)
-    rk61.fast()
-    allModels['rk61']=rk61
-
-    rk62=experiment('rk62') # originally rk58b3d
-    rk62.vary('whichAccretionHistory',83,83,1,0)
-    rk62.vary('dbg',0,32,33,0)
-    rk62.vary('ndecay',-1,7,5,0)
-    rk62.fast()
-    allModels['rk62']=rk62
-
-    rk63=experiment('rk63') # originally rk58g1d
-    rk63.vary('whichAccretionHistory',36,36,1,0)
-    rk63.vary('dbg',0,32,33,0)
-    rk63.vary('ndecay',-1,7,5,0)
-    rk63.fast()
-    allModels['rk63']=rk63
-
-    rk64=experiment('rk64') # originally rk58o1d
-    rk64.vary('whichAccretionHistory',44,44,1,0)
-    rk64.vary('dbg',0,32,33,0)
-    rk64.vary('ndecay',-1,7,5,0)
-    rk64.fast()
-    allModels['rk64']=rk64
-
-    rk65=experiment('rk65') #originally rk58o2d
-    rk65.fast()
-    rk65.vary('whichAccretionHistory',70,70,1,0)
-    rk65.vary('dbg',0,32,33,0)
-    rk65.vary('ndecay',-1,7,5,0)
-    allModels['rk65']=rk65
-
-    rk66=experiment('rk66') #originally rk58sd
-    rk66.fast()
-    rk66.vary('whichAccretionHistory',22,22,1,0)
-    rk66.vary('dbg',0,32,33,0)
-    rk66.vary('ndecay',-1,7,5,0)
-    allModels['rk66']=rk66
-
-    rk67=experiment('rk67') #originally rk58f2d
-    rk67.fast()
-    rk67.vary('whichAccretionHistory',61,61,1,0)
-    rk67.vary('dbg',0,32,33,0)
-    rk67.vary('ndecay',-1,7,5,0)
-    allModels['rk67']=rk67
-
-
-    rk68=experiment('rk68') # From the previous experiments we infer that dbg=26 works well,
-    # so long as ndecay>~2
-    # Let's now make sure this is quite robust by doing a small version of a full variation
-    # over halo mass and accretion history
-    rk68.vary('nx',200,200,1,0)
-    rk68.vary('minSigSt',5,5,1,0)
-    rk68.vary('diskScaleLength',2,2,1,0)
-    rk68.vary('dbg',26,26,1,0)
-    rk68.vary('ndecay',3,3,1,0)
-    rk68.vary('whichAccretionHistory',500,599,100,0)
-    rk68.vary('Mh0',1.0e9,1.0e12,4,1)
-    allModels['rk68']=rk68
-
-    rk69=experiment('rk69')
-    rk69.fast()
-    rk69.vary('dbg',0,32,33,0)
-    rk69.vary('ndecay',-1,7,5,0)
-    rk69.vary('whichAccretionHistory',526,526,1,0)
-    allModels['rk69']=rk69
-
-    # similar to rk68, except indcrease ndecay and verify on a new set of accr. histories:
-    rk70=experiment('rk70') 
-    rk70.vary('nx',200,200,1,0)
-    rk70.vary('minSigSt',8,8,1,0)
-    rk70.vary('diskScaleLength',2,2,1,0)
-    rk70.vary('dbg',26,26,1,0)
-    rk70.vary('ndecay',5,5,1,0)
-    rk70.vary('whichAccretionHistory',600,799,200,0)
-    rk70.vary('Mh0',1.0e10,1.0e12,3,1)
-    allModels['rk70']=rk70
-    
-    rk71=experiment('rk71') #originally rk70k1c
-    rk71.fast()
-    rk71.vary('dbg',0,32,33,0)
-    rk71.vary('ndecay',-1,7,5,0)
-    rk71.vary('whichAccretionHistory',636,636,1,0)
-    allModels['rk71']=rk71    
-
-    rk72=experiment('rk72') # originally rk70b5c
-    rk72.fast()
-    rk72.vary('dbg',0,32,33,0)
-    rk72.vary('ndecay',-1,7,5,0)
-    rk72.vary('whichAccretionHistory',731,731,1,0)
-    allModels['rk72']=rk72
-
-    rk73=experiment('rk73') # originally rk70b6c
-    rk73.fast()
-    rk73.vary('dbg',0,32,33,0)
-    rk73.vary('ndecay',-1,7,5,0)
-    rk73.vary('whichAccretionHistory',757,757,1,0)
-    allModels['rk73']=rk73
-
-    rk73=experiment('rk73') # originally rk70f6c
-    rk73.fast()
-    rk73.vary('dbg',0,32,33,0)
-    rk73.vary('ndecay',-1,7,5,0)
-    rk73.vary('whichAccretionHistory',761,761,1,0)
-    allModels['rk73']=rk73
-
-    rk74=experiment('rk74') # originally rk70o6c
-    rk74.fast()
-    rk74.vary('dbg',0,32,33,0)
-    rk74.vary('ndecay',-1,7,5,0)
-    rk74.vary('whichAccretionHistory',770,770,1,0)
-    allModels['rk74']=rk74
-
-########################
-# try some known troublesome models again w/ weights by dist instead of cell #
 
     rn1=experiment('rn1') # originally rk69
     rn1.fast()
@@ -774,27 +619,117 @@ if __name__ == "__main__":
     rn24.vary('Mh0',1.0e12,1.0e12,1,0)
     allModels['rn24']=rn24
 
+    rn25=experiment('rn25') # similar to rn21.
+    rn25.vary('nx',200,200,1,0)
+    rn25.vary('minSigSt',10,10,1,0)
+    rn25.vary('diskScaleLength',2,2,1,0)
+    rn25.vary('epsff',0,.01,2,0)
+    rn25.irregularVary('dbg',[2**10,2**10+2**11])
+    rn25.vary('ndecay',2,2,1,0) # this line shouldn't matter
+    rn25.vary('alphaMRI',0.0,0.1,2,0)
+    rn25.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
+    rn25.vary('Mh0',1.0e12,1.0e12,1,0)
+    allModels['rn25']=rn25
+
+    rn26=experiment('rn26') # same as rn25 but with Mdot_- =0, not tau=0
+    rn26.vary('nx',200,200,1,0)
+    rn26.vary('minSigSt',10,10,1,0)
+    rn26.vary('diskScaleLength',2,2,1,0)
+    rn26.vary('epsff',0.01,.01,1,0)
+    #  9: only set F=0, not tau.
+    # 10: never set y=0, i.e. smooth y.
+    # 11: d/dt equations not explicitly mass-conserving
+    # 12: turn off if F<0; else turn off if Q>Qf
+    # 13: 1-cell padding for KTO
+#    rn26.irregularVary('dbg',[2**9+2**10, 2**10, 2**10+2**11, 2**10+2**12, 2**10+2**12+2**13])
+#    rn26.irregularVary('dbg',[2**10+2**14, 2**9+2**10, 2**10, 2**9+2**10+2**12, 2**10+2**12, 2**10+2**12+2**13])
+    rn26.irregularVary('dbg',[2**10, 2**10+2**12, 2**10+2**12+2**9])
+    rn26.vary('ndecay',2,2,1,0) # this line shouldn't matter
+    rn26.vary('alphaMRI',0.0,0.05,2,0)
+    rn26.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
+    rn26.vary('Mh0',1.0e12,1.0e12,1,0)
+    rn26.irregularVary('TOL',[1.0e-4,1.0e-3])
+    allModels['rn26']=rn26
+
+
+
+    rn27=experiment('rn27a') # detailed view of MW-size halo
+    rn27.vary('nx',200,200,1,0)
+    rn27.vary('diskScaleLength',2,2,1,0)
+    rn27.vary('dbg',2**10,2**10,1,0)
+    rn27.vary('TOL',1.0e-3,1.0e-3,1,0)
+    rn27.vary('alphaMRI',0,0,1,0)
+    rn27.vary('minSigSt',10,10,1,0)
+    rn27.vary('whichAccretionHistory',100,1099,1000,0)
+    allModels['rn27']=rn27
+
+    rn28=experiment('rn28a') # detailed view of a lower-mass halo
+    rn28.vary('nx',200,200,1,0)
+    rn28.vary('diskScaleLength',2,2,1,0)
+    rn28.vary('dbg',2**10,2**10,1,0)
+    rn28.vary('TOL',1.0e-3,1.0e-3,1,0)
+    rn28.vary('alphaMRI',0,0,1,0)
+    rn28.vary('minSigSt',5,5,1,0)
+    rn28.vary('whichAccretionHistory',1100,2099,1000,0)
+    rn28.vary('Mh0',1.0e11,1.0e11,1,0)
+    allModels['rn28']=rn28
+
+    rn29=experiment('rn29a') # More accretion!
+    rn29.vary('nx',200,200,1,0)
+    rn29.vary('diskScaleLength',2,2,1,0)
+    rn29.vary('dbg',2**10,2**10,1,0)
+    rn29.vary('TOL',1.0e-3,1.0e-3,1,0)
+    rn29.vary('alphaMRI',0,0,1,0)
+    rn29.vary('minSigSt',10,10,1,0)
+    rn29.vary('whichAccretionHistory',2100,3099,1000,0)
+    rn29.vary('Mh0',3.0e12,3.0e12,1,0)
+    allModels['rn29']=rn29
+
+    rn34=experiment('rn34a') # variable metal diffusion coefficient
+    rn34.vary('dbg',2**10+2**15,2**10+2**15,1,0)
+    rn34.vary('minSigSt',10,10,1,0)
+    rn34.vary('whichAccretionHistory',3100,4099,1000,0)
+    allModels['rn34']=rn34
+
+    rn35=experiment('rn35a') # increased accr. history threshold.
+    rn35.vary('dbg',2**10+2**16,2**10+2**16,1,0)
+    rn35.vary('minSigSt',10,10,1,0)
+    rn35.vary('whichAccretionHistory',4100,5099,1000,0)
+    allModels['rn35']=rn35
+
+    rn36=experiment('rn36a') # smaller eta
+    rn36.vary('dbg',2**10,2**10,1,0)
+    rn36.vary('minSigSt',10,10,1,0)
+    rn36.vary('whichAccretionHistory',5100,6099,1000,0)
+    rn36.vary('eta',.5,.5,1,0)
+    allModels['rn36']=rn36
+    
 
     experiments=[]
-    nacc = 100
-    nmh0 = 100
+    nacc = 90
+    nmh0 = 61
+    compositeNames=[]
     for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
-        theName = 'rn20_'+str(i)+'_'
+        theName = 'rn33_'+str(i).zfill(3)+'_'
+        compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
         experiments[i].vary('diskScaleLength',2,2,1,0)
         experiments[i].irregularVary('dbg',[2**10])
-        experiments[i].vary('alphaMRI',.1,.1,1,0)
+	experiments[i].irregularVary('TOL',[1.0e-3])
+        experiments[i].vary('alphaMRI',0,0,1,0)
         Mh0 = 1.0e9 * (1000.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
+#	experiments[i].irregularVary('R',[5.0+(float(i)/float(nmh0-1))*(20.0-5.0)])
+        experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
         experiments[i].irregularVary('Mh0',[Mh0])
         experiments[i].vary('whichAccretionHistory',4+nacc*i,4+nacc*(i+1)-1,nacc,0)
         allModels[theName]=experiments[i]
         
-    if ('rn20' in modelList):
+    if ('rn33' in modelList):
         for ex in experiments:
             modelList.append(ex.expName)
-        del modelList[modelList.index('rn20')]
+        del modelList[modelList.index('rn33')]
 
     successTables=[]
     # run all the models, and record which ones succeed.
@@ -803,8 +738,16 @@ if __name__ == "__main__":
           allModels[model].localRun(args.nproc,args.start)
         else: # write a file to run on the xgrid
           allModels[model].write('runExperiment_'+model+'.txt')
-        successTables.append(allModels[model].ExamineExperiment())
+#        successTables.append(allModels[model].ExamineExperiment())
 
-    PrintSuccessTables(successTables)
+    if ('rn33' in modelList):
+        os.mkdir('analysis/rn33')
+        for dirname in compositeNames:
+            files=glob.glob('./analysis/'+dirname+'/*')
+            for aFile in files:
+	        os.symlink(aFile,'./analysis/rn33/')
+           
+
+#    PrintSuccessTables(successTables)
 
 

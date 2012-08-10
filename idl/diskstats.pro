@@ -49,10 +49,12 @@ FUNCTION diskStats,model,z=z
 	sfr = model.evArray[11-1,zj] ;; SFR integrated over the whole galaxy in MSol/yr (I think)
 	sfr2= TOTAL((2*!pi*model.Radius*model.Radius*model.dlnx * x[*]*x[*] * model.dataCube[zj,*,ncs+14-1]))
 
-	mdotacc = - model.dataCube[zj,model.nx-1,3-1] * model.mdotext0 ;; infalling mass in MSol/yr
+;;	mdotacc = - model.dataCube[zj,model.nx-1,3-1] * model.mdotext0 ;; infalling mass in MSol/yr
 	
 	mdotbulgeSt = -model.dataCube[zj,0,40-1] * model.mdotext0
-	mdotbulgeG = -model.dataCube[zj,0,3-1] * model.mdotext0
+;;;	mdotbulgeG = -model.dataCube[zj,0,3-1] * model.mdotext0
+
+	mdotbulgeG = model.evArray[9-1,zj] * model.mdotext0 * 
 
 ;	stop
 
@@ -79,7 +81,7 @@ FUNCTION diskStats,model,z=z
 	totfH2 = TOTAL(x[*] * x[*] * fH2[*])/TOTAL(x[*]*x[*])
         totFg = TOTAL(x[*] * x[*] * fg[*]) / TOTAL(x[*] * x[*])
         totZ = TOTAL(x[*] * x[*] * (10.0^metallicity)  )/TOTAL(x[*]*x[*])
-        eff = stMass/(model.mh0*.18)
+        eff = (stMass+bulgeM)/(model.evArray[19-1,zj]*.18)
 
         info=[xin*model.Radius,$    ;; inner edge of SF region  - 1
                 xpeak*model.Radius,$ ;; peak of the column density - 2
@@ -88,11 +90,12 @@ FUNCTION diskStats,model,z=z
                 fgnuc,fgsf,fgHI,sSFR, $   ;; gas fraction, specific SFR- 5,6,7,8
 		BulgeM,BulgeMSt, totfH2, $  ; - 9,10,11
 		mdotBulgeG,mdotbulgeSt, $ ; 12,13
-		sfr,stMass,totFg,totZ,eff]; - 14,15,16,17,18
+		sfr,stMass,totFg,totZ,eff, $ ; - 14,15,16,17,18
+                sfr+mdotBulgeG,stMass+BulgeM] ;; 19,20
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 
-	IF(BulgeM LT 0.0) THEN STOP,"Negative BulgeM: ",model.name," ",BulgeM
+	;;; IF(BulgeM LT 0.0) THEN STOP,"Negative BulgeM: ",model.name," ",BulgeM
 
 
         return,info

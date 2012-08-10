@@ -1,7 +1,9 @@
 #include "Errors.h"
+#include <iostream>
 
 errormsg::errormsg(const std::string msg, bool fatal)
 {
+  std::cerr << msg << std::endl;
   errormsg::errorFile << msg;
   if(fatal) {
       errormsg::errorFile << std::endl;

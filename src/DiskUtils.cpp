@@ -89,6 +89,7 @@ double Qsimple(unsigned int n,DiskContents& disk)
 {
   RafikovQParams rqp;
   disk.ComputeRafikovQParams(&rqp,n);
+  rqp.analyticQ=true;
   double absc=1.;
   return Q(&rqp,&absc);
 }
@@ -105,7 +106,7 @@ double QmfQfst(double sv, void *p)
     (*qp).ri[i] /= sv;
   }
   if((*qp).fixedQ < 0.0) errormsg("The fixedQ passed to QmfQfst (in DiskUtils) was not initialized.");
-  double val = Q(qp,&((*qp).mostRecentq))-(*qp).fixedQ;
+  double val = Q(qp,&((*qp).mostRecentq))-((*qp).fixedQ-.000000000001);
   (*qp).Qg /=sv;
   for(unsigned int i=0; i!=(*qp).ri.size(); ++i) {
     (*qp).ri[i] *= sv;

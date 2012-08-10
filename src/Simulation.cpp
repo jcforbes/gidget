@@ -10,6 +10,7 @@
 #include "AccretionHistory.h"
 #include "ConvergenceCheck.h"
 #include "DiskUtils.h"
+#include "Cosmology.h"
 
 Simulation::Simulation(const double tm, const long int sm,
                        const bool co,   const unsigned int nnx,
@@ -41,7 +42,7 @@ int Simulation::runToConvergence(const double fCondition,
   double **tauvec;
   tauvec = new double *[3];
   for(unsigned int k=1; k<=2; ++k) {
-    tauvec[k] = new double[nx+1];
+    tauvec[k] = new double[nx+2];
   }
 
   // This is the equilibrium solution to the torque eq from Krumholz & Burkert 2010
@@ -90,15 +91,23 @@ int Simulation::runToConvergence(const double fCondition,
     // Note that we'd like to use last step's timestep here to determine whether
     // to write out a file, since we would like to avoid a situation where a sudden
     // decrease in the size of dt causes us to skip a checkpoint
-    bool timeOut = (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
+    // bool timeOut = (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
     //    bool timeOut = true; // write out at every time step. Use only if 
                                // things crash and burn very quickly
+    double duration = theDisk.GetCos().lbt(zstart); //in seconds
+    double present = theDisk.GetCos().Tsim(z); // in seconds
+    double previous = theDisk.GetCos().Tsim(z+dz(dt,z,theDisk.GetCos(),theDisk.GetDim())); // in seconds
+    bool timeOut = ((floor(200.0*previous/duration) < floor(200.0*present/duration) || step < 2) && writeOut) ;
+
+    if(!cosmologyOn)
+      timeOut= (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
+
     if(timeOut) {
       // Separate files for the active & passive stellar populations..
       theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
       theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
       
-      theDisk.WriteOutStepFile(filename,t,z,dt,step,tauvec);
+      theDisk.WriteOutStepFile(filename,accr,t,z,dt,step,tauvec);
       writeIndex++;
     }
 
@@ -154,7 +163,7 @@ int Simulation::runToConvergence(const double fCondition,
     //    disk.ComputeTorques(tauvec,0.,-1.*AccRate);
     double IBC = 2.0*M_PI*theDisk.GetX()[1]*theDisk.GetX()[1]*theDisk.GetCol()[1]*alphaMRI*sigth*theDisk.GetSig()[1]*(theDisk.GetBeta()[1]-1.0);
     double OBC=-1.*AccRate;
-    theDisk.ComputeTorques(tauvec,IBC,OBC);
+    theDisk.ComputeGItorque(tauvec,IBC,OBC);
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 
     // In situations where the alpha viscosity produces larger torques 
@@ -237,7 +246,7 @@ int Simulation::runToConvergence(const double fCondition,
 
     theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
     theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-    theDisk.WriteOutStepFile(filename,t,z,dt,step,tauvec);
+    theDisk.WriteOutStepFile(filename,accr,t,z,dt,step,tauvec);
   }
 
  

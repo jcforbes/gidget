@@ -5,13 +5,16 @@ class Cosmology;
 
 class AccretionHistory {
  public:
-  AccretionHistory():allocated(false),linear(false){};
+  AccretionHistory(double Mh):Mh0(Mh),allocated(false),linear(false){};
   ~AccretionHistory();  
   // Compute the normalized external accretion rate mdot(z)/mdot(zstart)
   // This is implemented by doing an interpolation of a given 
   // tabulated accretion history
   double AccOfZ(double z);
 
+  double GetMh0() { return Mh0; }  
+
+  // Normalized to Mh0.
   double MhOfZ(double z);
 
   // Read a tabulated accretion history
@@ -23,16 +26,17 @@ class AccretionHistory {
 		     double zstart); // starting redshift
 
   // Generate a realistic accretion history given a halo mass at z=0
-  double GenerateNeistein08(double Mh0, double zstart, 
+  double GenerateNeistein08(double zstart, 
 			    Cosmology& cos, std::string fn, 
-			    bool writeOut,unsigned long int seed);
+			    bool writeOut,unsigned long int seed,
+			    double invMassRatioLimit, bool fatal);
 
   // Generate an accretion history given a halo mass Mh0 at zstart.
   // If MhAtz0 is true, the given halo mass Mh0 is assumed to be for z=0, not z=zstart
   // fn is the filename to which to write this accretion history if writeOut is true
   // Cosmology contains the assumed Cosmological parameters & functions to calculate
   // lookback time for a given redshift.
-  double GenerateBoucheEtAl2009(double Mh0, double zstart, 
+  double GenerateBoucheEtAl2009( double zstart, 
 				Cosmology& cos, std::string fn, 
 				bool writeOut,bool MhAtz0);
 
@@ -57,6 +61,7 @@ class AccretionHistory {
 			 std::vector<double> haloMass);
 
   double epsin(double z, double Mh, Cosmology & cos);
+
 
  private:
   // vector of tabulated dimensionless accretion - same 
@@ -83,4 +88,10 @@ class AccretionHistory {
   // can call AccOfZ successfully
   bool allocated;
 
+  // halo mass at redshift zero (units of solar masses)
+  double Mh0;
+
 };
+
+
+void testAccretionHistory();

@@ -166,7 +166,7 @@ FUNCTION readOutput,name
 
   ;; Now we need to rescale some values for mh0!=1e12
   MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
-  vphiR = vphiR * (Mh0/1.0e12)^  (1.0/4.0)
+  vphiR = vphiR * (Mh0/1.0e12)^  (1.0/3.0)
 	
 
   Rf = 0.46 ;; remnant fraction
@@ -380,6 +380,7 @@ FUNCTION readOutput,name
     evArray[5,*] = evArray[5,*] * mdotext0*Radius*cmperkpc/(vphiR*1d5*MSol) ;; g/s*kpc*cm/kpc / (km/s*cm/km*g/msol) = msol
     evArray[10,*] = evArray[10,*] * mdotext0 /(MSol/speryear) 
     evArray[8,*] = evArray[8,*] * mdotext0 /(MSol/speryear) 
+    evArray[3,*] = evArray[3,*] * (mdotext0/(MSol/speryear)) * (2*!pi*Radius*cmperkpc/(vphiR*1d5))
 
     tdc[*,*,ncolStep+8] = tdc[*,*,0]*Radius ;; r
     tdc[*,*,ncolStep+9] = tdc[*,*,3]*mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*Msol)  ;; Sigma_g

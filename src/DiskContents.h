@@ -13,6 +13,7 @@ struct RafikovQParams;
 struct Initializer;
 class FixedMesh;
 class Debug;
+class AccretionHistory;
 
 // Main container for the physical quantities which make up the disk.
 // Basic structure is a set of arrays of nx elements (indexed from 1).
@@ -68,8 +69,8 @@ class DiskContents {
   double activeSigSt(unsigned int n);
   double ComputeQst(unsigned int n);
   void TridiagonalWrapper(unsigned int,unsigned int);
-  void ComputeGItorque(double**, unsigned int,unsigned int, double, double);
-  void TauPrimeFromTau(double**, unsigned int,unsigned int, const double, const double);
+  void ComputeGItorque(double**,double, double);
+  void TauPrimeFromTau(double**);
 
   // At a given cell, compute the fraction of gas which is 
   // in H2, i.e. what fraction of the gas is available to 
@@ -97,7 +98,7 @@ class DiskContents {
 
   // Append the radially-dependent properties of the disk to an output file, 
   // and the purely time dependent properties to a different file
-  void WriteOutStepFile(std::string filename, 
+  void WriteOutStepFile(std::string filename,AccretionHistory & acc, 
                         double t, double z, double dt, 
                         unsigned int step,double **tauvec);
 
@@ -171,9 +172,9 @@ class DiskContents {
   // Fill tauvec with the torque and its first derivative, i.e. 
   // solve the torque equation given an inner and outer boundary 
   // condition. These are such that tau(x=xmin)=IBC and tau'(x=1)=OBC
-  void ComputeTorques(double **tauvec, 
-		      const double IBC, 
-		      const double OBC);
+/*   void ComputeTorques(double **tauvec,  */
+/* 		      const double IBC,  */
+/* 		      const double OBC); */
 
   // Do the same thing as ComputeTorques, except instead of 
   // solving the torque equation which enforces dQ/dt=0, this 
@@ -229,7 +230,7 @@ class DiskContents {
     betap; //d(beta)/dx 
 
   std::vector<double>
-    h2,h1,h0,H; // coefficients of the torque equation
+    LL,UU,DD,FF; // coefficients of the torque equation
 
   // inner truncation radius, logarithmic width of a cell,
   // and factor by which to reduce the timestep TOL

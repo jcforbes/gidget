@@ -231,7 +231,8 @@ PRO variability2,expName,keys,N,sv
         theData[*,*,k,i] = model.dataCube[*,*,wrtXyy[k]+offsets[wrtXyp[k]]-1]
       ENDFOR
 
-      vsMdot[*,0,0,i] = - model.dataCube[*,model.nx-1,39-1]  ;; external accretion rate
+      vsMdot[*,0,0,i] =  model.dataCube[*,model.nx-1,39-1]  ;; external accretion rate
+      
 ;      FOR theT=0, n_elements(model.dataCube[*,0,0])-1 DO $
 ;        vsMdot[theT,0,1,i] = TOTAL(2*!pi*x[*]*x[*]*model.dlnx*model.dataCube[theT,*,model.ncolstep+14-1]*model.Radius*model.Radius)
 

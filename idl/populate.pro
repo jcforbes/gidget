@@ -1,16 +1,33 @@
-FUNCTION findindex,xbounds,ybounds,nx,ny,x,y
+FUNCTION findindex,xbounds,ybounds,nx,ny,x,y,log
   IF(xbounds[0] GE xbounds[1]) THEN message,"findindex in populate.pro: Invalid xbounds"
   IF(ybounds[0] GE ybounds[1]) THEN message,"findindex in populate.pro: Invalid ybounds"
 
   xv = x
   yv = y
 
+
   if(x LT xbounds[0]) THEN xv=xbounds[0]*1.01
   if(x GT xbounds[1]) THEN xv=xbounds[1]*.99
-  if(y LT ybounds[0]) THEN yv=ybounds[0]*1.01
-  if(y GT ybounds[1]) THEN yv=ybounds[1]*.99
   i = FIX( (nx-1.0) * alog10(xv/xbounds[0]) / alog10(xbounds[1]/xbounds[0])  + 0.5)
-  j = FIX( (ny-1.0) * alog10(yv/ybounds[0]) / alog10(ybounds[1]/ybounds[0])  + 0.5)
+
+
+  IF(log EQ 1) THEN BEGIN
+    if(y LT ybounds[0]) THEN yv=ybounds[0]*1.01
+    if(y GT ybounds[1]) THEN yv=ybounds[1]*.99
+    j = FIX( (ny-1.0) * alog10(yv/ybounds[0]) / alog10(ybounds[1]/ybounds[0])  + 0.5)
+  ENDIF ELSE BEGIN
+;    xr = xbounds[1] - xbounds[0]
+    yr = ybounds[1] - ybounds[0]
+;    xe = xr/(10.0*nx)
+    ye = yr/(10.0*ny)
+;    if(x LT xbounds[0]) THEN xv=xbounds[0] + xe
+;    if(x GT xbounds[1]) THEN xv=xbounds[1] - xe
+    if(y LT ybounds[0]) THEN yv=ybounds[0] + ye
+    if(y GT ybounds[1]) THEN yv=ybounds[1] - ye
+;    i = FIX( float(nx) * (xv-xbounds[0])/xr  )
+    j = FIX( float(ny) * (yv-ybounds[0])/yr  )
+
+  END
 
   RETURN,[i,j]
 END
@@ -97,8 +114,9 @@ PRO populate,expName,N,sv,z=z
   yEffbounds = [1.0e-3,1.0e-1] ;; efficiency of turning baryons into stars
   yBTbounds = [1.0e-4,1.0] ;; Bulge:Total Ratio
 
-  Nx=500
-  Ny=500
+  useContours = (1 EQ 1)
+  Nx=50
+  Ny=50
 
   exists=FILE_TEST(expname2+"_0d.dat")
   IF(exists) THEN theData= ReadFromDatFile(expname2+"_0d.dat",n_elements(namelist))$
@@ -114,22 +132,24 @@ PRO populate,expName,N,sv,z=z
   histo_mst_BT = dblarr(Nx,Ny)+1.0
 
 
-  weights= ReadWeights('nM_z0.dat')
-;;  weights *= 1.0 / MIN(weights) ;; ensure that all weights are >= 1 (probably not necessary)
+  if(useContours) THEN weights= ReadWeights('nM_z0.dat')
+;;;;  weights *= 1.0 / MIN(weights) ;; ensure that all weights are >= 1 (probably not necessary)
 
 
   FOR i=0,n_elements(nameList)-1 DO BEGIN ;; loop over every valid model
     ;; M*, SFR, Z, Fg, fH2, efficiency
     Mst = theData[1,i] + theData[11,i]
-    indSFR = findindex(xbounds,ySFRbounds,Nx,Ny,Mst,theData[2,i])
-    indZ = findindex(xbounds,yZbounds,Nx,Ny,Mst,theData[3,i])
-    indFg = findindex(xbounds,yFgbounds,Nx,Ny,Mst,theData[4,i])
-    indfH2 = findindex(xbounds,yfH2bounds,Nx,Ny,Mst,theData[5,i])
-    indEff = findindex(xbounds,yEffbounds,Nx,Ny,Mst,theData[6,i])
-    indBT = findindex(xbounds,yBTbounds,Nx,Ny,Mst,theData[11,i]/(theData[1,i]+theData[11,i]))
+    indSFR = findindex(xbounds,ySFRbounds,Nx,Ny,Mst,theData[2,i],1)
+    indZ = findindex(xbounds,yZbounds,Nx,Ny,Mst,theData[3,i],1)
+    indFg = findindex(xbounds,yFgbounds,Nx,Ny,Mst,theData[4,i],1)
+    indfH2 = findindex(xbounds,yfH2bounds,Nx,Ny,Mst,theData[5,i],1)
+    indEff = findindex(xbounds,yEffbounds,Nx,Ny,Mst,theData[6,i],1)
+    indBT = findindex(xbounds,yBTbounds,Nx,Ny,Mst,theData[11,i]/(theData[1,i]+theData[11,i]),0)
 
     ;; weight = dN/dMh12 or 1 or 1/(# of successful runs in this Mh0 bin)?
-    theWeight = weight(weights,theData[0,i])
+    theWeight=1.0
+    IF(useContours) THEN theWeight = weight(weights,theData[0,i])
+
     histo_mst_sfr[indSFR[0],indSFR[1]] += theWeight ; weight(weights,model.mh0)
     histo_mst_Z[indZ[0],indZ[1]] += theWeight
     histo_mst_fg[indFg[0],indFg[1]] += theWeight
@@ -143,27 +163,27 @@ PRO populate,expName,N,sv,z=z
   NL=10
 ;  window,0
   FIGUREInit,(expName2+'_Mst_SFR'),sv,1,1
-  CONTOUR,alog10(histo_mst_sfr),x,GetAxis(ySFRbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="SFR",nlevels=NL,XSTYLE=1,YSTYLE=1
+  IF(useContours) THEN CONTOUR,alog10(histo_mst_sfr),x,GetAxis(ySFRbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="SFR",nlevels=NL,XSTYLE=1,YSTYLE=1 ELSE PLOT,theData[1,*]+theData[11,*],theData[2,*],/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="SFR",XSTYLE=1,YSTYLE=1,XRANGE=xbounds,YRANGE=ySFRbounds,PSYM=4
   FigureClean,(expName2+'_Mst_SFR'),sv
 
   FIGUREINIT,(expName2+'_Mst_Z'),sv,1,1
-  CONTOUR,alog10(histo_mst_Z),x,GetAxis(yZbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="Z/Zsol",nlevels=NL,XSTYLE=1,YSTYLE=1
+  IF(useContours) THEN CONTOUR,alog10(histo_mst_Z),x,GetAxis(yZbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="Z/Zsol",nlevels=NL,XSTYLE=1,YSTYLE=1 ELSE PLOT,theData[1,*]+theData[11,*],theData[3,*],/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="[Z/ZSol]",XSTYLE=1,YSTYLE=1,XRANGE=xbounds,YRANGE=yZbounds,PSYM=4
   FigureClean,(expName2+'_Mst_Z'),sv
 
   FigureInit,(expName2+'_Mst_fg'),sv,1,1
-  CONTOUR,alog10(histo_mst_fg),x,GetAxis(yFgbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="f_g",nlevels=NL,XSTYLE=1,YSTYLE=1
+  IF(useContours) THEN CONTOUR,alog10(histo_mst_fg),x,GetAxis(yFgbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="f_g",nlevels=NL,XSTYLE=1,YSTYLE=1 ELSE PLOT,theData[1,*]+theData[11,*],theData[4,*],/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="f_g",XSTYLE=1,YSTYLE=1,XRANGE=xbounds,YRANGE=yFgbounds,PSYM=4
   FigureClean,(expName2+'_Mst_fg'),sv
 
   FigureInit,(expName2+'_Mst_fH2'),sv,1,1
-  CONTOUR,alog10(histo_mst_fH2),x,GetAxis(yfH2bounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="f_H2",nlevels=NL,XSTYLE=1,YSTYLE=1
+  IF(useContours) THEN CONTOUR,alog10(histo_mst_fH2),x,GetAxis(yfH2bounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="f_H2",nlevels=NL,XSTYLE=1,YSTYLE=1 ELSE PLOT,theData[1,*]+theData[11,*],theData[5,*],/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="fH2",XSTYLE=1,YSTYLE=1,XRANGE=xbounds,YRANGE=yfH2bounds,PSYM=4
   FigureClean,(expName2+'_Mst_fH2'),sv
 
   FigureInit,(expName2+'_Mst_eff'),sv,1,1
-  CONTOUR,alog10(histo_mst_eff),x,GetAxis(yEffbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="SF eff",nlevels=NL,XSTYLE=1,YSTYLE=1
+  IF(useContours) THEN CONTOUR,alog10(histo_mst_eff),x,GetAxis(yEffbounds,Ny),/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="SF eff",nlevels=NL,XSTYLE=1,YSTYLE=1 ELSE PLOT,theData[1,*]+theData[11,*],theData[6,*],/xlog,/ylog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="SF eff",XSTYLE=1,YSTYLE=1,XRANGE=xbounds,YRANGE=yEffBounds,PSYM=4
   FigureClean,(expName2+'_Mst_eff'),sv
 
   FigureInit,(expName2+'_Mst_BT'),sv,1,1
-  CONTOUR,alog10(histo_mst_BT),x,GetAxis(yBTbounds,Ny),/xlog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="B:T",nlevels=NL,XSTYLE=1,YSTYLE=1
+  IF(useContours) THEN CONTOUR,alog10(histo_mst_BT),x,GetAxis(yBTbounds,Ny),/xlog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="B:T",nlevels=NL,XSTYLE=1,YSTYLE=1 ELSE PLOT,theData[1,*]+theData[11,*],theData[11,*]/(theData[1,*]+theData[11,*]),/xlog,COLOR=0,BACKGROUND=255,XTITLE="M*",YTITLE="B:T",XSTYLE=1,YSTYLE=1,XRANGE=xbounds,YRANGE=yBTbounds,PSYM=4 
   FigureClean,(expName2+'_Mst_BT'),sv
 
 

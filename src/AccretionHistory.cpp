@@ -412,15 +412,17 @@ void testAccretionHistory()
 {
   Cosmology cos(1.0-.734, .734, 2.29e-18, 2.0);
 
-  for(unsigned int whichAccretionHistory=10; whichAccretionHistory!=1000; ++whichAccretionHistory) {
-    AccretionHistory accr(1.0e12);
-    double Mdot0 = accr.GenerateNeistein08(2.0, cos, "", false, whichAccretionHistory, .3, false);
-    if(Mdot0>0.0) {
-      double dummy = 0.0;
 
-
-    }
-  }
+  double dummy=0.0;
+//  for(unsigned int whichAccretionHistory=10; whichAccretionHistory!=1000; ++whichAccretionHistory) {
+//    AccretionHistory accr(1.0e12);
+//    double Mdot0 = accr.GenerateNeistein08(2.0, cos, "", false, whichAccretionHistory, .3, false);
+//    if(Mdot0>0.0) {
+//      double dummy = 0.0;
+//
+//
+//    }
+//  }
 
 
 

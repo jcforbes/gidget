@@ -46,6 +46,10 @@ PRO setct,which,n,color
 		r[0:10]=byte([  0,255,  0,255,175,  6,116,  0,  7,255,255]) ; black,red,blue,orange,purple,cyan,maroon,dark green,yellow,magenta
 		g[0:10]=byte([  0,  0,  0,125,  2,192,  5,255,112,255,  9])
 		b[0:10]=byte([  0,  0,255,  0,175,175,  5,  0,  7,  0,178])
+
+		r[11:255] = byte( FIX(256*randomu(color,256-11)))
+                g[11:255] = byte( FIX(256*randomu(color+1,256-11)))
+		b[11:255] = byte( FIX(256*randomu(color+2,256-11)))
 	
 	ENDIF
 

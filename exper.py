@@ -62,7 +62,7 @@ def successCode(filename):
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,2.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -685,7 +685,8 @@ if __name__ == "__main__":
     rn29.vary('Mh0',3.0e12,3.0e12,1,0)
     allModels['rn29']=rn29
 
-    rn34=experiment('rn34a') # variable metal diffusion coefficient
+    rn34=experiment('rn34c') # variable metal diffusion coefficient; b-> lower zeta (.3)
+    # c: zeta=.7, multiply variable coefficient by .1.
     rn34.vary('dbg',2**10+2**15,2**10+2**15,1,0)
     rn34.vary('minSigSt',10,10,1,0)
     rn34.vary('whichAccretionHistory',3100,4099,1000,0)
@@ -703,7 +704,94 @@ if __name__ == "__main__":
     rn36.vary('whichAccretionHistory',5100,6099,1000,0)
     rn36.vary('eta',.5,.5,1,0)
     allModels['rn36']=rn36
+
+    rn37=experiment('rn37') # larger eta
+    rn37.vary('dbg',2**10,2**10,1,0)
+    rn37.vary('minSigSt',10,10,1,0)
+    rn37.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn37.vary('eta',4.5,4.5,1,0)
+    allModels['rn37']=rn37
+
+
+    rn38=experiment('rn38') # lower fg
+    rn38.vary('dbg',2**10,2**10,1,0)
+    rn38.vary('minSigSt',10,10,1,0)
+    rn38.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn38.vary('fg0',.1,.1,1,0)
+    allModels['rn38']=rn38
+
+    rn39=experiment('rn39') # hotter stars!
+    rn39.vary('dbg',2**10,2**10,1,0)
+    rn39.vary('minSigSt',10,10,1,0)
+    rn39.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn39.vary('phi0',2,2,1,0)
+    allModels['rn39']=rn39
     
+
+    rn40=experiment('rn40') # higher fg
+    rn40.vary('dbg',2**10,2**10,1,0)
+    rn40.vary('minSigSt',10,10,1,0)
+    rn40.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn40.vary('fg0',.9,.9,1,0)
+    allModels['rn40']=rn40
+
+    rn41=experiment('rn41') # weaker feedback
+    rn41.vary('dbg',2**10,2**10,1,0)
+    rn41.vary('minSigSt',10,10,1,0)
+    rn41.vary('whichAccretionHistory',7100,8099,1000,0)
+    rn41.vary('fg0',.5,.5,1,0)
+    rn41.vary('mu',.1,.1,1,0)
+    allModels['rn41']=rn41
+
+    rn42=experiment('rn42') # modified potential
+    rn42.vary('dbg',2**10,2**10,1,0)
+    rn42.vary('minSigSt',10,10,1,0)
+    rn42.vary('whichAccretionHistory',8100,9099,1000,0)
+    rn42.vary('innerPowerLaw',.5,.5,1,0)
+    rn42.vary('softening',4,4,1,0)
+    rn42.vary('b',10,10,1,0)
+    allModels['rn42']=rn42
+
+    rn43=experiment('rn43d') # different inner boundary condition (x(0))
+    rn43.vary('dbg',2**10+2**17,2**10+2**17,1,0)
+    rn43.vary('minSigSt',10,10,1,0)
+    rn43.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn43.vary('eta',1.5,1.5,1,0)
+    allModels['rn43']=rn43
+
+    rn44=experiment('rn44d') # modified again: x(0)*OBC
+    rn44.vary('dbg',2**10+2**18,2**10+2**18,1,0)
+    rn44.vary('minSigSt',10,10,1,0)
+    rn44.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn44.vary('eta',1.5,1.5,1,0)
+    allModels['rn44']=rn44
+
+    rn45=experiment('rn45') # hi-res in age
+    rn45.vary('dbg',2**10,2**10,1,0)
+    rn45.vary('minSigSt',10,10,1,0)
+    rn45.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn45.vary('eta',1.5,1.5,1,0)
+    rn45.vary('NPassive',100,100,1,0)
+    allModels['rn45']=rn45
+
+    rn46=experiment('rn46') # low SF efficiency & weak feedback
+    rn46.vary('dbg',2**10,2**10,1,0)
+    rn46.vary('minSigSt',10,10,1,0)
+    rn46.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn46.vary('eta',1.5,1.5,1,0)
+    rn46.vary('epsff',.005,.005,1,0)
+    rn46.vary('mu',.1,.1,1,0)
+    rn46.vary('NPassive',10,10,1,0)
+    allModels['rn46']=rn46
+
+    rn47=experiment('rn47') # low SF efficiency
+    rn47.vary('dbg',2**10+2**18,2**10+2**18,1,0)
+    rn47.vary('minSigSt',10,10,1,0)
+    rn47.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn47.vary('eta',1.5,1.5,1,0)
+    rn47.vary('NPassive',10,10,1,0)
+    allModels['rn47']=rn47
+
 
     experiments=[]
     nacc = 90

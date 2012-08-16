@@ -13,7 +13,13 @@ FUNCTION listvalidmodels,expName,N
   IF(ctr EQ 0) THEN message,"No valid models found"
   nameList2=nameList2[0:ctr-1]
 
-  IF(N LT ctr) THEN nameList2=nameList2[0:N-1]
+  IF(N LT ctr) THEN BEGIN 
+;      nameList2=nameList2[0:N-1]
+      FOR k=0,N-1 DO BEGIN
+          nameList2[k] = nameList2[k*FIX(float(ctr)/float(N-1))]
+      ENDFOR
+      nameList2=nameList2[0:N-1]
+  ENDIF
 
   RETURN,nameList2  
   

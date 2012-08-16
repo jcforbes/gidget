@@ -41,9 +41,9 @@ FUNCTION diskStats,model,z=z
 
 
 	;; Compute bulge mass by conservation arguments: cosmological input - total (outflowing mass + change in stellar mass + change in gas mass in the disk)
-	BulgeM = macc[zj] + TOTAL((2*!pi*model.Radius*model.mdotext0*model.dlnx*(kmperkpc/speryear)/model.vphiR) * x[*]*x[*]*(-outS[zj,*]-starS[zj,*]-gasS[zj,*]+starS[0,*]+gasS[0,*])) ;; kpc* MSol/yr *s/km * (1/speryear) * (kmperkpc) = MSol
+	BulgeM = macc[zj] + TOTAL((2*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*]*x[*]*(-outS[zj,*]-starS[zj,*]-gasS[zj,*]+starS[0,*]+gasS[0,*])) ;; kpc* MSol/yr *s/km * (1/speryear) * (kmperkpc) = MSol
 
-	BulgeMSt = TOTAL((2*!pi*model.Radius*model.mdotext0*model.dlnx*(kmperkpc/speryear)/model.vphiR) * x[*]*x[*]*(-starS[zj,*] + starS[0,*] + model.Rf * model.dataCube[zj,*,51]))
+	BulgeMSt = TOTAL((2*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*]*x[*]*(-starS[zj,*] + starS[0,*] + model.Rf * model.dataCube[zj,*,51]))
 
 	;; hopefully these two numbers are the same.
 	sfr = model.evArray[11-1,zj] ;; SFR integrated over the whole galaxy in MSol/yr (I think)
@@ -65,12 +65,34 @@ FUNCTION diskStats,model,z=z
  
 
 
+        gasMass = model.dataCube[zj,*,3] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
+        stellarMass =  model.dataCube[zj,*,5] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
+;	massOutAll = outS *  model.dataCube[*,*,5] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
+
+	;; get the variables for the appropriate redshift
+	;gasMass = gasMassAll[zj,*]
+	;stellarMass = stellarMassAll[zj,*]
+	;massOut = massOutAll[zj,*]
+
+
+	gasZ = TOTAL( gasMass *  10.0^metallicity ) / TOTAL( gasMass )
+        totFg = TOTAL ( gasMass ) / (TOTAL (gasMass + stellarMass) + BulgeM)
+        
+	fgNuc = TOTAL( gasMass[0:xinInd] ) / TOTAL( gasMass[0:xinInd] + stellarMass[0:xinInd])
+        fgsf = TOTAL (gasMass[xinInd:xoutInd] ) / TOTAL( gasMass[xinInd:xoutInd] + stellarMass[xinInd:xoutInd])
+        fgHI = TOTAL (gasMass[xoutInd:model.nx-1] ) / TOTAL(gasMass[xoutInd:model.nx-1] + stellarMass[xoutInd:model.nx-1])
+
+	totfH2 = TOTAL( gasMass * fH2 ) / TOTAL( gasMass  )
+
+	fgL = TOTAL( gasMass[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd] + stellarMass[0:xoutInd]) + BulgeM)
+	ZL = TOTAL( gasMass[0:xoutInd] * 10.0^metallicity[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd]))
+
         xnuc=x[0:xinInd]
         xsf=x[xinInd:xoutInd]
         xHI=x[xoutInd:model.nx-1]
-        fgnuc = TOTAL(xnuc*xnuc*fg[0:xinInd])/TOTAL(xnuc*xnuc)
-        fgsf  = TOTAL(xsf*xsf*fg[xinInd:xoutInd])/TOTAL(xsf*xsf)
-        fgHI  = TOTAL(xHI*xHI*fg[xoutInd:model.nx-1])/TOTAL(xHI*xHI)
+;        fgnuc = TOTAL(xnuc*xnuc*fg[0:xinInd])/TOTAL(xnuc*xnuc)
+;        fgsf  = TOTAL(xsf*xsf*fg[xinInd:xoutInd])/TOTAL(xsf*xsf)
+;        fgHI  = TOTAL(xHI*xHI*fg[xoutInd:model.nx-1])/TOTAL(xHI*xHI)
         vrgNuc= TOTAL(xnuc*xnuc*vrg[0:xinInd])/TOTAL(xnuc*xnuc)
         vrgSf = TOTAL(xsf*xsf*vrg[xinInd:xoutInd])/TOTAL(xsf*xsf)
         vrgHI = TOTAL(xHI*xHI*vrg[xoutInd:model.nx-1])/TOTAL(xHI*xHI)
@@ -78,9 +100,9 @@ FUNCTION diskStats,model,z=z
         vstSf = TOTAL(xsf*xsf*vst[xinInd:xoutInd])/TOTAL(xsf*xsf)
         vstHI = TOTAL(xHI*xHI*vst[xoutInd:model.nx-1])/TOTAL(xHI*xHI)   
         colsol= col[nearest("position",1,model,8.0/model.Radius)]
-	totfH2 = TOTAL(x[*] * x[*] * fH2[*])/TOTAL(x[*]*x[*])
-        totFg = TOTAL(x[*] * x[*] * fg[*]) / TOTAL(x[*] * x[*])
-        totZ = TOTAL(x[*] * x[*] * (10.0^metallicity)  )/TOTAL(x[*]*x[*])
+;	totfH2 = TOTAL(x[*] * x[*] * fH2[*])/TOTAL(x[*]*x[*])
+;        totFg = TOTAL(x[*] * x[*] * fg[*]) / TOTAL(x[*] * x[*])
+;        totZ = TOTAL(x[*] * x[*] * (10.0^metallicity)  )/TOTAL(x[*]*x[*])
         eff = (stMass+bulgeM)/(model.evArray[19-1,zj]*.18)
 
         info=[xin*model.Radius,$    ;; inner edge of SF region  - 1
@@ -90,8 +112,9 @@ FUNCTION diskStats,model,z=z
                 fgnuc,fgsf,fgHI,sSFR, $   ;; gas fraction, specific SFR- 5,6,7,8
 		BulgeM,BulgeMSt, totfH2, $  ; - 9,10,11
 		mdotBulgeG,mdotbulgeSt, $ ; 12,13
-		sfr,stMass,totFg,totZ,eff, $ ; - 14,15,16,17,18
-                sfr+mdotBulgeG,stMass+BulgeM] ;; 19,20
+		sfr,stMass,totFg,gasZ,eff, $ ; - 14,15,16,17,18
+                sfr+mdotBulgeG,stMass+BulgeM, $ ;; 19,20
+		fgL, ZL ]   ; 21, 22
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

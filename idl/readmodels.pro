@@ -361,7 +361,9 @@ FUNCTION readOutput,name
 
 
 
-    tdc[0,*,39-1] = tdc[1,*,39-1] ;; currently the initial value is zero.		
+    tdc[0,*,39-1] = tdc[1,*,39-1] ;; currently the initial value is zero.
+    evArray[9-1,0] = evArray[9-1,1]
+
     tdc[*,*,ncolStep]=  abs(tdc[*,*,3])/(abs(tdc[*,*,7]) + .00001)
     tdc[*,*,ncolStep+1]=abs(tdc[*,*,4])/(abs(tdc[*,*,8]) + .00001)
     tdc[*,*,ncolStep+2]=abs(tdc[*,*,5])/(abs(tdc[*,*,9]) + .00001)

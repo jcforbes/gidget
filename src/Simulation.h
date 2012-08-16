@@ -1,6 +1,7 @@
 class Cosmology;
 class DiskContents;
 class AccretionHistory;
+class Debug;
 #include <string.h>
 
 // A small container to store the state variables
@@ -19,7 +20,8 @@ class Simulation {
 	     const unsigned int na, const unsigned int np,
 	     const double alphaMRI, const double sigth, const double ndecay,
 	     DiskContents&,
-	     AccretionHistory&);
+	     AccretionHistory&,
+	     Debug&);
   int runToConvergence(const double fCondition,
 		       const bool writeOut,
 		       const std::string filename);
@@ -36,5 +38,6 @@ class Simulation {
   const double ndecay;
   DiskContents& theDisk;
   AccretionHistory& accr;
+  Debug& dbg;
   Initializer ini;
 };

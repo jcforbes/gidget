@@ -113,7 +113,8 @@ DiskContents::DiskContents(double tH, double eta,
   tau=gsl_vector_alloc(nx+2); 
   forcing=gsl_vector_alloc(nx+2);
 
-
+  if(dbg.opt(15))
+    zetaREC = .7;
 
   return;
 }
@@ -774,14 +775,16 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
   std::vector<int> replaceWithMRI(nx+1,0);
   for(unsigned int n=1; n<=nx; ++n) {
     // Compute a torque and its derivative given an alpha.
-    tauMRI[n] = 2.0*M_PI*x[n]*x[n]*col[n]*alpha*sigth*sig[n]*(beta[n]-1);
-//    taupMRI[n] = tauMRI[n] * (2.0/x[n] + ddx(col,n,x)/col[n] 
-//       + ddx(sig,n,x)/sig[n] + betap[n]/(beta[n]-1));
+    //    tauMRI[n] = 2.0*M_PI*x[n]*x[n]*col[n]*alpha*sigth*sig[n]*(beta[n]-1);
+    //    taupMRI[n] = tauMRI[n] * (2.0/x[n] + ddx(col,n,x)/col[n] 
+    //       + ddx(sig,n,x)/sig[n] + betap[n]/(beta[n]-1));
+    tauMRI[n] = IBC;
 
 
     // Where GI has shut down and no longer transports mass inwards, 
     // allow another source of viscosity to drive gas inwards.
-    if(tauMRI[n] < tauvec[1][n]) { // larger negative value
+//    if(tauMRI[n] < tauvec[1][n] || taupMRI[n] < (tauvec[1][n+1]-tauvec[1][n-1])/(mesh.x(n+1)-mesh.x(n-1)) ) { // larger negative value
+    if(tauMRI[n] < tauvec[1][n]) {
       tauvec[1][n]=tauMRI[n];
 //      tauvec[2][n]=taupMRI[n];
         replaceWithMRI[n] = 1;
@@ -887,6 +890,8 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
 
 void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const double OBC)
 {
+  double IBC2 = IBC;
+  
   for(unsigned int n=1; n<=nx; ++n) {
     gsl_vector_set(lr,   n-1, LL[n]);
     gsl_vector_set(diag,   n, DD[n]);
@@ -895,9 +900,14 @@ void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const dou
   }
   gsl_vector_set(ur  , 0, 0.0);
   gsl_vector_set(diag, 0, 1.0);
+  //  if(dbg.opt(18)) {
+  //  gsl_vector_set(ur, 0, 1.0/(mesh.u1pbPlusHalf(0)*(x[1]-mesh.x(0.0))));
+  //  gsl_vector_set(diag, 0, -1.0/(mesh.u1pbPlusHalf(0)*(x[1]-mesh.x(0.0))));
+  // }
+
   gsl_vector_set(lr, nx,  -1.0/(mesh.u1pbPlusHalf(nx)*(mesh.x(nx+1)-x[nx])));
   gsl_vector_set(diag,nx+1, 1.0/(mesh.u1pbPlusHalf(nx)*(mesh.x(nx+1)-x[nx])));
-  gsl_vector_set(forcing,0,IBC);
+  gsl_vector_set(forcing,0,IBC2);
   gsl_vector_set(forcing,nx+1,OBC);
 
   int status = gsl_linalg_solve_tridiag(diag,ur,lr,forcing,tau);
@@ -1041,7 +1051,7 @@ void DiskContents::DiffuseMetals(double dt)
     etas.push_back(0.0); xis.push_back(0.0);
     // ZFlux[n] = net flux of metal mass from bin i+1 to bin i.
     for(unsigned int n=1; n<=nx-1; ++n) {
-      if(dbg.opt(15)) kappaMetals = sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
+      if(dbg.opt(15)) kappaMetals = .1*sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
       double sum = 4.0*M_PI*kappaMetals/((x[n+1]-x[n])*(x[n+1]-x[n]));
       double ratio = x[n+1]*x[n+1]*col[n+1]/(x[n]*x[n]*col[n]);
       etas.push_back(sum/(1.0+ratio));

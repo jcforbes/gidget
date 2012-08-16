@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
 		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt);
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
-  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, 50.0/220.0, Mh0, MhZs, stScaleLength);
+  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
 
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();
@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
                    false, nx,TOL,
                    zstart,NActive,NPassive,
                    alphaMRI,sigth,ndecay,
-                   diskIC,accr);
+                   diskIC,accr,dbg);
   int result = simIC.runToConvergence(1, false, filename+"_icgen"); // set false-> true to debug initial condition generator
   if(result!=5) // The simulation converges when the time step reaches 1*TOL.
     errormsg("Initial Condition generator failed to converge, code "+str(result));
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
 		 cosmologyOn,nx,TOL,
 		 zstart,NActive,NPassive,
 		 alphaMRI,sigth,ndecay,
-		 disk,accr);
+		 disk,accr,dbg);
   result = sim.runToConvergence(1.0e10, true, filename);
  
 }

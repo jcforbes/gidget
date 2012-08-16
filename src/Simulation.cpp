@@ -11,6 +11,8 @@
 #include "ConvergenceCheck.h"
 #include "DiskUtils.h"
 #include "Cosmology.h"
+#include "Debug.h"
+#include "FixedMesh.h"
 
 Simulation::Simulation(const double tm, const long int sm,
                        const bool co,   const unsigned int nnx,
@@ -18,7 +20,7 @@ Simulation::Simulation(const double tm, const long int sm,
 		       const unsigned int na, const unsigned int np,
                        const double amri,const double sth, const double nd,
                        DiskContents& td,
-                       AccretionHistory& ah):
+                       AccretionHistory& ah, Debug& db):
   tmax(tm), stepmax(sm),
   cosmologyOn(co),nx(nnx),
   TOL(tl), zstart(zs),
@@ -26,7 +28,8 @@ Simulation::Simulation(const double tm, const long int sm,
   alphaMRI(amri),sigth(sth),
   ndecay(nd),
   theDisk(td),
-  accr(ah)
+  accr(ah),
+  dbg(db)
 {
   ini.NActive=na;
   ini.NPassive=np;
@@ -162,6 +165,13 @@ int Simulation::runToConvergence(const double fCondition,
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin/pow(xmin,1./(1.-nx)),-1.*AccRate);
     //    disk.ComputeTorques(tauvec,0.,-1.*AccRate);
     double IBC = 2.0*M_PI*theDisk.GetX()[1]*theDisk.GetX()[1]*theDisk.GetCol()[1]*alphaMRI*sigth*theDisk.GetSig()[1]*(theDisk.GetBeta()[1]-1.0);
+    if(dbg.opt(17)) {
+      // IBC = -1.0*AccRate*theDisk.GetMesh().x(0.0); // b
+      IBC = -1.0*.01*theDisk.GetMesh().x(0.0); // c
+    }
+    if(dbg.opt(18)) {
+      IBC = -1.0*theDisk.GetMesh().x(0.0); // d
+    }
     double OBC=-1.*AccRate;
     theDisk.ComputeGItorque(tauvec,IBC,OBC);
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);

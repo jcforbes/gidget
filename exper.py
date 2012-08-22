@@ -32,7 +32,14 @@ class covary:
         return len(self.names)
     def getNVals(self):
         return len(self.listOfVariants[0])
-            
+
+
+def HowManyStillRunning(procs):
+    nStillRunning=0
+    for proc in procs:
+        if(proc.poll()==None):
+            nStillRunning+=1
+    return nStillRunning 
 
 def successCode(filename):
     ''' Given a file assumed to contain the standard error output of
@@ -253,6 +260,33 @@ class experiment:
         self.vary('minSigSt',10,10,1,0)
         self.vary('diskScaleLength',2.0,2.0,1,0) # not actually faster, but I often forget it.
 
+    def makeList(self):
+        self.generatePl()
+        ctr=0
+        binary = self.bin+'/gidget'
+        expDir = self.analysis+'/'+self.expName
+        if(os.path.exists(expDir) and startAt == 0):
+          print "Cancelling this run! ",self.expName
+          return ([],[],[])
+        elif(os.path.exists(expDir) and startAt != 0):
+          pass
+        else:
+          os.mkdir(expDir)
+        stdo=[]
+        stde=[]
+        cmds=[]
+        expDirs=[]
+        for a_p in self.pl[startAt:]:
+            ctr += 1
+            tmpap = a_p[:]
+            stdo.append(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt')
+            stde.append(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt')
+            cmds.append([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]])
+            expDirs.append(expDir)
+
+        return (cmds,stdo,stde,expDirs)
+
+
     def localRun(self,nproc,startAt):
         ''' Run the specified experiment on this machine,
         using no more than nproc processors, and starting
@@ -293,11 +327,8 @@ class experiment:
             # is willing to let run at once, so let's check what
             # our processes are up to:
             while True:
-                nStillRunning=0
-                # count how many of our processes are still running
-                for proc in procs:
-                    if(proc.poll()==None): # still running
-                        nStillRunning+=1
+                nStillRunning=HowManyStillRunning(procs)
+    
                 # if our processors are all booked, wait a minute and try again
                 if(nStillRunning >= nproc):
                     time.sleep(10) # wait a little bit
@@ -312,11 +343,7 @@ class experiment:
         # now all of our processes have been sent off
         nPrev = 0
         while True:
-            nStillRunning=0
-            # count how many processes are still running
-            for proc in procs:
-                if(proc.poll()==None): # still running
-                    nStillRunning+=1
+            nStillRunning=HowManyStillRunning(procs)
             # has anything changed since the last time we checked?
             if(nStillRunning == nPrev and nStillRunning != 0):
                 # do nothing except wait a little bit
@@ -327,6 +354,45 @@ class experiment:
                     break # we're done!
                 print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
         print "Local run complete!"
+
+
+def LocalRun(runBundle,nproc):
+    cmds,stdo,stde,expDirs = runBundle
+    for i in range(len(cmds)):
+        with open(stdo[i],'w') as stdo_file:
+            with open(stde[i],'w') as stde_file: 
+                os.chdir(expDirs[i])
+                procs.append(subprocess.Popen(cmds[i],stdout=stdo_file,stderr=stde_file))
+                nPrinted=True
+        while True:
+            nStillRunning = HowManyStillRunning(procs)
+            # if our processors are all booked, wait a minute and try again
+            if(nStillRunning >= nproc):
+                time.sleep(10) # wait a little bit
+                if(nPrinted):
+                    print "Waiting for a free processor..."
+                    nPrinted=False # only print the above message if we haven't seen it since 
+    	                            # a new job has been submitted
+                   # whereas if we have free processors, loop back around to submit the next run. 
+                   # If there are no more runs, we're done!
+            else:
+                break
+    # now all of our processes have been sent off
+    nPrev = 0
+    while True:
+        nStillRunning=HowManyStillRunning(procs)
+        # has anything changed since the last time we checked?
+        if(nStillRunning == nPrev and nStillRunning != 0):
+            # do nothing except wait a little bit
+            time.sleep(5)
+        else:
+            nPrev=nStillRunning
+            if(nPrev == 0):
+               break # we're done!
+            print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
+    print "Local run complete!"
+
+
 
 
 # Take the results of all experiments named when this script was called
@@ -378,280 +444,6 @@ if __name__ == "__main__":
     
     allModels={} # empty dictionary into which we'll place all model definitions
  
-#    expName=sys.argv[1]
-#    a=experiment(expName)
-
-
-    rn1=experiment('rn1') # originally rk69
-    rn1.fast()
-    rn1.vary('dbg',0,31,32,0)
-    rn1.vary('ndecay',-.02,.1,4,0) #-.02, .02, .06, .1 
-    rn1.vary('whichAccretionHistory',526,526,1,0)
-    allModels['rn1']=rn1
-    
-    rn2=experiment('rn2') #originally rk70k1c, then rk71
-    rn2.fast()
-    rn2.vary('dbg',0,31,32,0)
-    rn2.vary('ndecay',-.02,.1,4,0)
-    rn2.vary('whichAccretionHistory',636,636,1,0)
-    allModels['rn2']=rn2    
-
-    rn3=experiment('rn3') # originally rk70b5c, then rk72
-    rn3.fast()
-    rn3.vary('dbg',0,31,32,0)
-    rn3.vary('ndecay',-.02,.1,4,0)
-    rn3.vary('whichAccretionHistory',731,731,1,0)
-    allModels['rn3']=rn3
-
-    rn4=experiment('rn4') # originally rk70b6c, then rk73
-    rn4.fast()
-    rn4.vary('dbg',0,31,32,0)
-    rn4.vary('ndecay',-.02,0.1,4,0)
-    rn4.vary('whichAccretionHistory',757,757,1,0)
-    allModels['rn4']=rn4
-
-    rn5=experiment('rn5') # originally rk70f6c, then rk73 (again?!)
-    rn5.fast()
-    rn5.vary('dbg',0,31,32,0)
-    rn5.vary('ndecay',-.02,0.1,4,0)
-    rn5.vary('whichAccretionHistory',761,761,1,0)
-    allModels['rn5']=rn5
-
-    rn6=experiment('rn6') # originally rk70o6c
-    rn6.fast()
-    rn6.vary('dbg',0,31,32,0)
-    rn6.vary('ndecay',-.02,0.1,4,0)
-    rn6.vary('whichAccretionHistory',770,770,1,0)
-    allModels['rn6']=rn6
-
-
-    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
-    rn7=experiment('rn7') 
-    rn7.vary('nx',200,200,1,0)
-    rn7.vary('minSigSt',8,8,1,0)
-    rn7.vary('diskScaleLength',2,2,1,0)
-    rn7.vary('dbg',16,16,1,0)
-    rn7.vary('ndecay',-1,-1,1,0)
-    rn7.vary('alphaMRI',0.1,0.1,1,0)
-    rn7.vary('whichAccretionHistory',600,799,200,0)
-    rn7.vary('Mh0',1.0e10,1.0e12,3,1)
-    allModels['rn7']=rn7
-
-    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
-    rn8=experiment('rn8') 
-    rn8.vary('nx',200,200,1,0)
-    rn8.vary('minSigSt',8,8,1,0)
-    rn8.vary('diskScaleLength',2,2,1,0)
-    rn8.vary('dbg',16,16,1,0)
-    rn8.vary('ndecay',-1,-1,1,0)
-    rn8.vary('alphaMRI',0.1,0.1,1,0)
-    rn8.vary('whichAccretionHistory',100,599,500,0)
-    rn8.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn8']=rn8
-
-    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
-    rn9=experiment('rn9') 
-    rn9.vary('nx',200,200,1,0)
-    rn9.vary('minSigSt',8,8,1,0)
-    rn9.vary('diskScaleLength',2,2,1,0)
-    rn9.irregularVary('dbg',[16,32,48,80,112])
-    rn9.vary('ndecay',1,8,4,1)
-    rn9.vary('alphaMRI',0.1,0.1,1,0)
-    rn9.vary('whichAccretionHistory',100,139,40,0)
-    rn9.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn9']=rn9
-
-    # similar to rk70, except with only ndecay=-1, alpha=.1, and dbg=16
-    rn10=experiment('rn10') 
-    rn10.vary('nx',200,200,1,0)
-    rn10.vary('minSigSt',8,8,1,0)
-    rn10.vary('diskScaleLength',2,2,1,0)
-    rn10.irregularVary('dbg',[16,32,48,80,112])
-    rn10.vary('ndecay',1,8,4,1)
-    rn10.vary('alphaMRI',0.1,0.1,1,0)
-    rn10.vary('whichAccretionHistory',100,139,40,0)
-    rn10.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn10']=rn10
-
-    rn11=experiment('rn11') # 1st cosmological run in a while. Using ysmoothing w/ ndecay = 8
-    rn11.vary('nx',200,200,1,0)
-    rn11.vary('minSigSt',8,8,1,0)
-    rn11.vary('diskScaleLength',2,2,1,0)
-    rn11.vary('dbg',16,16,1,0)
-    rn11.vary('alphaMRI',0.1,0.1,1,0)
-    rn11.vary('whichAccretionHistory',4,1003,1000,0)
-    rn11.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn11']=rn11
-
-    rn12=experiment('rn12') # ndecay = 2
-    rn12.vary('nx',200,200,1,0)
-    rn12.vary('minSigSt',8,8,1,0)
-    rn12.vary('diskScaleLength',2,2,1,0)
-    rn12.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
-    rn12.vary('ndecay',2,2,1,0)
-    rn12.vary('alphaMRI',.1,.1,1,0)
-    rn12.vary('whichAccretionHistory',4,1003,1000,0)
-    rn12.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn12']=rn12
-
-    rn13=experiment('rn13') # ndecay = 8, hires
-    rn13.vary('nx',1000,1000,1,0)
-    rn13.vary('minSigSt',8,8,1,0)
-    rn13.vary('diskScaleLength',2,2,1,0)
-    rn13.vary('dbg',144,144,1,0)
-    rn13.vary('alphaMRI',0.1,0.1,1,0)
-    rn13.vary('whichAccretionHistory',4,1003,1000,0)
-    rn13.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn13']=rn13
-
-    rn14=experiment('rn14') # just do rn12, with lower masses!
-    rn14.vary('nx',200,200,1,0)
-    rn14.vary('minSigSt',4,4,1,0)
-    rn14.vary('diskScaleLength',2,2,1,0)
-    rn14.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
-    rn14.vary('ndecay',2,2,1,0)
-    rn14.vary('alphaMRI',.1,.1,1,0)
-    rn14.vary('whichAccretionHistory',4,1003,1000,0)
-    rn14.vary('Mh0',1.0e9,1.0e9,1,0)
-    allModels['rn14']=rn14
-
-    rn15=experiment('rn15') # just do rn12, with lower masses!
-    rn15.vary('nx',200,200,1,0)
-    rn15.vary('minSigSt',4,4,1,0)
-    rn15.vary('diskScaleLength',2,2,1,0)
-    rn15.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
-    rn15.vary('ndecay',2,2,1,0)
-    rn15.vary('alphaMRI',.1,.1,1,0)
-    rn15.vary('whichAccretionHistory',4,1003,1000,0)
-    rn15.vary('Mh0',1.0e10,1.0e10,1,0)
-    allModels['rn15']=rn15
-
-    rn16=experiment('rn16') # just do rn12, with lower masses!
-    rn16.vary('nx',200,200,1,0)
-    rn16.vary('minSigSt',4,4,1,0)
-    rn16.vary('diskScaleLength',2,2,1,0)
-    rn16.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
-    rn16.vary('ndecay',2,2,1,0)
-    rn16.vary('alphaMRI',.1,.1,1,0)
-    rn16.vary('whichAccretionHistory',4,1003,1000,0)
-    rn16.vary('Mh0',1.0e11,1.0e11,1,0)
-    allModels['rn16']=rn16
-
-    rn17=experiment('rn17') # just do rn12, with lower masses!
-    rn17.vary('nx',200,200,1,0)
-    rn17.vary('minSigSt',4,4,1,0)
-    rn17.vary('diskScaleLength',2,2,1,0)
-    rn17.vary('dbg',16,16,1,0) # smooth y, ndecay=nsmooth
-    rn17.vary('ndecay',2,2,1,0)
-    rn17.vary('alphaMRI',0,0,1,0)
-    rn17.vary('whichAccretionHistory',4,1003,1000,0)
-    rn17.vary('Mh0',1.0e9,1.0e9,1,0)
-    allModels['rn17']=rn17
-
-    rn18=experiment('rn18')
-    rn18.vary('nx',200,200,1,0)
-    rn18.vary('minSigSt',10,10,1,0)
-    rn18.vary('diskScaleLength',2,2,1,0)
-    rn18.vary('dbg',16,16,1,0)
-    rn18.vary('ndecay',2,2,1,0)
-    rn18.vary('alphaMRI',.1,.1,1,0)
-    rn18.irregularVary('whichAccretionHistory',[-100,-316,-1000]) #try out oscillation acc history
-    rn18.vary('Mh0',1.0e12,1.0e12,1,0) # shoudln't matter
-    allModels['rn18']=rn18
-
-    rn19=experiment('rn19')
-    rn19.vary('nx',200,200,1,0)
-    rn19.vary('minSigSt',10,10,1,0)
-    rn19.vary('diskScaleLength',2,2,1,0)
-    rn19.vary('epsff',0,.01,2,0)
-    rn19.irregularVary('dbg',[16, 2**8+16, 2**9, 2**9+2**8, 2**9+2**10, 2**9+16, 2**10 ])
-    rn19.vary('ndecay',2,2,1,0)
-    rn19.vary('alphaMRI',.1,.1,1,0)
-    rn19.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
-    rn19.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn19']=rn19
-
-    rn21=experiment('rn21') # similar to rn19.
-    rn21.vary('nx',200,200,1,0)
-    rn21.vary('minSigSt',10,10,1,0)
-    rn21.vary('diskScaleLength',2,2,1,0)
-    rn21.vary('epsff',0,.01,2,0)
-    rn21.irregularVary('dbg',[2**10,2**10+2**11])
-    rn21.vary('ndecay',2,2,1,0) # this line shouldn't matter
-    rn21.vary('alphaMRI',.1,.1,1,0)
-    rn21.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
-    rn21.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn21']=rn21
-
-    rn22=experiment('rn22') # similar to rn19.
-    rn22.vary('nx',200,200,1,0)
-    rn22.vary('minSigSt',10,10,1,0)
-    rn22.vary('diskScaleLength',2,2,1,0)
-    rn22.vary('epsff',0,.01,2,0)
-    rn22.irregularVary('dbg',[2**10,2**10+2**11])
-    rn22.vary('ndecay',2,2,1,0) # this line shouldn't matter
-    rn22.vary('alphaMRI',0.0,0.0,1,0)
-    rn22.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
-    rn22.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn22']=rn22
-
-    rn23=experiment('rn23') # similar to rn21.
-    rn23.vary('nx',200,200,1,0)
-    rn23.vary('minSigSt',10,10,1,0)
-    rn23.vary('diskScaleLength',2,2,1,0)
-    rn23.vary('epsff',0,.01,2,0)
-    rn23.irregularVary('dbg',[2**10,2**10+2**11])
-    rn23.vary('ndecay',2,2,1,0) # this line shouldn't matter
-    rn23.vary('alphaMRI',0.1,0.1,1,0)
-    rn23.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
-    rn23.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn23']=rn23
-
-    rn24=experiment('rn24') # similar to rn21.
-    rn24.vary('nx',200,200,1,0)
-    rn24.vary('minSigSt',10,10,1,0)
-    rn24.vary('diskScaleLength',2,2,1,0)
-    rn24.vary('epsff',0,.01,2,0)
-    rn24.irregularVary('dbg',[2**10,2**10+2**11])
-    rn24.vary('ndecay',2,2,1,0) # this line shouldn't matter
-    rn24.vary('alphaMRI',0.1,0.1,1,0)
-    rn24.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
-    rn24.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn24']=rn24
-
-    rn25=experiment('rn25') # similar to rn21.
-    rn25.vary('nx',200,200,1,0)
-    rn25.vary('minSigSt',10,10,1,0)
-    rn25.vary('diskScaleLength',2,2,1,0)
-    rn25.vary('epsff',0,.01,2,0)
-    rn25.irregularVary('dbg',[2**10,2**10+2**11])
-    rn25.vary('ndecay',2,2,1,0) # this line shouldn't matter
-    rn25.vary('alphaMRI',0.0,0.1,2,0)
-    rn25.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
-    rn25.vary('Mh0',1.0e12,1.0e12,1,0)
-    allModels['rn25']=rn25
-
-    rn26=experiment('rn26') # same as rn25 but with Mdot_- =0, not tau=0
-    rn26.vary('nx',200,200,1,0)
-    rn26.vary('minSigSt',10,10,1,0)
-    rn26.vary('diskScaleLength',2,2,1,0)
-    rn26.vary('epsff',0.01,.01,1,0)
-    #  9: only set F=0, not tau.
-    # 10: never set y=0, i.e. smooth y.
-    # 11: d/dt equations not explicitly mass-conserving
-    # 12: turn off if F<0; else turn off if Q>Qf
-    # 13: 1-cell padding for KTO
-#    rn26.irregularVary('dbg',[2**9+2**10, 2**10, 2**10+2**11, 2**10+2**12, 2**10+2**12+2**13])
-#    rn26.irregularVary('dbg',[2**10+2**14, 2**9+2**10, 2**10, 2**9+2**10+2**12, 2**10+2**12, 2**10+2**12+2**13])
-    rn26.irregularVary('dbg',[2**10, 2**10+2**12, 2**10+2**12+2**9])
-    rn26.vary('ndecay',2,2,1,0) # this line shouldn't matter
-    rn26.vary('alphaMRI',0.0,0.05,2,0)
-    rn26.irregularVary('whichAccretionHistory',[-1000,-3000,-6000,-9000])
-    rn26.vary('Mh0',1.0e12,1.0e12,1,0)
-    rn26.irregularVary('TOL',[1.0e-4,1.0e-3])
-    allModels['rn26']=rn26
-
-
 
     rn27=experiment('rn27a') # detailed view of MW-size halo
     rn27.vary('nx',200,200,1,0)
@@ -752,28 +544,6 @@ if __name__ == "__main__":
     rn42.vary('b',10,10,1,0)
     allModels['rn42']=rn42
 
-    rn43=experiment('rn43d') # different inner boundary condition (x(0))
-    rn43.vary('dbg',2**10+2**17,2**10+2**17,1,0)
-    rn43.vary('minSigSt',10,10,1,0)
-    rn43.vary('whichAccretionHistory',6100,7099,1000,0)
-    rn43.vary('eta',1.5,1.5,1,0)
-    allModels['rn43']=rn43
-
-    rn44=experiment('rn44d') # modified again: x(0)*OBC
-    rn44.vary('dbg',2**10+2**18,2**10+2**18,1,0)
-    rn44.vary('minSigSt',10,10,1,0)
-    rn44.vary('whichAccretionHistory',6100,7099,1000,0)
-    rn44.vary('eta',1.5,1.5,1,0)
-    allModels['rn44']=rn44
-
-    rn45=experiment('rn45') # hi-res in age
-    rn45.vary('dbg',2**10,2**10,1,0)
-    rn45.vary('minSigSt',10,10,1,0)
-    rn45.vary('whichAccretionHistory',6100,7099,1000,0)
-    rn45.vary('eta',1.5,1.5,1,0)
-    rn45.vary('NPassive',100,100,1,0)
-    allModels['rn45']=rn45
-
     rn46=experiment('rn46') # low SF efficiency & weak feedback
     rn46.vary('dbg',2**10,2**10,1,0)
     rn46.vary('minSigSt',10,10,1,0)
@@ -784,14 +554,103 @@ if __name__ == "__main__":
     rn46.vary('NPassive',10,10,1,0)
     allModels['rn46']=rn46
 
-    rn47=experiment('rn47') # low SF efficiency
-    rn47.vary('dbg',2**10+2**18,2**10+2**18,1,0)
-    rn47.vary('minSigSt',10,10,1,0)
-    rn47.vary('whichAccretionHistory',6100,7099,1000,0)
-    rn47.vary('eta',1.5,1.5,1,0)
-    rn47.vary('NPassive',10,10,1,0)
-    allModels['rn47']=rn47
+    rn48=experiment('rn48') # low gas temperature
+    rn48.vary('dbg',2**10,2**10,1,0)
+    rn48.vary('minSigSt',10,10,1,0)
+    rn48.vary('whichAccretionHistory',6100,7099,1000,0)
+    rn48.vary('gasTemp',100,100,1,0)
+    allModels['rn48']=rn48
 
+    rn49=experiment('rn49') # const depletion time.
+    rn49.vary('dbg',2**10+2**19,2**10+2**19,1,0)
+    rn49.vary('minSigSt',10,10,1,0)
+    rn49.vary('whichAccretionHistory',6100,7099,1000,0)
+    allModels['rn49']=rn49
+
+    rn50=experiment('rn50') # test new metallicity diffusion prescription
+    rn50.vary('dbg',2**10,2**10,1,0)
+    rn50.vary('minSigSt',10,10,1,0)
+    rn50.vary('whichAccretionHistory',6100,7099,1000,0)
+    allModels['rn50']=rn50
+
+
+
+
+    # a new era, with several minor or confusing issues fixed, and using the same set accretion histories.
+    rn51=experiment('rn51') # baseline.
+    rn51.vary('dbg',2**10,2**10,1,0)
+    rn51.vary('minSigSt',10,10,1,0)
+    rn51.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn51']=rn51
+
+    rn52=experiment('rn52') # condition-dependent metal diffusion with fixed Z_boundary
+    rn52.vary('dbg',2**10+2**15+2**1,2**10+2**15+2**1,1,0)
+    rn52.vary('minSigSt',10,10,1,0)
+    rn52.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn52']=rn52
+
+    rn53=experiment('rn53') # condition-dependent metal diffusion with fixed Z_boundary and zeta=.7
+    rn53.vary('dbg',2**10+2**15+2**1+2**13,2**10+2**15+2**1+2**13,1,0)
+    rn53.vary('minSigSt',10,10,1,0)
+    rn53.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn53']=rn53
+
+    rn54=experiment('rn54') # condition-dependent metal diffusion with zero-outflow BC and zeta=.3
+    rn54.vary('dbg',2**10+2**15+2**14,2**10+2**15+2**14,1,0)
+    rn54.vary('minSigSt',10,10,1,0)
+    rn54.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn54']=rn54
+
+    rn55=experiment('rn55') # IBC = -.01*x(0)
+    rn55.vary('dbg',2**10+2**17,2**10+2**17,1,0)
+    rn55.vary('minSigSt',10,10,1,0)
+    rn55.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn55']=rn55
+
+    rn56=experiment('rn56') # IBC = -x(0)
+    rn56.vary('dbg',2**10+2**18,2**10+2**18,1,0)
+    rn56.vary('minSigSt',10,10,1,0)
+    rn56.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn56']=rn56
+
+    rn57=experiment('rn57') # const depletion time
+    rn57.vary('dbg',2**10+2**19,2**10+2**19,1,0)
+    rn57.vary('minSigSt',10,10,1,0)
+    rn57.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn57']=rn57
+
+    rn58=experiment('rn58') # F=0 only
+    rn58.vary('dbg',2**10+2**12+2**9,2**10+2**12+2**9,1,0)
+    rn58.vary('minSigSt',10,10,1,0)
+    rn58.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn58']=rn58
+
+    rn59=experiment('rn59') # low gas temperature
+    rn59.vary('dbg',2**10,2**10,1,0)
+    rn59.vary('gasTemp',100,100,1,0)
+    rn59.vary('minSigSt',10,10,1,0)
+    rn59.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn59']=rn59
+
+    rn60=experiment('rn60') # rotation curve
+    rn60.vary('dbg',2**10,2**10,1,0)
+    rn60.vary('minSigSt',10,10,1,0)
+    rn60.vary('whichAccretionHistory',1000,1399,400,0)
+    rn60.vary('innerPowerLaw',.5,.5,1,0)
+    rn60.vary('softening',4,4,1,0)
+    rn60.vary('b',5,5,1,0)
+    allModels['rn60']=rn60
+
+
+
+#    nacc=90
+#    nmh0=61
+#    mh0Min = 1.0e9
+#    mh0Max = 1.0e12
+#    rn33 = HaloMassStudy("rn33",allModels,nacc,nmh0,mh0Min,mh0Max)
+#    rn33.vary('nx',200,200,1,0)
+#    rn33.vary('diskScaleLength',2,2,1,0)
+#    rn33.irregularVary('dbg',[2**10])
 
     experiments=[]
     nacc = 90

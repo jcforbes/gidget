@@ -113,8 +113,10 @@ DiskContents::DiskContents(double tH, double eta,
   tau=gsl_vector_alloc(nx+2); 
   forcing=gsl_vector_alloc(nx+2);
 
-  if(dbg.opt(15))
+  if(dbg.opt(13))
     zetaREC = .7;
+  if(dbg.opt(14))
+    zetaREC = .3;
 
   return;
 }
@@ -829,69 +831,12 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
     tauSmooth[n]/=norm;
   }
 
-//  if(ndecay > 0.0) {
-//    Interfaces inters(keepTorqueOff,x);
-//    for(unsigned int n=1; n<=nx; ++n) {
-//      if( (dbg.opt(3) && keepTorqueOff[n]==1) || !dbg.opt(3)) {
-//        double weight = inters.weight(x[n],false,ndecay);
-//	if(dbg.opt(1))    tauvec[1][n] = tauvec[1][inters.index(n,true)] * weight + (1.0-weight)*tauMRI[n];
-//        else if(dbg.opt(2)) tauvec[1][n] = tauSmooth[inters.index(n,true)]*weight + (1.0-weight)*tauMRI[n];
-//	else tauvec[1][n] = tauSmooth[n];
-//////        tauvec[2][n] = tauvec[2][inters.index(n,true)] * weight + (1.0-weight)*taupMRI[n];
-//      }
-//    }
-//  }
-
   TauPrimeFromTau(tauvec);
 }
 
-// void DiskContents::ComputeTorques(double ** tauvec, const double IBC, const double OBC)
-// {
-//   ComputeGItorque(tauvec, 1, nx, IBC, OBC); // simplest version.
-// }
-
-// void DiskContents::TridiagonalWrapper(unsigned int nmin, unsigned int nmax)
-// {
-//   gsl_vector * lrSubset, * diagSubset, * urSubset;
-//   gsl_vector * tauSubset, * forcingSubset;
-
-//   lrSubset = gsl_vector_alloc(nmax-nmin);
-//   urSubset = gsl_vector_alloc(nmax-nmin);
-//   diagSubset=gsl_vector_alloc(nmax-nmin+1);
-//   tauSubset=gsl_vector_alloc(nmax-nmin+1);
-//   forcingSubset=gsl_vector_alloc(nmax-nmin+1);
-
-//   for(unsigned int n=nmin; n<=nmax; ++n) {
-//     unsigned int i=n-nmin;
-//     if(n<nmax) {
-//       gsl_vector_set(lrSubset, i, gsl_vector_get(lr,n-1));
-//       gsl_vector_set(urSubset, i, gsl_vector_get(ur,n-1));
-//     }
-//     gsl_vector_set(diagSubset,i,gsl_vector_get(diag,n-1));
-//     gsl_vector_set(forcingSubset,i,gsl_vector_get(forcing,n-1));
-//   }
-
-//   int status = gsl_linalg_solve_tridiag(diagSubset,urSubset,lrSubset,forcingSubset,tauSubset);
-//   if(status!=GSL_SUCCESS) 
-//     errormsg("Failed to solve subset of the torque equation: nmin,nmax= "+str(nmin)+" "+str(nmax));
-
-//   for(unsigned int n=nmin; n<=nmax; ++n) {
-//     unsigned int i=n-nmin;
-//     gsl_vector_set(tau,n-1, gsl_vector_get(tauSubset,i));
-//   }
-
-//   gsl_vector_free(lrSubset);
-//   gsl_vector_free(urSubset);
-//   gsl_vector_free(diagSubset);
-//   gsl_vector_free(forcingSubset);
-//   gsl_vector_free(tauSubset);
-
-// }
 
 void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const double OBC)
-{
-  double IBC2 = IBC;
-  
+{  
   for(unsigned int n=1; n<=nx; ++n) {
     gsl_vector_set(lr,   n-1, LL[n]);
     gsl_vector_set(diag,   n, DD[n]);
@@ -900,14 +845,10 @@ void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const dou
   }
   gsl_vector_set(ur  , 0, 0.0);
   gsl_vector_set(diag, 0, 1.0);
-  //  if(dbg.opt(18)) {
-  //  gsl_vector_set(ur, 0, 1.0/(mesh.u1pbPlusHalf(0)*(x[1]-mesh.x(0.0))));
-  //  gsl_vector_set(diag, 0, -1.0/(mesh.u1pbPlusHalf(0)*(x[1]-mesh.x(0.0))));
-  // }
 
   gsl_vector_set(lr, nx,  -1.0/(mesh.u1pbPlusHalf(nx)*(mesh.x(nx+1)-x[nx])));
   gsl_vector_set(diag,nx+1, 1.0/(mesh.u1pbPlusHalf(nx)*(mesh.x(nx+1)-x[nx])));
-  gsl_vector_set(forcing,0,IBC2);
+  gsl_vector_set(forcing,0,IBC);
   gsl_vector_set(forcing,nx+1,OBC);
 
   int status = gsl_linalg_solve_tridiag(diag,ur,lr,forcing,tau);
@@ -920,78 +861,6 @@ void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const dou
 
 }
 
-// void DiskContents::ComputeGItorque(double ** tauvec,
-//                                   unsigned int nmin, unsigned int nmax, 
-//                                   const double IBC, const double OBC)
-// {
-
-//   // Fill in some GSL vectors in preparation for inverting a tri-diagonal matrix
-
-//   // Note that gsl vectors are indexed from 0, whereas other 
-//   // vectors (x,H,h2,h1,h0,...) are indexed from 1
-//   for(unsigned int n=nmin; n<=nmax; ++n){
-//     gsl_vector_set(forcing, n-1,  H[n]);
-//     gsl_vector_set(diag, n-1,  
-//         h0[n] - h2[n]/(x[n]*x[n]) * (sqd/(dm1*dm1) + 1./(sqd*dmm1*dmm1)));
-//     if(H[n]!=H[n] || h0[n]!=h0[n] || h1[n]!=h1[n] || h2[n]!=h2[n])
-//       errormsg("Poorly posed torque eq: H,h0,h1,h2: "+str(n)+" "
-//          +str(H[n])+" "+str(h0[n])+" "+str(h1[n])+" "+str(h2[n]));
-//   }
-
-//   // Set the forcing terms as the boundaries. OBC is the value of tau' at the outer boundary
-//   // while IBC is the value of tau at the inner boundary.
-//   gsl_vector_set(forcing,nmax-1, 
-//      H[nmax] - OBC*x[nmax]*dmdinv*(h2[nmax]*sqd/(x[nmax]*x[nmax]*dm1*dm1) 
-//          + h1[nmax]/(x[nmax]*dmdinv)));
-//   gsl_vector_set(forcing,nmin-1  , 
-//      H[nmin] - IBC * (h2[nmin]/(x[nmin]*x[nmin]*dmm1*dmm1*sqd) -h1[nmin]/(x[nmin]*dmdinv)));
-
-//   // Loop over all cells to set the sub- and super-diagonal matrix elements
-//   for(unsigned int n=nmin; n<nmax-1; ++n) {
-//     gsl_vector_set(lr,  n-1,  
-//          (h2[n+1]/(x[n+1]*x[n+1]*dmm1*dmm1*sqd) - h1[n+1]/(x[n+1]*dmdinv) ));
-//     gsl_vector_set(ur,  n  ,  
-//          (h2[n+1]*sqd/(x[n+1]*x[n+1]*dm1*dm1) + h1[n+1]/(x[n+1]*dmdinv) ));
-//   }
-
-//   // Set the edge cases of the sub- and super-diagonal matrix elements.
-//   gsl_vector_set(ur,  nmin-1,   
-//       (h2[nmin]*sqd/(x[nmin]*x[nmin]*dm1*dm1) + h1[nmin]/(x[nmin]*dmdinv)));
-//   gsl_vector_set(lr, nmax-2, 
-//       (h2[nmax]/(x[nmax]*x[nmax])) * (sqd/(dm1*dm1) + 1./(sqd*dmm1*dmm1)) );
-  
-
-// //  // Compute the torque (tau) given a tridiagonal matrix equation.
-// //  int status = gsl_linalg_solve_tridiag(diag,ur,lr,forcing,tau);
-// //  if(status!=GSL_SUCCESS)
-// //    errormsg("Failed to solve torque equation");
-//   TridiagonalWrapper(nmin,nmax);
-
-//   // Now the we have solved the torque equation, read the solution back in to the
-//   // data structures used in the rest of the code, i.e. tauvec.
-//   for(unsigned int n=nmin; n<=nmax; ++n) {
-//     tauvec[1][n] = gsl_vector_get(tau,n-1);
-//     if(tauvec[1][n]!=tauvec[1][n]) {
-// 	std::string spc(" ");
-//       errormsg(std::string("Tridiagonal solver failed-  n,lr,diag,ur,forcing")
-//           +std::string("   H,h0,h1,h2:  ")+str(n)+spc+str(gsl_vector_get(lr,n-1))+spc
-//           +str(gsl_vector_get(diag,n-1))+spc+str(gsl_vector_get(ur,n-1))
-//           +spc+str(gsl_vector_get(forcing,n-1))+spc+spc+str(H[n])
-//           +spc+str(h0[n])+spc+str(h1[n])+spc+str(h2[n]));
-//     }
-//   }
-
-//   TauPrimeFromTau(tauvec,nmin,nmax,IBC,OBC);
-
-//   // Take the solution to the torque equation which has just been calculated
-//   // and plug it back in to the original ODE. Accumulate the degree to which
-//   // the equation is not satisfied in each cell.
-//   for(unsigned int n=nmin; n<=nmax; ++n) {
-//     CumulativeTorqueErr2[n] += d2taudx2[n] * h2[n] 
-//         + tauvec[2][n] * h1[n] + tauvec[1][n] * h0[n] - H[n];
-//   } 
-
-// }
 
 void DiskContents::TauPrimeFromTau(double ** tauvec)
 {
@@ -1001,39 +870,6 @@ void DiskContents::TauPrimeFromTau(double ** tauvec)
   }
   MdotiPlusHalf[0]=-1.0/mesh.u1pbPlusHalf(0) * (tauvec[1][1]-tauvec[1][0])/(x[1]-mesh.x(0.0));
 
-//   // Take the given values of tau and use them to self-consistently calculate tau'.
-//   for(unsigned int n=nmin+1; n<=nmax-1; ++n) {
-//     tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(x[n]*dmdinv);
-//   }
-
-//   // Set the boundaries of tau' such that they will obey the boundary conditions
-//   tauvec[2][nmax]=OBC;
-//   tauvec[2][nmin] = (tauvec[1][nmin+1]-IBC)/(x[1]*dmdinv);
-//   tauvec[1][nmin-1] = IBC; // implicitly true in the above equation.
-
-//   // Compute second derivative of torque
-//   for(unsigned int n=nmin+1; n<=nmax-1; ++n) {
-//     d2taudx2[n] = (sqd/(x[n]*x[n])) * 
-//          ((tauvec[1][n+1]-tauvec[1][n])/(dm1*dm1) 
-//             - (tauvec[1][n]-tauvec[1][n-1])/(dmm1*dmm1*dd));
-//     if(d2taudx2[n]!=d2taudx2[n]) {
-//       errormsg("Error computing tau''. tauvec[1][n-1,n,n+1], dm1, dmm1, dd: "+str(tauvec[1][n-1])+" "+str(tauvec[1][n])+" "+str(tauvec[1][n+1])+" "+str(dm1)+" "+str(dmm1)+" "+str(dd)+" "+str(n));
-//     }
-//   }
-//   d2taudx2[nmin] = (sqd/(x[nmin]*x[nmin])) * ((tauvec[1][nmin+1]-tauvec[1][nmin])/(dm1*dm1) 
-//         - (tauvec[1][nmin]-IBC)/(dmm1*dmm1*dd));
-//   d2taudx2[nx] = OBC - (sqd/(x[nx]*x[nx])) * 
-//        (  - (tauvec[1][nmax]-tauvec[1][nmax-1])/(dmm1*dmm1*dd));
-
-//   // Check for errors..
-//   for(unsigned int n=nmin; n<=nmax; ++n) {
-//     if(tauvec[2][n]!=tauvec[2][n]) {
-//       errormsg("Error computing tau'");
-//     }
-//     if(d2taudx2[n]!=d2taudx2[n]) {
-//       errormsg("Error computing tau''. tauvec[1][n-1,n,n+1], dm1, dmm1, dd: "+str(tauvec[1][n-1])+" "+str(tauvec[1][n])+" "+str(tauvec[1][n+1])+" "+str(dm1)+" "+str(dmm1)+" "+str(dd)+" "+str(n));
-//     }
-//   }
 }
 
 
@@ -1042,45 +878,57 @@ void DiskContents::DiffuseMetals(double dt)
     gsl_vector *lr, *diag, *ur;
     gsl_vector *MetalMass1, *MetalMass2;
 
-    lr=gsl_vector_alloc(nx-1);
-    diag=gsl_vector_alloc(nx);
-    ur=gsl_vector_alloc(nx-1);
-    MetalMass1=gsl_vector_alloc(nx); MetalMass2=gsl_vector_alloc(nx);
+    // what boundary condition do we use?
+
+    lr=gsl_vector_alloc(nx);
+    diag=gsl_vector_alloc(nx+1);
+    ur=gsl_vector_alloc(nx);
+    MetalMass1=gsl_vector_alloc(nx+1); MetalMass2=gsl_vector_alloc(nx+1);
 
     std::vector<double> etas(0), xis(0);
     etas.push_back(0.0); xis.push_back(0.0);
     // ZFlux[n] = net flux of metal mass from bin i+1 to bin i.
-    for(unsigned int n=1; n<=nx-1; ++n) {
-      if(dbg.opt(15)) kappaMetals = .1*sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
-      double sum = 4.0*M_PI*kappaMetals/((x[n+1]-x[n])*(x[n+1]-x[n]));
-      double ratio = x[n+1]*x[n+1]*col[n+1]/(x[n]*x[n]*col[n]);
+    for(unsigned int n=1; n<=nx; ++n) {
+      double KM;
+      if(dbg.opt(15)) KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
+      else KM = kappaMetals;
+      double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
+      double colnp1 = col[nx];
+      if(n!=nx) colnp1=col[n+1];
+      double ratio = mesh.x(n+1)*mesh.x(n+1.0)*colnp1/(x[n]*x[n]*col[n]);
       etas.push_back(sum/(1.0+ratio));
       xis.push_back(sum*ratio/(1.0+ratio));
     }
     xis.push_back(0.0);
 
-    for(unsigned int i=0; i<=nx-2; ++i) {
+    for(unsigned int i=0; i<=nx-1; ++i) {
       gsl_vector_set(lr, i, -xis[i+1]*dt);
       gsl_vector_set(diag, i, 1.0+dt*(xis[i+1]+etas[i]));
       gsl_vector_set(ur,i,-etas[i+1]*dt);
 
-//      ZFlux[n] = -xi*( x[n]*x[n]*dlnx*col[n]*ZDisk[n] ) + et*(x[n+1]*x[n+1]*dlnx*col[n+1]*ZDisk[n+1]);
     }
-    gsl_vector_set(diag, nx-1, 1.0+dt*etas[nx-1]);
+    gsl_vector_set(diag, nx, 1.0+dt*etas[nx]);
 
     std::vector<double> ZFlux(nx+1);
     for(unsigned int n=1; n<=nx; ++n) {
       gsl_vector_set(MetalMass1,n-1, ZDisk[n]*col[n]*x[n]*x[n]*dlnx);
     }
+
+    if(dbg.opt(1)) { // Z_boundary = Z_IGM
+      gsl_vector_set(MetalMass1,nx,Z_IGM*col[nx]*mesh.x(nx+1.0)*mesh.x(nx+1.0)*dlnx);
+    }
+    else { // Zero flux condition
+      gsl_vector_set(MetalMass1,nx,ZDisk[nx]*col[nx]*mesh.x(nx+1.0)*mesh.x(nx+1.0)*dlnx);
+    }
+
     for(unsigned int n=0; n<=nx; ++n) {
       double left=0;
       double right=0;
       if(n!=0) left=-xis[n]*x[n]*x[n]*col[n]*dlnx;
       if(n!=nx) right = etas[n]*x[n+1]*x[n+1]*col[n+1]*dlnx;
+      else right = etas[n]*mesh.x(n+1.0)*mesh.x(n+1.0)*col[nx]*dlnx;
       ZFlux[n] = left+right;
       
-      //      if(n==0 && ZFlux[n]!=0.0 || n==nx && ZFlux[n]!=0.0 || n>0 && n<nx && fabs(ZDisk[n+1]-ZDisk[n])/ZDisk[n]<.001 && ZFlux[n]>.001)
-      //      std::cerr << "Metal mass flux- n,ZDisk,ZFlux "<< n << " "<<ZDisk[n]<<" "<<ZFlux[n]<<std::endl;
     }
 
     gsl_linalg_solve_tridiag(diag,ur,lr,MetalMass1,MetalMass2);
@@ -1223,12 +1071,16 @@ double DiskContents::ComputeH2Fraction(unsigned int n)
 }
 double DiskContents::dSSFdt(unsigned int n)
 {
-  
-  double val = ComputeH2Fraction(n) * 2.*M_PI*EPS_ff//*sqrt(
+  double fH2 = ComputeH2Fraction(n);
+  double val = fH2 * 2.*M_PI*EPS_ff//*sqrt(
 //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
 	* sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
 	* sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))
 	* sqrt(32.0 / (3.0*M_PI));
+  if(dbg.opt(19)) { // constant SF depletion time.
+    double tdep = 2.0; // in Ga
+    val = fH2 * col[n] / (tdep * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
+  }
   if(val < 0 || val!=val)
     errormsg("Error computing dSSFdt:  n, val, fH2, col, sig   "
        +str(n)+" "+str(val)+" "+str(ComputeH2Fraction(n))+" "+str(col[n])
@@ -1305,7 +1157,6 @@ void DiskContents::UpdateCoeffs(double redshift)
 
     double QQ = Q(&rqp,&absc);
 
-
     if(!dbg.opt(12)) {
       if(QQ>fixedQ) {
 	FF[n]=0.0;
@@ -1331,32 +1182,6 @@ void DiskContents::UpdateCoeffs(double redshift)
       
     }
 
-
-
-
-//    // turn torque off if it's on and torque is destabilizing this cell
-//    if(dbg.opt(12) && keepTorqueOff[n]==0 && FF[n] < 0 ||
-//       !dbg.opt(12) && keepTorqueOff[n]==0 && Q(&rqp,&absc)>fixedQ) {
-//      keepTorqueOff[n]=1;
-//    }
-//    // turn torque on it it's off, not-destabilizing to the disk, and
-//    // the disk has become gravitationally unstable again.
-//    if(keepTorqueOff[n] == 1 && FF[n]>=0. && Q(&rqp,&absc)<=fixedQ ) { 
-//      keepTorqueOff[n]=0;
-//    }
-//    // if the torque is currently off, turn off forcing of the torque equation.
-//    if(!dbg.opt(14) && ( (!dbg.opt(13) && keepTorqueOff[n]==1) ||
-//	(dbg.opt(13) && keepTorqueOff[n]==1 && n!=nx && keepTorqueOff[n+1]==1))) {  //// so, with dbg 12, we set tau=0 to the left of the stable region, and with !dbg 12, the torque stays at whatever value it would like.
-//      FF[n]  = 0.0;
-//      if(!dbg.opt(9)) {
-//        UU[n] = 0.0;
-//        DD[n] = 1.0; // set tau = 0
-//        LL[n] = -1.0; // set dtau/dx = 0
-//      }
-//    }   
-//
-
-
     if(FF[n]!=FF[n] || DD[n]!=DD[n] || LL[n]!=LL[n] || UU[n]!=UU[n]) {
       std::string spc(" ");
       errormsg(std::string("Error calculating torque eq. coefficients: FF,DD,LL,RR")
@@ -1370,79 +1195,6 @@ void DiskContents::UpdateCoeffs(double redshift)
   }
 }
 
-// void DiskContents::UpdateCoeffs(double redshift)
-// {
-//   double absc=1.;
-//   RafikovQParams rqp;
-//   for(unsigned int n=1; n<=nx; ++n) {
-//     ComputeRafikovQParams(&rqp,n);
-    
-//     h2[n]=  dQdS[n] * -(1./((beta[n]+1.)*uu[n]*x[n])) 
-//            +dQds[n] * (-sig[n]/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]));
-
-//     h1[n] = dQdS[n]*(beta[n]*beta[n]+beta[n]+x[n]*betap[n])
-//                 /((beta[n]+1.)*(beta[n]+1.)*uu[n]*x[n]*x[n])
-//       + dQds[n] * (sig[n]*(beta[n]+beta[n]*beta[n]+x[n]*betap[n])
-//                /(3.*(beta[n]+1.)*(beta[n]+1.)*col[n]*uu[n]*x[n]*x[n])
-//                 - 5.*ddx(sig,n,x)/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]));
-
-//     h0[n] = dQds[n]*uu[n]*(beta[n]-1.)/(3*sig[n]*col[n]*x[n]*x[n]*x[n]);
-    
-//     H[n] = RfREC*dQdS[n]*dSSFdt(n) + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n];
-
-//     // Add the term to H coming from the change in gas velocity
-//     // dispersion, so long as there is some non-thermal velocity dispersion.
-//     if(sigth<=sig[n]) {
-//       double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
-//       H[n] += dQds[n] * 2*M_PI*M_PI*(ETA*
-//                pow(1.- sigth*sigth/(sig[n]*sig[n]),1.5)
-//                )*col[n]*dim.chi()*(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/(3.);
-//     }
-//     else {
-//       // do nothing - this term is zero, even though pow(<neg>,1.5) is nan.
-//     }
-
-//     // Add the contributions to H from the stellar components. Here we see 
-//     // the difference between an active and a passive stellar population- 
-//     // only the active populations contribute to H:
-//     for(unsigned int i=0; i!=spsActive.size(); ++i) {
-//       if(spsActive[i].IsForming(cos,redshift)) {
-//         H[n] -= spsActive[i].dQdS[n] * RfREC * dSSFdt(n);
-//       }
-//       H[n] -= spsActive[i].dQds[n] * dSigstdt(n,i,redshift,spsActive) 
-//             + spsActive[i].dQdS[n] * dSMigdt(n,yy,x,spsActive[i].spcol);
-//     }
-
-//     // turn torque off if it's on and torque is destabilizing this cell
-//     if(keepTorqueOff[n]==0 && H[n] < 0 ) {
-//       keepTorqueOff[n]=1;
-//     }
-//     // turn torque on it it's off, not-destabilizing to the disk, and
-//     // the disk has become gravitationally unstable again.
-//     if(keepTorqueOff[n] == 1 && H[n]>=0. && Q(&rqp,&absc)<=fixedQ ) { 
-//       keepTorqueOff[n]=0;
-//     }
-//     // if the torque is currently off, turn off forcing of the torque equation.
-//     if(keepTorqueOff[n]==1) { 
-//       H[n]  = 0.0;
-//       if(!dbg.opt(9)) {
-//         h2[n] = 0.0;
-//         h0[n] = 1.0; // set tau = 0
-//         h1[n] = 0.0; // set dtau/dx = 0
-//       }
-//     }   
-
-//     if(H[n]!=H[n] || h0[n]!=h0[n] || h1[n]!=h1[n] || h2[n]!=h2[n]) {
-//       std::string spc(" ");
-//       errormsg(std::string("Error calculating torque eq. coefficients: H,h0,h1,h2")
-//          +std::string("   col,sig  dQdS,dQds,dQdSst,dQdsst ")+str(H[n])+" "+str(h0[n])
-//          +spc+str(h1[n])+spc+str(h2[n])+spc+spc+str(col[n])+spc+str(sig[n])
-//          +spc+spc+str(dQdS[n])+" "+str(dQds[n])+spc+str(spsActive[0].dQdS[n])
-//          +spc+str(spsActive[0].dQds[n])+spc+spc+str(dSigstdt(n,0,redshift,spsActive))+spc
-// 	+str(dSMigdt(n,yy,x,spsActive[0].spcol)));
-//     }
-//   }
-// }
 
 void DiskContents::WriteOutStarsFile(std::string filename,
 				     std::vector<StellarPop>& sps,
@@ -1903,3 +1655,7 @@ double DiskContents::activeSigSt(unsigned int n)
   val = sqrt(val);
   return val;
 }
+
+
+
+

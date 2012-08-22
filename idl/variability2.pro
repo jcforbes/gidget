@@ -169,17 +169,17 @@ PRO variability2,expName,keys,N,sv
   ctr=0
 
   ;; variables to plot- title, column index, log plot, name, y-range
-  wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2','ageAtz0','age']
-  wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32]
-  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1]
-  wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age']
+  wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc']
+  wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32,35,36,37] ;; index
+  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1] ;; offset?
+  wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc']
   wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
-    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9]]
-  wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0,0,0]
+    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9],[1.0e8,1.0e10],[1.0e8,1.0e10],[.01,100]]
+  wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0,0,0,1,1,1]
 
   IF(n_elements(keys) EQ 0) THEN keys=indgen(n_elements(wrtXyt)-1)+1
 
-  dummy = where(keys EQ 13 OR keys EQ 14, n1)
+  dummy = where( keys EQ 17, n1)
   IF(n1 EQ 2) THEN n1=1
 
   ;; only plot the variables present in 'keys'	

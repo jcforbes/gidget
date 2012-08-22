@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
   const double tempRatio =         as.Set(1.,"Initial sigma_*/sigma_g");
   const double zstart =            as.Set(2.,"Initial redshift");
   const double tmax =              as.Set(1000,"Maximum Time (outer orbits)");
-  const unsigned int stepmax=      as.Set(100000000,"Maximum Number of Steps");
+  const unsigned int stepmax=      as.Set(10000000,"Maximum Number of Steps");
   const double TOL =               as.Set(.0001,"TOL (outer orbits)");
   const double MassLoadingFactorAtMh12=  as.Set(1,"Mass Loading Factor at Mh=10^12 MSun");
   const double BulgeRadius      =  as.Set(0,"Velocity Curve Turnover Radius (kpc)");
@@ -152,11 +152,11 @@ int main(int argc, char **argv) {
   as.~ArgumentSetter();
    
 
-  Simulation simIC(1000.0,1000000000,
+  Simulation simIC(300.0,1000000,
                    false, nx,TOL,
                    zstart,NActive,NPassive,
                    alphaMRI,sigth,ndecay,
-                   diskIC,accr,dbg);
+                   diskIC,accr,dbg,dim);
   int result = simIC.runToConvergence(1, false, filename+"_icgen"); // set false-> true to debug initial condition generator
   if(result!=5) // The simulation converges when the time step reaches 1*TOL.
     errormsg("Initial Condition generator failed to converge, code "+str(result));
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
 		 cosmologyOn,nx,TOL,
 		 zstart,NActive,NPassive,
 		 alphaMRI,sigth,ndecay,
-		 disk,accr,dbg);
+		 disk,accr,dbg,dim);
   result = sim.runToConvergence(1.0e10, true, filename);
  
 }

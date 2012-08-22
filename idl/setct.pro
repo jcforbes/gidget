@@ -4,10 +4,13 @@ END
 
 ;; Choose which color table to use.
 ;; which=1 <=> each color is quite distinct from the others
-;; which=2 <=> a gradual progression from black to red to blue
+;; which=2 <=> a gradual progression from black to red to blue, only reasonable for small numbers
 ;; which=3 <=> a gradual progression within a certain set of colors, determined by "color"
 ;;                  n refers to the number of gradations in this color
-PRO setct,which,n,color
+;; which=4 <=> completely random.
+;; which=5 <=> a gradual progression over many colors.
+PRO setct,which,n,colorRef
+        color=colorRef ; stupid IDL.
 	IF(which EQ 0) THEN BEGIN
 		compile_opt idl2
 		set_plot,'x'
@@ -38,18 +41,26 @@ PRO setct,which,n,color
 		IF(color EQ 0 || color EQ 3 || color EQ 4 || color EQ 6) THEN wb=1 ELSE wb=0
 		IF(color EQ 1 || color EQ 3 || color EQ 5 || color EQ 6) THEN wr=1 ELSE wr=0
 		IF(color EQ 2 || color GE 4) THEN wg=1 ELSE wg=0
-		r[0:nn-1]=byte((indgen(nn)+1)*fix(256.0/float(nn+1))*wr)
-		g[0:nn-1]=byte((indgen(nn)+1)*fix(256.0/float(nn+1))*wg)
-		b[0:nn-1]=byte((indgen(nn)+1)*fix(256.0/float(nn+1))*wb)
+		r[0:nn-1]=byte((indgen(nn)+1)*fix(250.0/float(nn+1))*wr)
+		g[0:nn-1]=byte((indgen(nn)+1)*fix(250.0/float(nn+1))*wg)
+		b[0:nn-1]=byte((indgen(nn)+1)*fix(250.0/float(nn+1))*wb)
 	ENDIF
 	IF(which EQ 1) THEN BEGIN
 		r[0:10]=byte([  0,255,  0,255,175,  6,116,  0,  7,255,255]) ; black,red,blue,orange,purple,cyan,maroon,dark green,yellow,magenta
 		g[0:10]=byte([  0,  0,  0,125,  2,192,  5,255,112,255,  9])
 		b[0:10]=byte([  0,  0,255,  0,175,175,  5,  0,  7,  0,178])
 
+
 		r[11:255] = byte( FIX(256*randomu(color,256-11)))
                 g[11:255] = byte( FIX(256*randomu(color+1,256-11)))
 		b[11:255] = byte( FIX(256*randomu(color+2,256-11)))
+
+                limit = fix(r) + fix(g) + fix(b)
+                problematic = where(limit GT 500) 
+                r[problematic] = byte(fix(r[problematic]/2))
+                g[problematic] = byte(fix(g[problematic]/2))
+                b[problematic] = byte(fix(b[problematic]/2))
+
 	
 	ENDIF
 
@@ -57,6 +68,12 @@ PRO setct,which,n,color
 		r=BYTE(RANDOMU(color,256)*256)
 		g=BYTE(RANDOMU(color+1,256)*256)
 		b=BYTE(RANDOMU(color+2,256)*256)
+                limit = int(r) + int(g) + int(b)
+                problematic = where(limit GT 500) 
+                r[problematic] = byte(r[problematic]/2)
+                g[problematic] = byte(g[problematic]/2)
+                b[problematic] = byte(b[problematic]/2)
+
 	ENDIF
 
 	IF(which EQ 5) THEN BEGIN
@@ -113,14 +130,14 @@ PRO setct,which,n,color
 		;stop
 	ENDIF
 
-	IF(which NE 5) THEN BEGIN
+;	IF(which NE 5) THEN BEGIN
 		r[0]=byte(0)
 		g[0]=byte(0)
 		b[0]=byte(0)
 		r[255]=byte(255)
 		g[255]=byte(255)
 		b[255]=byte(255)
-	ENDIF
+;	ENDIF
 
 ;	stop,which
 	TVLCT,r,g,b

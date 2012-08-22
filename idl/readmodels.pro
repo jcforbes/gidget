@@ -341,7 +341,7 @@ FUNCTION readOutput,name
 ;    errs[where(errs LT 1.e-21)] = 1.e-21
 ;    dataCube[*,*,60:63] = errs
 
-    NPostProcess= 34
+    NPostProcess= 37
     tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ZstNum = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
@@ -420,16 +420,26 @@ FUNCTION readOutput,name
 	ENDFOR
     ENDFOR
 
+
+    speryear=31556926.0
+    kmperkpc=3.08568025d16
+    pcperkpc=1d3
+
     tdc[*,*,ncolstep+33-1] = -tdc[*,*,1] ;; - tau ( for purposes of log plotting)
     tdc[*,*,ncolstep+34-1] = -tdc[*,*,2] ;; - tau'    '''
+
+    tdc[0,*,ncolstep+14-1] = tdc[1,*,ncolstep+14-1] ;; replace the 0th time step (all zeroes) with the first.
+
+    tdc[*,*,ncolstep+35-1] = tdc[*,*,ncolstep+10-1]*pcperkpc*pcperkpc/((MLF+Rf)*tdc[*,*,ncolstep+14-1]);; depletion time = col/coldtSF --- Msol/pc^2 / (Msol/kpc^2/yr) * (1000 pc/kpc)^2
+    tdc[*,*,ncolstep+36-1] = tdc[*,*,ncolstep+9-1]*kmperkpc/((tdc[*,*,ncolstep+17-1]+.00001)*speryear);; viscous time = r / v_r --- kpc/(km/s)
+    tdc[*,*,ncolstep+37-1] = tdc[*,*,ncolstep+35-1]/tdc[*,*,ncolstep+36-1];; depletion time / viscous time
+    
 
     tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
     tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr)
 
     dlnx=-alog(tdc[0,0,0])/float(n_elements(tdc[0,*,0])-1)
-    speryear=31556926.0
-	kmperkpc=3.08568025d16
-	pcperkpc=1d3
+
 ;;;;;	tdc[*,*,40-1]=tdc[*,*,52-1] * 2*!pi*tdc[*,*,0]*tdc[*,*,0]*dlnx*md0*radius/vphiR * kmperkpc/speryear ;; cumulative star formation in a given cell - solar masses
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined
 	initialStellarMass = dblarr(nt,nx)
@@ -490,6 +500,7 @@ FUNCTION readOutput,name
 	;28- ang. mom of gas, 29- ang. mom of stars
 	;30- ang. mom of cumulative outflows
         ;; 33,34 = -tau, -tau'
+        ;; 35,36,37: depletion time, viscous time, dep/visc
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )

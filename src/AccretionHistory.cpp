@@ -181,7 +181,7 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
     // update our list of redshifts, given our uniformly spaced value of omega.
     // subtract a small number so that when we evaluate some quantity at z=0, we don't get an interpolation error.
 
-    double z=zOfOmega(om)-1.0e-13;
+    double z=zOfOmega(om)-1.0e-4; // avoids interpolation errors at the end of the simulation...
     zs.push_back(z);
     if(!first) zs.push_back(z+.00000001);
     

@@ -13,6 +13,7 @@
 #include "Cosmology.h"
 #include "Debug.h"
 #include "FixedMesh.h"
+#include "Dimensions.h"
 
 Simulation::Simulation(const double tm, const long int sm,
                        const bool co,   const unsigned int nnx,
@@ -20,7 +21,7 @@ Simulation::Simulation(const double tm, const long int sm,
 		       const unsigned int na, const unsigned int np,
                        const double amri,const double sth, const double nd,
                        DiskContents& td,
-                       AccretionHistory& ah, Debug& db):
+                       AccretionHistory& ah, Debug& db, Dimensions& dm):
   tmax(tm), stepmax(sm),
   cosmologyOn(co),nx(nnx),
   TOL(tl), zstart(zs),
@@ -29,7 +30,8 @@ Simulation::Simulation(const double tm, const long int sm,
   ndecay(nd),
   theDisk(td),
   accr(ah),
-  dbg(db)
+  dbg(db),
+  dim(dm)
 {
   ini.NActive=na;
   ini.NPassive=np;
@@ -98,8 +100,11 @@ int Simulation::runToConvergence(const double fCondition,
     //    bool timeOut = true; // write out at every time step. Use only if 
                                // things crash and burn very quickly
     double duration = theDisk.GetCos().lbt(zstart); //in seconds
-    double present = theDisk.GetCos().Tsim(z); // in seconds
-    double previous = theDisk.GetCos().Tsim(z+dz(dt,z,theDisk.GetCos(),theDisk.GetDim())); // in seconds
+//    double present = theDisk.GetCos().Tsim(z); // in seconds
+//    double previous = theDisk.GetCos().Tsim(z+dz(dt,z,theDisk.GetCos(),theDisk.GetDim())); // in seconds
+    double present = t * 2.0*M_PI*dim.Radius / dim.vphiR;
+    double previous = (t-dt) * 2.0*M_PI*dim.Radius/dim.vphiR;
+
     bool timeOut = ((floor(200.0*previous/duration) < floor(200.0*present/duration) || step < 2) && writeOut) ;
 
     if(!cosmologyOn)

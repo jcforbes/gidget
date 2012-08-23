@@ -641,6 +641,34 @@ if __name__ == "__main__":
     rn60.vary('b',5,5,1,0)
     allModels['rn60']=rn60
 
+    rn61=experiment('rn61') # try everything...
+    rn61.vary('minSigSt',10,10,1,0)
+    rn61.vary('eta',.5,2.5,3,0)   # 3
+    rn61.vary('epsff',.005,.02,3,1) # 3
+    rn61.vary('gasTemp',100,7000,2,0) # 2
+    rn61.vary('fg0',.5,.5,1,0)        # 1
+    rn61.vary('phi0',1,3.16,2,1)   # 2
+    rn61.vary('mu',1,1,1,1)     # 1
+    rn61.vary('innerPowerLaw',.5,.5,1,0) 
+    rn61.vary('softening',4,4,1,0)
+    rn61.vary('b',0,5,2,0)            # 2
+    rn61.vary('diskScaleLength',2,3.5,2,1) # should include 2.  --- 2
+    rn61.vary('fixedQ',2.0,3.0,2,1) # should include 2 --- 2
+    rn61.irregularVary('dbg',[2**10,2**10+2**19,2**10+2**17,2**10+2**15]) # 4
+    allModels['rn61']=rn61
+
+    rn62=experiment('rn62') # baseline run -- test new code with non-outer-boundary-accretion infrastructure, but keep that switch off.
+    rn62.vary('dbg',2**10,2**10,1,0)
+    rn62.vary('minSigSt',10,10,1,0)
+    rn62.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn62']=rn62
+
+    rn63=experiment('rn63') # baseline run -- test new code with non-outer-boundary-accretion
+    rn63.vary('dbg',2**10+2**8,2**10+2**8,1,0)
+    rn63.vary('minSigSt',10,10,1,0)
+    rn63.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn63']=rn63
+
 
 
 #    nacc=90

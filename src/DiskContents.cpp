@@ -45,7 +45,7 @@ DiskContents::DiskContents(double tH, double eta,
 			   double thk, bool migP,
                            double Qinit, double km,
                            unsigned int NA, unsigned int NP,
-			   double minSigSt) :
+			   double minSigSt, double accSL) :
   nx(m.nx()),x(m.x()),beta(m.beta()),
   uu(m.uu()), betap(m.betap()),
   dim(d), mesh(m), dbg(ddbg),
@@ -91,6 +91,7 @@ DiskContents::DiskContents(double tH, double eta,
   MdotiPlusHalf(std::vector<double>(m.nx()+1,0.)),
   fixedQ(Qinit),CumulativeTorque(0.0),
   kappaMetals(km),
+  accScaleLength(accSL),
   minsigst(minSigSt),
   NActive(NA),
   NPassive(NP),
@@ -343,7 +344,7 @@ void DiskContents::Initialize(double tempRatio, double fg0)
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
-void DiskContents::ComputeDerivs(double ** tauvec)
+void DiskContents::ComputeDerivs(double ** tauvec, double AccRate)
 {
   //  for(unsigned int i=0; i<=nx-1; ++i) {
   //    MdotiPlusHalf[i] = (-1.0 /  mesh.u1pbPlusHalf(i)) * (tauvec[1][i+1] - tauvec[1][i]) / (x[i+1]-mesh.x(i));
@@ -409,7 +410,7 @@ void DiskContents::ComputeDerivs(double ** tauvec)
     }
     else {
       dcoldt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) / (mesh.dx(n) * x[n])
-                    -RfREC * dSSFdt(n) - dSdtOutflows(n);
+                    -RfREC * dSSFdt(n) - dSdtOutflows(n) + dcoldtCos(n,AccRate);
       
       dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
                     - 5.0*ddx(sig,n,x)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
@@ -581,7 +582,7 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
 }
 
 void DiskContents::UpdateStateVars(const double dt, const double redshift,
-                                   double ** tauvec)
+                                   double ** tauvec, double AccRate)
 {
   double ostars1=spsActive[0].spcol[200];
   unsigned int szA = spsActive.size();
@@ -630,7 +631,7 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
   //  std::cout << "Stars at n=200: " << ostars1 << " " << ostars2 << " "<< ostars3 <<std::endl;
 
 //  double MIn = - dt*tauvec[2][1]/(uu[1]*(1+beta[1]));
-  double MIn = dt*MdotiPlusHalf[0];
+  double MIn = dt*MdotiPlusHalf[0]+dt*dmdtCosInner(AccRate);
 //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
   ZBulge = (ZBulge*MBulge +MIn*ZDisk[1])/(MBulge + MIn);
   MBulge += MIn;
@@ -705,7 +706,7 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
      *(spsActive[j].spcol[1]*dim.MdotExt0/(dim.vphiR*dim.Radius))
      *(yy[1]*dim.vphiR) * dt * (2*M_PI*dim.Radius/dim.vphiR) * (1.0/MSol);
   }
-  cumulativeMassAccreted += (MdotiPlusHalf[nx])*dim.MdotExt0 * 
+  cumulativeMassAccreted += AccRate*dim.MdotExt0 * 
     dt * (2*M_PI*dim.Radius/dim.vphiR)* (1.0/MSol);
 
 }
@@ -1091,7 +1092,30 @@ double DiskContents::dSdtOutflows(unsigned int n)
 {
   return dSSFdt(n)*MassLoadingFactor;
 }
+double DiskContents::dcoldtCos(unsigned int n, double AccRate)
+{
+    if(!dbg.opt(8)) return 0.0;
 
+    double nD = ((double) n);
+    double xlo = mesh.x(nD -0.5);
+    double xhi = mesh.x(nD +0.5);
+    
+    return AccRate*accScaleLength*(  (accScaleLength+xlo)*exp(-xlo/accScaleLength) 
+		                 -(accScaleLength+xhi)*exp(-xhi/accScaleLength));
+}
+double DiskContents::dmdtCosOuter(double AccRate)
+{
+    if(!dbg.opt(8)) return AccRate;
+
+    double xb = mesh.x(.5 + ((double) nx));
+    return AccRate * accScaleLength * (accScaleLength + xb)*exp(-xb/accScaleLength);
+}
+double DiskContents::dmdtCosInner(double AccRate)
+{
+    if(!dbg.opt(8)) return 0.0;
+    double xb = mesh.x(0.5);
+    return AccRate * accScaleLength * (accScaleLength - exp(-xb/accScaleLength) * (accScaleLength+xb));
+}
 
 double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps)
 {
@@ -1123,7 +1147,7 @@ double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,st
   return val;
 }
 
-void DiskContents::UpdateCoeffs(double redshift)
+void DiskContents::UpdateCoeffs(double redshift, double AccRate)
 {
   double absc = 1.;
   RafikovQParams rqp;
@@ -1133,7 +1157,7 @@ void DiskContents::UpdateCoeffs(double redshift)
     UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1.0)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddx(sig,n,x)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
     LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddx(sig,n,x)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
     DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1.0)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1.0)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n];
-    FF[n] = RfREC*dQdS[n]*dSSFdt(n) + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n];
+    FF[n] = RfREC*dQdS[n]*dSSFdt(n) + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*dcoldtCos(n,AccRate);
     if(sigth<=sig[n]) {
       double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
       FF[n] += dQds[n] * 2*M_PI*M_PI*(ETA*

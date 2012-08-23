@@ -161,7 +161,7 @@ int Simulation::runToConvergence(const double fCondition,
     if(AccRate<0.0) errormsg("Negative accretion history!");
 
     // Update the coefficients of the torque equation
-    theDisk.UpdateCoeffs(z);
+    theDisk.UpdateCoeffs(z,AccRate);
 
     int whichVar,whichCell; // store which variable and which cell limits the time step.
 
@@ -187,7 +187,7 @@ int Simulation::runToConvergence(const double fCondition,
 
     // Given the solution to the torque equation, compute time 
     // derivatives of the state variables
-    theDisk.ComputeDerivs(tauvec);
+    theDisk.ComputeDerivs(tauvec,AccRate);
 
     // Given the derivatives, compute a time step over which none of the variables
     // change by too much. whichVar tells us which state variable is limiting the timestep
@@ -212,7 +212,7 @@ int Simulation::runToConvergence(const double fCondition,
 
 
     // And finally, update the state variables
-    theDisk.UpdateStateVars(dt,z,tauvec); 
+    theDisk.UpdateStateVars(dt,z,tauvec,AccRate); 
 
     // update the independent variables.
     if(cosmologyOn) z-=dz(dt,z,theDisk.GetCos(),theDisk.GetDim());

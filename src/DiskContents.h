@@ -28,7 +28,7 @@ class DiskContents {
 	       double thk,bool migratePassive,
                double Qinit, double km,
 	       unsigned int NA, unsigned int NP,
-	       double minSigSt);
+	       double minSigSt, double accSL);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -54,7 +54,7 @@ class DiskContents {
 
   // Fill in vectors of the coefficients for the torque eq, 
   // namely h2,h1,h0,H in h2 tau'' + h1 tau' + h0 tau=H
-  void UpdateCoeffs(double redshift);
+  void UpdateCoeffs(double redshift,double AccRate);
 
   // Diffuse metals in such a way that the total mass in 
   // metals is conserved. This diffusion is not meant to 
@@ -127,7 +127,7 @@ class DiskContents {
   void ComputeY2();
   // Compute the time derivatives of all state variables 
   // at all radii.
-  void ComputeDerivs(double **tauvec);
+  void ComputeDerivs(double **tauvec, double AccRate);
 
   // Given the state variables and their derivatives, 
   // compute a time step such that no quantity is 
@@ -138,7 +138,7 @@ class DiskContents {
   // Given a time step, state variables, and their time 
   // derivatives, do a forward Euler step
   void UpdateStateVars(const double dt, 
-		       const double redshift,double **);
+		       const double redshift,double **tauvec,double AccRate);
 
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
@@ -192,6 +192,13 @@ class DiskContents {
   // Given the information stored in the Initializer object, 
   // initialize the simulation
   void Initialize(Initializer& in, bool fixedPhi0);
+
+
+  double dcoldtCos(unsigned int n, double AccRate);
+
+  double dmdtCosOuter(double AccRate);
+
+  double dmdtCosInner(double AccRate);
  private:
   std::vector<double> col,sig; // gas column density and velocity dispersion
   std::vector<double> dQdS,dQds; // partial derivatives dQ/dS and dQ/ds
@@ -292,6 +299,8 @@ class DiskContents {
   double CumulativeTorque; // integral of tau(x=1) dt.
 
   double kappaMetals;
+
+  double accScaleLength;
 
   double * colst_gsl;
   double * sigst_gsl;

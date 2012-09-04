@@ -60,7 +60,7 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "log col","log colst","log vrg","log vrst","gas J/area",$	   ;; 24..27
     "star J/area","cumulative outflow J/area",$			   ;; 28..30
     "average age at z=0","average present age",$		   ;; 31..32
-    "-tau","-tau'"]						   ;; 33..34
+    "-tau","-tau'","depletion time","viscous time","tDep/tVisc"] ;; 33..34
 
   FOR i=0, npassive DO BEGIN
     pop=strcompress(STRING(i),/remove)

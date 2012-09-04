@@ -654,20 +654,70 @@ if __name__ == "__main__":
     rn61.vary('b',0,5,2,0)            # 2
     rn61.vary('diskScaleLength',2,3.5,2,1) # should include 2.  --- 2
     rn61.vary('fixedQ',2.0,3.0,2,1) # should include 2 --- 2
-    rn61.irregularVary('dbg',[2**10,2**10+2**19,2**10+2**17,2**10+2**15]) # 4
+    rn61.irregularVary('dbg',[2**10,2**10+2**19,2**10+2**17,2**10+2**15]) # 4 -- base, const depl time, IBC, metal diffusion
     allModels['rn61']=rn61
 
-    rn62=experiment('rn62') # baseline run -- test new code with non-outer-boundary-accretion infrastructure, but keep that switch off.
+    rn62=experiment('rn62') #test new code with non-outer-boundary-accretion infrastructure, but keep that switch off.
     rn62.vary('dbg',2**10,2**10,1,0)
     rn62.vary('minSigSt',10,10,1,0)
     rn62.vary('whichAccretionHistory',1000,1399,400,0)
     allModels['rn62']=rn62
 
-    rn63=experiment('rn63') # baseline run -- test new code with non-outer-boundary-accretion
+    rn63=experiment('rn63') # test new code with non-outer-boundary-accretion
     rn63.vary('dbg',2**10+2**8,2**10+2**8,1,0)
     rn63.vary('minSigSt',10,10,1,0)
     rn63.vary('whichAccretionHistory',1000,1399,400,0)
     allModels['rn63']=rn63
+
+    rn64=experiment('rn64') # test new code with non-outer-boundary-accretion; this time with acc scale length 3x the stellar scale length
+    rn64.vary('dbg',2**10+2**8,2**10+2**8,1,0)
+    rn64.vary('minSigSt',10,10,1,0)
+    rn64.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn64']=rn64
+
+    # a series of very-small-number experiments to really see the effects of varying individual parameters.
+    rn65 = experiment('rn65')
+    rn65.vary('epsff',.003,.03,10,1)
+    rn65.vary('dbg',2**10,2**10,1,0)
+    rn65.vary('minSigSt',10,10,1,0)
+    allModels['rn65']=rn65
+
+    rn66 = experiment('rn66')
+    rn66.vary('fg0',.1,.9,9,0)
+    rn66.vary('dbg',2**10,2**10,1,0)
+    rn66.vary('minSigSt',10,10,1,0)
+    allModels['rn66']=rn66
+
+    rn67 = experiment('rn67')
+    rn67.vary('fixedQ',1.5,3.5,9,1)
+    rn67.vary('dbg',2**10,2**10,1,0)
+    rn67.vary('minSigSt',10,10,1,0)
+    allModels['rn67']=rn67
+
+    rn68 = experiment('rn68')
+    rn68.vary('Qlim',1.5,3.5,9,1)
+    rn68.vary('dbg',2**10,2**10,1,0)
+    rn68.vary('minSigSt',10,10,1,0)
+    allModels['rn68']=rn68
+
+    rn6768 = experiment('rn6768')
+    rn6768.vary('Qlim',1.5,3.5,9,1)
+    rn6768.vary('fixedQ',1.5,3.5,9,1)
+    rn6768.vary('dbg',2**10,2**10,1,0)
+    rn6768.vary('minSigSt',10,10,1,0)
+    allModels['rn6768']=rn6768
+
+    rn69 = experiment('rn69')
+    rn69.vary('eta',.5,4.5,9,1)
+    rn69.vary('dbg',2**10,2**10,1,0)
+    rn69.vary('minSigSt',10,10,1,0)
+    allModels['rn69']=rn69
+
+    rn70 = experiment('rn70')
+    rn70.irregularVary('dbg',[2**10+2**19,2**10+2**17])
+    rn70.vary('minSigSt',10,10,1,0)
+    allModels['rn70']=rn70  
+
 
 
 
@@ -682,29 +732,31 @@ if __name__ == "__main__":
 
     experiments=[]
     nacc = 90
-    nmh0 = 61
+    nmh0 = 41
     compositeNames=[]
     for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
-        theName = 'rn33_'+str(i).zfill(3)+'_'
+        theName = 'rn83_'+str(i).zfill(3)+'_'
         compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
-        experiments[i].vary('diskScaleLength',2,2,1,0)
-        experiments[i].irregularVary('dbg',[2**10])
-	experiments[i].irregularVary('TOL',[1.0e-3])
+        experiments[i].irregularVary('diskScaleLength',[2])
+        experiments[i].vary('dbg',2**10,2**10,1,0)
+	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
         experiments[i].vary('alphaMRI',0,0,1,0)
-        Mh0 = 1.0e9 * (1000.0)**(float(i)/float(nmh0-1))
+        Mh0 = 1.0e10 * (1000.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
 #	experiments[i].irregularVary('R',[5.0+(float(i)/float(nmh0-1))*(20.0-5.0)])
         experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
         experiments[i].irregularVary('Mh0',[Mh0])
-        experiments[i].vary('whichAccretionHistory',4+nacc*i,4+nacc*(i+1)-1,nacc,0)
+        experiments[i].vary('whichAccretionHistory',4+nacc*(i+20),4+nacc*(i+21)-1,nacc,0)
         allModels[theName]=experiments[i]
-        
-    if ('rn33' in modelList):
+
+    compositeFlag = False    
+    if ('rn83' in modelList):
+        compositeFlag = True
         for ex in experiments:
             modelList.append(ex.expName)
-        del modelList[modelList.index('rn33')]
+        del modelList[modelList.index('rn83')]
 
     successTables=[]
     # run all the models, and record which ones succeed.
@@ -715,12 +767,12 @@ if __name__ == "__main__":
           allModels[model].write('runExperiment_'+model+'.txt')
 #        successTables.append(allModels[model].ExamineExperiment())
 
-    if ('rn33' in modelList):
-        os.mkdir('analysis/rn33')
+    if(compositeFlag):
+        os.mkdir('analysis/rn83')
         for dirname in compositeNames:
             files=glob.glob('./analysis/'+dirname+'/*')
             for aFile in files:
-	        os.symlink(aFile,'./analysis/rn33/')
+	        os.symlink(aFile,'./analysis/rn83/'+aFile[11+len(dirname):])
            
 
 #    PrintSuccessTables(successTables)

@@ -236,6 +236,8 @@ PRO variability3,expNames,keys,N,sv
   NVS = 21
   ;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 20) x (# models)
   vsMdot = dblarr(n_elements(model.dataCube[*,0,0]),1,NVS,n_elements(nameList2))
+  nameList4 = strarr(n_elements(nameList2))
+
 
   proftimes[1]=systime(1)
 
@@ -267,7 +269,8 @@ PRO variability3,expNames,keys,N,sv
          ENDFOR
 
          vsMdot[*,0,0,ctr] =  model.dataCube[*,model.nx-1,39-1]  ;; external accretion rate
-      
+         
+;         vsMdot[*,0,0,ctr] = model.evArray[20-1,*] ;; Cosmological accretion rate.
          vsMdot[*,0,1,ctr] = model.evArray[10,*] ;; SFR [in the disk!]
 
          FOR zi=0, n_elements(model.evArray[9,*])-1 DO BEGIN ; loop over redshift
@@ -292,6 +295,9 @@ PRO variability3,expNames,keys,N,sv
            vsMdot[zi,0,19,ctr] = alog10(modelInfo[21]) ;; ZL
            vsMdot[zi,0,20,ctr] = modelInfo[15] ;; fg
          ENDFOR ;; end loop over redshift
+
+         nameList4[ctr] = nameList2[i]
+
          ctr2 = ctr2+1
          ctr = ctr+1
        ENDIF ELSE BEGIN
@@ -306,6 +312,7 @@ PRO variability3,expNames,keys,N,sv
   ENDFOR ;; end loop over expNames
 
   modelcounter = modelcounter2[*]
+  nameList2 = nameList4[*]
 
   proftimes[2]=systime(1)
 
@@ -322,8 +329,11 @@ PRO variability3,expNames,keys,N,sv
       FOR k=1,n_elements(wrtXyy)-1 DO BEGIN ;; loop over variables
         FOR xx=0,n_elements(theData[0,*,0,0])-1 DO BEGIN ;; loop over x-coord
 	  ;;; Sort the models, within each experiment
-	  
-          sortdData[j,xx,k,low:high] = theData[j,xx,k,low+sort(theData[j,xx,k,low:high])]
+	  srtd = sort(theData[j,xx,k,low:high])
+          sortdData[j,xx,k,low:high] = theData[j,xx,k,low+srtd]
+          IF(xx EQ 4 AND j EQ n_elements(theData[*,0,0,0])-1) THEN BEGIN
+;            print, "At n_x=4, the models in order from low to high values of variable ", wrtXyt[k] ," are ",nameList2[srtd]
+          ENDIF
 	ENDFOR ;; end loop over x-coord 
       ENDFOR ;; end loop over variables
 ;    ENDFOR ;; end loop over time
@@ -352,9 +362,11 @@ PRO variability3,expNames,keys,N,sv
 
 
   expName2 = expNames[0]
-  FOR i=1, N_elements(expNames)-1 DO BEGIN
-      expName2 = expName2 + '_' + expNames[i];; +'_'+strcompress(string(MIN([n_elements(nameList2),N])),/remove) ;; e.g. rk5_113
-  ENDFOR
+  IF(n_elements(expNames) LT 5) THEN BEGIN
+      FOR i=1, N_elements(expNames)-1 DO BEGIN
+          expName2 = expName2 + '_' + expNames[i];; +'_'+strcompress(string(MIN([n_elements(nameList2),N])),/remove) ;; e.g. rk5_113
+      ENDFOR
+  ENDIF ELSE expName2 +='_' + strcompress(string(n_elements(expNames)),/remove)
   expName2 = expName2 + '_' + strcompress(string(MIN([n_elements(nameList2),N*n_elements(expNames)])),/remove) ;; e.g. rk5_rk6_113
 
 

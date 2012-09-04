@@ -119,6 +119,8 @@ int Simulation::runToConvergence(const double fCondition,
       writeIndex++;
     }
 
+    theDisk.ComputeColSFR();
+
 
     // Make sure that stars formed this time step have a stellar 
     // population to which they belong. If they don't, create
@@ -156,12 +158,14 @@ int Simulation::runToConvergence(const double fCondition,
     if(cosmologyOn) AccRate = accr.AccOfZ(z);
     else AccRate = 1.;
 
+    theDisk.ComputedSdTCos(AccRate);
+
     // Given the user's freedom to specify the accretion history, make sure
     // the accretion rate remains non-negative.
     if(AccRate<0.0) errormsg("Negative accretion history!");
 
     // Update the coefficients of the torque equation
-    theDisk.UpdateCoeffs(z,AccRate);
+    theDisk.UpdateCoeffs(z);
 
     int whichVar,whichCell; // store which variable and which cell limits the time step.
 
@@ -177,7 +181,7 @@ int Simulation::runToConvergence(const double fCondition,
     if(dbg.opt(18)) {
       IBC = -1.0*theDisk.GetMesh().x(0.0); // d
     }
-    double OBC=-1.*AccRate;
+    double OBC=-1.0*theDisk.dmdtCosOuter(AccRate);
     theDisk.ComputeGItorque(tauvec,IBC,OBC);
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 
@@ -187,7 +191,7 @@ int Simulation::runToConvergence(const double fCondition,
 
     // Given the solution to the torque equation, compute time 
     // derivatives of the state variables
-    theDisk.ComputeDerivs(tauvec,AccRate);
+    theDisk.ComputeDerivs(tauvec);
 
     // Given the derivatives, compute a time step over which none of the variables
     // change by too much. whichVar tells us which state variable is limiting the timestep

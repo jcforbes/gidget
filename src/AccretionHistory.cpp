@@ -291,7 +291,10 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
     else // starting from low redshift..
         Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart-0.0))) / speryear;
 
-    redshifts.push_back(z); tabulatedAcc.push_back(MdotExt);
+    // these small adjustments to z avoid interpolation errors without really affecting anything.
+    redshifts.push_back(z*1.001-.001); 
+    
+    tabulatedAcc.push_back(MdotExt);
     if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
   }
 

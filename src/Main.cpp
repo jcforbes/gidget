@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
   DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
 		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,stScaleLength/(radius/cmperkpc));
+		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,3.0*stScaleLength/(radius/cmperkpc));
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
   else diskIC.Initialize(0.1*Z_Sol, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
 
@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
                    zstart,NActive,NPassive,
                    alphaMRI,sigth,ndecay,
                    diskIC,accr,dbg,dim);
-  int result = simIC.runToConvergence(1, false, filename+"_icgen"); // set false-> true to debug initial condition generator
+  int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen"); // set false-> true to debug initial condition generator
   if(result!=5) // The simulation converges when the time step reaches 1*TOL.
     errormsg("Initial Condition generator failed to converge, code "+str(result));
 
@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
   // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
   DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
 		    TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-		    thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,minSigSt,stScaleLength/(radius/cmperkpc));
+		    thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,minSigSt,3.0*stScaleLength/(radius/cmperkpc));
   disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
   Simulation sim(tmax,stepmax,
 		 cosmologyOn,nx,TOL,

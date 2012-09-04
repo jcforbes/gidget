@@ -54,7 +54,7 @@ class DiskContents {
 
   // Fill in vectors of the coefficients for the torque eq, 
   // namely h2,h1,h0,H in h2 tau'' + h1 tau' + h0 tau=H
-  void UpdateCoeffs(double redshift,double AccRate);
+  void UpdateCoeffs(double redshift);
 
   // Diffuse metals in such a way that the total mass in 
   // metals is conserved. This diffusion is not meant to 
@@ -77,8 +77,8 @@ class DiskContents {
   // form stars. This is an analytic approximation.
   double ComputeH2Fraction(unsigned int n);
 
-  // Compute the star formation rate in the nth cell
-  double dSSFdt(unsigned int n);
+  // Compute the star formation rate in every cell
+  double ComputeColSFR();
 
   // Compute the loss in column density experienced by 
   // cell n due to outflows. (Simple mass loading factor 
@@ -127,7 +127,7 @@ class DiskContents {
   void ComputeY2();
   // Compute the time derivatives of all state variables 
   // at all radii.
-  void ComputeDerivs(double **tauvec, double AccRate);
+  void ComputeDerivs(double **tauvec);
 
   // Given the state variables and their derivatives, 
   // compute a time step such that no quantity is 
@@ -194,7 +194,7 @@ class DiskContents {
   void Initialize(Initializer& in, bool fixedPhi0);
 
 
-  double dcoldtCos(unsigned int n, double AccRate);
+  double ComputedSdTCos(double AccRate);
 
   double dmdtCosOuter(double AccRate);
 
@@ -205,6 +205,7 @@ class DiskContents {
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
 
+  std::vector<double> dcoldtCos;
   std::vector<double> MdotiPlusHalf;
 
   // store the cells where we have turned off forcing in the

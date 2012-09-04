@@ -70,6 +70,7 @@ DiskContents::DiskContents(double tH, double eta,
   dsigdt(std::vector<double>(m.nx()+1,0.)),
   dZDiskdt(std::vector<double>(m.nx()+1,0.)),
   colSFR(std::vector<double>(m.nx()+1,0.)),
+  dcoldtCos(std::vector<double>(m.nx()+1,0.)),
   keepTorqueOff(std::vector<int>(m.nx()+1,0)),
   diffused_dcoldt(std::vector<double>(m.nx()+1,0.)),
   yy(std::vector<double>(m.nx()+1,0.)),
@@ -344,7 +345,7 @@ void DiskContents::Initialize(double tempRatio, double fg0)
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
-void DiskContents::ComputeDerivs(double ** tauvec, double AccRate)
+void DiskContents::ComputeDerivs(double ** tauvec)
 {
   //  for(unsigned int i=0; i<=nx-1; ++i) {
   //    MdotiPlusHalf[i] = (-1.0 /  mesh.u1pbPlusHalf(i)) * (tauvec[1][i+1] - tauvec[1][i]) / (x[i+1]-mesh.x(i));
@@ -391,7 +392,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, double AccRate)
       dcoldt[n] = -taupp/((beta[n]+1.)*uu[n]*x[n]) 
         + (beta[n]*beta[n]+beta[n]+x[n]*betap[n])*tauvec[2][n]
              /((beta[n]+1.)*(beta[n]+1.)*uu[n]*x[n]*x[n])
-        - RfREC * dSSFdt(n) - dSdtOutflows(n);
+        - RfREC * colSFR[n] - dSdtOutflows(n);
   
       dsigdt[n] = uu[n]*(beta[n]-1.)*tauvec[1][n]/
                                         (3.*sig[n]*col[n]*x[n]*x[n]*x[n])
@@ -410,7 +411,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, double AccRate)
     }
     else {
       dcoldt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) / (mesh.dx(n) * x[n])
-                    -RfREC * dSSFdt(n) - dSdtOutflows(n) + dcoldtCos(n,AccRate);
+                    -RfREC * colSFR[n] - dSdtOutflows(n) + dcoldtCos[n];
       
       dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
                     - 5.0*ddx(sig,n,x)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
@@ -424,7 +425,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, double AccRate)
       }
     }
     
-    colSFR[n] = dSSFdt(n);
+//    colSFR[n] = dSSFdt(n);
     dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
                  * dlnZdx *tauvec[2][n] 
                  + yREC*(1.0-RfREC)*zetaREC*colSFR[n]/(col[n]);
@@ -482,8 +483,8 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
 
     for(unsigned int i=0; i!=spsActive.size(); ++i) {
       if(spsActive[i].IsForming(cos,redshift)) {
-        if(fabs(dSSFdt(n)/spsActive[i].spcol[n])>dmax) { 
-          dmax=fabs(dSSFdt(n)/spsActive[i].spcol[n]);
+        if(fabs(colSFR[n]/spsActive[i].spcol[n])>dmax) { 
+          dmax=fabs(colSFR[n]/spsActive[i].spcol[n]);
 	  *whichCell=n;
           *whichVar=5;
         }
@@ -555,7 +556,7 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
     }
     else {
       for(unsigned int n=1; n<=nx; ++n) {
-        currentlyForming.spcol[n] = RfREC*dSSFdt(n)*dt;
+        currentlyForming.spcol[n] = RfREC*colSFR[n]*dt;
         if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
 	else currentlyForming.spsig[n] = minsigst;
         currentlyForming.spZ[n]   = ZDisk[n];
@@ -567,7 +568,7 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
 	 || currentlyForming.spsig[n]!=currentlyForming.spsig[n]
 	 || currentlyForming.spZ[n]!=currentlyForming.spZ[n]
 	 || currentlyForming.spZV[n]!=currentlyForming.spZV[n])
-	     errormsg("Error forming new stellar population: "+str(currentlyForming.spcol[n])+" "+str(dSSFdt(n))+" "+str(dt));
+	     errormsg("Error forming new stellar population: "+str(currentlyForming.spcol[n])+" "+str(colSFR[n])+" "+str(dt));
       }
     }
     sps.push_back(currentlyForming);
@@ -592,7 +593,7 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
         OldIthBin(szA,cos,1));
   for(unsigned int n=1; n<=nx; ++n) {
     // The stars being formed this time step have..
-    currentlyForming.spcol[n] = RfREC* dSSFdt(n) * dt; // col. density of SF*dt 
+    currentlyForming.spcol[n] = RfREC* colSFR[n] * dt; // col. density of SF*dt 
     currentlyForming.spZ[n]=ZDisk[n];             // the metallicity of the gas
     currentlyForming.spZV[n]=0.0;
     if(sigth*sigth+minsigst*minsigst<=sig[n]*sig[n])
@@ -602,7 +603,7 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
 //      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
     if(currentlyForming.spcol[n] < 0. || currentlyForming.spsig[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsig[n]!=currentlyForming.spsig[n])
-      errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, dSSFdt, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsig[n])+", "+str(dSSFdt(n)) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
+      errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsig[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
   }
   currentlyForming.ageAtz0 = cos.lbt(redshift);
 
@@ -644,6 +645,8 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
 	       spsActive[j].spcol[n]*spsActive[j].spcol[n-1] * 
 	       yy[n]*yy[n-1]) * 
 	  dt * 2.0*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR  * (1.0/MSol);
+        if(CuStarsOut[n] != CuStarsOut[n])
+          errormsg("Error computing CuStarsOut. "+str(spsActive[j].spcol[n])+" "+str(spsActive[j].spcol[n-1])+" "+str(yy[n])+" "+str(yy[n-1]));
       }
       CuGasOut[n] +=  
 	sqrt(max(tauvec[2][n]*tauvec[2][n-1],1.0e-20))
@@ -1070,38 +1073,48 @@ double DiskContents::ComputeH2Fraction(unsigned int n)
          +str(ZDisk[n])+" "+str(ZBulge)+" "+str(col[n]));
   return val;
 }
-double DiskContents::dSSFdt(unsigned int n)
+double DiskContents::ComputeColSFR()
 {
-  double fH2 = ComputeH2Fraction(n);
-  double val = fH2 * 2.*M_PI*EPS_ff//*sqrt(
-//      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
-	* sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
-	* sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))
-	* sqrt(32.0 / (3.0*M_PI));
-  if(dbg.opt(19)) { // constant SF depletion time.
-    double tdep = 2.0; // in Ga
-    val = fH2 * col[n] / (tdep * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
+  for(unsigned int n=1; n<=nx; ++n) {
+    double fH2 = ComputeH2Fraction(n);
+    double val = fH2 * 2.*M_PI*EPS_ff//*sqrt(
+  //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
+  	* sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
+  	* sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))
+  	* sqrt(32.0 / (3.0*M_PI));
+    if(dbg.opt(19)) { // constant SF depletion time.
+      double tdep = 2.0; // in Ga
+      val = (EPS_ff/.01) * fH2 * col[n] / (tdep * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
+    }
+    if(val < 0 || val!=val)
+      errormsg("Error computing colSFR:  n, val, fH2, col, sig   "
+         +str(n)+" "+str(val)+" "+str(ComputeH2Fraction(n))+" "+str(col[n])
+         +" "+str(sig[n]));
+    colSFR[n]=val;
   }
-  if(val < 0 || val!=val)
-    errormsg("Error computing dSSFdt:  n, val, fH2, col, sig   "
-       +str(n)+" "+str(val)+" "+str(ComputeH2Fraction(n))+" "+str(col[n])
-       +" "+str(sig[n]));
-  return val;
 }
 double DiskContents::dSdtOutflows(unsigned int n)
 {
-  return dSSFdt(n)*MassLoadingFactor;
+  return colSFR[n]*MassLoadingFactor;
 }
-double DiskContents::dcoldtCos(unsigned int n, double AccRate)
+double DiskContents::ComputedSdTCos(double AccRate)
 {
     if(!dbg.opt(8)) return 0.0;
 
-    double nD = ((double) n);
-    double xlo = mesh.x(nD -0.5);
-    double xhi = mesh.x(nD +0.5);
-    
-    return AccRate*accScaleLength*(  (accScaleLength+xlo)*exp(-xlo/accScaleLength) 
-		                 -(accScaleLength+xhi)*exp(-xhi/accScaleLength));
+
+    for(unsigned int n=1; n<=nx; ++n) {
+      if(dbg.opt(8)) {
+        double nD = ((double) n);
+        double xlo = mesh.x(nD -0.5);
+        double xhi = mesh.x(nD +0.5);
+      
+        dcoldtCos[n] =  (  (accScaleLength+xlo)*exp(-xlo/accScaleLength) 
+                          -(accScaleLength+xhi)*exp(-xhi/accScaleLength))
+                       *  AccRate*2.0 / (accScaleLength*(xhi-xlo)*(xhi+xlo));
+      }
+      else dcoldtCos[n] = 0.0;
+    }
+ 
 }
 double DiskContents::dmdtCosOuter(double AccRate)
 {
@@ -1136,18 +1149,18 @@ double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,st
   }
   if(sps[sp].IsForming(cos,redshift)) {
     if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
-      val += (sig[n]*sig[n] - sigth*sigth - sig_st[n]*sig_st[n])*RfREC*dSSFdt(n)
+      val += (sig[n]*sig[n] - sigth*sigth - sig_st[n]*sig_st[n])*RfREC*colSFR[n]
              /(2.0*col_st[n]*sig_st[n]);
     }
     else { // in this case, the new stellar population will have velocity dispersion = minsigst
-      val += (minsigst*minsigst - sig_st[n]*sig_st[n] ) *RfREC * dSSFdt(n)
+      val += (minsigst*minsigst - sig_st[n]*sig_st[n] ) *RfREC * colSFR[n]
 	    /(2.0*col_st[n]*sig_st[n]);
     }
   }
   return val;
 }
 
-void DiskContents::UpdateCoeffs(double redshift, double AccRate)
+void DiskContents::UpdateCoeffs(double redshift)
 {
   double absc = 1.;
   RafikovQParams rqp;
@@ -1157,7 +1170,7 @@ void DiskContents::UpdateCoeffs(double redshift, double AccRate)
     UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1.0)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddx(sig,n,x)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
     LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddx(sig,n,x)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
     DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1.0)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1.0)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n];
-    FF[n] = RfREC*dQdS[n]*dSSFdt(n) + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*dcoldtCos(n,AccRate);
+    FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*dcoldtCos[n];
     if(sigth<=sig[n]) {
       double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
       FF[n] += dQds[n] * 2*M_PI*M_PI*(ETA*
@@ -1173,7 +1186,7 @@ void DiskContents::UpdateCoeffs(double redshift, double AccRate)
     // only the active populations contribute to H:
     for(unsigned int i=0; i!=spsActive.size(); ++i) {
       if(spsActive[i].IsForming(cos,redshift)) {
-        FF[n] -= spsActive[i].dQdS[n] * RfREC * dSSFdt(n);
+        FF[n] -= spsActive[i].dQdS[n] * RfREC * colSFR[n];
       }
       FF[n] -= spsActive[i].dQds[n] * dSigstdt(n,i,redshift,spsActive) 
 	+ spsActive[i].dQdS[n] * dSMigdt(n,yy,x,spsActive[i].spcol);
@@ -1429,6 +1442,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
   wrt2.push_back(cumulativeMassAccreted);//17
   wrt2.push_back(CumulativeTorque);//18
   wrt2.push_back(accr.GetMh0() * accr.MhOfZ(z)); // 19
+  wrt2.push_back(accr.AccOfZ(z) * dim.MdotExt0/MSol * speryear); // 20
   if(step==0) {
     int ncol = wrt2.size();
     file2.write((char *) &ncol,sizeof(ncol));
@@ -1490,7 +1504,9 @@ void DiskContents::ComputeY(const double ndecay)
                       / (xnm1*gsl_spline_eval(spline_colst,xnm1,accel_colst))
 		     *(1.5 - sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))
 	- max(Qlim - Qst_nm1,0.0)*mesh.uu(xnm1)*(xn-xnm1) / (2.0*M_PI*xnm1*tauHeat*Qst_nm1);
-      if(yynm1!=yynm1 || yynm1>0.0000001 || fabs(yynm1) > 100.0)
+      if(yynm1>0.0) yynm1=0.0;
+
+      if(yynm1!=yynm1 || yynm1>0.0000001 || sigp2 <0 || sigp2 > 100.0 || sigp2!=sigp2 || fabs(yynm1) > 100.0)
         errormsg("Error computing y!   n,y,sigp2,  sigp2/2sig0^2, NN, i    dPsi, sig1^2   : "+str(n)+" "+str(yynm1)+" "+str(sigp2)+"   "+str(sigp2/(2.0*pow(gsl_spline_eval(spline_sigst,xnm1,accel_sigst),2.0)))+" "+str(NN)+" "+str(i)+"   "+str(mesh.psi(xn)-mesh.psi(xnm1))+" "+str(pow(gsl_spline_eval(spline_sigst,xn,accel_sigst),2.0)));
 //      if(fabs(xnm1 - mesh.x((unsigned int) (n))) < fabs(xn-xnm1)/10.0   )
       if((i-1) % NN == 0)

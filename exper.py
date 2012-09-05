@@ -6,6 +6,7 @@ import subprocess
 import time
 import math
 import numpy as np
+import pdb
 
 # This is a somewhat straightforward script to allow you to run the GIDGET code with
 # a wide variety of systematically varied parameters. The functions here are described
@@ -735,7 +736,7 @@ if __name__ == "__main__":
     nmh0 = 41
     compositeNames=[]
     for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
-        theName = 'rn83_'+str(i).zfill(3)+'_'
+        theName = 'rn84_'+str(i).zfill(3)+'_'
         compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
@@ -743,7 +744,7 @@ if __name__ == "__main__":
         experiments[i].vary('dbg',2**10,2**10,1,0)
 	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
         experiments[i].vary('alphaMRI',0,0,1,0)
-        Mh0 = 1.0e10 * (1000.0)**(float(i)/float(nmh0-1))
+        Mh0 = 1.0e10 * (100.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
 #	experiments[i].irregularVary('R',[5.0+(float(i)/float(nmh0-1))*(20.0-5.0)])
         experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
@@ -752,11 +753,11 @@ if __name__ == "__main__":
         allModels[theName]=experiments[i]
 
     compositeFlag = False    
-    if ('rn83' in modelList):
+    if ('rn84' in modelList):
         compositeFlag = True
         for ex in experiments:
             modelList.append(ex.expName)
-        del modelList[modelList.index('rn83')]
+        del modelList[modelList.index('rn84')]
 
     successTables=[]
     # run all the models, and record which ones succeed.
@@ -768,11 +769,13 @@ if __name__ == "__main__":
 #        successTables.append(allModels[model].ExamineExperiment())
 
     if(compositeFlag):
-        os.mkdir('analysis/rn83')
+	pdb.set_trace()
+        os.mkdir('analysis/rn84')
+	pdb.set_trace()
         for dirname in compositeNames:
             files=glob.glob('./analysis/'+dirname+'/*')
             for aFile in files:
-	        os.symlink(aFile,'./analysis/rn83/'+aFile[11+len(dirname):])
+	        os.symlink(aFile,'./analysis/rn84/'+aFile[11+len(dirname):])
            
 
 #    PrintSuccessTables(successTables)

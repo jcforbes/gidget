@@ -2,10 +2,11 @@
 #include <string>
 #include <vector>
 class Cosmology;
+class Debug;
 
 class AccretionHistory {
  public:
-  AccretionHistory(double Mh):Mh0(Mh),allocated(false),linear(false){};
+  AccretionHistory(double Mh,Debug & db):Mh0(Mh),allocated(false),linear(false),dbg(db){};
   ~AccretionHistory();  
   // Compute the normalized external accretion rate mdot(z)/mdot(zstart)
   // This is implemented by doing an interpolation of a given 
@@ -90,6 +91,8 @@ class AccretionHistory {
 
   // halo mass at redshift zero (units of solar masses)
   double Mh0;
+
+  Debug & dbg;
 
 };
 

@@ -121,5 +121,6 @@ FUNCTION diskStats,model,z=z
 	;;; IF(BulgeM LT 0.0) THEN STOP,"Negative BulgeM: ",model.name," ",BulgeM
 
 
+
         return,info
 END

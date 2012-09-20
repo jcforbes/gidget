@@ -1,12 +1,13 @@
 import copy
 import os, argparse
-import sys
+import sys,glob
 import shutil
 import subprocess
 import time
 import math
 import numpy as np
 import pdb
+import random
 
 # This is a somewhat straightforward script to allow you to run the GIDGET code with
 # a wide variety of systematically varied parameters. The functions here are described
@@ -70,11 +71,11 @@ def successCode(filename):
 class experiment:
     def __init__(self,name):
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay','dbg']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay','dbg','accScaleLength']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -396,18 +397,19 @@ def LocalRun(runBundle,nproc):
 
 
 
-# Take the results of all experiments named when this script was called
-# and sum them up such that it's obvious which runs succeeded and which failed.
-# A schematic example output for a situation where 5 different experiments were
-# run, each of which varied the same 2 variables, 2 values for 1, 3 for the other:
-#
-#   [ [ 00000,  00000 ], [ 00010, 00010], [00011, 00011] ]
-#
-# indicates that, as far as whether the runs crash or succeed,
-# the 2-value variable doesn't make a difference, but for increasing
-# values of the 3-value variable, fewer runs succeed. The numbers which
-# appear here are explained in the successCode function above.
 def PrintSuccessTables(successTables):
+    ''' Take the results of all experiments named when this script was called
+     and sum them up such that it's obvious which runs succeeded and which failed.
+     A schematic example output for a situation where 5 different experiments were
+     run, each of which varied the same 2 variables, 2 values for 1, 3 for the other:
+
+       [ [ 00000,  00000 ], [ 00010, 00010], [00011, 00011] ]
+	
+     indicates that, as far as whether the runs crash or succeed,
+     the 2-value variable doesn't make a difference, but for increasing
+     values of the 3-value variable, fewer runs succeed. The numbers which
+     appear here are explained in the successCode function above. '''
+
     sumOfSuccessTables = np.zeros(shape=successTables[0].shape,dtype=np.int64)
     for i in range(len(successTables)):
         table = successTables[i]
@@ -444,6 +446,10 @@ if __name__ == "__main__":
 
     
     allModels={} # empty dictionary into which we'll place all model definitions
+    # keys are experiment names, e.g. "rn27", values are experiment instances.
+    # There is no particular requirement that the name of the instance in this script
+    # be the same as the instance's name variable, nor the value of the key,
+    # but confusion is likely if that is not the case.
  
 
     rn27=experiment('rn27a') # detailed view of MW-size halo
@@ -719,6 +725,39 @@ if __name__ == "__main__":
     rn70.vary('minSigSt',10,10,1,0)
     allModels['rn70']=rn70  
 
+    rn90 = experiment('rn90')
+    rn90.vary('minSigSt',10,10,1,0)
+    rn90.vary('dbg',2**10+2**8,2**10+2**8,1,0)
+    rn90.vary('accScaleLength',1,10,10,0)
+    allModels['rn90']=rn90
+
+    rn91 = experiment('rn91')
+    rn91.vary('minSigSt',10,10,1,0)
+    rn91.vary('dbg',2**10+2**8+4,2**10+2**8+4,1,0)
+    rn91.vary('accScaleLength',2,2,1,0)
+    rn91.vary('whichAccretionHistory',100,1399,400,0)
+    allModels['rn91']=rn91
+
+    rn92 = experiment('rn92')
+    rn92.vary('minSigSt',10,10,1,0)
+    rn92.vary('dbg',2**10+2**8+4,2**10+2**8+4,1,0)
+    rn92.vary('accScaleLength',10,10,1,0)
+    rn92.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn92']=rn92
+
+    rn93 = experiment('rn93')
+    rn93.vary('minSigSt',10,10,1,0)
+    rn93.vary('dbg',2**10+2**8+4,2**10+2**8+4,1,0)
+    rn93.vary('accScaleLength',300,300,1,0)
+    rn93.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn93']=rn93
+
+    rn94 = experiment('rn94')
+    rn94.vary('minSigSt',10,10,1,0)
+    rn94.vary('dbg',2**10+4,2**10+4,1,0)
+    rn94.vary('accScaleLength',10,10,1,0)
+    rn94.vary('whichAccretionHistory',1000,1399,400,0)
+    allModels['rn94']=rn94
 
 
 
@@ -731,33 +770,44 @@ if __name__ == "__main__":
 #    rn33.vary('diskScaleLength',2,2,1,0)
 #    rn33.irregularVary('dbg',[2**10])
 
+    # rn73: R \propto 10 kpc, up to 1e13 MSol = Mh0
+    # rn83: R \propto 20 kpc, up to 1e13 MSol = Mh0
+    # rn84: R \propto 20 kpc, up to 1e12 MSol = Mh0
+    # rn85: R \propto 20 kpc, smaller initial stellar disk.
+    # rn86: exponential accretion
+    # 87 - exponential accretion w/ bugfix
+    # 97 - exponential accretion w/ scatter in spin parameter!
+
     experiments=[]
     nacc = 90
     nmh0 = 41
+    random.seed(4+20*nacc)
     compositeNames=[]
     for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
-        theName = 'rn84_'+str(i).zfill(3)+'_'
+        theName = 'rn97_'+str(i).zfill(3)+'_'
         compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
         experiments[i].irregularVary('diskScaleLength',[2])
-        experiments[i].vary('dbg',2**10,2**10,1,0)
+        experiments[i].vary('dbg',2**10+2**8,2**10+2**8,1,0)
 	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
         experiments[i].vary('alphaMRI',0,0,1,0)
         Mh0 = 1.0e10 * (100.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
 #	experiments[i].irregularVary('R',[5.0+(float(i)/float(nmh0-1))*(20.0-5.0)])
-        experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
+#        experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
+	spinParameter = .05 * (10.0 ** random.gauss(0.0,0.2)) # .05 w/ .2 dex scatter
+	experiments[i].irregularVary('accScaleLength',[311.34 * (Mh0/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5)])
         experiments[i].irregularVary('Mh0',[Mh0])
         experiments[i].vary('whichAccretionHistory',4+nacc*(i+20),4+nacc*(i+21)-1,nacc,0)
         allModels[theName]=experiments[i]
 
     compositeFlag = False    
-    if ('rn84' in modelList):
+    if ('rn97' in modelList):
         compositeFlag = True
         for ex in experiments:
             modelList.append(ex.expName)
-        del modelList[modelList.index('rn84')]
+        del modelList[modelList.index('rn97')]
 
     successTables=[]
     # run all the models, and record which ones succeed.
@@ -769,13 +819,12 @@ if __name__ == "__main__":
 #        successTables.append(allModels[model].ExamineExperiment())
 
     if(compositeFlag):
-	pdb.set_trace()
-        os.mkdir('analysis/rn84')
-	pdb.set_trace()
+	os.mkdir('/Users/jforbes/gidget/analysis/rn97')
         for dirname in compositeNames:
             files=glob.glob('./analysis/'+dirname+'/*')
+	    pdb.set_trace()
             for aFile in files:
-	        os.symlink(aFile,'./analysis/rn84/'+aFile[11+len(dirname):])
+	        os.symlink(aFile,'./analysis/rn97/'+aFile[11+len(dirname):])
            
 
 #    PrintSuccessTables(successTables)

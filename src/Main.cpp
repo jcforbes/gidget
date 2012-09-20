@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <fstream>
 
 #include "Simulation.h"
 #include "DiskContents.h"
@@ -99,17 +100,20 @@ int main(int argc, char **argv) {
   const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
   const double ndecay =            as.Set(6,"Decay length of GI in stable regions (cells)");
   const unsigned int Experimental= as.Set(0,"Debug parameter");
+  const double accScaleLength    = as.Set(2.0,"Accretion ScaleLength (kpc)");
   
   // Make an object to deal with things cosmological
+  // Omega_Lambda = .734, H0 = 2.29e-18 s^-1
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
 
+  Debug dbg(Experimental);
+
   // Make an object to deal with the accretion history
-  AccretionHistory accr(Mh0);
+  AccretionHistory accr(Mh0,dbg);
   double mdot0;
 
   testAccretionHistory();
 
-  Debug dbg(Experimental);
 
   double invMassRatio = .3;
   if(dbg.opt(16)) invMassRatio=.5;
@@ -144,12 +148,21 @@ int main(int argc, char **argv) {
   //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
   DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
 		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,3.0*stScaleLength/(radius/cmperkpc));
+		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc));
   if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
   else diskIC.Initialize(0.1*Z_Sol, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
 
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();
+
+  // If we're recording the convergence of the initial conditions, copy the comment file we just wrote out.
+  if(dbg.opt(2)) {
+      std::ifstream  src((filename+"_comment.txt").c_str());
+      std::ofstream  dst((filename+"_icgen_comment.txt").c_str());
+
+      dst << src.rdbuf();
+  }
+  
    
 
   Simulation simIC(300.0,1000000,
@@ -165,7 +178,7 @@ int main(int argc, char **argv) {
   // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
   DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
 		    TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-		    thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,minSigSt,3.0*stScaleLength/(radius/cmperkpc));
+		    thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc));
   disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
   Simulation sim(tmax,stepmax,
 		 cosmologyOn,nx,TOL,

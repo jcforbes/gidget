@@ -2,6 +2,7 @@
 #include "Cosmology.h"
 #include "Dimensions.h"
 #include "DiskUtils.h"
+#include "Debug.h"
 
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_randist.h>
@@ -141,6 +142,7 @@ double MofS(double theS,double s8,double OmegaM)
   findRoot(F,&M);
   return M;
 }
+
 double npow(double x,double ex) 
 {
   if(x<0.0) {
@@ -176,8 +178,23 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
     // pick a value for our Gaussian random variable.
     double x= gsl_ran_gaussian(r,1.0);
     double s= log10(SS);
-    // employ the formula in ND08 to compute the delta S for the chosen value of x.
-    double deltaS= exp((1.367+0.012*s+0.234*s*s)*x + (-3.682+0.76*s-0.36*s*s));
+    // employ the formula in ND08a to compute the delta S for the chosen value of x.
+    double deltaS;
+    if(!dbg.opt(3))
+      deltaS= exp((1.367+0.012*s+0.234*s*s)*x + (-3.682+0.76*s-0.36*s*s));
+    else {
+      double a1 = -1.209;
+      double a2 =  0.205;
+      double a3 =  0.245;
+      double a4 =  0.571;
+      double b1 = 0.0788;
+      double b2 = 2.418;
+      double b3 = 0.671;
+      double b4 = -0.434;
+      double sigp = (a1*s + a2) * log10(dom) + a3*s + a4;
+      double mup  = (b1*s + b2) * log10(dom) + b3*s + b4;
+      deltaS= exp(x*sigp + mup);
+    }
     // update our list of redshifts, given our uniformly spaced value of omega.
     // subtract a small number so that when we evaluate some quantity at z=0, we don't get an interpolation error.
 

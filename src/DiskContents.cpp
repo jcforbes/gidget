@@ -200,8 +200,9 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
   unsigned int maxsign=1;
   bool lowQst;
 
+  double fc = 1.0/6.0;
   double xd = stScaleLength/dim.d(1.0);
-  double S0 = 0.18 * fcool * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+  double S0 = 0.18 * fc * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
 
   //// For each cell...
   for(unsigned int n=1; n<=nx; ++n) {
@@ -232,8 +233,10 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     initialStarsP.spZ[n] = initialStarsA.spZ[n];
     initialStarsP.spZV[n] = initialStarsA.spZV[n];
 
-    sig[n] = pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.);
+    sig[n] = max(pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.),  sigth);
+    
     col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsig[n]) *sig[n];
+
 
     if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 
         || initialStarsA.spsig[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] 
@@ -1097,10 +1100,12 @@ double DiskContents::dSdtOutflows(unsigned int n)
 {
   return colSFR[n]*MassLoadingFactor;
 }
+
 double DiskContents::ComputedSdTCos(double AccRate)
 {
     if(!dbg.opt(8)) return 0.0;
 
+    double sum = 0.0;
 
     for(unsigned int n=1; n<=nx; ++n) {
       if(dbg.opt(8)) {
@@ -1111,9 +1116,14 @@ double DiskContents::ComputedSdTCos(double AccRate)
         dcoldtCos[n] =  (  (accScaleLength+xlo)*exp(-xlo/accScaleLength) 
                           -(accScaleLength+xhi)*exp(-xhi/accScaleLength))
                        *  AccRate*2.0 / (accScaleLength*(xhi-xlo)*(xhi+xlo));
+
+	sum += dcoldtCos[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0); 
+
       }
       else dcoldtCos[n] = 0.0;
     }
+
+    sum += dmdtCosOuter(AccRate) + dmdtCosInner(AccRate);
  
 }
 double DiskContents::dmdtCosOuter(double AccRate)
@@ -1121,13 +1131,13 @@ double DiskContents::dmdtCosOuter(double AccRate)
     if(!dbg.opt(8)) return AccRate;
 
     double xb = mesh.x(.5 + ((double) nx));
-    return AccRate * accScaleLength * (accScaleLength + xb)*exp(-xb/accScaleLength);
+    return AccRate *  (1.0 + xb/accScaleLength)*exp(-xb/accScaleLength);
 }
 double DiskContents::dmdtCosInner(double AccRate)
 {
     if(!dbg.opt(8)) return 0.0;
     double xb = mesh.x(0.5);
-    return AccRate * accScaleLength * (accScaleLength - exp(-xb/accScaleLength) * (accScaleLength+xb));
+    return AccRate * (1 - exp(-xb/accScaleLength) * (1.0+xb/accScaleLength));
 }
 
 double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps)

@@ -268,9 +268,9 @@ PRO variability3,expNames,keys,N,sv
            theData[*,*,k,ctr] = model.dataCube[*,*,wrtXyy[k]+offsets[wrtXyp[k]]-1]
          ENDFOR
 
-         vsMdot[*,0,0,ctr] =  model.dataCube[*,model.nx-1,39-1]  ;; external accretion rate
+;         vsMdot[*,0,0,ctr] =  model.dataCube[*,model.nx-1,39-1]  ;; external accretion rate
          
-;         vsMdot[*,0,0,ctr] = model.evArray[20-1,*] ;; Cosmological accretion rate.
+         vsMdot[*,0,0,ctr] = model.evArray[20-1,*] ;; Cosmological accretion rate.
          vsMdot[*,0,1,ctr] = model.evArray[10,*] ;; SFR [in the disk!]
 
          FOR zi=0, n_elements(model.evArray[9,*])-1 DO BEGIN ; loop over redshift
@@ -434,9 +434,9 @@ PRO variability3,expNames,keys,N,sv
 
   ;; Now do a series of plots vs. M*
   vsMstar = sortdVsMdot[*,*,*,*]
-  vsMstar[*,*,0,*] = vsMstar[*,*,2,*]
-  vsMstar[*,*,2:19,*] =vsMstar[*,*,3:20,*]
-  vsMstar=vsMstar[*,*,0:19,*]
+  vsMstar[*,*,0,*] = vsMstar[*,*,2,*] ;replace Mdot with M* as the zeroeth column of the data.
+  vsMstar[*,*,2:19,*] =vsMstar[*,*,3:20,*] ;move over the other columns so that we don't produce an M* vs M* plot
+  vsMstar=vsMstar[*,*,0:19,*] ; eliminate the extraneous last column.
   setct,3,n_elements(vsMstar[0,0,0,*]),0
   IF(n1 EQ 1) THEN BEGIN
     simpleMovie, vsMstar, time, ["Mst","DiskSFR","rPeak","rHI",'colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","DiskToTotalSF","fgL","ZL","fg"], $
@@ -490,6 +490,6 @@ PRO variability3,expNames,keys,N,sv
   PRINT,proftimes[3]-proftimes[2]," seconds to sort the data"
   PRINT,proftimes[4]-proftimes[3]," seconds to generate movies"
 
-  STOP
+  ;STOP
 
 END

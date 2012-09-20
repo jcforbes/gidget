@@ -162,6 +162,7 @@ FUNCTION readOutput,name
   minStsig = ExtractCmtFlt(lunCom)
   ndecay = ExtractCmtFlt(lunCom)
   debugParam = ExtractCmtL(lunCom)
+  accScaleLength = ExtractCmtFlt(lunCom)
   md0=ExtractCmtFlt(lunCom)
 
   ;; Now we need to rescale some values for mh0!=1e12

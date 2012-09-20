@@ -117,6 +117,8 @@ int Simulation::runToConvergence(const double fCondition,
       
       theDisk.WriteOutStepFile(filename,accr,t,z,dt,step,tauvec);
       writeIndex++;
+
+      std::cout << "Writing out file "<<writeIndex<<" at t = "<<present/(speryear*1.0e9)<<" Gyr, z= "<<z<<std::endl;
     }
 
     theDisk.ComputeColSFR();

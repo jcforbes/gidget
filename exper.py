@@ -9,34 +9,19 @@ import numpy as np
 import pdb
 import random
 
-# This is a somewhat straightforward script to allow you to run the GIDGET code with
+# This is a script to allow you to run the GIDGET code with
 # a wide variety of systematically varied parameters. The functions here are described
 # in some detail, but if you skip to the end of the script, there are plenty of 
 # examples of what you can run from the command line, e.g.
-#  $ python exper.py 'ex1'
+#  $ python exper.py ex1
 # will execute the example used in the README file.
 
 
-class covary:
-    def __init__(self):
-        self.names=[]
-        # listOfVariants contains all the necessary information to covary two parameters together.
-        self.listOfVariants=[] # [ [p_ind1^A, p_ind1^B, p_ind1^C, ...], [p_ind2^A, p_ind2^B,...], ...]
-    def addVariable(self,name,theList):
-        if(len(self.listOfVariants) == 0 and len(listOfVariants[0]) == len(theList)):
-            self.names.append(name)
-            self.listOfVariants.append(theList)
-        else:
-            raise ValueError('Length of given list incompatible with first list')
-    def getIthVar(self,i):
-        return self.names[i],self.listOfVariants[i]
-    def getNVars(self):
-        return len(self.names)
-    def getNVals(self):
-        return len(self.listOfVariants[0])
-
 
 def HowManyStillRunning(procs):
+    ''' Given a list of processes created with subprocess.Popen, (each of which
+          in this case will be a single run of the gidget code), count up how
+          many of those runs are still going.'''
     nStillRunning=0
     for proc in procs:
         if(proc.poll()==None):
@@ -69,7 +54,11 @@ def successCode(filename):
     
 
 class experiment:
+    ''' This class is a container to generate and store the necessary information to run
+         a series of GIDGET models with parameters varied in a systematic way.'''
     def __init__(self,name):
+        ''' All we need here is a name. This will be the directory containing and the prefix for
+             all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
         self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
@@ -82,7 +71,7 @@ class experiment:
             self.keys[n]=ctr
             ctr=ctr+1
         self.expName=name
-	self.covariables=[]
+	self.covariables=np.zeros(len(self.p),int)
 
         # store the location of various expected subdirectories in the gidget distribution.
         self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
@@ -92,10 +81,12 @@ class experiment:
         self.out=self.base+'/output'
         self.xgrid=self.base+'/xgrid'
         
-    def vary(self,name,mmin,mmax,n,log):
+    def vary(self,name,mmin,mmax,n,log,cov=0):
         '''Set up to vary a particular parameter, name, over the
         range [min,max] with n steps spaced linearly if log=0 or
-        logarithmically if log=1 '''
+        logarithmically if log=1. The cov flag means that all variables
+        with the same value of cov, e.g. accScaleLength and whichAccretionHistory,
+        will be varied together rather than independently. '''
         if(n>1 and log==0):
             self.p[self.keys[name]]=[mmin + (mmax-mmin)*type(self.p[self.keys[name]])(i)/type(self.p[self.keys[name]])(n-1) for i in range(n)]
         elif(n>1 and log==1 and mmin!=0 and mmin!=0.0):
@@ -104,8 +95,9 @@ class experiment:
             self.p[self.keys[name]]=[typ(float(mmin) * (rat)**(float(i)/float(n-1))) for i in range(n)]
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
+	self.covariables[self.keys[name]] = cov
 
-    def irregularVary(self,name,values):
+    def irregularVary(self,name,values,cov=0):
         ''' Similar to vary, except, rather than generating the
         array of parameter values to use for parameter "name",
         this list is specified explicitly in "values"'''
@@ -116,7 +108,25 @@ class experiment:
             self.p[keyNum]=[typ(value) for value in values]
         else:
             self.p[keyNum]=[typ(values)]
-            
+	self.covariables[self.keys[name]] = cov
+    
+    def ConsistencyCheck(self):
+        ''' Here we check whether all parameters in a covarying set have
+	the same length. Otherwise it makes little sense to vary them together.
+	'''
+        consistent = True
+        distinctCovSetIndices = set(self.covariables)
+	for ind in distinctCovSetIndices:
+		covIndicesForThisSet = np.where(self.covariables == ind)
+		lengths=[]
+		for var in covIndicesForThisSet:
+			lengths.append(len(self.p[var]))
+		if(len(set(lengths)) != 1):
+			consistent=False
+			print "Problem found in the ", ind, " set of covarying variables."
+			print "This corresponds to the variables ", covIndicesForThisSet
+			print "A set of variables you have asked to covary do not have the same lengths!"
+
     def generatePl(self):
         '''vary() will change a certain element of self.p into a list
         of values for that variable. This method assumes that some
@@ -133,28 +143,48 @@ class experiment:
 	    # such that for every previous run we had, we now have len(param) more, each with a different
 	    # value from the list param.
             if(type(param)==list):
-                # make len(param) copies of the current pl
-                pl2=[]
-                for i in range(len(param)):
-                    f=copy.deepcopy(self.pl)
-                    pl2.append(f) # pl2 ~ [pl,pl,pl]~[[p,p,p],[p,p,p],[p,p,p]]
-                    # in each copy, set the jth parameter in p to param[i]
-                    for a_p in pl2[i]: # each element is a list of parameters for
-                        a_p[j]=param[i]
-                        # in each copy, append to the name a...z corresponding to 
-			# which copy is currently being edited
-                        if(i<=25):
-                            base='a'
-                            app=''
-                        else:
-                            base='a'
-                            app=str((i-(i%26))/26)
-                        a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
-                    # end loop over p's in pl2[i]
-                # end loop over range of this varied parameter
+		covaryOtherVarsWithJ=False
+		varyThisVariable=True # i.e. the variable corresponding to j.
+		cov = self.covariables[j] # the flag for covarying variables.
+		if (cov!=0): # if this parameter (j) is part of a set of covarying parameters...
+			covIndices = np.where(self.covariables == cov)[0]
+			# if our current variable, j, is the first in a set of variables we're covarying,
+			# let's go ahead and vary other the other variables in the same set.
+                        
+			if( covIndices[0] == j ): 
+				covaryOtherVarsWithJ = True
+			# whereas if this is not the case, then this variable has already been varied
+			else:
+				varyThisVariable = False
 		
-		# collapse pl to be a 1d array of p's.
-                self.pl=[element for sub in pl2 for element in sub]
+		if(varyThisVariable): 
+	                # make len(param) copies of the current pl
+	                pl2=[]
+	                for i in range(len(param)):
+	                    f=copy.deepcopy(self.pl)
+	                    pl2.append(f) # pl2 ~ [pl,pl,pl]~[[p,p,p],[p,p,p],[p,p,p]]
+	                    # in each copy, set the jth parameter in p to param[i]
+	                    for a_p in pl2[i]: # each element is a list of parameters for
+        	                a_p[j]=param[i]
+				if(covaryOtherVarsWithJ): 
+					for covIndex in covIndices:
+						if(covIndex != j): # already taken care of with a_p[j]=...
+							a_p[covIndex] = self.p[covIndex][i]
+                	        # in each copy, append to the name a...z corresponding to 
+				# which copy is currently being edited
+	                        if(i<=25):
+        	                    base='a'
+                	            app=''
+                        	else:
+	                            base='a'
+        	                    app=str((i-(i%26))/26)
+                	        a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
+	                    # end loop over p's in pl2[i]
+        	        # end loop over range of this varied parameter
+		
+			# collapse pl to be a 1d array of p's.
+	                self.pl=[element for sub in pl2 for element in sub]
+		
             else : #just a regular non-varying parameter
                 # If the user has used vary() but with N=1, the new argument will
                 # not be a list! In this case, we set this parameter in each element 
@@ -165,23 +195,6 @@ class experiment:
                     else:
                         pass # nothing to do- just use default value
 
-
-        # OK. The strategy is to take the existing pl ~ [[p,p,p..],[p,p,p..],...]
-        # and create cov.getNVals() copies of it stored in pl2 ~ [pl, pl, ...]
-        # For jth pl in pl2, change all the parameters listed in cov to the jth value of their list.
-        # Repeat for every set of covarying variables
-        
-#        # For every set of covarying variables:
-#	for i in range(len(self.covariables)):
-#            pl2=[]
-#            cov = self.covariables[i]
-#            # for each variable which is covarying
-#            for varj in range(cov.getNVals()):
-#                preCovPl = copy.deepcopy(self.pl)
-#                pl2.append(preCovPl)
-#                for k in range(cov.getNVars()):
-#                name,listForThisVar = cov.GetIthVar(varj)
-#                self.keys[name]
 
             
     def write(self,name):
@@ -235,34 +248,13 @@ class experiment:
 	print 
         return successTable.T
 
-#        for 
-#        for flatInd in range(len(successTableKeys.size)):
-#            theKey = successTableKeys.flat[flatInd]
-#	    message=""
-#            for i in range(len(theKey)):
-#                message+=(theLists[theKey[i]]+' ')
-#
-#        for a_p in self.pl: # for each run
-#            for success in range(4): # for each possible success code
-#                successTableKey = [] 
-#                for i in range(len(varied)): # for each quantity varied
-#                    j = varied[i]
-#                    if(successTabl
-#
-#        for varA in range(len(varied)):
-#	    for varB in range(len(varied)):
-#		if(varA!=varB) :
-#		    pass
-	            
 
-    def fast(self):
-        '''Set a few parameters to still-reasonable parameters
-        which will speed up the simulation '''
-        self.vary('nx',200,200,1,0)
-        self.vary('minSigSt',10,10,1,0)
-        self.vary('diskScaleLength',2.0,2.0,1,0) # not actually faster, but I often forget it.
 
     def makeList(self):
+        """ This function is under construction. The idea is that when we want to run a large
+          number of experiments in series, we don't want to wait for the first experiment to
+          finish if, say, it is still using up 2 processors but there are 2 other processors free.
+        """
         self.generatePl()
         ctr=0
         binary = self.bin+'/gidget'
@@ -778,36 +770,41 @@ if __name__ == "__main__":
     # 87 - exponential accretion w/ bugfix
     # 97 - exponential accretion w/ scatter in spin parameter!
 
+    theCompositeName="rn99"
+
     experiments=[]
     nacc = 90
     nmh0 = 41
     random.seed(4+20*nacc)
     compositeNames=[]
     for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
-        theName = 'rn97_'+str(i).zfill(3)+'_'
+        theName = theCompositeName+'_'+str(i).zfill(3)+'_'
         compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
-        experiments[i].irregularVary('diskScaleLength',[2])
         experiments[i].vary('dbg',2**10+2**8,2**10+2**8,1,0)
 	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
         experiments[i].vary('alphaMRI',0,0,1,0)
         Mh0 = 1.0e10 * (100.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
-#	experiments[i].irregularVary('R',[5.0+(float(i)/float(nmh0-1))*(20.0-5.0)])
-#        experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
-	spinParameter = .05 * (10.0 ** random.gauss(0.0,0.2)) # .05 w/ .2 dex scatter
-	experiments[i].irregularVary('accScaleLength',[311.34 * (Mh0/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5)])
+        #	experiments[i].irregularVary('R',[5.0+(float(i)/float(nmh0-1))*(20.0-5.0)])
+        #        experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
+        scLengths=[]
+        for j in range(nacc):
+            spinParameter = .05 * (10.0 ** random.gauss(0.0,0.2)) # .05 w/ .2 dex scatter
+            scLengths.append(311.34 * (Mh0/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5))
+	experiments[i].irregularVary('accScaleLength',scLengths,1)
+        experiments[i].irregularVary('diskScaleLength',scLengths,1)
         experiments[i].irregularVary('Mh0',[Mh0])
-        experiments[i].vary('whichAccretionHistory',4+nacc*(i+20),4+nacc*(i+21)-1,nacc,0)
+        experiments[i].vary('whichAccretionHistory',4+nacc*(i+20),4+nacc*(i+21)-1,nacc,0,1)
         allModels[theName]=experiments[i]
 
     compositeFlag = False    
-    if ('rn97' in modelList):
+    if (theCompositeName in modelList):
         compositeFlag = True
         for ex in experiments:
             modelList.append(ex.expName)
-        del modelList[modelList.index('rn97')]
+        del modelList[modelList.index(theCompositeName)]
 
     successTables=[]
     # run all the models, and record which ones succeed.
@@ -819,12 +816,12 @@ if __name__ == "__main__":
 #        successTables.append(allModels[model].ExamineExperiment())
 
     if(compositeFlag):
-	os.mkdir('/Users/jforbes/gidget/analysis/rn97')
+	os.mkdir('/Users/jforbes/gidget/analysis/'+theCompositeName)
         for dirname in compositeNames:
-            files=glob.glob('./analysis/'+dirname+'/*')
+            files=glob.glob('/Users/jforbes/gidget/analysis/'+dirname+'/*')
 	    pdb.set_trace()
             for aFile in files:
-	        os.symlink(aFile,'./analysis/rn97/'+aFile[11+len(dirname):])
+	        os.symlink(aFile,'/Users/jforbes/gidget/analysis/'+theCompositeName+'/'+aFile[11+len(dirname):])
            
 
 #    PrintSuccessTables(successTables)

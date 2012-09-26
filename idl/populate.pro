@@ -1,3 +1,4 @@
+
 FUNCTION findindex,xbounds,ybounds,nx,ny,x,y,log
   IF(xbounds[0] GE xbounds[1]) THEN message,"findindex in populate.pro: Invalid xbounds"
   IF(ybounds[0] GE ybounds[1]) THEN message,"findindex in populate.pro: Invalid ybounds"
@@ -16,15 +17,10 @@ FUNCTION findindex,xbounds,ybounds,nx,ny,x,y,log
     if(y GT ybounds[1]) THEN yv=ybounds[1]*.99
     j = FIX( (ny-1.0) * alog10(yv/ybounds[0]) / alog10(ybounds[1]/ybounds[0])  + 0.5)
   ENDIF ELSE BEGIN
-;    xr = xbounds[1] - xbounds[0]
     yr = ybounds[1] - ybounds[0]
-;    xe = xr/(10.0*nx)
     ye = yr/(10.0*ny)
-;    if(x LT xbounds[0]) THEN xv=xbounds[0] + xe
-;    if(x GT xbounds[1]) THEN xv=xbounds[1] - xe
     if(y LT ybounds[0]) THEN yv=ybounds[0] + ye
     if(y GT ybounds[1]) THEN yv=ybounds[1] - ye
-;    i = FIX( float(nx) * (xv-xbounds[0])/xr  )
     j = FIX( float(ny) * (yv-ybounds[0])/yr  )
 
   END
@@ -32,6 +28,8 @@ FUNCTION findindex,xbounds,ybounds,nx,ny,x,y,log
   RETURN,[i,j]
 END
 
+;; Return the weight of a given Halo-Mass-at-redshift-0, where weights is an array
+;; read from a file by the ReadWeights function (see below)
 FUNCTION weight,weights,mh0
   index = WHERE(ABS(weights[0,*]-alog10(mh0)) LT .0001, count)
   if(count EQ 1) THEN RETURN,weights[1,index]
@@ -39,6 +37,8 @@ FUNCTION weight,weights,mh0
   RETURN,0.0 ;; never get here
 END
 
+; Given the boundaries and the number of divisions, return the locations of the bins assuming
+; we'd like them to be logarithmically distributed.
 FUNCTION GetAxis, ybounds,Ny
   y = dblarr(Ny)
   FOR j=0,Ny-1 DO y[j]=ybounds[0]*(ybounds[1]/ybounds[0])^(float(j)/(Ny-1.0))

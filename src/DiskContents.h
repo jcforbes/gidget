@@ -46,7 +46,7 @@ class DiskContents {
   // Simultaneously adjust sigma and sigma_* (keeping their ratio fixed) until
   // Q is exactly its pre-adjudicated fixed value, fixedQ, at every cell 
   // in the disk.
-  void EnforceFixedQ(bool fixedPhi0);
+  void EnforceFixedQ(bool fixedPhi0, bool EnforceWhenQgtrQf);
 
   // Fill in vectors of the partial derivatives of Q wrt 
   // each state variable
@@ -152,6 +152,10 @@ class DiskContents {
   void Initialize(double Z_Init, double fcool, double fg0,
 		  double sigst0, double Mh0, double MhZs,
 		  double stScaleLength);
+
+  void Initialize(double Z_Init, double fcool, double fg0,
+                  double sig0, double tempRatio, double Mh0,
+                  double MhZs, double stScaleLength);
 
   // Is one of the current stellar populations 'currently forming'
   //, i.e. since stars are binned by age, is the age of stars 

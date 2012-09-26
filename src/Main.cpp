@@ -139,22 +139,9 @@ int main(int argc, char **argv) {
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
 
-  // Set the dimensional quantities. 
-  Dimensions dim(radius,vphiR,mdot0);
-  FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
-  double dummy = mesh.psi(0.5);
-  double MhZs = accr.MhOfZ(zstart)*Mh0;
-
-  //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
-  DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
-		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc));
-  if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
-  else diskIC.Initialize(0.1*Z_Sol, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
 
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();
-
   // If we're recording the convergence of the initial conditions, copy the comment file we just wrote out.
   if(dbg.opt(2)) {
       std::ifstream  src((filename+"_comment.txt").c_str());
@@ -162,29 +149,64 @@ int main(int argc, char **argv) {
 
       dst << src.rdbuf();
   }
+
+
+
+  // Set the dimensional quantities. 
+  Dimensions dim(radius,vphiR,mdot0);
+  FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
+  double dummy = mesh.psi(0.5);
+  double MhZs = accr.MhOfZ(zstart)*Mh0;
+
+  // don't relax the disk!
+  if(dbg.opt(5)) {
+      DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
+                        TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
+                        thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
+                        minSigSt,accScaleLength/(radius/cmperkpc));
+      double sig0 = 0.4;
+      double fcool = 0.2 * sqrt(MhZs / 1.0e12);
+      disk.Initialize(.1*Z_Sol,fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
+
+      Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
+                     zstart,NActive,NPassive,alphaMRI,
+                     sigth,ndecay,disk,accr,dbg,dim);
+      int result = sim.runToConvergence(1.0e10, true, filename);
+
+  }
+  if(!dbg.opt(5)) {
+      //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
+      DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
+    		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
+    		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc));
+      if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
+      else diskIC.Initialize(0.1*Z_Sol, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
+
   
    
 
-  Simulation simIC(300.0,1000000,
-                   false, nx,TOL,
-                   zstart,NActive,NPassive,
-                   alphaMRI,sigth,ndecay,
-                   diskIC,accr,dbg,dim);
-  int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen"); // set false-> true to debug initial condition generator
-  if(result!=5) // The simulation converges when the time step reaches 1*TOL.
-    errormsg("Initial Condition generator failed to converge, code "+str(result));
+      Simulation simIC(300.0,1000000,
+                       false, nx,TOL,
+                       zstart,NActive,NPassive,
+                       alphaMRI,sigth,ndecay,
+                       diskIC,accr,dbg,dim);
+      int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen"); // set false-> true to debug initial condition generator
+      if(result!=5) // The simulation converges when the time step reaches 1*TOL.
+        errormsg("Initial Condition generator failed to converge, code "+str(result));
 
 
-  // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
-  DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
-		    TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-		    thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc));
-  disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
-  Simulation sim(tmax,stepmax,
-		 cosmologyOn,nx,TOL,
-		 zstart,NActive,NPassive,
-		 alphaMRI,sigth,ndecay,
-		 disk,accr,dbg,dim);
-  result = sim.runToConvergence(1.0e10, true, filename);
+      // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
+      DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
+                        TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
+		        thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
+                        minSigSt,accScaleLength/(radius/cmperkpc));
+      disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
+      Simulation sim(tmax,stepmax,
+                     cosmologyOn,nx,TOL,
+		     zstart,NActive,NPassive,
+		     alphaMRI,sigth,ndecay,
+		     disk,accr,dbg,dim);
+      result = sim.runToConvergence(1.0e10, true, filename);
+  }
  
 }

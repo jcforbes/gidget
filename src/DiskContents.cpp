@@ -137,6 +137,9 @@ DiskContents::~DiskContents()
 
 }
 
+
+// Initialize the disk with an Initializer object, basically all the state variables
+// from a disk, to which you've done whatever... (typically relaxed to an equilibrium configuration).
 void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 {
   StellarPop initialStarsA(nx,
@@ -174,12 +177,61 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 //  spsPassive.clear();
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
-  EnforceFixedQ(fixedPhi0);
+  EnforceFixedQ(fixedPhi0,true);
 
   initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
   initialGasMass = TotalWeightedByArea(col) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
+}
+
+
+// Simplify things. Just put in exponential disks with constant velocity dispersions.
+// Set Q=Qf only when these simple initial tries yield Q<Qf.
+void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
+			      double sig0, double phi0, double Mh0,
+                              double MhZs, double stScaleLength)
+{
+    StellarPop initialStarsA(nx,YoungIthBin(0,cos,NActive),
+			   OldIthBin(0,cos,NActive));
+    StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
+			   OldIthBin(0,cos,NPassive));
+
+    double xd = stScaleLength/dim.d(1.0);
+    double S0 = 0.18 * fcool * MhZs*MSol / (dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+
+    for(unsigned int n=1; n<=nx; ++n) {
+      ZDisk[n] = Z_Init;
+      initialStarsA.spcol[n] = S0*(1-fg0)*exp(-x[n]/xd);
+      initialStarsA.spsig[n] = max(sig0 * phi0, minsigst);
+      initialStarsA.spZ[n] = Z_Init;
+      initialStarsA.spZV[n] = 0.0;
+
+      initialStarsP.spcol[n] = initialStarsA.spcol[n];
+      initialStarsP.spsig[n] = initialStarsA.spsig[n];
+      initialStarsP.spZ[n] = initialStarsA.spZ[n];
+      initialStarsP.spZV[n] = initialStarsA.spZV[n];
+
+      col[n] = S0*fg0*exp(-x[n]/xd);
+      sig[n] = max(sig0, sigth);
+
+      
+    }
+
+  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
+  initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
+  initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+
+
+  spsActive.push_back(initialStarsA);
+  spsPassive.push_back(initialStarsP);
+  EnforceFixedQ(true,false);
+
+  initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
+    (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
+  initialGasMass = TotalWeightedByArea(col) * 
+    (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
+
 }
 
 
@@ -194,93 +246,97 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
   StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
 			   OldIthBin(0,cos,NPassive));
 
-//  InitializeGrid(BulgeRadius);
 
-  double maxsig=0.0;
-  unsigned int maxsign=1;
-  bool lowQst;
+  if(true) {
+  //  InitializeGrid(BulgeRadius);
+  
+    double maxsig=0.0;
+    unsigned int maxsign=1;
+    bool lowQst;
+  
+    double fc = 1.0/6.0;
+    double xd = stScaleLength/dim.d(1.0);
+    double S0 = 0.18 * fc * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+  
+    //// For each cell...
+    for(unsigned int n=1; n<=nx; ++n) {
+      ZDisk[n] = Z_Init;
 
-  double fc = 1.0/6.0;
-  double xd = stScaleLength/dim.d(1.0);
-  double S0 = 0.18 * fc * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
-
-  //// For each cell...
-  for(unsigned int n=1; n<=nx; ++n) {
-    ZDisk[n] = Z_Init;
-
-    // Put in the exponential stellar profile.
-    initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
-    initialStarsA.spsig[n] = max(sigst0,minsigst);
+      // Put in the exponential stellar profile.
+      initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
+      initialStarsA.spsig[n] = max(sigst0,minsigst);
 
 
 
-    // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by 
-    // heating the stars beyond what the user requested.
-    if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
-      lowQst = true;
-      initialStarsA.spsig[n] = max(Qlim*M_PI*x[n]*initialStarsA.spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
-    }
+      // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by 
+      // heating the stars beyond what the user requested.
+      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
+        lowQst = true;
+        initialStarsA.spsig[n] = max(Qlim*M_PI*x[n]*initialStarsA.spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
+      }
+ 
+      if(initialStarsA.spsig[n] > maxsig) { 
+  	maxsig=initialStarsA.spsig[n];
+  	maxsign=n;
+      }
+      initialStarsA.spZ[n] = Z_Init;
+      initialStarsA.spZV[n] = 0.0;
+  
+      initialStarsP.spcol[n] = initialStarsA.spcol[n];
+      initialStarsP.spsig[n] = initialStarsA.spsig[n];
+      initialStarsP.spZ[n] = initialStarsA.spZ[n];
+      initialStarsP.spZV[n] = initialStarsA.spZV[n];
 
-    if(initialStarsA.spsig[n] > maxsig) { 
-	maxsig=initialStarsA.spsig[n];
-	maxsign=n;
-    }
-    initialStarsA.spZ[n] = Z_Init;
-    initialStarsA.spZV[n] = 0.0;
-
-    initialStarsP.spcol[n] = initialStarsA.spcol[n];
-    initialStarsP.spsig[n] = initialStarsA.spsig[n];
-    initialStarsP.spZ[n] = initialStarsA.spZ[n];
-    initialStarsP.spZV[n] = initialStarsA.spZV[n];
-
-    sig[n] = max(pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.),  sigth);
+      sig[n] = max(pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.),  sigth);
     
-    col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsig[n]) *sig[n];
+      col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsig[n]) *sig[n];
 
 
-    if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 
-        || initialStarsA.spsig[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] 
-        || initialStarsA.spsig[n]!=initialStarsA.spsig[n]) 
-    {
-	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "
-                +str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "
-                +str(initialStarsA.spsig[n])+" "
-                +str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsig[n]
-                           /(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
+      if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 
+          || initialStarsA.spsig[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] 
+          || initialStarsA.spsig[n]!=initialStarsA.spsig[n]) 
+      {
+  	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "
+                  +str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "
+                  +str(initialStarsA.spsig[n])+" "
+                  +str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsig[n]
+                             /(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
+      }
+    } // end loop over all cells
+  
+    if(lowQst) {
+     // make sig_st monotonically increasing towards the center of the disk.
+      for(unsigned int n=1; n<=maxsign; ++n ) {
+        if(initialStarsA.spsig[n] < maxsig) { 
+          initialStarsA.spsig[n] = max(maxsig,minsigst);
+          initialStarsP.spsig[n] = max(maxsig,minsigst);
+        }
+      }
+  
     }
-  } // end loop over all cells
 
-  if(lowQst) {
-   // make sig_st monotonically increasing towards the center of the disk.
-    for(unsigned int n=1; n<=maxsign; ++n ) {
-      if(initialStarsA.spsig[n] < maxsig) { 
-        initialStarsA.spsig[n] = max(maxsig,minsigst);
-        initialStarsP.spsig[n] = max(maxsig,minsigst);
+    double minQst=1.0e30;
+    unsigned int minQstN=0;
+    // locate the minimum value of Q_*
+    for(unsigned int n=1; n<=nx; ++n) {
+      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n]/(initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
+  	minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi());
+  	minQstN = n;
       }
     }
-  
-  }
+    if(minQst < Qlim*.99999) errormsg("Minimum Qst is somehow below Qlim. "+str(Qlim)+" "+str(minQst));
 
-  double minQst=1.0e30;
-  unsigned int minQstN=0;
-  // locate the minimum value of Q_*
-  for(unsigned int n=1; n<=nx; ++n) {
-    if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n]/(initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
-	minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi());
-	minQstN = n;
+    // Inwards of minQstN, set col_* such that Q_* doesn't turn back up at small radii.
+    for(unsigned int n=1; n<=minQstN; ++n) {
+      initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (minQst*M_PI*x[n]*dim.chi());
+      initialStarsP.spcol[n] = initialStarsA.spcol[n];
+    }
+    for(unsigned int n=1; n<=nx; ++n) {
+      initialStarsA.spsig[n] = max(initialStarsA.spsig[n] * Qlim / minQst,minsigst);
+      initialStarsP.spsig[n] = initialStarsA.spsig[n];
     }
   }
-  if(minQst < Qlim*.99999) errormsg("Minimum Qst is somehow below Qlim. "+str(Qlim)+" "+str(minQst));
 
-  // Inwards of minQstN, set col_* such that Q_* doesn't turn back up at small radii.
-  for(unsigned int n=1; n<=minQstN; ++n) {
-    initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (minQst*M_PI*x[n]*dim.chi());
-    initialStarsP.spcol[n] = initialStarsA.spcol[n];
-  }
-  for(unsigned int n=1; n<=nx; ++n) {
-    initialStarsA.spsig[n] = max(initialStarsA.spsig[n] * Qlim / minQst,minsigst);
-    initialStarsP.spsig[n] = initialStarsA.spsig[n];
-  }
 
 
   MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
@@ -290,7 +346,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
-  EnforceFixedQ(false);
+  EnforceFixedQ(false,true);
 
   initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -339,7 +395,7 @@ void DiskContents::Initialize(double tempRatio, double fg0)
   spsPassive.push_back(initialStarsP);
 //  EnforceFixedQ(true); // this is no longer reasonable given the floor, minsigst.
   bool fixedPhi0 = initialStarsA.spsig[1] > 2.0*minsigst;
-  EnforceFixedQ(fixedPhi0); // only allow sig and sigst to covary if initial stellar velocity dispersion is far above minsigst.
+  EnforceFixedQ(fixedPhi0,true); // only allow sig and sigst to covary if initial stellar velocity dispersion is far above minsigst.
   if(!fixedPhi0)  std::cerr << "WARNING: minsigst set too high to allow intiial conditions to be set by covarying gas and stellar velocity dispersions.";
 
   initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
@@ -431,7 +487,8 @@ void DiskContents::ComputeDerivs(double ** tauvec)
 //    colSFR[n] = dSSFdt(n);
     dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
                  * dlnZdx *tauvec[2][n] 
-                 + yREC*(1.0-RfREC)*zetaREC*colSFR[n]/(col[n]);
+                 + yREC*(1.0-RfREC)*zetaREC*colSFR[n]/(col[n])
+		 + dcoldtCos[n] * (Z_IGM - ZDisk[n])/col[n];
 
     // Check to make sure the results of this method are reasonable..
     if(dcoldt[n]!=dcoldt[n] || 
@@ -745,7 +802,7 @@ void DiskContents::ComputeRafikovQParams(RafikovQParams* p, unsigned int n)
 
 // if fixedPhi0 is true, Q=Q_f is enforced by adjusting sig and sig_st simultaneously
 // otherwise we assume sig_st is fixed, and we adjust sig only.
-void DiskContents::EnforceFixedQ(bool fixedPhi0)
+void DiskContents::EnforceFixedQ(bool fixedPhi0, bool EnforceWhenQgrtQf)
 {
   RafikovQParams rqp;
   gsl_function F;
@@ -757,20 +814,28 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0)
     F.function = &QmfQfst;
   double factor =1.;
   rqp.mostRecentq=1.;
+  double absc=1.0;
   for(unsigned int n=1; n<=nx; ++n) {
     ComputeRafikovQParams(&rqp,n);
     
-    F.params = &rqp;
-    findRoot(F,&factor);
-    
-    sig[n] *= factor;
+    // Only enforce Q=Qf when either
+    // 1) EnforceWhenQgrtQf is true, in which case always enforce Q=Qf
+    // or, 2) if we shouldn't enforce it always, only enforce it when Q<Qf
+    // Basically, always set Q=Qf if Q<Qf, but not always if Q>Qf .
+    if(EnforceWhenQgrtQf || !EnforceWhenQgrtQf && Q(&rqp,&absc) < fixedQ) {
 
-    if(fixedPhi0) {
-      for(unsigned int i=0; i!=spsActive.size(); ++i) {
-        spsActive[i].spsig[n] *= factor;
-      }
-      for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-        spsPassive[i].spsig[n] *=factor;
+      F.params = &rqp;
+      findRoot(F,&factor);
+    
+      sig[n] *= factor;
+
+      if(fixedPhi0) {
+        for(unsigned int i=0; i!=spsActive.size(); ++i) {
+          spsActive[i].spsig[n] *= factor;
+        }
+        for(unsigned int i=0; i!=spsPassive.size(); ++i) {
+          spsPassive[i].spsig[n] *=factor;
+        }
       }
     }
   }
@@ -800,43 +865,6 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
     }
   }
 
-  if(dbg.opt(5)) {
-    int navg=((int) ndecay);
-    for(int n=1; n<=nx; ++n) {
-      for(int np=n; np<=min(n+navg,((int) nx)); ++np) {
-        if(replaceWithMRI[n]==1 && replaceWithMRI[np]==0) {
-          double GIweight = ((double) np -n ) / ((double) navg);
-          double alphaWeight = 1.0 - GIweight;
-//          tauvec[1][np] = 0.5 * (tauvec[1][np] + tauMRI[np]);
-          tauvec[1][np] = (tauvec[1][np] * GIweight + tauMRI[np] * alphaWeight) / (GIweight+alphaWeight);
-        }
-      }
-    }
-  }
-
-
-  //  int nsmooth = (int) (ndecay/2.0 + 1);
-  int nsmooth = 3;
-  std::vector<double> tauSmooth(nx+1,0.0);
-  for(int n=1; n<=nx; ++n) {
-    double norm = 0.0;
-    if(dbg.opt(0)) { // RH smoothing only
-      for(int np = max(1,min(n-3*nsmooth,n)); np<=min((int) nx,max(n,n+3*nsmooth)); ++np) {
-//    for(int np=n; np<=min((int) nx,n+3*nsmooth); ++np) {
-        double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
-        tauSmooth[n] += wght*tauvec[1][np];
-        norm += wght;
-      }
-    }
-    else {
-      for(int np=n; np<=min((int) nx,n+3*nsmooth); ++np) {
-        double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
-        tauSmooth[n] += wght*tauvec[1][np];
-        norm += wght;
-      }
-    }
-    tauSmooth[n]/=norm;
-  }
 
   TauPrimeFromTau(tauvec);
 }
@@ -874,8 +902,17 @@ void DiskContents::TauPrimeFromTau(double ** tauvec)
   for(unsigned int n=1; n<=nx; ++n) {
     tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
     MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvec[1][n+1]-tauvec[1][n])/(mesh.x(n+1)-x[n]);
+
+    if(dbg.opt(4) && MdotiPlusHalf[n] <0.0) {
+      tauvec[2][n] = 0.0;
+      MdotiPlusHalf[n] = 0.0;
+    }
   }
   MdotiPlusHalf[0]=-1.0/mesh.u1pbPlusHalf(0) * (tauvec[1][1]-tauvec[1][0])/(x[1]-mesh.x(0.0));
+
+  if(dbg.opt(4) && MdotiPlusHalf[0] < 0.0) {
+      MdotiPlusHalf[0] = 0.0;
+  }
 
 }
 
@@ -1204,30 +1241,14 @@ void DiskContents::UpdateCoeffs(double redshift)
 
     double QQ = Q(&rqp,&absc);
 
-    if(!dbg.opt(12)) {
-      if(QQ>fixedQ) {
+    if(QQ>fixedQ) {
 	FF[n]=0.0;
 	UU[n]=0.0;
 	DD[n]=1.0;
 	LL[n]=-1.0;
-      }
     }
-    else{
-      if(FF[n]<0.0 || QQ > fixedQ)
-	keepTorqueOff[n]=1;
-      if(QQ<fixedQ-.00001)
-	keepTorqueOff[n]=0;
-      
-      if(keepTorqueOff[n]==1) { 
-	FF[n]=0;
-	if(!dbg.opt(9)) {
-	  DD[n]=1;
-	  UU[n]=0;
-	  LL[n]=0;
-	}
-      }
-      
-    }
+
+
 
     if(FF[n]!=FF[n] || DD[n]!=DD[n] || LL[n]!=LL[n] || UU[n]!=UU[n]) {
       std::string spc(" ");
@@ -1525,29 +1546,6 @@ void DiskContents::ComputeY(const double ndecay)
     }
   }
 
-  if(dbg.opt(4) && ndecay >0) {
-    std::vector<double> yysmooth(nx+1,0.0);
-//    int nsmooth = 8; // (int) ndecay;
-    int nsmooth;
-    if(dbg.opt(7)) nsmooth = 8;
-    else nsmooth = (int) ndecay;
-    for(unsigned int n=1; n<=nx; ++n) {
-      double norm=0.0;
-      int LH = 0;
-      if(dbg.opt(5))
-        LH = max(1,(int) n-3*nsmooth); 
-      else
-        LH = n;
-//      for(int np=n; np<=min((int) nx,(int) n+3*nsmooth); ++np) {
-      for(int np=LH; np<=min((int) nx, (int) n+3*nsmooth); ++np) {
-        double wght = exp(-((double) (np-n)*(np-n))/(2.0*((double) nsmooth*nsmooth)));
-        yysmooth[n] += wght*yy[np];
-        norm += wght;
-      }
-      yysmooth[n]/=norm;
-      yy[n] = yysmooth[n];
-    }
-  }
 }
 
 void DiskContents::ComputePartials()

@@ -18,6 +18,8 @@ import random
 
 
 
+allModels={} # a global list of all experiments created.
+
 def HowManyStillRunning(procs):
     ''' Given a list of processes created with subprocess.Popen, (each of which
           in this case will be a single run of the gidget code), count up how
@@ -80,6 +82,8 @@ class experiment:
         self.bin=self.base+'/bin'
         self.out=self.base+'/output'
         self.xgrid=self.base+'/xgrid'
+
+        allModels[name] = self
         
     def vary(self,name,mmin,mmax,n,log,cov=0):
         '''Set up to vary a particular parameter, name, over the
@@ -387,6 +391,18 @@ def LocalRun(runBundle,nproc):
     print "Local run complete!"
 
 
+def GetScaleLengths(mean,scatter,Mh0,N,sd):
+    ''' Return a vector of scale lengths in kpc such that the haloes will have
+        spin parameters of mean on average, with a given scatter in dex. These 
+        are also scaled by halo mass, since the Virial radius goes as M_h^(1/3).
+        sd seeds the random number generator so that this function is deterministic.'''
+    random.seed(sd)
+    scLengths=[]
+    for j in range(N):
+	spinParameter = .04  * (10.0 ** random.gauss(0.0,0.5)) # .04 w/ .5 dex scatter
+        scLengths.append(311.34 * (Mh0/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5))
+    return scLengths
+
 
 
 def PrintSuccessTables(successTables):
@@ -437,14 +453,14 @@ if __name__ == "__main__":
         modelList.append(modelName)
 
     
-    allModels={} # empty dictionary into which we'll place all model definitions
+#    allModels={} # empty dictionary into which we'll place all model definitions
     # keys are experiment names, e.g. "rn27", values are experiment instances.
     # There is no particular requirement that the name of the instance in this script
     # be the same as the instance's name variable, nor the value of the key,
     # but confusion is likely if that is not the case.
  
 
-    rn27=experiment('rn27a') # detailed view of MW-size halo
+    rn27=experiment('rn27') # detailed view of MW-size halo
     rn27.vary('nx',200,200,1,0)
     rn27.vary('diskScaleLength',2,2,1,0)
     rn27.vary('dbg',2**10,2**10,1,0)
@@ -452,9 +468,8 @@ if __name__ == "__main__":
     rn27.vary('alphaMRI',0,0,1,0)
     rn27.vary('minSigSt',10,10,1,0)
     rn27.vary('whichAccretionHistory',100,1099,1000,0)
-    allModels['rn27']=rn27
 
-    rn28=experiment('rn28a') # detailed view of a lower-mass halo
+    rn28=experiment('rn28') # detailed view of a lower-mass halo
     rn28.vary('nx',200,200,1,0)
     rn28.vary('diskScaleLength',2,2,1,0)
     rn28.vary('dbg',2**10,2**10,1,0)
@@ -463,9 +478,8 @@ if __name__ == "__main__":
     rn28.vary('minSigSt',5,5,1,0)
     rn28.vary('whichAccretionHistory',1100,2099,1000,0)
     rn28.vary('Mh0',1.0e11,1.0e11,1,0)
-    allModels['rn28']=rn28
 
-    rn29=experiment('rn29a') # More accretion!
+    rn29=experiment('rn29') # More accretion!
     rn29.vary('nx',200,200,1,0)
     rn29.vary('diskScaleLength',2,2,1,0)
     rn29.vary('dbg',2**10,2**10,1,0)
@@ -474,34 +488,34 @@ if __name__ == "__main__":
     rn29.vary('minSigSt',10,10,1,0)
     rn29.vary('whichAccretionHistory',2100,3099,1000,0)
     rn29.vary('Mh0',3.0e12,3.0e12,1,0)
-    allModels['rn29']=rn29
+#    allModels['rn29']=rn29
 
-    rn34=experiment('rn34c') # variable metal diffusion coefficient; b-> lower zeta (.3)
+    rn34=experiment('rn34') # variable metal diffusion coefficient; b-> lower zeta (.3)
     # c: zeta=.7, multiply variable coefficient by .1.
     rn34.vary('dbg',2**10+2**15,2**10+2**15,1,0)
     rn34.vary('minSigSt',10,10,1,0)
     rn34.vary('whichAccretionHistory',3100,4099,1000,0)
-    allModels['rn34']=rn34
+ #   allModels['rn34']=rn34
 
-    rn35=experiment('rn35a') # increased accr. history threshold.
+    rn35=experiment('rn35') # increased accr. history threshold.
     rn35.vary('dbg',2**10+2**16,2**10+2**16,1,0)
     rn35.vary('minSigSt',10,10,1,0)
     rn35.vary('whichAccretionHistory',4100,5099,1000,0)
-    allModels['rn35']=rn35
+#    allModels['rn35']=rn35
 
-    rn36=experiment('rn36a') # smaller eta
+    rn36=experiment('rn36') # smaller eta
     rn36.vary('dbg',2**10,2**10,1,0)
     rn36.vary('minSigSt',10,10,1,0)
     rn36.vary('whichAccretionHistory',5100,6099,1000,0)
     rn36.vary('eta',.5,.5,1,0)
-    allModels['rn36']=rn36
+#    allModels['rn36']=rn36
 
     rn37=experiment('rn37') # larger eta
     rn37.vary('dbg',2**10,2**10,1,0)
     rn37.vary('minSigSt',10,10,1,0)
     rn37.vary('whichAccretionHistory',6100,7099,1000,0)
     rn37.vary('eta',4.5,4.5,1,0)
-    allModels['rn37']=rn37
+#    allModels['rn37']=rn37
 
 
     rn38=experiment('rn38') # lower fg
@@ -509,14 +523,14 @@ if __name__ == "__main__":
     rn38.vary('minSigSt',10,10,1,0)
     rn38.vary('whichAccretionHistory',6100,7099,1000,0)
     rn38.vary('fg0',.1,.1,1,0)
-    allModels['rn38']=rn38
+#    allModels['rn38']=rn38
 
     rn39=experiment('rn39') # hotter stars!
     rn39.vary('dbg',2**10,2**10,1,0)
     rn39.vary('minSigSt',10,10,1,0)
     rn39.vary('whichAccretionHistory',6100,7099,1000,0)
     rn39.vary('phi0',2,2,1,0)
-    allModels['rn39']=rn39
+#    allModels['rn39']=rn39
     
 
     rn40=experiment('rn40') # higher fg
@@ -524,7 +538,7 @@ if __name__ == "__main__":
     rn40.vary('minSigSt',10,10,1,0)
     rn40.vary('whichAccretionHistory',6100,7099,1000,0)
     rn40.vary('fg0',.9,.9,1,0)
-    allModels['rn40']=rn40
+#    allModels['rn40']=rn40
 
     rn41=experiment('rn41') # weaker feedback
     rn41.vary('dbg',2**10,2**10,1,0)
@@ -532,7 +546,7 @@ if __name__ == "__main__":
     rn41.vary('whichAccretionHistory',7100,8099,1000,0)
     rn41.vary('fg0',.5,.5,1,0)
     rn41.vary('mu',.1,.1,1,0)
-    allModels['rn41']=rn41
+#    allModels['rn41']=rn41
 
     rn42=experiment('rn42') # modified potential
     rn42.vary('dbg',2**10,2**10,1,0)
@@ -541,7 +555,7 @@ if __name__ == "__main__":
     rn42.vary('innerPowerLaw',.5,.5,1,0)
     rn42.vary('softening',4,4,1,0)
     rn42.vary('b',10,10,1,0)
-    allModels['rn42']=rn42
+#    allModels['rn42']=rn42
 
     rn46=experiment('rn46') # low SF efficiency & weak feedback
     rn46.vary('dbg',2**10,2**10,1,0)
@@ -551,28 +565,26 @@ if __name__ == "__main__":
     rn46.vary('epsff',.005,.005,1,0)
     rn46.vary('mu',.1,.1,1,0)
     rn46.vary('NPassive',10,10,1,0)
-    allModels['rn46']=rn46
+#    allModels['rn46']=rn46
 
     rn48=experiment('rn48') # low gas temperature
     rn48.vary('dbg',2**10,2**10,1,0)
     rn48.vary('minSigSt',10,10,1,0)
     rn48.vary('whichAccretionHistory',6100,7099,1000,0)
     rn48.vary('gasTemp',100,100,1,0)
-    allModels['rn48']=rn48
+#    allModels['rn48']=rn48
 
     rn49=experiment('rn49') # const depletion time.
     rn49.vary('dbg',2**10+2**19,2**10+2**19,1,0)
     rn49.vary('minSigSt',10,10,1,0)
     rn49.vary('whichAccretionHistory',6100,7099,1000,0)
-    allModels['rn49']=rn49
+#    allModels['rn49']=rn49
 
     rn50=experiment('rn50') # test new metallicity diffusion prescription
     rn50.vary('dbg',2**10,2**10,1,0)
     rn50.vary('minSigSt',10,10,1,0)
     rn50.vary('whichAccretionHistory',6100,7099,1000,0)
-    allModels['rn50']=rn50
-
-
+#    allModels['rn50']=rn50
 
 
     # a new era, with several minor or confusing issues fixed, and using the same set accretion histories.
@@ -580,56 +592,56 @@ if __name__ == "__main__":
     rn51.vary('dbg',2**10,2**10,1,0)
     rn51.vary('minSigSt',10,10,1,0)
     rn51.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn51']=rn51
+#    allModels['rn51']=rn51
 
     rn52=experiment('rn52') # condition-dependent metal diffusion with fixed Z_boundary
     rn52.vary('dbg',2**10+2**15+2**1,2**10+2**15+2**1,1,0)
     rn52.vary('minSigSt',10,10,1,0)
     rn52.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn52']=rn52
+#    allModels['rn52']=rn52
 
     rn53=experiment('rn53') # condition-dependent metal diffusion with fixed Z_boundary and zeta=.7
     rn53.vary('dbg',2**10+2**15+2**1+2**13,2**10+2**15+2**1+2**13,1,0)
     rn53.vary('minSigSt',10,10,1,0)
     rn53.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn53']=rn53
+#    allModels['rn53']=rn53
 
     rn54=experiment('rn54') # condition-dependent metal diffusion with zero-outflow BC and zeta=.3
     rn54.vary('dbg',2**10+2**15+2**14,2**10+2**15+2**14,1,0)
     rn54.vary('minSigSt',10,10,1,0)
     rn54.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn54']=rn54
+#    allModels['rn54']=rn54
 
     rn55=experiment('rn55') # IBC = -.01*x(0)
     rn55.vary('dbg',2**10+2**17,2**10+2**17,1,0)
     rn55.vary('minSigSt',10,10,1,0)
     rn55.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn55']=rn55
+#    allModels['rn55']=rn55
 
     rn56=experiment('rn56') # IBC = -x(0)
     rn56.vary('dbg',2**10+2**18,2**10+2**18,1,0)
     rn56.vary('minSigSt',10,10,1,0)
     rn56.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn56']=rn56
+#    allModels['rn56']=rn56
 
     rn57=experiment('rn57') # const depletion time
     rn57.vary('dbg',2**10+2**19,2**10+2**19,1,0)
     rn57.vary('minSigSt',10,10,1,0)
     rn57.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn57']=rn57
+#    allModels['rn57']=rn57
 
     rn58=experiment('rn58') # F=0 only
     rn58.vary('dbg',2**10+2**12+2**9,2**10+2**12+2**9,1,0)
     rn58.vary('minSigSt',10,10,1,0)
     rn58.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn58']=rn58
+#    allModels['rn58']=rn58
 
     rn59=experiment('rn59') # low gas temperature
     rn59.vary('dbg',2**10,2**10,1,0)
     rn59.vary('gasTemp',100,100,1,0)
     rn59.vary('minSigSt',10,10,1,0)
     rn59.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn59']=rn59
+#    allModels['rn59']=rn59
 
     rn60=experiment('rn60') # rotation curve
     rn60.vary('dbg',2**10,2**10,1,0)
@@ -638,7 +650,7 @@ if __name__ == "__main__":
     rn60.vary('innerPowerLaw',.5,.5,1,0)
     rn60.vary('softening',4,4,1,0)
     rn60.vary('b',5,5,1,0)
-    allModels['rn60']=rn60
+#    allModels['rn60']=rn60
 
     rn61=experiment('rn61') # try everything...
     rn61.vary('minSigSt',10,10,1,0)
@@ -654,102 +666,114 @@ if __name__ == "__main__":
     rn61.vary('diskScaleLength',2,3.5,2,1) # should include 2.  --- 2
     rn61.vary('fixedQ',2.0,3.0,2,1) # should include 2 --- 2
     rn61.irregularVary('dbg',[2**10,2**10+2**19,2**10+2**17,2**10+2**15]) # 4 -- base, const depl time, IBC, metal diffusion
-    allModels['rn61']=rn61
+#    allModels['rn61']=rn61
 
     rn62=experiment('rn62') #test new code with non-outer-boundary-accretion infrastructure, but keep that switch off.
     rn62.vary('dbg',2**10,2**10,1,0)
     rn62.vary('minSigSt',10,10,1,0)
     rn62.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn62']=rn62
+#    allModels['rn62']=rn62
 
     rn63=experiment('rn63') # test new code with non-outer-boundary-accretion
     rn63.vary('dbg',2**10+2**8,2**10+2**8,1,0)
     rn63.vary('minSigSt',10,10,1,0)
     rn63.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn63']=rn63
+#    allModels['rn63']=rn63
 
     rn64=experiment('rn64') # test new code with non-outer-boundary-accretion; this time with acc scale length 3x the stellar scale length
     rn64.vary('dbg',2**10+2**8,2**10+2**8,1,0)
     rn64.vary('minSigSt',10,10,1,0)
     rn64.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn64']=rn64
+#    allModels['rn64']=rn64
 
     # a series of very-small-number experiments to really see the effects of varying individual parameters.
     rn65 = experiment('rn65')
     rn65.vary('epsff',.003,.03,10,1)
     rn65.vary('dbg',2**10,2**10,1,0)
     rn65.vary('minSigSt',10,10,1,0)
-    allModels['rn65']=rn65
+#    allModels['rn65']=rn65
 
     rn66 = experiment('rn66')
     rn66.vary('fg0',.1,.9,9,0)
     rn66.vary('dbg',2**10,2**10,1,0)
     rn66.vary('minSigSt',10,10,1,0)
-    allModels['rn66']=rn66
+#    allModels['rn66']=rn66
 
     rn67 = experiment('rn67')
     rn67.vary('fixedQ',1.5,3.5,9,1)
     rn67.vary('dbg',2**10,2**10,1,0)
     rn67.vary('minSigSt',10,10,1,0)
-    allModels['rn67']=rn67
+#    allModels['rn67']=rn67
 
     rn68 = experiment('rn68')
     rn68.vary('Qlim',1.5,3.5,9,1)
     rn68.vary('dbg',2**10,2**10,1,0)
     rn68.vary('minSigSt',10,10,1,0)
-    allModels['rn68']=rn68
+#    allModels['rn68']=rn68
 
     rn6768 = experiment('rn6768')
     rn6768.vary('Qlim',1.5,3.5,9,1)
     rn6768.vary('fixedQ',1.5,3.5,9,1)
     rn6768.vary('dbg',2**10,2**10,1,0)
     rn6768.vary('minSigSt',10,10,1,0)
-    allModels['rn6768']=rn6768
+#    allModels['rn6768']=rn6768
 
     rn69 = experiment('rn69')
     rn69.vary('eta',.5,4.5,9,1)
     rn69.vary('dbg',2**10,2**10,1,0)
     rn69.vary('minSigSt',10,10,1,0)
-    allModels['rn69']=rn69
+#    allModels['rn69']=rn69
 
     rn70 = experiment('rn70')
     rn70.irregularVary('dbg',[2**10+2**19,2**10+2**17])
     rn70.vary('minSigSt',10,10,1,0)
-    allModels['rn70']=rn70  
+#    allModels['rn70']=rn70  
 
     rn90 = experiment('rn90')
     rn90.vary('minSigSt',10,10,1,0)
     rn90.vary('dbg',2**10+2**8,2**10+2**8,1,0)
     rn90.vary('accScaleLength',1,10,10,0)
-    allModels['rn90']=rn90
+#    allModels['rn90']=rn90
 
     rn91 = experiment('rn91')
     rn91.vary('minSigSt',10,10,1,0)
     rn91.vary('dbg',2**10+2**8+4,2**10+2**8+4,1,0)
     rn91.vary('accScaleLength',2,2,1,0)
     rn91.vary('whichAccretionHistory',100,1399,400,0)
-    allModels['rn91']=rn91
+#    allModels['rn91']=rn91
 
     rn92 = experiment('rn92')
     rn92.vary('minSigSt',10,10,1,0)
     rn92.vary('dbg',2**10+2**8+4,2**10+2**8+4,1,0)
     rn92.vary('accScaleLength',10,10,1,0)
     rn92.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn92']=rn92
+#    allModels['rn92']=rn92
 
     rn93 = experiment('rn93')
     rn93.vary('minSigSt',10,10,1,0)
     rn93.vary('dbg',2**10+2**8+4,2**10+2**8+4,1,0)
     rn93.vary('accScaleLength',300,300,1,0)
     rn93.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn93']=rn93
+#    allModels['rn93']=rn93
 
     rn94 = experiment('rn94')
     rn94.vary('minSigSt',10,10,1,0)
     rn94.vary('dbg',2**10+4,2**10+4,1,0)
     rn94.vary('accScaleLength',10,10,1,0)
     rn94.vary('whichAccretionHistory',1000,1399,400,0)
-    allModels['rn94']=rn94
+#    allModels['rn94']=rn94
+
+
+    # Unrelaxed initial conditions
+    rn104 = experiment('rn104')
+    rn104.vary('nx',200,200,1,0)
+    rn104.vary("TOL",1.0e-3,1.0e-3,1,0)
+    rn104.vary('dbg',2**10+2**8+2**4+2**5,2**10+2**8+2**4+2**5,1,0)
+    scLengths = GetScaleLengths(.04,.5,1.0e12,400,114)
+    rn104.irregularVary('accScaleLength',scLengths,1)
+    rn104.irregularVary('diskScaleLength',scLengths,1)
+    rn104.vary('whichAccretionHistory',1000,1399,400,0,1)
+
 
 
 
@@ -769,35 +793,36 @@ if __name__ == "__main__":
     # rn86: exponential accretion
     # 87 - exponential accretion w/ bugfix
     # 97 - exponential accretion w/ scatter in spin parameter!
+    # 99 - variable spin, 100, w/ primordial gas infall.
+    # 101 - fixed spin
+    # 102 - test a fix for gaps in gas column density.
+    # 103 - back to varying spin parameter. (102 seems to work well)
+    theCompositeName="rn103"
 
-    theCompositeName="rn99"
+
 
     experiments=[]
     nacc = 90
     nmh0 = 41
-    random.seed(4+20*nacc)
     compositeNames=[]
     for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
         theName = theCompositeName+'_'+str(i).zfill(3)+'_'
         compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
-        experiments[i].vary('dbg',2**10+2**8,2**10+2**8,1,0)
+        experiments[i].vary('dbg',2**10+2**8+2**4,2**10+2**8+2**4,1,0)
 	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
         experiments[i].vary('alphaMRI',0,0,1,0)
         Mh0 = 1.0e10 * (100.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
         #	experiments[i].irregularVary('R',[5.0+(float(i)/float(nmh0-1))*(20.0-5.0)])
         #        experiments[i].irregularVary('R',[20.0 * (Mh0/1.0e12)**(1.0/3.0)])
-        scLengths=[]
-        for j in range(nacc):
-            spinParameter = .05 * (10.0 ** random.gauss(0.0,0.2)) # .05 w/ .2 dex scatter
-            scLengths.append(311.34 * (Mh0/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5))
+        scLengths=GetScaleLengths(0.04, 0.5, Mh0, nacc,4+20*nacc)
 	experiments[i].irregularVary('accScaleLength',scLengths,1)
         experiments[i].irregularVary('diskScaleLength',scLengths,1)
         experiments[i].irregularVary('Mh0',[Mh0])
         experiments[i].vary('whichAccretionHistory',4+nacc*(i+20),4+nacc*(i+21)-1,nacc,0,1)
-        allModels[theName]=experiments[i]
+        #allModels[theName]=experiments[i]
 
     compositeFlag = False    
     if (theCompositeName in modelList):
@@ -819,9 +844,8 @@ if __name__ == "__main__":
 	os.mkdir('/Users/jforbes/gidget/analysis/'+theCompositeName)
         for dirname in compositeNames:
             files=glob.glob('/Users/jforbes/gidget/analysis/'+dirname+'/*')
-	    pdb.set_trace()
             for aFile in files:
-	        os.symlink(aFile,'/Users/jforbes/gidget/analysis/'+theCompositeName+'/'+aFile[11+len(dirname):])
+	        os.symlink(aFile,'/Users/jforbes/gidget/analysis/'+theCompositeName+'/'+aFile[32+len(dirname):])
            
 
 #    PrintSuccessTables(successTables)

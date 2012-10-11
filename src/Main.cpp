@@ -101,6 +101,8 @@ int main(int argc, char **argv) {
   const double ndecay =            as.Set(6,"Decay length of GI in stable regions (cells)");
   const unsigned int Experimental= as.Set(0,"Debug parameter");
   const double accScaleLength    = as.Set(2.0,"Accretion ScaleLength (kpc)");
+
+  const double zquench =           as.Set(-1.0,"Redshift at whcih accretion shuts off.");
   
   // Make an object to deal with things cosmological
   // Omega_Lambda = .734, H0 = 2.29e-18 s^-1
@@ -114,14 +116,13 @@ int main(int argc, char **argv) {
 
   testAccretionHistory();
 
-
   double invMassRatio = .3;
-  if(dbg.opt(16)) invMassRatio=.5;
+  if(dbg.opt(16)) invMassRatio=1.0;
 
   // Based on the user's choice of accretion history, generate the appropriate
   // mapping between redshift and accretion rate.
   if(whichAccretionHistory==0)
-    mdot0 = accr.GenerateBoucheEtAl2009(2.0,cos,filename+"_Bouche09.dat",true,true) * MSol/speryear;
+    mdot0 = accr.GenerateBoucheEtAl2009(2.0,cos,filename+"_Bouche09.dat",true,true,zquench) * MSol/speryear;
   else if(whichAccretionHistory==2)
     mdot0 = accr.GenerateConstantAccretionHistory(2.34607,zstart,cos,filename+"_ConstAccHistory.dat",true) * MSol/speryear;
   else if(whichAccretionHistory==1)
@@ -134,7 +135,7 @@ int main(int argc, char **argv) {
       mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,-3.0*M_PI/2.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
   }
   else
-    mdot0 = accr.GenerateNeistein08(2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory,invMassRatio,true)*MSol/speryear;
+    mdot0 = accr.GenerateNeistein08(2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory,invMassRatio,true,zquench)*MSol/speryear;
   // Note that the following line does nothing but put a line in the comment file to
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
@@ -164,8 +165,8 @@ int main(int argc, char **argv) {
                         TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                         thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
                         minSigSt,accScaleLength/(radius/cmperkpc));
-      double sig0 = 0.4;
-      double fcool = 0.2 * sqrt(MhZs / 1.0e12);
+      double sig0 = 8.0/220.0; 
+      double fcool = 1.0 ;//* sqrt(MhZs / 1.0e12);
       disk.Initialize(.1*Z_Sol,fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
 
       Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,

@@ -3,6 +3,9 @@
 ;; In essence, instead of having a bunch of quantities vs. radius, have a bunch of standalone quantities.
 FUNCTION diskStats,model,z=z
         info=dblarr(7)
+	kmperkpc=3.08568025d16
+	speryear=31556926d
+
 	IF(n_elements(z) EQ 0) THEN z=0.0
         ct=1
         ;; all quantities computed at z=0
@@ -26,7 +29,12 @@ FUNCTION diskStats,model,z=z
         vrg=model.dataCube[zj,*,ncs+17-1]
         vst=model.dataCube[zj,*,ncs+16-1]
         fg=col/(col+colst)
-	stMass = model.evArray[5,zj]/model.evArray[6,zj] * (1.0-model.evArray[6,zj])
+
+        gasMass = model.dataCube[zj,*,3] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
+        stellarMass =  model.dataCube[zj,*,5] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
+
+
+	stMass = total(stellarMass) ;;;;; model.evArray[5,zj]/model.evArray[6,zj] * (1.0-model.evArray[6,zj])
 	sSFR = model.evArray[11-1,zj]/stMass
         metallicity = model.dataCube[zj,*,22-1]
 
@@ -36,8 +44,6 @@ FUNCTION diskStats,model,z=z
 	outS=model.dataCube[*,*,51]*model.mlf ;; dimensionless outflow column density = stars formed * mass loading factor
 	macc = model.evArray[17-1,*] ;; cumulative mass accreted in solar masses
 
-	kmperkpc=3.08568025d16
-	speryear=31556926d
 
 
 	;; Compute bulge mass by conservation arguments: cosmological input - total (outflowing mass + change in stellar mass + change in gas mass in the disk)
@@ -64,9 +70,9 @@ FUNCTION diskStats,model,z=z
 	ENDIF
  
 
+	
 
-        gasMass = model.dataCube[zj,*,3] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
-        stellarMass =  model.dataCube[zj,*,5] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
+
 ;	massOutAll = outS *  model.dataCube[*,*,5] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
 
 	;; get the variables for the appropriate redshift
@@ -82,7 +88,7 @@ FUNCTION diskStats,model,z=z
         fgsf = TOTAL (gasMass[xinInd:xoutInd] ) / TOTAL( gasMass[xinInd:xoutInd] + stellarMass[xinInd:xoutInd])
         fgHI = TOTAL (gasMass[xoutInd:model.nx-1] ) / TOTAL(gasMass[xoutInd:model.nx-1] + stellarMass[xoutInd:model.nx-1])
 
-	totfH2 = TOTAL( gasMass * fH2 ) / TOTAL( gasMass  )
+	totfH2 = TOTAL( gasMass * fH2 ) / TOTAL( gasMass )
 
 	fgL = TOTAL( gasMass[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd] + stellarMass[0:xoutInd]) + BulgeM)
 	ZL = TOTAL( gasMass[0:xoutInd] * 10.0^metallicity[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd]))
@@ -121,6 +127,7 @@ FUNCTION diskStats,model,z=z
 	;;; IF(BulgeM LT 0.0) THEN STOP,"Negative BulgeM: ",model.name," ",BulgeM
 
 
+	
 
         return,info
 END

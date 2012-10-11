@@ -183,7 +183,11 @@ int Simulation::runToConvergence(const double fCondition,
     if(dbg.opt(18)) {
       IBC = -1.0*theDisk.GetMesh().x(0.0); // d
     }
-    double OBC=-1.0*theDisk.dmdtCosOuter(AccRate);
+    double OBC;
+    if(dbg.opt(8))
+        OBC=-1.0*theDisk.dmdtCosOuter(AccRate);
+    else
+        OBC=-1.0*AccRate;
     theDisk.ComputeGItorque(tauvec,IBC,OBC);
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 

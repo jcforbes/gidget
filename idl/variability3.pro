@@ -12,13 +12,19 @@ FUNCTION simpleranges,data,wrtxlog
 
     ;; If the variable is supposed to be plotted logarithmically but the data 
     ;; isn't plottable that way (i.e. <=0 in some places), only plot the valid data.
-    IF(ranges[0,k] LE 0.0 AND wrtXlog[k] EQ 1) THEN BEGIN
+    IF(wrtXlog[k] EQ 1) THEN BEGIN
       flat = data[*,*,k,*]
       ind = WHERE(flat GT 0.0, ct)
       IF(ct NE 0) THEN ranges[0,k] = MIN(flat[ind])
-      IF(ranges[1,k] / ranges[0,k] GT 1.0e11) THEN ranges[0,k] = ranges[1,k]*1.0e-11
+      med = median(flat[ind])
+   
+      fac = 1.0e9
+      ;; Set a maximum dynamic range so that a few bad apples don't spoil the readability of the plot
+      IF(ranges[1,k] / ranges[0,k] GT fac) THEN BEGIN
+	  IF(med GT ranges[1,k]/fac) THEN ranges[0,k] = ranges[1,k]/fac ELSE ranges[1,k]=ranges[0,k]*fac
+      ENDIF
     ENDIF
-    
+
     ;; Give us a little breathing room: add 10% in each direction for each axis.
     IF(wrtXlog[k] EQ 1) THEN BEGIN
       dexRange = alog10(ranges[1,k]/ranges[0,k])
@@ -39,7 +45,8 @@ END
 ;; given an array whose first column indexes time, second column indexes position,
 ;; fourth column indexes models, and a vector of time labels, and axis labels
 ;; make one or a few movies! The third column indexes which variable we're plotting.
-PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=prev,psym=psym
+;; Arguments:
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels
   lth=1
   chth=1
   IF(sv EQ 3 || sv EQ 4) THEN cg=1 ELSE cg=0
@@ -51,11 +58,10 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
   ENDIF
 
   ranges= simpleranges(data,wrtxlog)
-;  ranges[*,0] = [MIN(data[*,*,0,*]),MAX(data[*,*,0,*])]
-;  IF(ranges[0,0] LE 0.0 AND wrtXlog[0] EQ 1) THEN ranges[0,0] = 1d-8 * ranges[1,0]
+  
 
-
-  FOR k=1,n_elements(labels)-1 DO BEGIN ;; loop over y-axis variables to be plotted (except the first one, which is just radius!)
+  ;; loop over y-axis variables to be plotted (except the first one, which is just radius!)
+  FOR k=1,n_elements(labels)-1 DO BEGIN    
     fn=name+"_"+labels[k]
     dn="movie_"+name+"_"+labels[k]
     set_plot,'x'
@@ -67,7 +73,12 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
       FILE_MKDIR,dn
     ENDIF
 
-    count=0 ;; counter of frames.
+    symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
+    IF(n_elements(axislabels) EQ 0) THEN axislabels=labels[*]
+
+
+    ;; counter of frames.
+    count=0 
     ; length of a tail to put on each point which represents a galaxy when prev=1
     tailLength = fix(3.0/(float(n_elements(styles))/928.0)^(.25)) 
 
@@ -80,8 +91,8 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
       ;; Either way, this long statement draws the first plot for this frame.
       ;; Everything else will be overplotted on top in a few lines.
       IF(strt[k] EQ 0) THEN $
-        PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=labels[0], $
-         YTITLE=labels[k], XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
+        PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=axislabels[0], $
+         YTITLE=axislabels[k], XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
          xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=lth,XTHICK=lth,YTHICK=lth $
        ELSE $
         PLOT,findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
@@ -101,7 +112,8 @@ PRO simpleMovie,data,time,labels,colors,styles,ranges,wrtXlog,name,sv,strt,prev=
 ;        IF(n_elements(styles) GT 80) THEN IF(sv NE 3 AND sv NE 4) THEN setct,5,n_elements(styles),j ELSE setct,3,n_elements(styles),0
 	setct,1,n_elements(styles),j
         
-        OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[j],linestyle=styles[j],PSYM=psym,SYMSIZE=cs,THICK=lth
+        ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
+        OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=lth
         IF(n_elements(prev) NE 0) THEN BEGIN
           OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[j],linestyle=0,THICK=1
         ENDIF
@@ -198,17 +210,17 @@ PRO variability3,expNames,keys,N,sv
   ctr=0
 
   ;; variables to plot- title, column index, log plot, name, y-range
-  wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc']
-  wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32,35,36,37] ;; index
-  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1] ;; offset?
-  wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc']
-  wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
-    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9],[1.0e8,1.0e10],[1.0e8,1.0e10],[.01,100]]
-  wrtXyl=[0,1,1,1,1,0,0,1,0,1,1,0,0,0,1,1,1]
+  wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk']
+  wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32,35,36,37,39] ;; index
+  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1,0] ;; offset? 
+  wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk']
+;  wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
+;    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9],[1.0e8,1.0e10],[1.0e8,1.0e10],[.01,100]]
+  wrtXyl=[0,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,1] ;; log plot 18
 
   IF(n_elements(keys) EQ 0) THEN keys=indgen(n_elements(wrtXyt)-1)+1
 
-  dummy = where( keys EQ 17, n1)
+  dummy = where( keys EQ 19, n1)
   IF(n1 EQ 2) THEN n1=1
 
   ;; only plot the variables present in 'keys'	
@@ -217,7 +229,7 @@ PRO variability3,expNames,keys,N,sv
   wrtXyy=wrtXyy[tk]
   wrtXyp=wrtXyp[tk]
   wrtXyn=wrtXyn[tk]
-  wrtXyr=wrtXyr[*,tk]
+  ;wrtXyr=wrtXyr[*,tk]
   wrtXyl=wrtXyl[tk]  
 
   ;; now loop over every model in the list - 
@@ -228,7 +240,8 @@ PRO variability3,expNames,keys,N,sv
   modelPtr=ReadModels([nameList2[0]])
   model = (*(modelPtr[0]))
 
-  time = model.evArray[1,*]  ;; z is 
+  time = model.evArray[1,*]  
+  z = model.evArray[10-1,*]
 
   ;; (# timesteps) x (nx) x (# of columns) x (# models)
   theData= dblarr(n_elements(model.dataCube[*,0,0]),n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
@@ -290,7 +303,7 @@ PRO variability3,expNames,keys,N,sv
            vsMdot[zi,0,14,ctr] = modelInfo[17] ;; efficiency
            vsMdot[zi,0,15,ctr] = alog10(modelInfo[16]) ;; metallicity
            vsMdot[zi,0,16,ctr] = modelInfo[5] ;; fG in SF region.
-           vsMdot[zi,0,17,ctr] = (modelInfo[18] - modelInfo[11])/(modelInfo[18]+1.0d-10) ;; fraction of SF in the bulge
+           vsMdot[zi,0,17,ctr] = model.evArray[20-1,zi] ;; (modelInfo[18] - modelInfo[11])/(modelInfo[18]+1.0d-10) ;; fraction of SF in the bulge
            vsMdot[zi,0,18,ctr] = modelInfo[20] ;; fgL
            vsMdot[zi,0,19,ctr] = alog10(modelInfo[21]) ;; ZL
            vsMdot[zi,0,20,ctr] = modelInfo[15] ;; fg
@@ -317,6 +330,7 @@ PRO variability3,expNames,keys,N,sv
   proftimes[2]=systime(1)
 
   theData = (temporary(theData))[*,*,*,0:ctr-1]
+  colors = intarr(n_elements(nameList2))
 
   ;; having accumulated theData, let's do some analysis!
   sortdData = theData * 0.0
@@ -344,10 +358,11 @@ PRO variability3,expNames,keys,N,sv
     ENDFOR ;; end loop over time
   ENDFOR ;; end loop over experiments
 
+
+
   proftimes[3]=systime(1)
 
   intervals = dblarr(n_elements(theData[*,0,0,0]),  n_elements(theData[0,*,0,0]), n_elements(theData[0,0,*,0]), 3*n_elements(expNames))
-  colors = intarr(n_elements(nameList2))
   FOR expInd=1, n_elements(expNames) DO BEGIN
     low=modelcounter[expInd-1]
     high=modelcounter[expInd]-1
@@ -359,6 +374,22 @@ PRO variability3,expNames,keys,N,sv
     intervals[*,*,*, (expInd-1)*3+2]=sortdData[*,*,*, fix(low+.975*delta)]
     colors[low:high] = expInd-1
   ENDFOR
+
+
+
+  ;; sort according to z=0 sSFR
+  IF(n_elements(expNames) EQ 1) THEN BEGIN
+    zi = n_elements(vsMdot[*,0,0,0])-1
+    st = sort(vsMdot[zi,0,6,*])
+
+    nmodels = n_elements(vsMdot[0,0,0,*])
+    ncolors = 5
+    FOR nc=0, ncolors-1 DO BEGIN
+      colors[ WHERE (st GE nc*(float(nmodels)/float(ncolors)) and st LT (nc+1)*(float(nmodels)/float(ncolors))) ] = nc
+    ENDFOR
+  ENDIF
+
+
 
 
   expName2 = expNames[0]
@@ -376,29 +407,28 @@ PRO variability3,expNames,keys,N,sv
       linestyles = intarr(n_elements(expNames)*3)+2
       midpoints = where(indgen(n_elements(expNames)*3) MOD 3 EQ 1)
       linestyles[midpoints] = 0
-      simpleMovie,intervals,time,wrtXyn,indgen(n_elements(expNames)*3)/3,linestyles,wrtXyr,wrtXyl,expName2+"_intervals",sv,intarr(n_elements(wrtXyl))
+      simpleMovie,intervals,time,wrtXyn,indgen(n_elements(expNames)*3)/3,linestyles,wrtXyl,expName2+"_intervals",sv,intarr(n_elements(wrtXyl))
   ENDIF
 
 
 
   IF(n_elements(nameList2) GT 104 AND sv NE 4) THEN BEGIN
     setct,3,n_elements(sortdData[0,0,0,*]),0
-    simpleMovie,sortdData,time,wrtXyn,indgen(n_elements(sortdData[0,0,0,*])),intarr(n_elements(sortdData[0,0,0,*])),wrtXyr,wrtXyl,expName2+"_sorted",sv,intarr(n_elements(wrtXyl))
+    simpleMovie,sortdData,time,wrtXyn,indgen(n_elements(sortdData[0,0,0,*])),intarr(n_elements(sortdData[0,0,0,*])),wrtXyl,expName2+"_sorted",sv,intarr(n_elements(wrtXyl))
   ENDIF
 
   setct,3,n_elements(theData[0,0,0,*]),0
   IF(n_elements(nameList2) LT 105) THEN BEGIN 	
-    simpleMovie,theData,time,wrtXyn,colors,colors*0,wrtXyr,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl))
+    simpleMovie,theData,time,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl))
   ENDIF
 	
 
   setct,3,n_elements(vsMdot[0,0,0,*]),0
   IF(n1 EQ 1) THEN BEGIN
-    simpleMovie, sortdVsMdot,time,['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","DiskToTotalSF","fgL","ZL","fg"],$
-      colors, $
-      colors*0, $
-      [[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,3d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2],[0,1],[.3,100],[0,1],[-1,.5],[0,1],[0,1],[0,1],[-1,.5],[0,1]], $
-      [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1],expName2+"_vsmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0],PSYM=1,prev=1
+    theLabels =['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg"]
+    strt = [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0]
+    toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1]
+    simpleMovie, sortdVsMdot,time,theLabels,colors,colors*0,toLog,expName2+"_vsmdot",sv,strt,PSYM=1,prev=1
   ENDIF
 
   ;; average mdot over a number of time steps nt
@@ -412,11 +442,10 @@ PRO variability3,expNames,keys,N,sv
     ENDFOR
   ENDFOR
   IF(n1 EQ 1) THEN BEGIN
-    simpleMovie, avgdVsMdot,time,['avgMdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","DiskToTotalSF","fgL","ZL","fg"],$
-      colors, $
-      colors*0, $
-      [[.03,500],[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2],[0,1],[.3,100],[0,1],[-1,.5],[0,1],[0,1],[0,1],[-1,.5],[0,1]], $
-      [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1],expName2+"_vsavgmdot",sv,[1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0],PSYM=1,prev=1
+     theLabels = ['avgMdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg"]
+     toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1]
+     strt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0]
+     simpleMovie, avgdVsMdot,time,theLabels,colors,colors*0,toLog,expName2+"_vsavgmdot",sv,strt,PSYM=1,prev=1
   ENDIF
 
 
@@ -424,11 +453,13 @@ PRO variability3,expNames,keys,N,sv
   setct,3,n_elements(vsMdot[0,0,0,*]),0
   vsSFR = sortdVsMdot[*,*,1:n_elements(sortdVsMdot[0,0,*,0])-1,*] ;; cut out the mdot slice of the array
   IF(n1 EQ 1) THEN BEGIN 
-    simpleMovie, vsSFR, time, ['DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","DiskToTotalSF","fgL","ZL","fg"], $
+    theLabels =  ['DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg"]
+    toLog = [1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1]
+    strt =  [1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0]
+    simpleMovie, vsSFR, time,theLabels, $
       colors, $
       colors*0, $
-      [[.3,60],[3d9,3d10],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2],[0,1],[.3,100],[0,1],[-1,.5],[0,1],[0,1],[0,1],[0,1],[0,1]], $
-      [1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1],expName2+"_vsSFR",sv,[1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0],PSYM=1,prev=1
+      ,expName2+"_vsSFR",sv,strt,PSYM=1,prev=1
   ENDIF
 
 
@@ -439,15 +470,31 @@ PRO variability3,expNames,keys,N,sv
   vsMstar=vsMstar[*,*,0:19,*] ; eliminate the extraneous last column.
   setct,3,n_elements(vsMstar[0,0,0,*]),0
   IF(n1 EQ 1) THEN BEGIN
-    simpleMovie, vsMstar, time, ["Mst","DiskSFR","rPeak","rHI",'colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","DiskToTotalSF","fgL","ZL","fg"], $
-      colors, $
-      colors*0, $
-      [[3d9,3d10],[.3,60],[0.2,20],[.2,22],[6,100],[3d-11,1d-8],[1d7,3d11],[-0.1,1.1],[-0.1,1.1],[1d-7,1d2],[1d-3,1d2],[0,1],[.3,100],[0,1],[-1,.5],[0,1],[0,1],[0,1],[0,1],[0,1]], $
-      [1,1,1,0,1,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1],expName2+"_vsMstar",sv,[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],PSYM=1,prev=1
+    theLabels =  ["Mst","DiskSFR","rPeak","rHI",'colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg"]
+    toLog = [1,1,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1]
+    strt =  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    simpleMovie, vsMstar, time,theLabels, colors, colors*0, toLog,expName2+"_vsMstar",sv,strt,PSYM=1,prev=1
   ENDIF
 
-  STOP
 
+
+  setct,3,n_elements(vsMdot[0,0,0,*]),0
+  vsTime = vsMdot[*,*,*,*]
+  ;; for each model, set the independent variable equal to the time: 
+  FOR j=0, n_elements(vsTime[0,0,0,*]) -1 DO BEGIN
+    vsTime[*,0,0,j] = time[*]
+  ENDFOR
+  IF(n1 EQ 1) THEN BEGIN
+    theLabels =['time (Ga)','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg"]
+    strt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0]
+    toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1]
+    simpleMovie, vsTime,z,theLabels,colors,colors*0,toLog,expName2+"_vstime",sv,strt,PSYM=1,prev=1
+  ENDIF
+
+
+
+  STOP
+  ;; Now make some standalone plots.
 
   Mh = vsMdot[*,0,2,*]/(.18*vsMdot[*,0,14,*])
   zn = n_elements(Mh[*,0,0,0])

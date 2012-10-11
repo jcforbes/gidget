@@ -211,6 +211,7 @@ class DiskContents {
 
   std::vector<double> dcoldtCos;
   std::vector<double> MdotiPlusHalf;
+//  std::vector<double> MstarDotIPlusHalf;
 
   // store the cells where we have turned off forcing in the
   // torque equation.
@@ -243,6 +244,7 @@ class DiskContents {
 
   std::vector<double>
     LL,UU,DD,FF; // coefficients of the torque equation
+
 
   // inner truncation radius, logarithmic width of a cell,
   // and factor by which to reduce the timestep TOL

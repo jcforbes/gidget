@@ -198,7 +198,15 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
 			   OldIthBin(0,cos,NPassive));
 
     double xd = stScaleLength/dim.d(1.0);
+    // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
+    // fcool of the baryons have cooled to form a disk.
     double S0 = 0.18 * fcool * MhZs*MSol / (dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+    // This is a correction, to account for the fact that for scale lengths >~ the radius of the disk,
+    // most of this mass will fall off the edge of the grid. We want to put that mass back into the grid.
+    // dmdtCosOuter(1.0) is the fraction of the accretion which occurs outside the outer radius of the disk.
+    double xb = mesh.x(.5 + ((double) nx));
+    double fOuter =   (1.0 + xb/xd)*exp(-xb/xd);
+    S0 *= 1.0 / (1.0 - fOuter);
 
     for(unsigned int n=1; n<=nx; ++n) {
       ZDisk[n] = Z_Init;
@@ -1165,7 +1173,9 @@ double DiskContents::ComputedSdTCos(double AccRate)
 }
 double DiskContents::dmdtCosOuter(double AccRate)
 {
-    if(!dbg.opt(8)) return AccRate;
+//    if(!dbg.opt(8)) return AccRate;
+
+  return 0.0;
 
     double xb = mesh.x(.5 + ((double) nx));
     return AccRate *  (1.0 + xb/accScaleLength)*exp(-xb/accScaleLength);
@@ -1241,11 +1251,22 @@ void DiskContents::UpdateCoeffs(double redshift)
 
     double QQ = Q(&rqp,&absc);
 
-    if(QQ>fixedQ) {
-	FF[n]=0.0;
-	UU[n]=0.0;
-	DD[n]=1.0;
-	LL[n]=-1.0;
+
+    if(!dbg.opt(12)) {
+      if(QQ>fixedQ) {
+  	FF[n]=0.0;
+  	UU[n]=0.0;
+  	DD[n]=1.0;
+  	LL[n]=-1.0;
+      }
+    }
+    else {
+      if(QQ>fixedQ) {
+        FF[n]=0.0;
+        UU[n]=0.0;
+        DD[n]=1.0;
+        LL[n]=0.0;
+      }
     }
 
 
@@ -1456,7 +1477,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
     totalMass+= TotalWeightedByArea(spsActive[aa].spcol);
   }
   wrt2.push_back((double) step);wrt2.push_back(t);wrt2.push_back(dt); // 1..3
-  wrt2.push_back(MBulge);wrt2.push_back(ZBulge);wrt2.push_back(gasMass); // 4..6
+  wrt2.push_back(MBulge);wrt2.push_back(ZBulge);wrt2.push_back(0.0); // 4..6
   wrt2.push_back(gasMass/totalMass);wrt2.push_back(arrmax(Mts));wrt2.push_back(MdotiPlusHalf[0]); // 7..9
   wrt2.push_back(z); wrt2.push_back(TotalWeightedByArea(colSFR)); // 10..11
   double currentStellarMass=0.0;

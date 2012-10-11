@@ -80,7 +80,19 @@ FUNCTION ReadFromRawFiles,filename,namelist,z
     ;;;; f_g,    f_H2,      eff,    rSFinner,
     ;;;; rPeak,  rSFouter,  colSol, BulgeM,
     ;;;; BulgeMSt
-    data[*,i] = [model.mh0,modelinfo[14],modelinfo[13],modelinfo[16],modelinfo[15],modelinfo[10],modelinfo[17],modelinfo[0],modelinfo[1],modelinfo[2],modelinfo[3],modelinfo[8],modelinfo[9]]
+    data[*,i] = [model.mh0,$         ;; Mh0
+		 modelinfo[15-1],$   ;; M_* (excluding bulge)
+ 		 modelinfo[14-1],$   ;; 
+		 modelinfo[17-1],$
+		 modelinfo[16-1],$
+		 modelinfo[11-1],$
+		 modelinfo[18-1],$
+		 modelinfo[1-1],$
+		 modelinfo[2-1],$
+		 modelinfo[3-1],$
+		 modelinfo[4-1],$
+		 modelinfo[9-1],$
+		 modelinfo[10-1]]
     ptr_free,modelPtr[0]
   ENDFOR ; end loop over every valid model
 

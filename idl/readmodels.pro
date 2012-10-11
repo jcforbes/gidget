@@ -163,6 +163,7 @@ FUNCTION readOutput,name
   ndecay = ExtractCmtFlt(lunCom)
   debugParam = ExtractCmtL(lunCom)
   accScaleLength = ExtractCmtFlt(lunCom)
+  zquench = ExtractCmtFlt(lunCom)
   md0=ExtractCmtFlt(lunCom)
 
   ;; Now we need to rescale some values for mh0!=1e12
@@ -543,7 +544,7 @@ FUNCTION readOutput,name
 		NPostProcess:NPostProcess,NPassive:NPassive,STVars:STVars, $
 		MLF:MLF,mdotext0:md0,Rf:Rf,whichAccHistory:whichAccHistory,$;}
 		fixedQ:fixedQ,diskScaleLength:scaleLength,Qlim:Qlim,dlnx:dlnx,$
-		mh0:mh0, minStsig:minStsig }
+		mh0:mh0, minStsig:minStsig,zquench:zquench }
 	
 	RETURN,model ;; end of the readOutput function
 END

@@ -30,7 +30,7 @@ class AccretionHistory {
   double GenerateNeistein08(double zstart, 
 			    Cosmology& cos, std::string fn, 
 			    bool writeOut,unsigned long int seed,
-			    double invMassRatioLimit, bool fatal);
+			    double invMassRatioLimit, bool fatal, double zquench);
 
   // Generate an accretion history given a halo mass Mh0 at zstart.
   // If MhAtz0 is true, the given halo mass Mh0 is assumed to be for z=0, not z=zstart
@@ -39,7 +39,7 @@ class AccretionHistory {
   // lookback time for a given redshift.
   double GenerateBoucheEtAl2009( double zstart, 
 				Cosmology& cos, std::string fn, 
-				bool writeOut,bool MhAtz0);
+				bool writeOut,bool MhAtz0,double zquench);
 
   // Generate an accretion history which is just constant with redshift
   double GenerateConstantAccretionHistory(double rate,double zstart,Cosmology& cos,
@@ -61,7 +61,7 @@ class AccretionHistory {
 			 std::vector<double> tabulatedAcc,
 			 std::vector<double> haloMass);
 
-  double epsin(double z, double Mh, Cosmology & cos);
+  double epsin(double z, double Mh, Cosmology & cos,double zquench);
 
 
  private:

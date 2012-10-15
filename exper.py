@@ -815,14 +815,21 @@ if __name__ == "__main__":
     rp2.vary('diskScaleLength',2.0,2.0,1,0)
     rp2.vary('zquench',-1.0,-1.0,1,0)
 
-
-    rp8=experiment("rp8")
-    rp8.irregularVary('dbg',[2**10+2**8+2**5+2**12+2**15])
+    # rp8 varies scalelengths & kappa but not diffusion prescription
+    rp8=experiment("rp10")
+    rp8.irregularVary('dbg',[2**10+2**8+2**5+2**12+2**15, 2**10+2**8+2**5+2**12])
     scl=GetScaleLengths(1,Mh0=1.0e12,sd=1.0e-10)[0]
-    scls=[scl/3,scl,3*scl]
+    #scls=[scl/3,scl,3*scl]
+    scls=[scl]
     rp8.irregularVary('accScaleLength',scls,2)
     rp8.irregularVary('diskScaleLength',scls,2)
     rp8.vary('kappaMetals',.000001,1000000,5,1)
+
+    rp10a=experiment("rp10b") #10a: time-dependent diffusion. 10b - time-independent.
+    rp10a.irregularVary('dbg',[2**10+2**8+2**5+2**12])
+    rp10a.irregularVary('accScaleLength',scls,2)
+    rp10a.irregularVary('diskScaleLength',scls,2)
+    rp10a.vary('kappaMetals',1.0e-6,1.0,7,1)
 
 
 #    nacc=90
@@ -857,13 +864,22 @@ if __name__ == "__main__":
     # rp6: include dbg 16, which ~eliminates the major merger restriction on accretion histories
     # rp7: back to normal restrictions, try out irregular rotation curves.
     # rp9: increased SF efficiency
+    # rp11: back to regular SF efficiency. Try eps_in=1.0 (dbg.opt(6))
+    # rp12: dbg.opt(3), i.e. Neistein 2010, turn off eps_in=1.0 for the moment. It seems this will also require dbg.opt(16), i.e. keep the major mergers.
+    # rp13: for comparison to rp12. Keep dbg.opt(3), turn off dbg.opt(16). Also, from here on in, 100% of runs will be used, not 30ish %, so I'm reducing nacc from 90 to 32.
 
-    theCompositeName="rp9"
+
+    
+
+
+
+
+    theCompositeName="rp13"
 
 
 
     experiments=[]
-    nacc = 90
+    nacc = 32
     nmh0 = 41
     compositeNames=[]
     for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
@@ -871,19 +887,19 @@ if __name__ == "__main__":
         compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
-        experiments[i].irregularVary('dbg',[2**10+2**8+2**5+2**12])
+        experiments[i].irregularVary('dbg',[2**10+2**8+2**5+2**12+2**3])
 	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
         experiments[i].vary('alphaMRI',0,0,1,0)
         Mh0 = 1.0e10 * (100.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
         experiments[i].irregularVary('R',[30.0])
-        scLengths=GetScaleLengths(nacc,mean=0.045, scatter=0.0000000000001, Mh0=Mh0, sd = 4+20*nacc,upper=10.0)
+        scLengths=GetScaleLengths(nacc,mean=0.045, scatter=0.0000000000001, Mh0=Mh0, sd = 4+20*nacc,lower=1.0,upper=10.0)
 	experiments[i].irregularVary('accScaleLength',scLengths,1)
         experiments[i].irregularVary('diskScaleLength',scLengths,1)
         #experiments[i].irregularVary('b',scLengths,1)
         #experiments[i].irregularVary('innerPowerLaw',[.5])
         #experiments[i].irregularVary('softening',[4])
-        experiments[i].vary('epsff',.02,.03,1,0)
+        #experiments[i].vary('epsff',.02,.03,1,0)
         experiments[i].irregularVary('Mh0',[Mh0])
         experiments[i].irregularVary('fg0',.4*(Mh0/1.0e12)**(-.13))
         experiments[i].vary('whichAccretionHistory',4+nacc*(i+20),4+nacc*(i+21)-1,nacc,0,1)

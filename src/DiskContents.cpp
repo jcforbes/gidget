@@ -1125,21 +1125,32 @@ double DiskContents::ComputeColSFR()
 {
   for(unsigned int n=1; n<=nx; ++n) {
     double fH2 = ComputeH2Fraction(n);
-    double val = fH2 * 2.*M_PI*EPS_ff//*sqrt(
+    double valToomre = fH2 * 2.*M_PI*EPS_ff//*sqrt(
   //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
   	* sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
   	* sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))
   	* sqrt(32.0 / (3.0*M_PI));
-    if(dbg.opt(19)) { // constant SF depletion time.
-      double tdep = 2.0; // in Ga
-      val = (EPS_ff/.01) * fH2 * col[n] / (tdep * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
-    }
+   
+   // constant SF depletion time.
+   double tdepConst = 2.0; // in Ga
+   double valConst = (EPS_ff/.01) * fH2 * col[n] / (tdepConst * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
+    
+    
+   double val;
+   val = valToomre;
+   if(dbg.opt(19))
+     val = valConst;
+   if(dbg.opt(7)) {
+     val = max(valConst, valToomre); // pick the shorter depletion time, i.e. higher SFR. 
+   }
+
     if(val < 0 || val!=val)
       errormsg("Error computing colSFR:  n, val, fH2, col, sig   "
          +str(n)+" "+str(val)+" "+str(ComputeH2Fraction(n))+" "+str(col[n])
          +" "+str(sig[n]));
     colSFR[n]=val;
   }
+  return -1;
 }
 double DiskContents::dSdtOutflows(unsigned int n)
 {

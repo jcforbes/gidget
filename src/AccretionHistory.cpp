@@ -4,12 +4,9 @@
 #include "DiskUtils.h"
 #include "Debug.h"
 
-#include <gsl/gsl_spline.h>
-#include <gsl/gsl_randist.h>
 
 #include <fstream>
 #include <math.h>
-#include <vector>
 #include <algorithm>
 #include <iostream>
 
@@ -152,9 +149,37 @@ double npow(double x,double ex)
     return pow(x,ex);
 }
 
-double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos, 
-				std::string fn, bool writeOut,unsigned long int seed,
-				double invMassRatioLimit,bool fatal,double zquench)
+// This is basically a wrapper function for AttemptToGenerateNeistein08 (below).
+// Sometimes a given attempt to generate such an accretion history will fail because 
+// the history requested will produce a major merger.
+// Previously, the program would spit out an error and crash, so if you requested 1000 runs
+// you would get only some somewhat unpredictable fraction of that. Now we guarantee that we'll
+// keep trying until we get an acceptable accretion history, and keep track of the number of attempts we required.
+double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
+				            std::string fn, bool writeOut, unsigned long int seed,
+                     			    double invMassRatioLimit, double zquench, int * nattempts)
+{
+	*nattempts = 0; // we have yet to attempt to generate an accretion history.
+
+	// set up the random number generator.
+	gsl_rng * r = gsl_rng_alloc(gsl_rng_taus);
+	gsl_rng_set(r,seed);
+
+        double mdotext0 = -1.0;
+        while(mdotext0 < 0.0) {
+	  mdotext0 = AttemptToGenerateNeistein08(zst,cos,fn,writeOut,r,invMassRatioLimit,zquench);
+	  ++(*nattempts);
+        }
+	gsl_rng_free(r);
+	
+	return mdotext0;
+}
+
+// Attempts to generate an accretion history based on Neistein08. If it fails, it will return -1,
+// otherwise it will give you the gas mass accretion rate at z=zstart.
+double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos, 
+				  std::string fn, bool writeOut,gsl_rng * r,
+				  double invMassRatioLimit,double zquench)
 {
   zstart = zst;
   std::ofstream file;
@@ -172,8 +197,6 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
   sp.OmegaM=OmegaM;
   std::vector<double> zs(0),accs(0),masses(0);
   double SS= S(Mh0*cos.h(),&sp);
-  gsl_rng *r = gsl_rng_alloc(gsl_rng_taus);
-  gsl_rng_set(r,seed);
   bool first=true;
   do {
     // pick a value for our Gaussian random variable.
@@ -214,12 +237,11 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
     om += dom;
     first=false;
   } while(zs[zs.size()-1]<zstart*1.3);
-  gsl_rng_free(r);
 //  for(unsigned int i=0; i!=masses.size()-1; ++i) {
   double md0;
   for(unsigned int i=0; i<masses.size()-1; i+=2) {
     if((masses[i]-masses[i+1])/masses[i+1] > invMassRatioLimit && zs[i+1]<zstart) {
-	errormsg("Major merger at z="+str(zs[i+1])+"<zstart; throwing out this accretion history. dM="+str(masses[i]-masses[i+1])+", M="+str(masses[i+1])+", (dM/dz)/M="+str(((masses[i]-masses[i+1])/(zs[i+1]-zs[i]))/masses[i+1]),fatal);
+	//errormsg("Major merger at z="+str(zs[i+1])+"<zstart; throwing out this accretion history. dM="+str(masses[i]-masses[i+1])+", M="+str(masses[i+1])+", (dM/dz)/M="+str(((masses[i]-masses[i+1])/(zs[i+1]-zs[i]))/masses[i+1]),fatal);
         return -1.0;
     }
 
@@ -269,6 +291,9 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
 // Mh in units of 10^12 solar masses
 double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquench)
 {
+   if(dbg.opt(6))
+     return 1.0;
+
     double fOfz;
     if(z>=2.2)
         fOfz=1.0;

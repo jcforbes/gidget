@@ -69,7 +69,6 @@ FUNCTION diskStats,model,z=z
 ;		PRINT,"diskstats: Warning: changing xoutInd to xinInd "
 	ENDIF
  
-
 	
 
 

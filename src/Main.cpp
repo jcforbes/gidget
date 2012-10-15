@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
 
   const double zquench =           as.Set(-1.0,"Redshift at whcih accretion shuts off.");
   
-  // Make an object to deal with things cosmological
+  // Make an object to deal with basic cosmological quantities.9
   // Omega_Lambda = .734, H0 = 2.29e-18 s^-1
   Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
 
@@ -116,6 +116,7 @@ int main(int argc, char **argv) {
 
   testAccretionHistory();
 
+  int attempts=0;
   double invMassRatio = .3;
   if(dbg.opt(16)) invMassRatio=1.0;
 
@@ -135,11 +136,11 @@ int main(int argc, char **argv) {
       mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,-3.0*M_PI/2.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
   }
   else
-    mdot0 = accr.GenerateNeistein08(2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory,invMassRatio,true,zquench)*MSol/speryear;
+    mdot0 = accr.GenerateNeistein08(2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory,invMassRatio,zquench,&attempts)*MSol/speryear;
   // Note that the following line does nothing but put a line in the comment file to
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
-
+  as.Set(attempts,"Attempts to generate Neistein08: ");
 
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();

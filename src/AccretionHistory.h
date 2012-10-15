@@ -1,8 +1,11 @@
 #include <gsl/gsl_spline.h>
 #include <string>
 #include <vector>
+#include <gsl/gsl_randist.h>
+
 class Cosmology;
 class Debug;
+
 
 class AccretionHistory {
  public:
@@ -26,11 +29,15 @@ class AccretionHistory {
 		     unsigned int nc, // number of columns in the file
 		     double zstart); // starting redshift
 
+  double GenerateNeistein08(double zstart, Cosmology & cos,
+			    std::string fn, bool writeOut, unsigned long int seed,
+			    double invMassRatioLimit, double zquench, int * attempts);
+  
   // Generate a realistic accretion history given a halo mass at z=0
-  double GenerateNeistein08(double zstart, 
+  double AttemptToGenerateNeistein08(double zstart, 
 			    Cosmology& cos, std::string fn, 
-			    bool writeOut,unsigned long int seed,
-			    double invMassRatioLimit, bool fatal, double zquench);
+			    bool writeOut,gsl_rng * r,
+			    double invMassRatioLimit, double zquench);
 
   // Generate an accretion history given a halo mass Mh0 at zstart.
   // If MhAtz0 is true, the given halo mass Mh0 is assumed to be for z=0, not z=zstart

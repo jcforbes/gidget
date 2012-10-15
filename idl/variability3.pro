@@ -42,10 +42,13 @@ FUNCTION simpleranges,data,wrtxlog
   return,ranges
 END
 
-;; given an array whose first column indexes time, second column indexes position,
+;; given an array "data" whose first column indexes time, second column indexes position,
 ;; fourth column indexes models, and a vector of time labels, and axis labels
 ;; make one or a few movies! The third column indexes which variable we're plotting.
-;; Arguments:
+;; 
+;; Right this second, colors has the same number of indices as there are models.
+;; But we would like to be able to color each model differently at each time. So the plan
+;; is to make colors into a (# timesteps) by (# models) array.
 PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels
   lth=1
   chth=1
@@ -113,9 +116,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
 	setct,1,n_elements(styles),j
         
         ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
-        OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=lth
+        OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=lth
         IF(n_elements(prev) NE 0) THEN BEGIN
-          OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[j],linestyle=0,THICK=1
+          OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=0,THICK=1
         ENDIF
       ENDFOR
 
@@ -330,7 +333,7 @@ PRO variability3,expNames,keys,N,sv
   proftimes[2]=systime(1)
 
   theData = (temporary(theData))[*,*,*,0:ctr-1]
-  colors = intarr(n_elements(nameList2))
+  colors = intarr(n_elements(theData[*,0,0,0]),n_elements(nameList2))
 
   ;; having accumulated theData, let's do some analysis!
   sortdData = theData * 0.0
@@ -372,20 +375,27 @@ PRO variability3,expNames,keys,N,sv
     intervals[*,*,*, (expInd-1)*3+1]=sortdData[*,*,*, fix(low+.5*delta)]
 ;    intervals[*,*,*, (expInd-1)*5+3]=sortdData[*,*,*, fix(low+.84*delta)]
     intervals[*,*,*, (expInd-1)*3+2]=sortdData[*,*,*, fix(low+.975*delta)]
-    colors[low:high] = expInd-1
+    colors[*,low:high] = expInd-1
   ENDFOR
 
 
 
   ;; sort according to z=0 sSFR
   IF(n_elements(expNames) EQ 1) THEN BEGIN
-    zi = n_elements(vsMdot[*,0,0,0])-1
-    st = sort(vsMdot[zi,0,6,*])
+    zi0 = n_elements(vsMdot[*,0,0,0])-1
 
-    nmodels = n_elements(vsMdot[0,0,0,*])
-    ncolors = 5
-    FOR nc=0, ncolors-1 DO BEGIN
-      colors[ WHERE (st GE nc*(float(nmodels)/float(ncolors)) and st LT (nc+1)*(float(nmodels)/float(ncolors))) ] = nc
+    FOR zi = 0, zi0 DO BEGIN
+      st = sort(sortdVsMdot[zi0,0,6,*])
+
+      nmodels = n_elements(vsMdot[0,0,0,*])
+      ncolors = 5
+      FOR nc=0, ncolors-1 DO BEGIN
+        wh = WHERE (st GE nc*(float(nmodels)/float(ncolors)) and st LT (nc+1)*(float(nmodels)/float(ncolors)))
+        ll = fix(float(nc)*float(nmodels)/float(ncolors))
+        hh = fix(float(nc+1)*(float(nmodels)/float(ncolors)))-1
+        colors[zi,st[ll:hh]] = nc
+        ;STOP
+      ENDFOR
     ENDFOR
   ENDIF
 
@@ -407,14 +417,17 @@ PRO variability3,expNames,keys,N,sv
       linestyles = intarr(n_elements(expNames)*3)+2
       midpoints = where(indgen(n_elements(expNames)*3) MOD 3 EQ 1)
       linestyles[midpoints] = 0
-      simpleMovie,intervals,time,wrtXyn,indgen(n_elements(expNames)*3)/3,linestyles,wrtXyl,expName2+"_intervals",sv,intarr(n_elements(wrtXyl))
+      intervalsColors0 = indgen(n_elements(expNames)*3)/3
+      intervalsColors = intarr(n_elements(time),n_elements(intervalsColors0))
+      FOR tt=0,n_elements(time)-1 DO intervalsColors[tt,*] = intervalsColors0 
+      simpleMovie,intervals,time,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,intarr(n_elements(wrtXyl))
   ENDIF
 
 
 
   IF(n_elements(nameList2) GT 104 AND sv NE 4) THEN BEGIN
     setct,3,n_elements(sortdData[0,0,0,*]),0
-    simpleMovie,sortdData,time,wrtXyn,indgen(n_elements(sortdData[0,0,0,*])),intarr(n_elements(sortdData[0,0,0,*])),wrtXyl,expName2+"_sorted",sv,intarr(n_elements(wrtXyl))
+    simpleMovie,sortdData,time,wrtXyn,colors,intarr(n_elements(sortdData[0,0,0,*])),wrtXyl,expName2+"_sorted",sv,intarr(n_elements(wrtXyl))
   ENDIF
 
   setct,3,n_elements(theData[0,0,0,*]),0
@@ -426,8 +439,8 @@ PRO variability3,expNames,keys,N,sv
   setct,3,n_elements(vsMdot[0,0,0,*]),0
   IF(n1 EQ 1) THEN BEGIN
     theLabels =['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg"]
-    strt = [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0]
-    toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,0,0,0,1]
+    strt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0]
+    toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1]
     simpleMovie, sortdVsMdot,time,theLabels,colors,colors*0,toLog,expName2+"_vsmdot",sv,strt,PSYM=1,prev=1
   ENDIF
 
@@ -459,7 +472,7 @@ PRO variability3,expNames,keys,N,sv
     simpleMovie, vsSFR, time,theLabels, $
       colors, $
       colors*0, $
-      ,expName2+"_vsSFR",sv,strt,PSYM=1,prev=1
+      toLog,expName2+"_vsSFR",sv,strt,PSYM=1,prev=1
   ENDIF
 
 
@@ -479,7 +492,7 @@ PRO variability3,expNames,keys,N,sv
 
 
   setct,3,n_elements(vsMdot[0,0,0,*]),0
-  vsTime = vsMdot[*,*,*,*]
+  vsTime = sortdVsMdot[*,*,*,*]
   ;; for each model, set the independent variable equal to the time: 
   FOR j=0, n_elements(vsTime[0,0,0,*]) -1 DO BEGIN
     vsTime[*,0,0,j] = time[*]

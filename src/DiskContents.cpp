@@ -1175,11 +1175,19 @@ double DiskContents::ComputedSdTCos(double AccRate)
 
 	sum += dcoldtCos[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0); 
 
+        if(dbg.opt(0)) {
+	  // This is for const. column density accretion.
+	  // Note that the factor of 2pi difference vs. what you might expect (Mdot / pi r_d^2)
+          // comes from the factor of 2pi in defining the non-dimensional time as T=t * 2pi R/v_phi(R)
+	  dcoldtCos[n] = 2.0 * AccRate / (accScaleLength*accScaleLength);
+
+        }
       }
       else dcoldtCos[n] = 0.0;
     }
 
     sum += dmdtCosOuter(AccRate) + dmdtCosInner(AccRate);
+    return AccRate; // shouldn't do anything..
  
 }
 double DiskContents::dmdtCosOuter(double AccRate)

@@ -867,14 +867,12 @@ if __name__ == "__main__":
     # rp11: back to regular SF efficiency. Try eps_in=1.0 (dbg.opt(6))
     # rp12: dbg.opt(3), i.e. Neistein 2010, turn off eps_in=1.0 for the moment. It seems this will also require dbg.opt(16), i.e. keep the major mergers.
     # rp13: for comparison to rp12. Keep dbg.opt(3), turn off dbg.opt(16). Also, from here on in, 100% of runs will be used, not 30ish %, so I'm reducing nacc from 90 to 32.
+    # rp14: try hybrid SF law (dbg.opt(7)). Turn off dbg.opt(3), i.e. should be comparable to rp5.
+    # rp15: again with the hybrid SF law. This time include dbg.opt(6) which implements CAFG efficienciency, not 1.0
+    # rp16: keep all dbg options of rp15, but do the experiment of having a wide variance in accretion scale lengths but no variance in initial scale lengths.
+    # rp17: same as rp15, but now do uniform col accretion, rather than exponential (dbg.opt(0)). Note that this requires, to be self-consistent in terms of angular momentum conservation of the accretion, that the accretion scale length be 3x larger.
 
-
-    
-
-
-
-
-    theCompositeName="rp13"
+    theCompositeName="rp17"
 
 
 
@@ -887,15 +885,16 @@ if __name__ == "__main__":
         compositeNames.append(theName)
         experiments.append(experiment(theName))
         experiments[i].vary('nx',200,200,1,0)
-        experiments[i].irregularVary('dbg',[2**10+2**8+2**5+2**12+2**3])
+        experiments[i].irregularVary('dbg',[2**10+2**8+2**5+2**12+2**7+2**6+2**0])
 	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
         experiments[i].vary('alphaMRI',0,0,1,0)
         Mh0 = 1.0e10 * (100.0)**(float(i)/float(nmh0-1))
         experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
         experiments[i].irregularVary('R',[30.0])
-        scLengths=GetScaleLengths(nacc,mean=0.045, scatter=0.0000000000001, Mh0=Mh0, sd = 4+20*nacc,lower=1.0,upper=10.0)
-	experiments[i].irregularVary('accScaleLength',scLengths,1)
-        experiments[i].irregularVary('diskScaleLength',scLengths,1)
+        scLengths  =GetScaleLengths(nacc,mean=0.045, scatter=.5, Mh0=Mh0, sd=4+20*nacc, lower=1.0,upper=10.0)
+        scLengthsNV=GetScaleLengths(nacc,mean=0.045, scatter=1.0e-14, Mh0=Mh0, sd = 4+20*nacc,lower=1.0,upper=10.0)
+	experiments[i].irregularVary('accScaleLength',scLengthsNV*3,1)
+        experiments[i].irregularVary('diskScaleLength',scLengthsNV,1)
         #experiments[i].irregularVary('b',scLengths,1)
         #experiments[i].irregularVary('innerPowerLaw',[.5])
         #experiments[i].irregularVary('softening',[4])

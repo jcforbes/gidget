@@ -211,9 +211,9 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
       double a2 = -0.321;
       double a3 =  0.0808;
       double a4 =  0.622;
-      double b1 = 0.132;
-      double b2 = 2.404;
-      double b3 = 0.585;
+      double b1 =  0.132;
+      double b2 =  2.404;
+      double b3 =  0.585;
       double b4 = -0.436;
       double sigp = (a1*s + a2) * log10(dom) + a3*s + a4;
       double mup  = (b1*s + b2) * log10(dom) + b3*s + b4;
@@ -291,9 +291,12 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
 // Mh in units of 10^12 solar masses
 double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquench)
 {
-   if(dbg.opt(6))
-     return 1.0;
-
+   if(dbg.opt(6)) {
+     // used to be 1.0
+     double val= .47*pow((1.0+z)/3.0,.38)*pow(Mh,-0.25);
+     if(val>1.0) val=1.0;
+     return val;
+    }
     double fOfz;
     if(z>=2.2)
         fOfz=1.0;

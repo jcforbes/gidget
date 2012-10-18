@@ -431,8 +431,8 @@ FUNCTION readOutput,name
     tdc[*,*,ncolstep+34-1] = -tdc[*,*,2] ;; - tau'    '''
 
     tdc[0,*,ncolstep+14-1] = tdc[1,*,ncolstep+14-1] ;; replace the 0th time step (all zeroes) with the first.
-
-    tdc[*,*,ncolstep+35-1] = tdc[*,*,ncolstep+10-1]*pcperkpc*pcperkpc/((MLF+Rf)*tdc[*,*,ncolstep+14-1]);; depletion time = col/coldtSF --- Msol/pc^2 / (Msol/kpc^2/yr) * (1000 pc/kpc)^2
+    fac = 1.0;; fac = MLF+Rf
+    tdc[*,*,ncolstep+35-1] = tdc[*,*,ncolstep+10-1]*pcperkpc*pcperkpc/(fac*tdc[*,*,ncolstep+14-1]);; depletion time = col/coldtSF --- Msol/pc^2 / (Msol/kpc^2/yr) * (1000 pc/kpc)^2
     tdc[*,*,ncolstep+36-1] = tdc[*,*,ncolstep+9-1]*kmperkpc/((tdc[*,*,ncolstep+17-1]+.00001)*speryear);; viscous time = r / v_r --- kpc/(km/s)
     tdc[*,*,ncolstep+37-1] = tdc[*,*,ncolstep+35-1]/tdc[*,*,ncolstep+36-1];; depletion time / viscous time
     
@@ -544,7 +544,7 @@ FUNCTION readOutput,name
 		NPostProcess:NPostProcess,NPassive:NPassive,STVars:STVars, $
 		MLF:MLF,mdotext0:md0,Rf:Rf,whichAccHistory:whichAccHistory,$;}
 		fixedQ:fixedQ,diskScaleLength:scaleLength,Qlim:Qlim,dlnx:dlnx,$
-		mh0:mh0, minStsig:minStsig,zquench:zquench }
+		mh0:mh0, minStsig:minStsig,zquench:zquench,xmin:xmin }
 	
 	RETURN,model ;; end of the readOutput function
 END

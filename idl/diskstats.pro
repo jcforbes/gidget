@@ -29,13 +29,24 @@ FUNCTION diskStats,model,z=z
         vrg=model.dataCube[zj,*,ncs+17-1]
         vst=model.dataCube[zj,*,ncs+16-1]
         fg=col/(col+colst)
+        sig = model.dataCube[zj,*,ncs+11-1] ;; velocity dispersion of gas (km/s)
+	tdep = model.dataCube[zj,*,ncs+35-1] ;; depletion time := gas mass / SFR
+
+        indexGI = where(Q LE model.fixedQ,ct)
+        IF(ct GT 0) THEN BEGIN
+          GIin = min(x[indexGI])
+          GIout= max(x[indexGI])
+        ENDIF ELSE BEGIN
+	  GIin = model.xmin*model.xmin
+	  GIout= model.xmin*model.xmin
+	END
 
         gasMass = model.dataCube[zj,*,3] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
         stellarMass =  model.dataCube[zj,*,5] * (2.0*!pi*model.Radius*model.mdotext0*(2.0*sinh(model.dlnx/2.0))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
 
 
 	stMass = total(stellarMass) ;;;;; model.evArray[5,zj]/model.evArray[6,zj] * (1.0-model.evArray[6,zj])
-	sSFR = model.evArray[11-1,zj]/stMass
+	sSFR = model.evArray[11-1,zj]/stMass ;; yr^-1
         metallicity = model.dataCube[zj,*,22-1]
 
 
@@ -92,6 +103,16 @@ FUNCTION diskStats,model,z=z
 	fgL = TOTAL( gasMass[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd] + stellarMass[0:xoutInd]) + BulgeM)
 	ZL = TOTAL( gasMass[0:xoutInd] * 10.0^metallicity[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd]))
 
+	vrAvg = TOTAL( gasMass * vrg ) / TOTAL(gasMass)
+	sigAvg = TOTAL(sig*gasMass)/TOTAL(gasMass)
+        
+	indVrg = where(vrg GE 0.0)
+	vrGE0 = TOTAL(gasMass[indVrg] * vrg[indVrg]) / TOTAL(gasMass[indVrg])
+	den = model.evArray[11-1,zj]
+	IF(den EQ 0) THEN den = model.evArray[11-1,1]
+	tdepAvg = TOTAL( gasMass )/den ; = gas mass / SFR
+
+
         xnuc=x[0:xinInd]
         xsf=x[xinInd:xoutInd]
         xHI=x[xoutInd:model.nx-1]
@@ -103,7 +124,7 @@ FUNCTION diskStats,model,z=z
         vrgHI = TOTAL(xHI*xHI*vrg[xoutInd:model.nx-1])/TOTAL(xHI*xHI)
         vstNuc= TOTAL(xnuc*xnuc*vst[0:xinInd])/TOTAL(xnuc*xnuc)
         vstSf = TOTAL(xsf*xsf*vst[xinInd:xoutInd])/TOTAL(xsf*xsf)
-        vstHI = TOTAL(xHI*xHI*vst[xoutInd:model.nx-1])/TOTAL(xHI*xHI)   
+        vstHI = TOTAL(xHI*xHI*vst[xoutInd:model.nx-1])/TOTAL(xHI*xHI)
         colsol= col[nearest("position",1,model,8.0/model.Radius)]
 ;	totfH2 = TOTAL(x[*] * x[*] * fH2[*])/TOTAL(x[*]*x[*])
 ;        totFg = TOTAL(x[*] * x[*] * fg[*]) / TOTAL(x[*] * x[*])
@@ -119,7 +140,8 @@ FUNCTION diskStats,model,z=z
 		mdotBulgeG,mdotbulgeSt, $ ; 12,13
 		sfr,stMass,totFg,gasZ,eff, $ ; - 14,15,16,17,18
                 sfr+mdotBulgeG,stMass+BulgeM, $ ;; 19,20
-		fgL, ZL ]   ; 21, 22
+		fgL, ZL, vrAvg, GIin*model.Radius, GIout*model.Radius, sigAvg, vrGE0,$   ; 21, 22, 23, 24, 25, 26, 27
+		tdepAvg ] ; 28
 ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
 ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

@@ -573,7 +573,7 @@ PRO variability3,expNames,keys,N,sv
   SETCT,3,n_elements(vsMdot[0,0,0,*]),0
   FIGUREInit,(expName2+'_accRates'),1,3,3
   yr=[MIN(vsMdot[zn-1,0,0,*])*.5,MAX(vsMdot[0,0,0,*])*2];[.01,1000];[MIN(sortdVsMdot[*,0,0,*]),MAX(sortdVsmdot[*,0,0,*])]
-  Plot,time,sortdVsMdot[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=yr,YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Accretion Rate",CHARSIZE=3,THICK=4,CHARTHICK=2
+  Plot,time,vsMdot[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=yr,YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Accretion Rate",CHARSIZE=3,THICK=4,CHARTHICK=2
   FOR m=1,n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
     setct,5,n_elements(vsMdot[0,0,0,*]),m
     OPLOT,time,vsMdot[*,0,0,m],COLOR=m,THICK=4

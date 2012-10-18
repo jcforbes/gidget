@@ -16,7 +16,7 @@ FUNCTION listvalidmodels,expName,N
   IF(N LT ctr) THEN BEGIN 
 ;      nameList2=nameList2[0:N-1]
       FOR k=0,N-1 DO BEGIN
-          nameList2[k] = nameList2[k*FIX(float(ctr)/float(N))]
+          nameList2[k] = nameList2[FIX(float(k)*float(ctr-1)/float(N-1))]
       ENDFOR
       nameList2=nameList2[0:N-1]
   ENDIF

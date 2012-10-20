@@ -110,7 +110,7 @@ FUNCTION diskStats,model,z=z
 	vrGE0 = TOTAL(gasMass[indVrg] * vrg[indVrg]) / TOTAL(gasMass[indVrg])
 	den = model.evArray[11-1,zj]
 	IF(den EQ 0) THEN den = model.evArray[11-1,1]
-	tdepAvg = TOTAL( gasMass )/den ; = gas mass / SFR
+	tdepAvg = TOTAL( gasMass )*totfH2/den ; = gas mass / SFR
 
 
         xnuc=x[0:xinInd]

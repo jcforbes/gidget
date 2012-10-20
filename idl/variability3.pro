@@ -49,7 +49,7 @@ END
 ;; Right this second, colors has the same number of indices as there are models.
 ;; But we would like to be able to color each model differently at each time. So the plan
 ;; is to make colors into a (# timesteps) by (# models) array.
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels
   lth=1
   chth=1
   IF(sv EQ 3 || sv EQ 4) THEN cg=1 ELSE cg=0
@@ -60,10 +60,11 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
     lth=5
   ENDIF
 
-  ranges= simpleranges(data,wrtxlog)
+  ;; exclude the first time step from setting the range.
+  ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog)
   
 
-  ;; loop over y-axis variables to be plotted (except the first one, which is just radius!)
+  ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
     fn=name+"_"+labels[k]
     dn="movie_"+name+"_"+labels[k]
@@ -75,12 +76,19 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
       FILE_MKDIR,dn
     ENDIF
+    IF(sv EQ 5) THEN BEGIN
+        figureInit,(fn+"_timeSeries"),2,1,2
+	multiplot,[0,1,n_elements(whichFrames),0,0],ygap=0.0
+	!p.noerase=0
+    ENDIF
 
     symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
     IF(n_elements(axislabels) EQ 0) THEN axislabels=labels[*]
     IF(n_elements(prev) EQ 0) THEN prev=0
     IF(n_elements(taillength) EQ 0) THEN taillength=1
     IF(n_elements(saveFrames) EQ 0) THEN saveFrames=0
+    IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(n_elements(time))
+    IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
 
     ;; counter of frames.
     count=0 
@@ -88,27 +96,32 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
     ; tailLength = fix(3.0/(float(n_elements(styles))/928.0)^(.25)) 
 
     ;; loop over time: each iteration of this loop will save a frame in a movie
-    FOR ti=0,n_elements(time)-1 DO BEGIN  
+    FOR tii=0,n_elements(whichFrames)-1 DO BEGIN  
+      ti = whichFrames[tii]
       count=count+1
       SETCT,1,n_elements(styles),2
 
       ;; If this variable k is included in strt, draw a dashed line y=x.
       ;; Either way, this long statement draws the first plot for this frame.
       ;; Everything else will be overplotted on top in a few lines.
+      xt = axisLabels[0]
+      IF(sv EQ 5 AND tii NE n_elements(whichFrames)-1) THEN xt=""
+      yt = axisLabels[k]
+      ;IF(sv EQ 5) THEN yt=yt+" at z="+str(time)
       IF(strt[k] EQ 0) THEN $
-        PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=axislabels[0], $
+        PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
          YTITLE=axislabels[k], XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
          xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=lth,XTHICK=lth,YTHICK=lth $
        ELSE $
         PLOT,findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
 	 findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
-         COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=labels[0], $
-         YTITLE=labels[k],XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
+         COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
+         YTITLE=axislabels[k],XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
          xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth,THICK=lth,XTHICK=lth,YTHICK=lth
       ;; that was all one line! It's now over, and our plotting space is set up.
 
       ;; Print the time in the upper left of the screen
-      XYOUTS,.3,.87,"z = "+string(string(time[ti], Format='(D0.3)')),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+      XYOUTS,.3,.87,"z = "+string(time[ti], Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
 
       ;; loop over models (4th column of data)
       FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
@@ -122,21 +135,28 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
         IF(prev EQ 1) THEN BEGIN
           OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=0,THICK=1
         ENDIF
-      ENDFOR
+      ENDFOR ;; end loop over models
 
 
+      ;; We've created a single frame. What do we do with it?
       IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
       IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_'+string(count,FORMAT="(I4.4)") + '.png',TVRD(TRUE=1)
-      IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count,FORMAT="(I4.4)")),/png,/true,/nodialog)
+      IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count-1,FORMAT="(I4.4)")),/png,/true,/nodialog) 
       IF(sv EQ 0) THEN wait,.05
-    ENDFOR
+      IF(sv EQ 5 AND tii NE n_elements(whichFrames)-1) THEN multiplot
+    ENDFOR ;; end loop over time indices
     IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
     IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("rm " + fn+".mpg") 
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
+    IF(sv EQ 5) THEN BEGIN
+	figureClean,(fn+"_timeSeries"),2
+	latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]]
+        multiplot,/default
+    ENDIF
     set_plot,'x'
-  ENDFOR
+  ENDFOR ;; end loop over dependent variables
 END
 
 ;; given an array whose first column indexes time, second column indexes different data sets
@@ -215,7 +235,7 @@ PRO variability3,expNames,keys,N,sv
   ctr=0
 
   ;; variables to plot- title, column index, log plot, name, y-range
-  wrtXyt=['R','Col','Sig','Col_*','Sig_*','fg','Z','ColSFR','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk']
+  wrtXyt=['R (kpc)','Gas Column Density (Msun/pc^2)','Velocity Dispersion (km/s)','Stellar Column Density (Msun/pc^2)','Stellar Velocity Dispersion (km/s)','Gas Fraction','[Z/Zsun]','SFR Column Density (Msun/yr/kpc^2)','Q','Gas Q','Stellar Q','Molecular Fraction','Age At z=0 (Ga)','Age (Ga)','Depletion Time (Ga)','Viscous Time (Ga)','Depletion/Viscous Time','Mass Flux Through Disk (Msun/yr)']
   wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32,35,36,37,39] ;; index
   wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1,0] ;; offset? 
   wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk']
@@ -342,7 +362,7 @@ PRO variability3,expNames,keys,N,sv
   vsMdotLabels = ["Mdot (Msun/yr)","DiskSFR (Msun/yr)","Stellar Mass (Msun)","Peak Radius of Column Density (kpc)","Radius of HI transition (kpc)","Column Density at r=8 kpc (Msun/pc^2)","Specific SFR (yr^-1)","Bulge Gas Mass (Msun)","Bulge Stellar Mass (Msun)","H_2 Fraction","Mdot Gas into Bulge (Msun/yr)","Mdot Stars into Bulge (Msun/yr)","Bulge to Total Ratio","SFR Including Gas Flux Into Bulge (Msun/yr)","efficiency (Mstar / (f_b M_h))","[Z/Zsun]","Gas Fraction in SF Region","Mdot (Msun/yr)","Gas Fraction in Optical Region","[Z/Zsun] in Optical Region","Gas Fraction","[Z Bulge/Zsun]","Average inward gas radial velocity (km/s)","Inner Edge of GI Region (kpc)","Outer Edge of GI Region (kpc)","Average velocity dispersion (km/s)","Average radial velocity for non-outward velocities only (km/s)","Depletion Time (Ga)"]
   vsMdotNames  = ["mdot","DiskSFR","Mst","rPeak","rHI","colsol","sSFR","BulgeGasMass","BulgeStMass","fH2","mdotBulgeGas","mdotBulgeStars","BT","SFRplusMdotIn","efficiency","Z","fgInSF","mdot","fgL","ZL","fg","ZBulge","vrAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
   vsMdotStrt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-  vsMdotToLog = [1,1,1,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1,0,1,1,1,1,1,1] 
+  vsMdotToLog = [1,1,1,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1,0,0,1,1,1,1,1] 
 
   modelcounter = modelcounter2[*]
   nameList2 = nameList4[*]
@@ -437,7 +457,7 @@ PRO variability3,expNames,keys,N,sv
       intervalsColors0 = indgen(n_elements(expNames)*3)/3
       intervalsColors = intarr(n_elements(time),n_elements(intervalsColors0))
       FOR tt=0,n_elements(time)-1 DO intervalsColors[tt,*] = intervalsColors0 
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,intarr(n_elements(wrtXyl))
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,intarr(n_elements(wrtXyl)),axislabels=wrtXyt
   ENDIF
 
 
@@ -449,7 +469,7 @@ PRO variability3,expNames,keys,N,sv
 
   setct,3,n_elements(theData[0,0,0,*]),0
 ;  IF(n_elements(nameList2) LT 105) THEN BEGIN 	
-    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl))
+    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl)),axislabels=wrtXyt
 ;  ENDIF
 	
 
@@ -458,7 +478,7 @@ PRO variability3,expNames,keys,N,sv
     theLabels =['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
     strt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1,0,1,1,1,1,1,1] ; theLabels = 28
-    simpleMovie, vsMdot,z,vsMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsmdot",sv,vsMdotStrt,PSYM=1,prev=1,axisLabels=vsMdotLabels
+;    simpleMovie, vsMdot,z,vsMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsmdot",sv,vsMdotStrt,PSYM=1,prev=1,axisLabels=vsMdotLabels
   ENDIF
 
   ;; average mdot over a number of time steps nt
@@ -496,10 +516,7 @@ PRO variability3,expNames,keys,N,sv
     vsSFRToLog = vsMdotToLog[1:(n_elements(vsMdotToLog)-1)]
     vsSFRstrt= vsMdotstrt[1:(n_elements(vsMdotStrt)-1)]
 
-    simpleMovie, vsSFR, z,vsSFRNames, $
-      colors, $
-      colors*0, $
-      vsSFRtoLog,expName2+"_vsSFR",sv,vsSFRstrt,PSYM=1,prev=1,axisLabels=vsSFRLabels
+;    simpleMovie, vsSFR, z,vsSFRNames, colors, colors*0, vsSFRtoLog,expName2+"_vsSFR",sv,vsSFRstrt,PSYM=1,prev=1,axisLabels=vsSFRLabels
   ENDIF
 
 
@@ -536,7 +553,7 @@ PRO variability3,expNames,keys,N,sv
     theLabels =  ["Mst","DiskSFR","rPeak","rHI",'colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
     toLog = [1,1,1,0,1,1,1,0,0,1,1,1,1,1,0,0,1,0,0,1,0,1,1,1,1,1,1]
     strt =  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-    simpleMovie, vsMstar, z,vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstar",sv,vsMstarStrt,PSYM=1,prev=1,saveFrames=1,axisLabels=vsMstarLabels
+    simpleMovie, vsMstar, z,vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstar",sv,vsMstarStrt,PSYM=1,prev=1,saveFrames=0,axisLabels=vsMstarLabels
   ENDIF
 
 
@@ -558,7 +575,7 @@ PRO variability3,expNames,keys,N,sv
     theLabels =['time (Ga)','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
     strt =  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
     toLog = [0,1,1,1,0,1,1,1,1,0,1,1,1,1,1,0,0,1,0,0,1,0,1,1,1,1,1,1]
-    simpleMovie, vsTime,z,vsTimeNames,colors,colors*0,vsTimeToLog,expName2+"_vstime",sv,vsTimeStrt,PSYM=1,prev=1,taillength=1000,saveFrames=1,axisLabels=vsTimeLabels
+    simpleMovie, vsTime,z,vsTimeNames,colors,colors*0,vsTimeToLog,expName2+"_vstime",sv,vsTimeStrt,PSYM=3,prev=1,taillength=1000,saveFrames=0,axisLabels=vsTimeLabels
   ENDIF
 
 

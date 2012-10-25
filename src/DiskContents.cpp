@@ -115,10 +115,6 @@ DiskContents::DiskContents(double tH, double eta,
   tau=gsl_vector_alloc(nx+2); 
   forcing=gsl_vector_alloc(nx+2);
 
-  if(dbg.opt(13))
-    zetaREC = .7;
-  if(dbg.opt(14))
-    zetaREC = .3;
 
   return;
 }
@@ -454,43 +450,21 @@ void DiskContents::ComputeDerivs(double ** tauvec)
     
     double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
 
-
-    if(dbg.opt(11)) {
-      dcoldt[n] = -taupp/((beta[n]+1.)*uu[n]*x[n]) 
-        + (beta[n]*beta[n]+beta[n]+x[n]*betap[n])*tauvec[2][n]
-             /((beta[n]+1.)*(beta[n]+1.)*uu[n]*x[n]*x[n])
-        - RfREC * colSFR[n] - dSdtOutflows(n);
-  
-      dsigdt[n] = uu[n]*(beta[n]-1.)*tauvec[1][n]/
-                                        (3.*sig[n]*col[n]*x[n]*x[n]*x[n])
-                  + (sig[n]*(beta[n]+beta[n]*beta[n]+x[n]*betap[n])
-                                 /(3.*(beta[n]+1.)*(beta[n]+1.)*col[n]*uu[n]*x[n]*x[n])
-                          -5.*ddx(sig,n,x)/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]))
-                    *tauvec[2][n]
-                 - sig[n]*taupp/(3.*(beta[n]+1.)*col[n]*uu[n]*x[n]);
-      if(sigth<=sig[n]) {
-        dsigdt[n]-= 2.*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
-           *col[n]*dim.chi()*(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/(3.);
-      }
-      else {
-        // do nothing - this term is zero.
-      }
-    }
-    else {
-      dcoldt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) / (mesh.dx(n) * x[n])
-                    -RfREC * colSFR[n] - dSdtOutflows(n) + dcoldtCos[n];
+    
+   dcoldt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) / (mesh.dx(n) * x[n])
+                   -RfREC * colSFR[n] - dSdtOutflows(n) + dcoldtCos[n];
       
-      dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
-                    - 5.0*ddx(sig,n,x)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
-                    +uu[n]*(beta[n]-1.)*tauvec[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
-      if(sig[n] >= sigth) {
-        dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
-                        *col[n]*dim.chi()*(1.0+activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/3.0;
-      }
-      else {
-        // do nothing.
-      }
-    }
+   dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
+                  - 5.0*ddx(sig,n,x)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
+                  +uu[n]*(beta[n]-1.)*tauvec[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+   if(sig[n] >= sigth) {
+      dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
+                      *col[n]*dim.chi()*(1.0+activeColSt(n)/col[n] * sig[n]/activeSigSt(n))/3.0;
+   }
+   else {
+      // do nothing, these terms are zero.
+   }
+    
     
 //    colSFR[n] = dSSFdt(n);
     dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
@@ -910,17 +884,8 @@ void DiskContents::TauPrimeFromTau(double ** tauvec)
   for(unsigned int n=1; n<=nx; ++n) {
     tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
     MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvec[1][n+1]-tauvec[1][n])/(mesh.x(n+1)-x[n]);
-
-    if(dbg.opt(4) && MdotiPlusHalf[n] <0.0) {
-      tauvec[2][n] = 0.0;
-      MdotiPlusHalf[n] = 0.0;
-    }
   }
   MdotiPlusHalf[0]=-1.0/mesh.u1pbPlusHalf(0) * (tauvec[1][1]-tauvec[1][0])/(x[1]-mesh.x(0.0));
-
-  if(dbg.opt(4) && MdotiPlusHalf[0] < 0.0) {
-      MdotiPlusHalf[0] = 0.0;
-  }
 
 }
 
@@ -966,7 +931,7 @@ void DiskContents::DiffuseMetals(double dt)
       gsl_vector_set(MetalMass1,n-1, ZDisk[n]*col[n]*x[n]*x[n]*dlnx);
     }
 
-    if(dbg.opt(1)) { // Z_boundary = Z_IGM
+    if(dbg.opt(1)) { // Z_boundary = Z_IGM, i.e. metals are free to flow off the edge of the disk.
       gsl_vector_set(MetalMass1,nx,Z_IGM*col[nx]*mesh.x(nx+1.0)*mesh.x(nx+1.0)*dlnx);
     }
     else { // Zero flux condition
@@ -1159,8 +1124,6 @@ double DiskContents::dSdtOutflows(unsigned int n)
 
 double DiskContents::ComputedSdTCos(double AccRate)
 {
-    if(!dbg.opt(8)) return 0.0;
-
     double sum = 0.0;
 
     for(unsigned int n=1; n<=nx; ++n) {
@@ -1168,10 +1131,16 @@ double DiskContents::ComputedSdTCos(double AccRate)
         double nD = ((double) n);
         double xlo = mesh.x(nD -0.5);
         double xhi = mesh.x(nD +0.5);
-      
-        dcoldtCos[n] =  (  (accScaleLength+xlo)*exp(-xlo/accScaleLength) 
+     
+        double xb = mesh.x(.5 + ((double) nx));
+        double fOuter =  (1.0 + xb/accScaleLength) * exp(-xb/accScaleLength);
+
+
+ 
+        dcoldtCos[n] = ( (  (accScaleLength+xlo)*exp(-xlo/accScaleLength) 
                           -(accScaleLength+xhi)*exp(-xhi/accScaleLength))
-                       *  AccRate*2.0 / (accScaleLength*(xhi-xlo)*(xhi+xlo));
+                       *  AccRate*2.0 / (accScaleLength*(xhi-xlo)*(xhi+xlo)))  *
+			1.0 / (1.0 - fOuter);
 
 	sum += dcoldtCos[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0); 
 
@@ -1198,12 +1167,12 @@ double DiskContents::ComputedSdTCos(double AccRate)
 }
 double DiskContents::dmdtCosOuter(double AccRate)
 {
-//    if(!dbg.opt(8)) return AccRate;
-
+  // The output of this function only matters when dbg.opt(8) is set, i.e. exp accretion.
+  // In that case, we would like no matter to appear at the outer edge of the disk.
   return 0.0;
 
-    double xb = mesh.x(.5 + ((double) nx));
-    return AccRate *  (1.0 + xb/accScaleLength)*exp(-xb/accScaleLength);
+//    double xb = mesh.x(.5 + ((double) nx));
+//    return AccRate *  (1.0 + xb/accScaleLength)*exp(-xb/accScaleLength);
 }
 double DiskContents::dmdtCosInner(double AccRate)
 {
@@ -1276,22 +1245,14 @@ void DiskContents::UpdateCoeffs(double redshift)
 
     double QQ = Q(&rqp,&absc);
 
-
-    if(!dbg.opt(12)) {
-      if(QQ>fixedQ) {
-  	FF[n]=0.0;
-  	UU[n]=0.0;
-  	DD[n]=1.0;
-  	LL[n]=-1.0;
-      }
-    }
-    else {
-      if(QQ>fixedQ) {
-        FF[n]=0.0;
-        UU[n]=0.0;
-        DD[n]=1.0;
-        LL[n]=0.0;
-      }
+    // When this cell is stable, set the torque equal to zero. This may imply a non-zero
+    // mass flux if tau' is nonzero, in which case mass may flow into this cell, but that's
+    // exactly what we want to happen.
+    if(QQ>fixedQ) {
+      FF[n]=0.0;
+      UU[n]=0.0;
+      DD[n]=1.0;
+      LL[n]=0.0;
     }
 
 

@@ -49,10 +49,10 @@ END
 ;; Right this second, colors has the same number of indices as there are models.
 ;; But we would like to be able to color each model differently at each time. So the plan
 ;; is to make colors into a (# timesteps) by (# models) array.
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal
   lth=1
   chth=1
-  IF(sv EQ 3 || sv EQ 4) THEN cg=1 ELSE cg=0
+  IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
   IF(sv EQ 1) THEN cs=1 ELSE cs=2.8
   IF(sv EQ 4) THEN BEGIN 
     cs=2.5
@@ -63,6 +63,14 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
   ;; exclude the first time step from setting the range.
   ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog)
   
+  IF(n_elements(horizontal) EQ 0) THEN horizontal = 0
+  IF(horizontal GE 2 OR horizontal LT 0) THEN horizontal = 1
+  IF(n_elements(axislabels) EQ 0) THEN axislabels=labels[*]
+  IF(n_elements(prev) EQ 0) THEN prev=0
+  IF(n_elements(taillength) EQ 0) THEN taillength=1
+  IF(n_elements(saveFrames) EQ 0) THEN saveFrames=0
+  IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(n_elements(time))
+  IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
 
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
@@ -77,18 +85,15 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
       FILE_MKDIR,dn
     ENDIF
     IF(sv EQ 5) THEN BEGIN
-        figureInit,(fn+"_timeSeries"),2,1,2
-	multiplot,[0,1,n_elements(whichFrames),0,0],ygap=0.0
+        wf = n_elements(whichFrames)
+	IF (wf GT 10) THEN message,"You have requested an unreasonable number of frames for a single plot."
+	cs = .3
+        figureInit,(fn+"_timeSeries"),2,1+horizontal,1+(1-horizontal)
+	multiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0]
 	!p.noerase=0
     ENDIF
 
     symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
-    IF(n_elements(axislabels) EQ 0) THEN axislabels=labels[*]
-    IF(n_elements(prev) EQ 0) THEN prev=0
-    IF(n_elements(taillength) EQ 0) THEN taillength=1
-    IF(n_elements(saveFrames) EQ 0) THEN saveFrames=0
-    IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(n_elements(time))
-    IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
 
     ;; counter of frames.
     count=0 
@@ -97,13 +102,14 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
 
     ;; loop over time: each iteration of this loop will save a frame in a movie
     FOR tii=0,n_elements(whichFrames)-1 DO BEGIN  
+      IF(sv EQ 5 and tii NE 0) THEN !p.noerase=1
       ti = whichFrames[tii]
       count=count+1
       SETCT,1,n_elements(styles),2
 
       ;; If this variable k is included in strt, draw a dashed line y=x.
       ;; Either way, this long statement draws the first plot for this frame.
-      ;; Everything else will be overplotted on top in a few lines.
+      ;; Everything else will be overplotted on top in a few lines. 
       xt = axisLabels[0]
       IF(sv EQ 5 AND tii NE n_elements(whichFrames)-1) THEN xt=""
       yt = axisLabels[k]
@@ -121,7 +127,10 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
       ;; that was all one line! It's now over, and our plotting space is set up.
 
       ;; Print the time in the upper left of the screen
-      XYOUTS,.3,.87,"z = "+string(time[ti], Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+      
+      IF(sv NE 5) THEN XYOUTS,.3,.87,"z = "+string(time[ti], Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+      ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),"z = "+string(time[ti],Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+      ELSE XYOUTS,.1+float(tii)/float(n_elements(whichFrames)),"z = "+string(time[ti],Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
 
       ;; loop over models (4th column of data)
       FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
@@ -152,7 +161,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
     IF(sv EQ 5) THEN BEGIN
 	figureClean,(fn+"_timeSeries"),2
-	latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]]
+        latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]],[.6,.6],height=8.89*(2-horizontal),width=8.89*(1+horizontal)
         multiplot,/default
     ENDIF
     set_plot,'x'
@@ -360,6 +369,8 @@ PRO variability3,expNames,keys,N,sv
 ;['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
 
   vsMdotLabels = ["Mdot (Msun/yr)","DiskSFR (Msun/yr)","Stellar Mass (Msun)","Peak Radius of Column Density (kpc)","Radius of HI transition (kpc)","Column Density at r=8 kpc (Msun/pc^2)","Specific SFR (yr^-1)","Bulge Gas Mass (Msun)","Bulge Stellar Mass (Msun)","H_2 Fraction","Mdot Gas into Bulge (Msun/yr)","Mdot Stars into Bulge (Msun/yr)","Bulge to Total Ratio","SFR Including Gas Flux Into Bulge (Msun/yr)","efficiency (Mstar / (f_b M_h))","[Z/Zsun]","Gas Fraction in SF Region","Mdot (Msun/yr)","Gas Fraction in Optical Region","[Z/Zsun] in Optical Region","Gas Fraction","[Z Bulge/Zsun]","Average inward gas radial velocity (km/s)","Inner Edge of GI Region (kpc)","Outer Edge of GI Region (kpc)","Average velocity dispersion (km/s)","Average radial velocity for non-outward velocities only (km/s)","Depletion Time (Ga)"]
+  vsMdotTexLabels = ["$\dot{M} (M_\odot/yr)$","Disk SFR ($M_\odot$/yr)","Stellar Mass ($M_\odot$)","Peak Radius (kpc)","Radius of HI trans. (kpc)","$\Sigma$ at $r=8$ kpc ($M_\odot/pc^2$)","sSFR ($yr^{-1}$)","Bulge Gas Mass ($M_\odot$)","Bulge Stellar Mass ($M_\odot$)","$H_2$ Fraction","$\dot{M}_g$ into Bulge ($M_\odot$/yr)","$\dot{M}_*$ into Bulge ($M_\odot$/yr)","Bulge:Total Ratio","SFR + $\dot{M}_{g,\rightarrow\mathrm{bulge}}$ ($M_\odot$/yr)","$\epsilon$ ($M_*$ / ($f_b M_h$))","$[Z/Z_\odot]$","$f_g$ in SF Region","$\dot{M}$ ($M_\odot$/yr)","$f_g$ in Optical Region","$[Z/Z_\odot]$ in Optical Region","$f_g$","$[Z_\mathrm{bulge}/Z_\odot]$","Average $-v_r$ (km/s)","Innermost GI Region (kpc)","Outermost GI Region (kpc)","$\langle\sigma\rangle$ (km/s)","Average $-v_r\ge 0$ (km/s)","$t_{dep} = M_g f_{H_2} / \dot{M}^{SF}$ (Ga)"]
+
   vsMdotNames  = ["mdot","DiskSFR","Mst","rPeak","rHI","colsol","sSFR","BulgeGasMass","BulgeStMass","fH2","mdotBulgeGas","mdotBulgeStars","BT","SFRplusMdotIn","efficiency","Z","fgInSF","mdot","fgL","ZL","fg","ZBulge","vrAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
   vsMdotStrt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
   vsMdotToLog = [1,1,1,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1,0,0,1,1,1,1,1] 
@@ -462,11 +473,6 @@ PRO variability3,expNames,keys,N,sv
 
 
 
-;  IF(n_elements(nameList2) GT 104 AND sv NE 4) THEN BEGIN
-;    setct,3,n_elements(sortdData[0,0,0,*]),0
-;    simpleMovie,sortdData,time,wrtXyn,colors,intarr(n_elements(sortdData[0,0,0,*])),wrtXyl,expName2+"_sorted",sv,intarr(n_elements(wrtXyl))
-;  ENDIF
-
   setct,3,n_elements(theData[0,0,0,*]),0
 ;  IF(n_elements(nameList2) LT 105) THEN BEGIN 	
     simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,intarr(n_elements(wrtXyl)),axislabels=wrtXyt
@@ -475,9 +481,6 @@ PRO variability3,expNames,keys,N,sv
 
   setct,3,n_elements(vsMdot[0,0,0,*]),0
   IF(n1 EQ 1) THEN BEGIN
-    theLabels =['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
-    strt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-    toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1,0,1,1,1,1,1,1] ; theLabels = 28
 ;    simpleMovie, vsMdot,z,vsMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsmdot",sv,vsMdotStrt,PSYM=1,prev=1,axisLabels=vsMdotLabels
   ENDIF
 
@@ -492,9 +495,10 @@ PRO variability3,expNames,keys,N,sv
     ENDFOR
   ENDFOR
   IF(n1 EQ 1) THEN BEGIN
-     theLabels = ['avgMdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
      vsAvgMdotLabels = vsMdotLabels[*]
      vsAvgMdotLabels[0] = "Average Mdot Over Past 40 Outputs (Msun/yr)"
+     vsAvgMdotTexLabels = vsMdotTexLabels[*]
+     vsAvgMdotTexLabels[0] = "$\dot{M}_{40 \mathrm{outputs}} (M_\odot/yr)$"
      vsAvgMdotNames = vsMdotNames[*]
      vsAvgMdotNames = "avgMdot"
      toLog = [1,1,0,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1,0,1,1,1,1,1,1]
@@ -507,11 +511,9 @@ PRO variability3,expNames,keys,N,sv
   setct,3,n_elements(vsMdot[0,0,0,*]),0
   vsSFR = vsMdot[*,*,1:n_elements(vsMdot[0,0,*,0])-1,*] ;; cut out the mdot slice of the array
   IF(n1 EQ 1) THEN BEGIN 
-    theLabels =  ['DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
-    toLog = [1,1,1,0,1,1,1,1,0,1,1,1,1,1,0,0,1,0,0,1,0,0,1,1,1,1,1]
-    strt =  [1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     vsSFRLabels = vsMdotLabels[1:(n_elements(vsMdotLabels)-1)]
+    vsSFRTexLabels = vsMdotTexLabels[1:n_elements(vsMdotTexLabels)-1]
     vsSFRNames = vsMdotNames[1:(n_elements(vsMdotNames)-1)]
     vsSFRToLog = vsMdotToLog[1:(n_elements(vsMdotToLog)-1)]
     vsSFRstrt= vsMdotstrt[1:(n_elements(vsMdotStrt)-1)]
@@ -530,6 +532,11 @@ PRO variability3,expNames,keys,N,sv
   vsMstarLabels[0] = vsMstarLabels[2]
   vsMstarLabels[2:(NVS-2)] = vsMstarLabels[3:(NVS-1)]
   vsMstarLabels=vsMstarLabels[0:(NVS-2)]
+
+  vsMstarTexLabels = vsMdotTexLabels[*]
+  vsMstarTexLabels[0] = vsMstarTexLabels[2]
+  vsMstarTexLabels[2:(NVS-2)] = vsMstarTexLabels[3:(NVS-1)]
+  vsMstarTexLabels=vsMstarTexLabels[0:(NVS-2)]
 
   vsMstarNames = vsMdotNames[*]
   vsMstarNames[0] = vsMstarNames[2]
@@ -562,6 +569,8 @@ PRO variability3,expNames,keys,N,sv
   vsTime = vsMdot[*,*,*,*]
   vsTimeLabels = vsMdotLabels[*]
   vsTimeLabels[0] = "Time Since z=2 (Ga)"
+  vsTimeTexLabels = vsMdotTexLabels[*]
+  vsTimeTexLabels[0] = "Time since $z=2$ (Ga)"
   vsTimeNames = vsMdotNames[*]
   vsTimeToLog = vsMdotToLog[*]
   vsTimeToLog[0] = 0
@@ -572,16 +581,15 @@ PRO variability3,expNames,keys,N,sv
     vsTime[*,0,0,j] = time[*]
   ENDFOR
   IF(n1 EQ 1) THEN BEGIN
-    theLabels =['time (Ga)','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
-    strt =  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
-    toLog = [0,1,1,1,0,1,1,1,1,0,1,1,1,1,1,0,0,1,0,0,1,0,1,1,1,1,1,1]
     simpleMovie, vsTime,z,vsTimeNames,colors,colors*0,vsTimeToLog,expName2+"_vstime",sv,vsTimeStrt,PSYM=3,prev=1,taillength=1000,saveFrames=0,axisLabels=vsTimeLabels
   ENDIF
 
 
 
-  STOP
   ;; Now make some standalone plots.
+  
+  simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstar",5,vsMstarSTrt,PSYM=1,prev=1,saveFrames=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,20,51,104,201]
+  
 
   Mh = vsMdot[*,0,2,*]/(.18*vsMdot[*,0,14,*])
   zn = n_elements(Mh[*,0,0,0])

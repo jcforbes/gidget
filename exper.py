@@ -100,6 +100,7 @@ class experiment:
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
 	self.covariables[self.keys[name]] = cov
+	return self.p[self.keys[name]]
 
     def irregularVary(self,name,values,cov=0):
         ''' Similar to vary, except, rather than generating the
@@ -391,16 +392,25 @@ def LocalRun(runBundle,nproc):
     print "Local run complete!"
 
 
-def GetScaleLengths(N,mean=0.045,scatter=0.5,Mh0=1.0e12,sd=100,lower=0.0,upper=1.0e3):
+def GetScaleLengths(N,median=0.045,scatter=0.5,Mh0=1.0e12,sd=100,lower=0.0,upper=1.0e3):
     ''' Return a vector of scale lengths in kpc such that the haloes will have
-        spin parameters of mean on average, with a given scatter in dex. These 
+        spin parameters of median, with a given scatter in dex. These 
         are also scaled by halo mass, since the Virial radius goes as M_h^(1/3).
         sd seeds the random number generator so that this function is deterministic.'''
     random.seed(sd)
     scLengths=[]
     while len(scLengths) < N:
-	spinParameter = mean  * (10.0 ** random.gauss(0.0,scatter)) # lognormal w/ scatter in dex
-        length =  (311.34 * (Mh0/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5))
+	spinParameter = median  * (10.0 ** random.gauss(0.0,scatter)) # lognormal w/ scatter in dex
+        if(type(Mh0) == type([1,2,3])): # if Mh0 is a list
+            if(len(Mh0) == N):
+                Mh=Mh0[len(scLengths)]
+            else:
+                print "You've given GetScaleLengths the wrong number of halo masses"
+                Mh=1.0e12
+        else:
+            Mh=Mh0
+        #length =  (311.34 * (Mh/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5))
+        length = 2.5*(Mh/1.0e12)**(1./3.) * (spinParameter / .045) 
         if(length > lower and length < upper):
 	        scLengths.append(length)
     return scLengths
@@ -440,7 +450,8 @@ def PrintSuccessTables(successTables):
 
 if __name__ == "__main__":
 
-    # http://docs.python.org/library/argparse.html#module-argparse
+    # Read in the arguments. To see the results of this bit of code, just try to run
+    # this script without any arguments, i.e. $ python exper.py
     parser = argparse.ArgumentParser(description='Analyze data and/or run experiments associated with a list of experiment names.')
     parser.add_argument('models', metavar='experiment', type=str, nargs='+',
                    help='an experiment to be run / analyzed')
@@ -450,131 +461,93 @@ if __name__ == "__main__":
     parser.add_argument('--xgrid',type=bool,help="run on an xGrid (requires the user to submit the generated file to an xGrid (default: False)",default=False)
     args = parser.parse_args()
     
+    # Store the names of the experiments the user has told us to run.
     modelList=[]
     for modelName in args.models:
         modelList.append(modelName)
 
     
-#    allModels={} # empty dictionary into which we'll place all model definitions
-    # keys are experiment names, e.g. "rn27", values are experiment instances.
-    # There is no particular requirement that the name of the instance in this script
-    # be the same as the instance's name variable, nor the value of the key,
-    # but confusion is likely if that is not the case.
- 
 
-  
-    # rp2: zquench=-1 (with failed runs with zquench=1)
-    # rp2a: bug fixed, only run for zquench=1
-    # rp2b: h'okay.
-    rp2=experiment("rp2b")
-    rp2.irregularVary('dbg',[2**10+2**8+2**5+2**12])
-    rp2.vary('Mh0',1.0e10,1.0e12,15,1)
-    rp2.vary('accScaleLength',2.0,2.0,1,0)
-    rp2.vary('diskScaleLength',2.0,2.0,1,0)
-    rp2.vary('zquench',-1.0,-1.0,1,0)
+    # Begin defining experiments!
 
-    # rp8 varies scalelengths & kappa but not diffusion prescription
-    rp8=experiment("rp10")
-    rp8.irregularVary('dbg',[2**10+2**8+2**5+2**12+2**15, 2**10+2**8+2**5+2**12])
-    scl=GetScaleLengths(1,Mh0=1.0e12,sd=1.0e-10)[0]
-    #scls=[scl/3,scl,3*scl]
-    scls=[scl]
-    rp8.irregularVary('accScaleLength',scls,2)
-    rp8.irregularVary('diskScaleLength',scls,2)
-    rp8.vary('kappaMetals',.000001,1000000,5,1)
-
-    rp10a=experiment("rp10b") #10a: time-dependent diffusion. 10b - time-independent.
-    rp10a.irregularVary('dbg',[2**10+2**8+2**5+2**12])
-    rp10a.irregularVary('accScaleLength',scls,2)
-    rp10a.irregularVary('diskScaleLength',scls,2)
-    rp10a.vary('kappaMetals',1.0e-6,1.0,7,1)
-
-    rp18a=experiment("rp18a") # a:Neistein08, b:Neistein10
-    rp18a.irregularVary('dbg',[2**10+2**8+2**5+2**12+2**7+2**6])
-    rp18a.irregularVary('accScaleLength',scls,2)
-    rp18a.irregularVary('diskScaleLength',scls,2)
-    rp18a.vary('whichAccretionHistory',1000,1049,50,0,3)
-    rp18a.vary('Mh0',1.0e11,1.0e12,50,1,3)
-
-    rp18b=experiment("rp18b")
-    rp18b.irregularVary('dbg',[2**10+2**8+2**5+2**12+2**7+2**6+2**3])
-    rp18b.irregularVary('accScaleLength',scls,2)
-    rp18b.irregularVary('diskScaleLength',scls,2)
-    rp18b.vary('whichAccretionHistory',1000,1049,50,0,3)
-    rp18b.vary('Mh0',1.0e11,1.0e12,50,1,3)
+    # Here what we're doing is varying halo mass, and varying the angular momentum of the incoming material
+    # in roughly the way we would expect from N-body simulations. There is neither scatter in the angular momentum
+    # nor accretion histories, so these are the median cases for each halo mass. Or rather, that's what rq1b is.
+    # rq1 a,b,and c correspond to systematically varying the angular momentum of infalling gas by factors of 3.
+    rq1=[]
+    basename="rq1"
+    factors=[1.0/3.0,1.0,3.0]
+    for i in range(len(factors)):
+      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
+      rq1.append(experiment(basename+chr(ord("a")+i)))
+      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR
+      rq1[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
+      Mh0s = rq1[i].vary("Mh0",1.0e10,1.0e12,21,1,3)
+      scls = np.array(GetScaleLengths(21,Mh0=Mh0s,scatter=1.0e-10))
+      rq1[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
+      rq1[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
 
 
-    # rp4: give low-mass galaxies higher gas fractions.
-    # rp5: fix lambda to be .045
-    # rp6: include dbg 16, which ~eliminates the major merger restriction on accretion histories
-    # rp7: back to normal restrictions, try out irregular rotation curves.
-    # rp9: increased SF efficiency
-    # rp11: back to regular SF efficiency. Try eps_in=1.0 (dbg.opt(6))
-    # rp12: dbg.opt(3), i.e. Neistein 2010, turn off eps_in=1.0 for the moment. It seems this will also require dbg.opt(16), i.e. keep the major mergers.
-    # rp13: for comparison to rp12. Keep dbg.opt(3), turn off dbg.opt(16). Also, from here on in, 100% of runs will be used, not 30ish %, so I'm reducing nacc from 90 to 32.
-    # rp14: try hybrid SF law (dbg.opt(7)). Turn off dbg.opt(3), i.e. should be comparable to rp5.
-    # rp15: again with the hybrid SF law. This time include dbg.opt(6) which implements CAFG efficienciency, not 1.0
-    # rp16: keep all dbg options of rp15, but do the experiment of having a wide variance in accretion scale lengths but no variance in initial scale lengths.
-    # rp17: same as rp15, but now do uniform col accretion, rather than exponential (dbg.opt(0)). Note that this requires, to be self-consistent in terms of angular momentum conservation of the accretion, that the accretion scale length be 3x larger.
-    # rp19: same as rp17, but put in a cosmological specturm for accScaleLength
+    # Here what we're doing is varying halo mass, and varying the angular momentum of the incoming material, 
+    # just as in rq1. This time we're using the const. column density profile for accretion.
+    # rq2 a,b,and c correspond to systematically varying the angular momentum of infalling gas by factors of 3.
+    # Note also that all the factors must be multiplied by 3 to be directly comparable with rq1 in terms of J.
+    rq2=[]
+    factors=[1.0/3.0,1.0,3.0]
+    for i in range(len(factors)):
+      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
+      rq2.append(experiment("rq2"+chr(ord("a")+i)))
+      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR, const accr profile
+      rq2[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7+2**0])
+      Mh0s = rq2[i].vary("Mh0",1.0e10,1.0e12,21,1,3)
+      scls = np.array(GetScaleLengths(21,Mh0=Mh0s,scatter=1.0e-10))
+      rq2[i].irregularVary('accScaleLength',list(scls*factors[i])*3,3)
+      rq2[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
 
-    theCompositeName="rp17"
+
+    # Take the same setup as rq1, but make the stars much hotter initially.
+    rq3=[]
+    factors=[1.0/3.0,1.0,3.0]
+    for i in range(len(factors)):
+      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
+      rq3.append(experiment("rq3"+chr(ord("a")+i)))
+      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR
+      rq3[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
+      rq3[i].irregularVary('phi0',[10.0])
+      Mh0s = rq3[i].vary("Mh0",1.0e10,1.0e12,21,1,3)
+      scls = np.array(GetScaleLengths(21,Mh0=Mh0s,scatter=1.0e-10))
+      rq3[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
+      rq3[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
+
+    # Take rq3, and try it out at really high resolution, as in more cells, more radial coverage.
+    rq4=[]
+    basename="rq4"
+    factors=[1.0/3.0,1.0,3.0]
+    for i in range(len(factors)):
+      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
+      rq4.append(experiment(basename+chr(ord("a")+i)))
+      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR
+      rq4[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
+      Mh0s = rq4[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
+      rq4[i].irregularVary('phi0',[10.0])
+      rq4[i].irregularVary('nx',[2000])
+      rq4[i].irregularVary('xmin',[.001])
+      rq4[i].irregularVary('R',[50])
+      scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
+      rq4[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
+      rq4[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
 
 
 
-    experiments=[]
-    nacc = 32
-    nmh0 = 41
-    compositeNames=[]
-    for i in range(nmh0): # 100 different M_h values, each with 100 different accr. histories.
-        theName = theCompositeName+'_'+str(i).zfill(3)+'_'
-        compositeNames.append(theName)
-        experiments.append(experiment(theName))
-        experiments[i].vary('nx',200,200,1,0)
-        experiments[i].irregularVary('dbg',[2**10+2**8+2**5+2**12+2**7+2**6+2**0])
-	experiments[i].vary('TOL',1.0e-3,1.0e-3,1,0)
-        experiments[i].vary('alphaMRI',0,0,1,0)
-        Mh0 = 1.0e10 * (100.0)**(float(i)/float(nmh0-1))
-        experiments[i].irregularVary('minSigSt',[4.0+(float(i)/float(nmh0-1))*(10.0-4.0)])
-        experiments[i].irregularVary('R',[30.0])
-        scLengths  =GetScaleLengths(nacc,mean=0.045, scatter=.5, Mh0=Mh0, sd=4+20*nacc, lower=1.0,upper=10.0)
-        scLengthsNV=GetScaleLengths(nacc,mean=0.045, scatter=1.0e-14, Mh0=Mh0, sd = 4+20*nacc,lower=1.0,upper=10.0)
-	experiments[i].irregularVary('accScaleLength',scLengthsNV*3,1)
-        experiments[i].irregularVary('diskScaleLength',scLengthsNV,1)
-        #experiments[i].irregularVary('b',scLengths,1)
-        #experiments[i].irregularVary('innerPowerLaw',[.5])
-        #experiments[i].irregularVary('softening',[4])
-        #experiments[i].vary('epsff',.02,.03,1,0)
-        experiments[i].irregularVary('Mh0',[Mh0])
-        experiments[i].irregularVary('fg0',.4*(Mh0/1.0e12)**(-.13))
-        experiments[i].vary('whichAccretionHistory',4+nacc*(i+20),4+nacc*(i+21)-1,nacc,0,1)
-        #  experiments[i].vary('zquench',0.5,0.5,1,0)
-        #  allModels[theName]=experiments[i]
-
-    compositeFlag = False    
-    if (theCompositeName in modelList):
-        compositeFlag = True
-        for ex in experiments:
-            modelList.append(ex.expName)
-        del modelList[modelList.index(theCompositeName)]
+    #experiments[i].irregularVary('fg0',.4*(Mh0/1.0e12)**(-.13))
 
     successTables=[]
-    # run all the models, and record which ones succeed.
     for model in modelList:
-        if(not args.xgrid): #local run
-          allModels[model].localRun(args.nproc,args.start)
-        else: # write a file to run on the xgrid
-          allModels[model].write('runExperiment_'+model+'.txt')
-#        successTables.append(allModels[model].ExamineExperiment())
-
-    if(compositeFlag):
-	os.mkdir('/Users/jforbes/gidget/analysis/'+theCompositeName)
-        for dirname in compositeNames:
-            files=glob.glob('/Users/jforbes/gidget/analysis/'+dirname+'/*')
-            for aFile in files:
-	        os.symlink(aFile,'/Users/jforbes/gidget/analysis/'+theCompositeName+'/'+aFile[32+len(dirname):])
-           
-
-#    PrintSuccessTables(successTables)
-
+        if(model in allModels): 
+          if(not args.xgrid): #local run
+            allModels[model].localRun(args.nproc,args.start)
+          else: # write a file to run on the xgrid
+            allModels[model].write('runExperiment_'+model+'.txt')
+        else:
+          print "You asked me to run ",model," but did not define it in the script."
 

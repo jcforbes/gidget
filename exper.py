@@ -520,14 +520,17 @@ if __name__ == "__main__":
       rq3[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
 
     # Take rq3, and try it out at really high resolution, as in more cells, more radial coverage.
+    # rq5 is exactly the same except we've implemented Adams-Bashforth timesteps for the gas variables.
+    # rq6 is exactly the same, except we've taken out Adams-Bashforth and just lowered TOL
     rq4=[]
-    basename="rq4"
+    basename="rq6"
     factors=[1.0/3.0,1.0,3.0]
     for i in range(len(factors)):
       # For each of the factors, create a new experiment with the appropriate letter appended to its name.
       rq4.append(experiment(basename+chr(ord("a")+i)))
       # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR
       rq4[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
+      rq4[i].irregularVary("TOL",1.0e-4)
       Mh0s = rq4[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
       rq4[i].irregularVary('phi0',[10.0])
       rq4[i].irregularVary('nx',[2000])
@@ -537,7 +540,9 @@ if __name__ == "__main__":
       rq4[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
       rq4[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
 
-
+    rq7=[]
+    for i in range(len(rq4)):
+      rq7.append()
 
     #experiments[i].irregularVary('fg0',.4*(Mh0/1.0e12)**(-.13))
 

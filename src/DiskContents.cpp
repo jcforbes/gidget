@@ -66,8 +66,11 @@ DiskContents::DiskContents(double tH, double eta,
   dQds(std::vector<double>(m.nx()+1,0.)), 
   dQdSerr(std::vector<double>(m.nx()+1)),
   dQdserr(std::vector<double>(m.nx()+1,0.)),
+  dcoldtPrev(std::vector<double>(m.nx()+1,0.)),
   dcoldt(std::vector<double>(m.nx()+1,0.)),
+  dsigdtPrev(std::vector<double>(m.nx()+1,0.)),
   dsigdt(std::vector<double>(m.nx()+1,0.)),
+  dZDiskdtPrev(std::vector<double>(m.nx()+1,0.)),
   dZDiskdt(std::vector<double>(m.nx()+1,0.)),
   colSFR(std::vector<double>(m.nx()+1,0.)),
   dcoldtCos(std::vector<double>(m.nx()+1,0.)),
@@ -229,7 +232,9 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
 
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
-  EnforceFixedQ(true,false);
+  bool fixedPhi0 = false;
+  bool EnforceWhenQgtrQf = false;
+  EnforceFixedQ(fixedPhi0,EnforceWhenQgtrQf);
 
   initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -450,10 +455,11 @@ void DiskContents::ComputeDerivs(double ** tauvec)
     
     double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
 
-    
+   dcoldtPrev[n] = dcoldt[n]; 
    dcoldt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) / (mesh.dx(n) * x[n])
                    -RfREC * colSFR[n] - dSdtOutflows(n) + dcoldtCos[n];
       
+   dsigdtPrev[n] = dsigdt[n];
    dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
                   - 5.0*ddx(sig,n,x)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
                   +uu[n]*(beta[n]-1.)*tauvec[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
@@ -467,6 +473,7 @@ void DiskContents::ComputeDerivs(double ** tauvec)
     
     
 //    colSFR[n] = dSSFdt(n);
+    dZDiskdtPrev[n] = dZDiskdt[n];
     dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
                  * dlnZdx *tauvec[2][n] 
                  + yREC*(1.0-RfREC)*zetaREC*colSFR[n]/(col[n])
@@ -624,7 +631,8 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
   return false;
 }
 
-void DiskContents::UpdateStateVars(const double dt, const double redshift,
+void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
+				   const double redshift,
                                    double ** tauvec, double AccRate)
 {
   double ostars1=spsActive[0].spcol[200];
@@ -702,7 +710,11 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
       CuStarsOut[1] += 2*M_PI*x[1]*spsActive[j].spcol[1]*yy[1]*
 	dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
     }
-    col[n] += dcoldt[n] * dt;
+
+    if(!dbg.opt(11))
+      col[n] += dcoldt[n] * dt; //Euler step
+    else
+      col[n] += dt * ( (dcoldt[n] - dcoldtPrev[n])*.5*dt/dtPrev  + dcoldt[n]  );
 
     // The gas velocity dispersion should always be above sigth.
     // If it is not, e.g. a semi-pathological initial condition or
@@ -713,9 +725,15 @@ void DiskContents::UpdateStateVars(const double dt, const double redshift,
       keepTorqueOff[n] = 1;
     }
     else {
-      sig[n] += dsigdt[n] * dt;
+      if(dbg.opt(11))
+        sig[n] += dt* ((dsigdt[n]-dsigdtPrev[n])*.5*dt/dtPrev + dsigdt[n]);
+      else
+        sig[n] += dt*dsigdt[n];
     }  
-    ZDisk[n] += dZDiskdt[n] * dt;
+    if(dbg.opt(11))
+      ZDisk[n] += dt* ((dZDiskdt[n]-dZDiskdtPrev[n])*.5*dt/dtPrev + dZDiskdt[n]);
+    else
+      ZDisk[n] += dZDiskdt[n] * dt; // -- Euler step
     CumulativeSF[n] += colSFR[n] * dt;
 
     double Q_RW = Qsimple(n,*this);

@@ -69,7 +69,9 @@ int Simulation::runToConvergence(const double fCondition,
 
   // Initialize some variables which will change as the simulation progresses:
   // time (outer orbits), redshift, and timestep
-  double t=0., z=zstart, dt=TOL*1.e-6; 
+  double t=0., z=zstart, dt=TOL*1.e-6, dtPrev = 1.0;
+
+  int whichVar,whichCell; // store which variable and which cell limits the time step.
 
   unsigned int step=0; // number of elapsed timesteps
 
@@ -169,7 +171,6 @@ int Simulation::runToConvergence(const double fCondition,
     // Update the coefficients of the torque equation
     theDisk.UpdateCoeffs(z);
 
-    int whichVar,whichCell; // store which variable and which cell limits the time step.
 
     // Solve the torque equation. The commented versions represent various choices
     // for the boundary conditions
@@ -203,6 +204,7 @@ int Simulation::runToConvergence(const double fCondition,
     // change by too much. whichVar tells us which state variable is limiting the timestep
     // and whichCell tells us which cell is limiting the timestep. Both of these values
     // are printed every 5000 timesteps (see below).
+    dtPrev = dt;
     dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell); 
 
     // Every time step, check whether each of the convergence checks has a value
@@ -222,7 +224,7 @@ int Simulation::runToConvergence(const double fCondition,
 
 
     // And finally, update the state variables
-    theDisk.UpdateStateVars(dt,z,tauvec,AccRate); 
+    theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate); 
 
     // update the independent variables.
     if(cosmologyOn) z-=dz(dt,z,theDisk.GetCos(),theDisk.GetDim());
@@ -233,7 +235,7 @@ int Simulation::runToConvergence(const double fCondition,
   // All time steps completed! Why?
   int terminationCondition=0;
   if( dt <=TOL*dtfloor) {
-    errormsg("Time step below floor");
+    errormsg("Time step below floor in cell "+str(whichCell)+" with variable "+str(whichVar)+" at time "+str(t)+" step "+str(step)+" and dt "+str(dt));
     terminationCondition=1;
   }
   if( step >= stepmax) {

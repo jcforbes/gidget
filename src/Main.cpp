@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
   // Note that the following line does nothing but put a line in the comment file to
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
-  as.Set(attempts,"Attempts to generate Neistein08: ");
+  as.Set(attempts,"Attempts to generate Neistein08");
 
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();

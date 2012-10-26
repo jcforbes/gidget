@@ -137,7 +137,7 @@ class DiskContents {
 
   // Given a time step, state variables, and their time 
   // derivatives, do a forward Euler step
-  void UpdateStateVars(const double dt, 
+  void UpdateStateVars(const double dt, const double dtPrev, 
 		       const double redshift,double **tauvec,double AccRate);
 
   // Using parameters which specify the initial conditions, 
@@ -208,7 +208,7 @@ class DiskContents {
   std::vector<double> dQdS,dQds; // partial derivatives dQ/dS and dQ/ds
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
-
+  std::vector<double> dcoldtPrev,dsigdtPrev,dZDiskdtPrev; // time derivatives at the previous timestep.
   std::vector<double> dcoldtCos;
   std::vector<double> MdotiPlusHalf;
 //  std::vector<double> MstarDotIPlusHalf;

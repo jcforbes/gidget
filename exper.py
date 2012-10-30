@@ -540,9 +540,46 @@ if __name__ == "__main__":
       rq4[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
       rq4[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
 
+    # Compare to rq3. We'd like to see if the spikiness in sig can be ameliorated with a more-careful timestep.
+    # rq10: put in some quenching at z=1.4
     rq7=[]
-    for i in range(len(rq4)):
-      rq7.append()
+    for i in range(len(factors)):
+      rq7.append(experiment("rq10"+chr(ord("a")+i)))
+      rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
+      rq7[i].irregularVary("TOL",1.0e-4)
+      Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
+      rq7[i].irregularVary('phi0',[10.0])
+      #rq4[i].irregularVary('xmin',[.001])
+      #rq4[i].irregularVary('R',[50])
+      scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
+      rq7[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
+      rq7[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
+      rq7[i].irregularVary('zquench',[1.4])
+
+    rq8=[]
+    # rq8: same sort of experiments as above, but vary the accretion histories.
+    for i in range(len(factors)):
+        rq8.append(experiment("rq8"+chr(ord("a")+i)))
+        rq8[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
+        Mh0s = rq8[i].vary("Mh0",1.0e10,1.0e12,501,1,3)
+        rq8[i].irregularVary("phi0",[10.0])
+        scls=np.array(GetScaleLengths(501,Mh0=Mh0s,scatter=1.0e-10))
+        rq8[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
+        rq8[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
+        rq8[i].vary('whichAccretionHistory',1000*(i+1),1000*(i+1)+500,501,1,3)
+
+
+    rq9=[]
+    # rq9: now do something approaching what we'd like to do in production. Small scatter in initial scalelengths, but large scatter in accretion scale lengths on top of the variations in accretion history.
+    rq9.append(experiment("rq9"))
+    rq9[0].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
+    Mh0s = rq9[0].vary("Mh0",1.0e10,1.0e12,1501,1,3)
+    rq9[0].irregularVary("phi0",[10.0])
+    scls=np.array(GetScaleLengths(1501,Mh0=Mh0s,scatter=1.0e-10))
+    sclsV=np.array(GetScaleLengths(1501,Mh0=Mh0s))
+    rq9[0].irregularVary('accScaleLength',list(sclsV),3)
+    rq9[0].irregularVary('diskScaleLength',list(scls),3)
+    rq9[0].vary('whichAccretionHistory',4000,5500,1501,1,3)
 
     #experiments[i].irregularVary('fg0',.4*(Mh0/1.0e12)**(-.13))
 

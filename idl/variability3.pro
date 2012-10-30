@@ -49,7 +49,7 @@ END
 ;; Right this second, colors has the same number of indices as there are models.
 ;; But we would like to be able to color each model differently at each time. So the plan
 ;; is to make colors into a (# timesteps) by (# models) array.
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText
   lth=1
   chth=1
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
@@ -71,6 +71,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
   IF(n_elements(saveFrames) EQ 0) THEN saveFrames=0
   IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(n_elements(time))
   IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
+  IF(n_elements(timeText) EQ 0) THEN timeText="z = "
 
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
@@ -128,9 +129,10 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
 
       ;; Print the time in the upper left of the screen
       
-      IF(sv NE 5) THEN XYOUTS,.3,.87,"z = "+string(time[ti], Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-      ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),"z = "+string(time[ti],Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-      ELSE XYOUTS,.1+float(tii)/float(n_elements(whichFrames)),"z = "+string(time[ti],Format='(D0.3)'),/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+      theTimeText = timeText+string(time[ti],Format='(D0.3)')
+      IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+      ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+      ELSE XYOUTS,.1+float(tii)/float(n_elements(whichFrames)),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
 
       ;; loop over models (4th column of data)
       FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
@@ -584,6 +586,41 @@ PRO variability3,expNames,keys,N,sv
     simpleMovie, vsTime,z,vsTimeNames,colors,colors*0,vsTimeToLog,expName2+"_vstime",sv,vsTimeStrt,PSYM=3,prev=1,taillength=1000,saveFrames=0,axisLabels=vsTimeLabels
   ENDIF
 
+
+  ;; Construct some cross-correlations
+  nt = n_elements(vsMdot[*,0,0,0])
+  ;;; (# of delay times to test) x (# of cross-correlations) x (# of models)
+  correlations = dblarr(nt-2,3,n_elements(vsMdot[0,0,0,*]))
+  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+    ;; cross-correlation of accretion rate vs. SFR
+    cc = c_correlate(vsmdot[1:(nt-1),0,0,j],vsmdot[1:(nt-1),0,13,j],indgen(nt-2))
+    ac = c_correlate(vsmdot[1:(nt-1),0,0,j],vsmdot[1:(nt-1),0,0,j],indgen(nt-2)) ;; autocorr
+    correlations[*,0,j] = cc
+    correlations[*,1,j] = ac
+    correlations[*,2,j] = c_correlate(vsmdot[1:(nt-1),0,13,j],vsmdot[1:(nt-1),0,13,j],indgen(nt-2))
+  ENDFOR
+  ;; Now plot them!
+  setct,1,0,2
+  FIGUREINIT,(expName2+"_cc"),1,2,2
+  PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[MIN(correlations[*,0,*]),MAX(correlations[*,0,*])],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="x-corr: Accr with SFR",XLOG=1
+  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+    OPLOT, time[1:(nt-2)],correlations[*,0,j],COLOR=colors[0,j]
+  ENDFOR
+  FIGURECLEAN,(expName2+"_cc"),1
+
+  FIGUREINIT,(expName2+"_acAccr"),1,2,2
+  PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[MIN(correlations[*,1,*]),MAX(correlations[*,1,*])],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="autocorr: AccRate",XLOG=1
+  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+    OPLOT, time[1:(nt-2)],correlations[*,1,j],COLOR=colors[0,j]
+  ENDFOR
+  FIGURECLEAN,(expName2+"_acAccr"),1
+
+  FIGUREINIT,(expName2+"_acSFR"),1,2,2
+  PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[MIN(correlations[*,2,*]),MAX(correlations[*,2,*])],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="autocorr: SFR",XLOG=1
+  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+    OPLOT, time[1:(nt-2)],correlations[*,2,j],COLOR=colors[0,j]
+  ENDFOR
+  FIGURECLEAN,(expName2+"_acSFR"),1
 
 
   ;; Now make some standalone plots.

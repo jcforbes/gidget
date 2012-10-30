@@ -1,4 +1,3 @@
-
 ;; Kind of an ad-hoc function to take a full simulation and reduce it to a set of simple numbers.
 ;; In essence, instead of having a bunch of quantities vs. radius, have a bunch of standalone quantities.
 FUNCTION diskStats,model,z=z
@@ -46,7 +45,6 @@ FUNCTION diskStats,model,z=z
 
 
 	stMass = total(stellarMass) ;;;;; model.evArray[5,zj]/model.evArray[6,zj] * (1.0-model.evArray[6,zj])
-	sSFR = model.evArray[11-1,zj]/stMass ;; yr^-1
         metallicity = model.dataCube[zj,*,22-1]
 
 
@@ -72,6 +70,8 @@ FUNCTION diskStats,model,z=z
 ;;;	mdotbulgeG = -model.dataCube[zj,0,3-1] * model.mdotext0
 
 	mdotbulgeG = model.evArray[9-1,zj] * model.mdotext0  
+
+	sSFR = model.evArray[11-1,zj]/(stMass+BulgeM) ;; yr^-1
 
 ;	stop
 

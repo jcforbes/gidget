@@ -232,7 +232,7 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
 
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
-  bool fixedPhi0 = false;
+  bool fixedPhi0 = true;
   bool EnforceWhenQgtrQf = false;
   EnforceFixedQ(fixedPhi0,EnforceWhenQgtrQf);
 

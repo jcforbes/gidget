@@ -37,7 +37,8 @@ class StellarPop {
   void extract(StellarPop& sp2, double f);
 
   std::vector<double> GetSpCol() const { return spcol; };
-  std::vector<double> GetSpSig() const { return spsig; };
+  std::vector<double> GetSpSigR() const { return spsigR; };
+  std::vector<double> GetSpSigZ() const { return spsigZ; };
   std::vector<double> GetSpZ() const { return spZ; };
   std::vector<double> GetSpZV() const { return spZV; };
   std::vector<double> GetdQdS() const { return dQdS; };
@@ -50,7 +51,8 @@ class StellarPop {
 
  private:
   std::vector<double> spcol; // column density as a function of position.
-  std::vector<double> spsig; // stellar velocity dispersion as a function of position.
+  std::vector<double> spsigR; // R-direction stellar velocity dispersion as a function of position.
+  std::vector<double> spsigZ; // phi- (and z-) direction stellar velocity dispersion.
   double ageAtz0; // i.e. lookback time at creation of these stars, in seconds
   std::vector<double> spZ; // metallicity of the stars as a function of position.
   std::vector<double> spZV; // metallicity variance

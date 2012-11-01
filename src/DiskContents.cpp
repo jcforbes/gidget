@@ -273,42 +273,44 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 
       // Put in the exponential stellar profile.
       initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
-      initialStarsA.spsig[n] = max(sigst0,minsigst);
+      initialStarsA.spsigR[n] = max(sigst0,minsigst);
+      initialStarsA.spsigZ[n] = max(sigst0,minsigst);
 
 
 
       // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by 
       // heating the stars beyond what the user requested.
-      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
+      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
         lowQst = true;
-        initialStarsA.spsig[n] = max(Qlim*M_PI*x[n]*initialStarsA.spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
+        initialStarsA.spsigR[n] = max(Qlim*M_PI*x[n]*initialStarsA.spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
       }
  
-      if(initialStarsA.spsig[n] > maxsig) { 
-  	maxsig=initialStarsA.spsig[n];
+      if(initialStarsA.spsigR[n] > maxsig) { 
+  	maxsig=initialStarsA.spsigR[n];
   	maxsign=n;
       }
       initialStarsA.spZ[n] = Z_Init;
       initialStarsA.spZV[n] = 0.0;
   
       initialStarsP.spcol[n] = initialStarsA.spcol[n];
-      initialStarsP.spsig[n] = initialStarsA.spsig[n];
+      initialStarsP.spsigR[n] = initialStarsA.spsigR[n];
+      initialStarsP.spsigZ[n] = initialStarsA.spsigZ[n];
       initialStarsP.spZ[n] = initialStarsA.spZ[n];
       initialStarsP.spZV[n] = initialStarsA.spZV[n];
 
       sig[n] = max(pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.),  sigth);
     
-      col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsig[n]) *sig[n];
+      col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsigR[n]) *sig[n];
 
 
       if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 
-          || initialStarsA.spsig[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] 
-          || initialStarsA.spsig[n]!=initialStarsA.spsig[n]) 
+          || initialStarsA.spsigR[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] 
+          || initialStarsA.spsigR[n]!=initialStarsA.spsigR[n]) 
       {
   	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "
                   +str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "
-                  +str(initialStarsA.spsig[n])+" "
-                  +str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsig[n]
+                  +str(initialStarsA.spsigR[n])+" "
+                  +str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsigR[n]
                              /(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
       }
     } // end loop over all cells
@@ -316,9 +318,12 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     if(lowQst) {
      // make sig_st monotonically increasing towards the center of the disk.
       for(unsigned int n=1; n<=maxsign; ++n ) {
-        if(initialStarsA.spsig[n] < maxsig) { 
-          initialStarsA.spsig[n] = max(maxsig,minsigst);
-          initialStarsP.spsig[n] = max(maxsig,minsigst);
+        if(initialStarsA.spsigR[n] < maxsig) { 
+          initialStarsA.spsigR[n] = max(maxsig,minsigst);
+          initialStarsP.spsigR[n] = max(maxsig,minsigst);
+          initialStarsA.spsigZ[n] = max(maxsig,minsigst);
+          initialStarsP.spsigZ[n] = max(maxsig,minsigst);
+          
         }
       }
   
@@ -328,8 +333,8 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     unsigned int minQstN=0;
     // locate the minimum value of Q_*
     for(unsigned int n=1; n<=nx; ++n) {
-      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n]/(initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
-  	minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi());
+      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n]/(initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
+  	minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi());
   	minQstN = n;
       }
     }
@@ -337,12 +342,14 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 
     // Inwards of minQstN, set col_* such that Q_* doesn't turn back up at small radii.
     for(unsigned int n=1; n<=minQstN; ++n) {
-      initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsig[n] / (minQst*M_PI*x[n]*dim.chi());
+      initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n] / (minQst*M_PI*x[n]*dim.chi());
       initialStarsP.spcol[n] = initialStarsA.spcol[n];
     }
     for(unsigned int n=1; n<=nx; ++n) {
-      initialStarsA.spsig[n] = max(initialStarsA.spsig[n] * Qlim / minQst,minsigst);
-      initialStarsP.spsig[n] = initialStarsA.spsig[n];
+      initialStarsA.spsigR[n] = max(initialStarsA.spsig[n] * Qlim / minQst,minsigst);
+      initialStarsP.spsigR[n] = initialStarsA.spsig[n];
+      initialStarsA.spsigZ[n] = max(initialStarsA.spsigR[n] * Qlim / minQst,minsigst);
+      initialStarsP.spsigZ[n] = initialStarsA.spsigZ[n];
     }
   }
 
@@ -383,16 +390,18 @@ void DiskContents::Initialize(double tempRatio, double fg0)
     col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
          tempRatio/(x[n]*M_PI*dim.chi() * (tempRatio + (1.-fg0)/fg0));
     initialStarsA.spcol[n] = col[n]*(1.-fg0)/fg0;
-    initialStarsA.spsig[n] = max(tempRatio*sig[n],minsigst);
+    initialStarsA.spsigR[n] = max(tempRatio*sig[n],minsigst);
+    initialStarsA.spsigZ[n] = initialStarsA.spsigR[n];
     initialStarsA.spZ[n]   = Z_Init;
     initialStarsA.spZV[n]  = 0.0;
     initialStarsP.spcol[n] = initialStarsA.spcol[n];
-    initialStarsP.spsig[n] = initialStarsA.spsig[n];
+    initialStarsP.spsigR[n] = initialStarsA.spsigR[n];
+    initialStarsP.spsigZ[n] = intialStarsA.spsigZ[n];
     initialStarsP.spZ[n]   = initialStarsA.spZ[n];
     initialStarsP.spZV[n]  = initialStarsA.spZV[n];
 
-    if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 || initialStarsA.spsig[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] || initialStarsA.spsig[n]!=initialStarsA.spsig[n]) {
-	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "+str(initialStarsA.spsig[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsig[n]/(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
+    if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 || initialStarsA.spsigR[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] || initialStarsA.spsigR[n]!=initialStarsA.spsigR[n]) {
+	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "+str(initialStarsA.spsigR[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsigR[n]/(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
     }
 
   }
@@ -403,7 +412,7 @@ void DiskContents::Initialize(double tempRatio, double fg0)
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
 //  EnforceFixedQ(true); // this is no longer reasonable given the floor, minsigst.
-  bool fixedPhi0 = initialStarsA.spsig[1] > 2.0*minsigst;
+  bool fixedPhi0 = initialStarsA.spsigR[1] > 2.0*minsigst;
   EnforceFixedQ(fixedPhi0,true); // only allow sig and sigst to covary if initial stellar velocity dispersion is far above minsigst.
   if(!fixedPhi0)  std::cerr << "WARNING: minsigst set too high to allow intiial conditions to be set by covarying gas and stellar velocity dispersions.";
 
@@ -546,9 +555,9 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
 	*whichCell=n;
       }
       if(fabs(dSigstdt(n,i,redshift,spsActive)
-                /spsActive[i].spsig[n]) > dmax) {
+                /spsActive[i].spsigZ[n]) > dmax) {
         dmax=fabs(dSigstdt(n,i,redshift,spsActive)
-           /spsActive[i].spsig[n]);
+           /spsActive[i].spsigZ[n]);
         *whichVar=7;
 	*whichCell=n;
       }
@@ -606,15 +615,16 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
     else {
       for(unsigned int n=1; n<=nx; ++n) {
         currentlyForming.spcol[n] = RfREC*colSFR[n]*dt;
-        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
-	else currentlyForming.spsig[n] = minsigst;
+        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) currentlyForming.spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
+	else currentlyForming.spsigR[n] = minsigst;
+        currentlyForming.spsigZ[n] = currentlForming.spsigR[n];
         currentlyForming.spZ[n]   = ZDisk[n];
         currentlyForming.spZV[n]  = 0.0;
 
-	if( currentlyForming.spcol[n] <0.0 || currentlyForming.spsig[n]<0.0 
+	if( currentlyForming.spcol[n] <0.0 || currentlyForming.spsigR[n]<0.0 
 	 || currentlyForming.spZ[n]<0.0    || currentlyForming.spZV[n] <0.0
 	 || currentlyForming.spcol[n]!=currentlyForming.spcol[n]
-	 || currentlyForming.spsig[n]!=currentlyForming.spsig[n]
+	 || currentlyForming.spsigR[n]!=currentlyForming.spsigR[n]
 	 || currentlyForming.spZ[n]!=currentlyForming.spZ[n]
 	 || currentlyForming.spZV[n]!=currentlyForming.spZV[n])
 	     errormsg("Error forming new stellar population: "+str(currentlyForming.spcol[n])+" "+str(colSFR[n])+" "+str(dt));
@@ -647,13 +657,15 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     currentlyForming.spZ[n]=ZDisk[n];             // the metallicity of the gas
     currentlyForming.spZV[n]=0.0;
     if(sigth*sigth+minsigst*minsigst<=sig[n]*sig[n])
-      currentlyForming.spsig[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
+      currentlyForming.spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
     else
-	currentlyForming.spsig[n] = minsigst;
+	currentlyForming.spsigR[n] = minsigst;
 //      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
-    if(currentlyForming.spcol[n] < 0. || currentlyForming.spsig[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsig[n]!=currentlyForming.spsig[n])
-      errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsig[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
+    currentlyForming.spsigZ[n] = currentlyForming.spsigR[n];
+
+    if(currentlyForming.spcol[n] < 0. || currentlyForming.spsigR[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsigR[n]!=currentlyForming.spsigR[n])
+      errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsigR[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
   }
   currentlyForming.ageAtz0 = cos.lbt(redshift);
 
@@ -750,7 +762,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
          +std::string(",dZDiskdt: ")+str(dt)+spc+str(col[n])+spc+str(sig[n])+spc
          +str(ZDisk[n])+spc+spc+str(dcoldt[n])+spc+str(dsigdt[n])+spc
          +str(dZDiskdt[n])+spc+spc+str(spsActive[szA-1].spcol[n])+spc
-         +str(spsActive[szA-1].spsig[n])+spc+str(spsActive[szA-1].spZ[n]));
+         +str(spsActive[szA-1].spsigR[n])+spc+str(spsActive[szA-1].spZ[n]));
     }
   }
 
@@ -787,15 +799,16 @@ void DiskContents::ComputeRafikovQParams(RafikovQParams* p, unsigned int n)
 {
   (*p).var=-1;
   (*p).analyticQ = analyticQ;
-  (*p).thick = thickness;
+  (*p).thickGas = 1.5; // thickness;
+  (*p).thickStars = 0.8 + 0.7 * spsActive[0].spsigZ[n] / spsActive[0].spsigR[n];
   //  (*p).mostRecentq = 1.;
   (*p).Qg = sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
   (*p).Qsi.clear();
   (*p).ri.clear();
   for(unsigned int i=0; i!=spsActive.size(); ++i) {
-    (*p).Qsi.push_back( sqrt(2.*(beta[n]+1.))*uu[n]*spsActive[i].spsig[n]
+    (*p).Qsi.push_back( sqrt(2.*(beta[n]+1.))*uu[n]*spsActive[i].spsigR[n]
            /(M_PI*dim.chi()*x[n]*spsActive[i].spcol[n]));
-    (*p).ri.push_back( spsActive[i].spsig[n] / sig[n]);
+    (*p).ri.push_back( spsActive[i].spsigR[n] / sig[n]);
   }
   (*p).fixedQ=fixedQ;
 }
@@ -831,10 +844,12 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0, bool EnforceWhenQgrtQf)
 
       if(fixedPhi0) {
         for(unsigned int i=0; i!=spsActive.size(); ++i) {
-          spsActive[i].spsig[n] *= factor;
+          spsActive[i].spsigR[n] *= factor;
+          spsActive[i].spsigZ[n] *= factor;
         }
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-          spsPassive[i].spsig[n] *=factor;
+          spsPassive[i].spsigR[n] *=factor;
+          spsPassive[i].spsigZ[n] *=factor;
         }
       }
     }
@@ -1199,10 +1214,14 @@ double DiskContents::dmdtCosInner(double AccRate)
     return AccRate * (1 - exp(-xb/accScaleLength) * (1.0+xb/accScaleLength));
 }
 
-double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps)
+
+// The only place this function is used is in computing the coefficient for the torque equation which requires
+// knowing d s_*/dt. This function is NOT used for actually updating s_*.
+double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps,double ** tauvecStar)
 {
   std::vector<double>& col_st = sps[sp].spcol;
-  std::vector<double>& sig_st = sps[sp].spsig;
+  std::vector<double>& sig_stR = sps[sp].spsigR;
+  std::vector<double>& sig_stZ = sps[sp].spsigZ;
 
 //  if(sig_st[n] <=0. || col_st[n]<=0)
 //    return 0.;
@@ -1212,22 +1231,73 @@ double DiskContents::dSigstdt(unsigned int n, unsigned int sp,double redshift,st
 
   double val = 0.0;
   
-  if(n<nx) { 
-    double sigp2 = (2./3.) * (mesh.psi(mesh.x(n+1))-mesh.psi(mesh.x(n))) + (1./3.) * (uu[n+1]*uu[n+1]-uu[n]*uu[n]) + sig_st[n+1]*sig_st[n+1];
-    val = -2.0*M_PI/ (2.0*x[n]*x[n]*dlnx*col_st[n]*sig_st[n]) * (x[n+1]*yy[n+1]*col_st[n+1]*(sigp2-sig_st[n]*sig_st[n]));
-  }
+//  if(n<nx) { 
+//    double sigp2 = (2./3.) * (mesh.psi(mesh.x(n+1))-mesh.psi(mesh.x(n))) + (1./3.) * (uu[n+1]*uu[n+1]-uu[n]*uu[n]) + sig_st[n+1]*sig_st[n+1];
+//    val = -2.0*M_PI/ (2.0*x[n]*x[n]*dlnx*col_st[n]*sig_st[n]) * (x[n+1]*yy[n+1]*col_st[n+1]*(sigp2-sig_st[n]*sig_st[n]));
+//  }
+
+  val = (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/(uu[n]*(1+beta[n]))) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
+           (2.0*sig_stZ[n]*ddx(sig_stZ,n)
+          + 3.0* sig_stR[n]*ddx(sig_stR,n) 
+          + sig_stR[n]*sig_stR[n]*ddx(col_st,n)/col_st[n] 
+          + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
+
+
   if(sps[sp].IsForming(cos,redshift)) {
     if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
-      val += (sig[n]*sig[n] - sigth*sigth - sig_st[n]*sig_st[n])*RfREC*colSFR[n]
-             /(2.0*col_st[n]*sig_st[n]);
+      val += (sig[n]*sig[n] - sigth*sigth - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
+             /(2.0*col_st[n]*sig_stR[n]);
     }
     else { // in this case, the new stellar population will have velocity dispersion = minsigst
-      val += (minsigst*minsigst - sig_st[n]*sig_st[n] ) *RfREC * colSFR[n]
-	    /(2.0*col_st[n]*sig_st[n]);
+      val += (minsigst*minsigst - sig_stR[n]*sig_stR[n] ) *RfREC * colSFR[n]
+	    /(2.0*col_st[n]*sig_stR[n]);
     }
   }
   return val;
 }
+
+// The only place this function is used is in computing the coefficient for the torque equation which requires
+// knowing d s_*/dt. This function is NOT used for actually updating s_*.
+double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps,double ** tauvecStar)
+{
+  std::vector<double>& col_st = sps[sp].spcol;
+  std::vector<double>& sig_stR = sps[sp].spsigR;
+  std::vector<double>& sig_stZ = sps[sp].spsigZ;
+
+//  if(sig_st[n] <=0. || col_st[n]<=0)
+//    return 0.;
+
+//  double val =  - 2.*M_PI*yy[n]*((1.+beta[n])*uu[n]*uu[n]
+//             /(3.*sig_st[n]*x[n]) + ddx(sig_st,n,x)  );
+
+  double val = 0.0;
+  
+//  if(n<nx) { 
+//    double sigp2 = (2./3.) * (mesh.psi(mesh.x(n+1))-mesh.psi(mesh.x(n))) + (1./3.) * (uu[n+1]*uu[n+1]-uu[n]*uu[n]) + sig_st[n+1]*sig_st[n+1];
+//    val = -2.0*M_PI/ (2.0*x[n]*x[n]*dlnx*col_st[n]*sig_st[n]) * (x[n+1]*yy[n+1]*col_st[n+1]*(sigp2-sig_st[n]*sig_st[n]));
+//  }
+
+  val =0.5* (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/(uu[n]*(1+beta[n]))) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
+           (2.0*sig_stZ[n]*ddx(sig_stZ,n)
+          + 3.0* sig_stR[n]*ddx(sig_stR,n) 
+          + sig_stR[n]*sig_stR[n]*ddx(col_st,n)/col_st[n] 
+          + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
+
+
+  if(sps[sp].IsForming(cos,redshift)) {
+    if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
+      val += (sig[n]*sig[n] - sigth*sigth - sig_stZ[n]*sig_stZ[n])*RfREC*colSFR[n]
+             /(2.0*col_st[n]*sig_stZ[n]);
+    }
+    else { // in this case, the new stellar population will have velocity dispersion = minsigst
+      val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfREC * colSFR[n]
+	    /(2.0*col_st[n]*sig_stZ[n]);
+    }
+  }
+  return val;
+}
+
+
 
 void DiskContents::UpdateCoeffs(double redshift)
 {
@@ -1647,6 +1717,9 @@ void DiskContents::ComputePartials()
                      /(M_PI*dim.chi()*x[n]*col[n]);
       double rs = sig_st/sig[n];
       double W = 2./(rs + 1./rs);
+
+      double thickGas = 1.5; // .8 + .7 * s_z/s_r
+      double thickStars = 0.8 + 0.7 * sigStZ[n]/sigStR[n];
       // Q_RW = 1./(W/Qst + 1./Qg) if Qst>Qg   or  1./(1./Qst + W/Qg) otherwise
       
       if(Qst>Qg) {
@@ -1718,17 +1791,28 @@ double DiskContents::activeColSt(unsigned int n)
   return val;
 }
 
-double DiskContents::activeSigSt(unsigned int n)
+double DiskContents::activeSigStR(unsigned int n)
 {
   double val = 0.0;
   for(unsigned int i=0; i!=spsActive.size(); ++i ) {
-    val += spsActive[i].spcol[n] * spsActive[i].spsig[n]*spsActive[i].spsig[n];
+    val += spsActive[i].spcol[n] * spsActive[i].spsigR[n]*spsActive[i].spsigR[n];
   }
   val/=activeColSt(n);
   val = sqrt(val);
   return val;
 }
 
+double DiskContents::activeSigStZ(unsigned int n)
+{
+  double val = 0.0;
+  for(unsigned int i=0; i!=spsActive.size(); ++i ) {
+    val += spsActive[i].spcol[n] * spsActive[i].spsigZ[n]*spsActive[i].spsigZ[n];
+  }
+  val/=activeColSt(n);
+  val = sqrt(val);
+  return val;
+
+}
 
 
 

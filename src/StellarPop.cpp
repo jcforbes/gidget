@@ -178,6 +178,19 @@ void StellarPop::extract(StellarPop& sp2, double frac)
 
 }
 
+void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents& disk)
+{
+  std::vector<double> dcoldt(spcol.size());
+  std::vector<double> dsigdt(spcol.size());
+  std::vector<double> MdotiPlusHalf(spcol.size());
+
+  for(unsigned int n=1; n<=spcol.size()-1; ++n) {
+	
+  }
+}
+
+
+
 void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskContents& disk)
 {
   std::vector<double> dcolh((*this).spcol.size());

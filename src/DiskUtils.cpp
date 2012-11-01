@@ -115,6 +115,7 @@ double QmfQfst(double sv, void *p)
   return val;
 }
 
+// "Q minus fixed Q"
 double QmfQ(double sv, void *p) 
 {
   // here sv is a factor by which we will multiply all velocity dispersions (and hence Qsi - the ri will be constant since both the gas and stellar velocity dispersions will be multiplied by sv)
@@ -124,7 +125,7 @@ double QmfQ(double sv, void *p)
   for(unsigned int i=0; i!=(*qp).Qsi.size(); ++i) {
     (*qp).Qsi[i] *= sv;
   }
-  if((*qp).fixedQ < 0.0) errormsg("The fixedQ passed to QmfQ (in DiskUtils) was not initialized.");
+  if((*qp).fixedQ < 0.0) errormsg("The fixedQ passed to QmfQ (in DiskUtils.cpp) was not initialized.");
   double val= Q(qp,&((*qp).mostRecentq))-(*qp).fixedQ;
   //  if(sv<100) std::cout << "dbg Qm1: "<< (*qp).Qg <<" " << (*qp).Qsi[0] << " "<<(*qp).ri[0]<<" " << val<<std::endl;
   (*qp).Qg /= sv;
@@ -148,10 +149,10 @@ double Q(RafikovQParams *qp, double *absc)
     double W = 2./ (rs + 1./rs);
     
     if(Qst > (*qp).Qg) {
-      return (*qp).thick/ (W/Qst + 1./((*qp).Qg) );
+      return 1.0/ (W/(Qst*(*qp).thickStars) + 1./((*qp).Qg *(*qp).thickGas) );
     }
     else {
-      return (*qp).thick/(1./Qst + W/((*qp).Qg) );
+      return 1.0/(1./(Qst*(*qp).thickStars) + W/((*qp).Qg * (*qp).thickGas) );
     }
   }
   else {
@@ -164,11 +165,13 @@ double Q(RafikovQParams *qp, double *absc)
     F.params = &(*qp);
     fn.params = &(*qp);
     if (*absc <=0 ) { *absc=1;}
-    return (*qp).thick*minFromDeriv(F,fn,&(*absc));
+    return (*qp).thickGas*minFromDeriv(F,fn,&(*absc));
   }
   
   return -1; // never get here
 }
+
+// Multiply some component of Q by sv. Used to numerically calculate dQ/d{whatever}, depending on the value of qp->var
 double varQ(double sv, void * p)
 {
   struct RafikovQParams * qp = (RafikovQParams *) p;

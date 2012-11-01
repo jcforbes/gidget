@@ -6,6 +6,8 @@
 class DiskContents;
 class Cosmology;
 
+double ComputeVariance(double,double,double,double,double,double,double);
+
 class StellarPop {
  public:
   StellarPop();

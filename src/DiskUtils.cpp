@@ -55,8 +55,17 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
   return fluxn;
 }
  
+double dSMigdt(unsigned int n, double ** tauvecStar, DiskContents& disk, std::vector<StellarPop>& sps, unsigned int sp)
+{
+  FixedMesh & mesh = disk.GetMesh();
+  return 
+  (-1.0/mesh.u1pbPlusHalf(n) * (tauvecStar[1][n+1]-tauvecStar[1][n])/(mesh.x(n+1)-x[n]) // mass flux from n+1->n
+  - (-1.0/mesh.u1pbPlusHalf(n-1))*(tauvecStar[1][n]-tauvecStar[1][n-1])/(x[n]-mesh.x(n-1))) // mass flux from n->n-1
+  *(1.0/(x[n]*mesh.dx(n))) * (sps[sp].spcol[n] / disk.activeColSt(n)); // (1/area) * (fraction of stars in this pop)
+}
 
-double dSMigdt(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std::vector<double>& col_st)
+
+double dSMigdt(unsigned int n, std::vector<double>& yy , std::vector<double>& x, std::vector<double>& col_st)
 {
 
 

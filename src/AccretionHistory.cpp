@@ -295,6 +295,7 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
      // used to be 1.0
      double val= .47*pow((1.0+z)/3.0,.38)*pow(Mh,-0.25);
      if(val>1.0) val=1.0;
+     if(z < zquench) val = 0.0;
      return val;
     }
     double fOfz;

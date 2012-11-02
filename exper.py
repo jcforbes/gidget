@@ -544,7 +544,7 @@ if __name__ == "__main__":
     # rq10: put in some quenching at z=1.4
     rq7=[]
     for i in range(len(factors)):
-      rq7.append(experiment("rq10"+chr(ord("a")+i)))
+      rq7.append(experiment("rq11"+chr(ord("a")+i)))
       rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
       rq7[i].irregularVary("TOL",1.0e-4)
       Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)

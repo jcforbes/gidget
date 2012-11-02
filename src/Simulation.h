@@ -8,8 +8,7 @@ class Dimensions;
 // A small container to store the state variables
 // and other numbers necessary to initialize a disk.
 struct Initializer {
-  std::vector<double> col,sig,col_st,sig_st,Z;
-  double BulgeRadius;
+  std::vector<double> col,sig,col_st,sig_stR,sig_stZ,Z;
   unsigned int NActive,NPassive;
 };
 
@@ -42,4 +41,5 @@ class Simulation {
   Debug& dbg;
   Dimensions& dim;
   Initializer ini;
+  
 };

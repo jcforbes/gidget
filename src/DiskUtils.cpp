@@ -2,6 +2,7 @@
 #include "RafikovQParams.h"
 #include "Cosmology.h"
 #include "DiskContents.h"
+#include "FixedMesh.h"
 
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_min.h>
@@ -55,34 +56,17 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
   return fluxn;
 }
  
-double dSMigdt(unsigned int n, double ** tauvecStar, DiskContents& disk, std::vector<StellarPop>& sps, unsigned int sp)
+double dSMigdt(unsigned int n, double ** tauvecStar, DiskContents& disk, std::vector<double>& spcol)
 {
   FixedMesh & mesh = disk.GetMesh();
+  std::vector<double>& x = disk.GetX();
   return 
   (-1.0/mesh.u1pbPlusHalf(n) * (tauvecStar[1][n+1]-tauvecStar[1][n])/(mesh.x(n+1)-x[n]) // mass flux from n+1->n
   - (-1.0/mesh.u1pbPlusHalf(n-1))*(tauvecStar[1][n]-tauvecStar[1][n-1])/(x[n]-mesh.x(n-1))) // mass flux from n->n-1
-  *(1.0/(x[n]*mesh.dx(n))) * (sps[sp].spcol[n] / disk.activeColSt(n)); // (1/area) * (fraction of stars in this pop)
+  *(1.0/(x[n]*mesh.dx(n))) * (spcol[n] / disk.activeColSt(n)); // (1/area) * (fraction of stars in this pop)
 }
 
 
-double dSMigdt(unsigned int n, std::vector<double>& yy , std::vector<double>& x, std::vector<double>& col_st)
-{
-
-
-  double val = - (flux(n,yy,x,col_st) - flux(n-1,yy,x,col_st))/ (x[n]*x[n]*log(x[2]/x[1]));
-  if(n==1) {
-	std::cout.precision(15);
-	//	double a1 = val;
-	//double a2 = flux(n,yy,x,col_st);
-	//double a3 = flux(n-1,yy,x,col_st);
-	//	double a4 = flux(n-2,yy,x,col_st);
-	//double a5 = flux(n,yy,x,col_st) - flux(n-1,yy,x,col_st);
-	//double a6 = (flux(n,yy,x,col_st) - flux(n-1,yy,x,col_st)) / (x[n]*x[n]*log(x[2]/x[1]));
-//	std::cout <<"val, flux(n), flux(n-1); y[n+1], y[n], col_st[n+1], col_st[n]:  "<< val << ", "<<flux(n,yy,x,col_st)<<", "<<flux(n-1,yy,x,col_st) << ";  "<< yy[n+1] << ", "<<yy[n]<<", "<<col_st[n+1]<<", "<<col_st[n]<< std::endl;
-	//	std::cout<<"val, f(n), f(n-1), f(n-2), f(n)-f(n-1), dS: " <<a1<<" "<<a2<<" "<<a3<<" "<<a4<<" "<<a5<<" "<<a6<<std::endl;
-  }
-  return val;
-}
 
 double OldIthBin(unsigned int i,Cosmology& cos,unsigned int NAgeBins)
 {

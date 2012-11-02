@@ -544,17 +544,17 @@ if __name__ == "__main__":
     # rq10: put in some quenching at z=1.4
     rq7=[]
     for i in range(len(factors)):
-      rq7.append(experiment("rq11"+chr(ord("a")+i)))
+      rq7.append(experiment("rq13"+chr(ord("a")+i)))
       rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-      rq7[i].irregularVary("TOL",1.0e-4)
+      rq7[i].irregularVary("TOL",1.0e-3)
       Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
       rq7[i].irregularVary('phi0',[10.0])
+      #rq7[i].irregularVary('Qlim',[0.0])
       #rq4[i].irregularVary('xmin',[.001])
       #rq4[i].irregularVary('R',[50])
       scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
       rq7[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
       rq7[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
-      rq7[i].irregularVary('zquench',[1.4])
 
     rq8=[]
     # rq8: same sort of experiments as above, but vary the accretion histories.

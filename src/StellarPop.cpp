@@ -290,6 +290,10 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     spZ[n] += dZdt[n]*dt;
     spZV[n] = ComputeVariance(cellMass[n],outgoingMass[n],incomingMass[n],
                               spZ[n],incomingZ[n],spZV[n],incomingZV[n]);
+    if(spcol[n]<0 || spsigR[n]<0 || spsigZ[n]<0 || spZ[n]<0 || spZV[n]<0 ||
+       spcol[n]!=spcol[n] || spsigR[n]!=spsigR[n] || spsigZ[n]!=spsigZ[n] ||
+       spZ[n]!=spZ[n] || spZV[n]!=spZV[n])
+       errormsg("Migrating the populations has produced nonsensical results!");
   }
 }
 
@@ -308,8 +312,12 @@ double ComputeVariance(double cellMass, double outgoingMass, double incomingMass
     double var1 = ZV;
     double var2 = incomingZV;
     double wtdAvg = (wt1*avg1 + wt2*avg2)/(wt1+wt2);
-    return wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
+    double val;
+    val =  wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
          + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
 
+    if(val >= 0.0) return val;
+    else if(val <-1.0e-10) errormsg("Something has gone wrong in computing the variance of metallicity.");
+    else return 0.0;
 }
 

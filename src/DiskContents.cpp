@@ -894,12 +894,15 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
 // Should apply to both gas and stars
 void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const double OBC, std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF, std::vector<double>& MdotiPlusHalf)
 {  
+  // Read in the given vectors to gsl_vectors suitable for tridiagonal-solving.
   for(unsigned int n=1; n<=nx; ++n) {
     gsl_vector_set(lr,   n-1, LL[n]);
     gsl_vector_set(diag,   n, DD[n]);
     gsl_vector_set(ur,     n, UU[n]);
     gsl_vector_set(forcing,n, FF[n]);
   }
+
+  // Set the appropriate boundary conditions
   gsl_vector_set(ur  , 0, 0.0);
   gsl_vector_set(diag, 0, 1.0);
 
@@ -908,21 +911,29 @@ void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const dou
   gsl_vector_set(forcing,0,IBC);
   gsl_vector_set(forcing,nx+1,OBC);
 
+  // solve the tridiagonal matrix equation.
   int status = gsl_linalg_solve_tridiag(diag,ur,lr,forcing,tau);
   if(status!=GSL_SUCCESS) 
     errormsg("Failed to solve the torque equation!");
 
+  // Now read the solution back out.
   for(unsigned int n=0; n<=nx+1; ++n) {
     tauvec[1][n] = gsl_vector_get(tau,n);
   }
 
+  // Zero out positive (non-physical) torques.
+  for(unsigned int n=0; n<=nx+1; ++n) {
+    if(tauvec[1][n]>0.0) tauvec[1][n]=0.0;
+  }
+
+  // Compute first derivatives and fluxes.
   for(unsigned int n=1; n<=nx; ++n) {
     tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
     MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvec[1][n+1]-tauvec[1][n])/(mesh.x(n+1)-x[n]);
   }
   MdotiPlusHalf[0]=-1.0/mesh.u1pbPlusHalf(0) * (tauvec[1][1]-tauvec[1][0])/(x[1]-mesh.x(0.0));
 
-
+  // All set!.
 }
 
 
@@ -1323,7 +1334,7 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
       LLst[n] = 0.0;
       DDst[n] = 1.0;
     }
-
+    double dummy = 1.0;
   }
 
 }

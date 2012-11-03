@@ -577,7 +577,45 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
 //	*whichVar=9;
 //	*whichCell=n;
 //      }
-    } // end loop over stellar populations
+    } // end loop over active stellar populations
+
+    for(unsigned int j=0; j!=spsPassive.size(); ++j) {
+      if(spsPassive[j].IsForming(cos,redshift)) {
+        if(fabs(colSFR[n]/spsPassive[j].spcol[n])>dmax) { 
+          dmax=fabs(colSFR[n]/spsPassive[j].spcol[n]);
+	  *whichCell=n;
+          *whichVar=8;
+        }
+      }
+      if(fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j].spcol)
+               /spsPassive[j].spcol[n]) > dmax) {
+        dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j].spcol)
+          /spsPassive[j].spcol[n]);
+        *whichVar=9;
+	*whichCell=n;
+      }
+      if(fabs(dSigStZdt(n,j,redshift,spsPassive,tauvecStar)
+                /spsPassive[j].spsigZ[n]) > dmax) {
+        dmax=fabs(dSigStZdt(n,j,redshift,spsPassive,tauvecStar)
+           /spsPassive[j].spsigZ[n]);
+        *whichVar=10;
+	*whichCell=n;
+      }
+//      if(fabs(flux(n,yy,x,spsActive[i].spcol) / (2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n])) > dmax) {
+//	dmax=fabs(flux(n,yy,x,spsActive[i].spcol)/(2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n]));
+//	*whichVar=8;
+//	*whichCell=n;
+//      }
+//      if(fabs(flux(n-1,yy,x,spsActive[i].spcol) /(2.0*M_PI*x[n]*yy[n]* spsActive[i].spcol[n])) > dmax) {
+//	dmax=fabs(flux(n-1,yy,x,spsActive[i].spcol)/(2.0*M_PI*x[n]*yy[n]*spsActive[i].spcol[n]));
+//	*whichVar=9;
+//	*whichCell=n;
+//      }
+    } // end loop over active stellar populations
+
+
+
+
 
 //    double Qst = ComputeQst(n);
 //    if(fabs(max(Qlim-Qst,0.0)*uu[n]/(2.0*M_PI*x[n])) > dmax) {

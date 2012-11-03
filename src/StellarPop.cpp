@@ -156,8 +156,10 @@ void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)
       
       // Merge the two distributions:
       (*this).spZ[i] = wtdAvg;
-      (*this).spZV[i] = wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
-        + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
+ //     (*this).spZV[i] = wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
+ //       + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
+      spZV[i] = ComputeVariance(spcol[i],0.0, sp2.spcol[i],
+				spZ[i],sp2.spZ[i],spZV[i],sp2.spZV[i]);
       
       if((*this).spsigR[i]!=(*this).spsigR[i] || spsigZ[i]!=spsigZ[i])
         errormsg("Error merging populations:  this spcol,spsig  sp2 spcol,spsig  "+str((*this).spcol[i])+" "+str((*this).spsigR[i])+"  "+str(sp2.spcol[i])+" "+str(sp2.spsigR[i]));
@@ -214,14 +216,15 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
   std::vector<double> cellMass(spcol.size());
 
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
-    tauvecStar[2][n] = (tauvecStar[1][n+1]-tauvecStar[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
+  //  tauvecStar[2][n] = (tauvecStar[1][n+1]-tauvecStar[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
     MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvecStar[1][n+1]-tauvecStar[1][n])/(mesh.x(n+1)-x[n]);
   }
   MdotiPlusHalf[0]= -1.0/mesh.u1pbPlusHalf(0) * (tauvecStar[1][1]-tauvecStar[1][0])/(x[1]-mesh.x(0.0));
   
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
-    dcoldt[n] = (MdotiPlusHalf[n]-MdotiPlusHalf[n-1])/(x[n]*mesh.dx(n));
-    double MdotCentered = (-tauvecStar[2][n]*(spcol[n]/disk.activeColSt(n))
+    double f = (spcol[n]/disk.activeColSt(n));
+    dcoldt[n] = f*(MdotiPlusHalf[n]-MdotiPlusHalf[n-1])/(x[n]*mesh.dx(n));
+    double MdotCentered = (-tauvecStar[2][n]*f
 		          /(uu[n]*(1+beta[n]))); // FOR THIS COMPONENT (note the Sigma_*,i/Sigma_* term) 
     dsigRdt[n] = MdotCentered* 
       (1.0/(x[n]*spcol[n]*(spsigR[n] + spsigZ[n]))) *
@@ -317,7 +320,8 @@ double ComputeVariance(double cellMass, double outgoingMass, double incomingMass
          + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
 
     if(val >= 0.0) return val;
-    else if(val <-1.0e-10) errormsg("Something has gone wrong in computing the variance of metallicity.");
+    else if(val <-1.0e-10)
+      errormsg("Something has gone wrong in computing the variance of metallicity.");
     else return 0.0;
 }
 

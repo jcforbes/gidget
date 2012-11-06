@@ -170,20 +170,71 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
   ENDFOR ;; end loop over dependent variables
 END
 
-;; given an array whose first column indexes time, second column indexes different data sets
-;;  third column indexes models, plus corresponding time
-;; axis labels, colors, and styles, make a series of simple plots
-PRO simplePlot,data,time,labels,colors,styles,name,sv
-  FOR k=0,n_elements(labels)-1 DO BEGIN;; loop over y-axis variables to be plotted against time
-    set_plot,'x'
-    figureInit,name+"_"+labels[k],1,1
 
-    FOR j=0,n_elements(data[0,0,*])-1 DO BEGIN
-      IF(j EQ 0) THEN PLOT,time,data[*,k,j],COLOR=colors[j],BACKGROUND=255,linestyle=styles[j],XTITLE="time",YTITLE=labels[k],XSTYLE=1,YSTYLE=1
-      IF(j NE 0) THEN OPLOT,time,data[*,k,j],COLOR=colors[j],linestyle=styles[j]
+
+;; Given an array of mdot's vs. other variables, compute the cross-correlations between mdot and the others
+;; and also the autocorrelation of each variable.
+PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thicknesses=thicknesses
+    IF(n_elements(nt0) EQ 0) THEN nt0 = 1
+    IF(n_elements(sv) EQ 0 ) THEN sv=1
+    IF(n_elements(thicknesses) EQ 0) THEN thicknesses=intarr(n_elements(vsMdot[0,0,0,*]))+1
+
+    ;; Construct some cross-correlations
+    nt = n_elements(vsMdot[*,0,0,0])
+    ;;; (# of delay times to test) x (# of cross-correlations) x (# of models)
+    crossCorrelations = dblarr(nt-1-nt0,n_elements(vsMdot[0,0,*,0]),n_elements(vsMdot[0,0,0,*]))
+    autoCorrelations = dblarr(nt-1-nt0,n_elements(vsMdot[0,0,*,0]),n_elements(vsMdot[0,0,0,*]))
+    ;;; loop over models
+    FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+        FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
+            crossCorrelations[*,k,j] = c_correlate(vsmdot[nt0:(nt-1),0,0,j],vsmdot[nt0:(nt-1),0,k,j],indgen(nt-1-nt0))
+            autoCorrelations[*,k,j] = c_correlate(vsmdot[nt0:(nt-1),0,k,j],vsmdot[nt0:(nt-1),0,k,j],indgen(nt-1-nt0))
+        ENDFOR
+
     ENDFOR
 
-    figureClean,name+"_"+labels[k]
+    ;; loop over variables
+    FOR k=0,n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
+        setct,1,0,2
+        FIGUREINIT,(name+"_cc_"+names[k]),sv,2,2
+        PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="x-corr: Accr with "+labels[k],XLOG=1
+        FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+            OPLOT, time[1:(nt-1-nt0)],crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+        ENDFOR
+        FIGURECLEAN,(name+"_cc_"+names[k]),sv
+
+        FIGUREINIT,(name+"_ac_"+names[k]),sv,2,2
+        PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="autocorr: "+labels[k],XLOG=1
+        FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+             OPLOT, time[1:(nt-1-nt0)],autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+        ENDFOR
+        FIGURECLEAN,(name+"_ac_"+names[k]),sv
+    ENDFOR
+
+END
+
+
+
+
+
+
+
+;; given an array whose first column indexes time, second column is irrelevant, third column
+;;  indexes different data sets fourth column indexes models, plus corresponding time
+;; axis labels, colors, and styles, make a series of simple plots
+PRO simplePlot,data,time,labels,names,colors,name,sv,styles=styles
+  IF(n_elements(styles) EQ 0) THEN styles = intarr(n_elements(data[0,0,0,*]))
+  FOR k=0,n_elements(labels)-1 DO BEGIN;; loop over y-axis variables to be plotted against time
+    set_plot,'x'
+    figureInit,name+"_"+names[k],sv,2,2
+    
+    PLOT,[MAX(time)],[MAX(data[*,0,k,*])],COLOR=0, BACKGROUND=255,THICK=2,XTITLE="time",YTITLE=labels[k],XSTYLE=1,YSTYLE=1
+    FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN
+      ;PLOT,time,data[*,0,k,j],COLOR=colors[0,j],BACKGROUND=255,linestyle=styles[j],XTITLE="time",YTITLE=labels[k],XSTYLE=1,YSTYLE=1
+      OPLOT,time,data[*,0,k,j],COLOR=colors[0,j],linestyle=styles[j]
+    ENDFOR
+
+    figureClean,name+"_"+names[k]
   ENDFOR
 END
 
@@ -429,7 +480,8 @@ PRO variability3,expNames,keys,N,sv
   ENDFOR
 
 
-
+  nmodels = n_elements(vsMdot[0,0,0,*])
+  ncolors = 5
   ;; sort according to z=0 sSFR
   IF(n_elements(expNames) EQ 1) THEN BEGIN
     zi0 = n_elements(vsMdot[*,0,0,0])-1
@@ -437,8 +489,6 @@ PRO variability3,expNames,keys,N,sv
     FOR zi = 0, zi0 DO BEGIN
       st = sort(vsMdot[zi0,0,6,*])
 
-      nmodels = n_elements(vsMdot[0,0,0,*])
-      ncolors = 5
       FOR nc=0, ncolors-1 DO BEGIN
         wh = WHERE (st GE nc*(float(nmodels)/float(ncolors)) and st LT (nc+1)*(float(nmodels)/float(ncolors)))
         ll = fix(float(nc)*float(nmodels)/float(ncolors))
@@ -448,6 +498,17 @@ PRO variability3,expNames,keys,N,sv
       ENDFOR
     ENDFOR
   ENDIF
+
+  thicknesses=intarr(nmodels)+1
+  st= sort(vsMdot[201,0,2,*]/vsMdot[201,0,14,*]) ;; sort by halo mass at redshift 0.
+  FOR nc=0, ncolors-1 DO BEGIN
+      wh = WHERE(st GE nc*(float(nmodels)/float(ncolors)) and st LT (nc+1)*(float(nmodels)/float(ncolors)))
+      ll = fix(float(nc)*float(nmodels)/float(ncolors))
+      hh = fix(float(nc+1)*(float(nmodels)/float(ncolors)))-1
+      thicknesses[st[ll:hh]] = 1.0 + .5*float(nc) ;; thicker lines have higher Mh0.
+  ENDFOR
+
+
 
 
 
@@ -587,41 +648,7 @@ PRO variability3,expNames,keys,N,sv
   ENDIF
 
 
-  ;; Construct some cross-correlations
-  nt = n_elements(vsMdot[*,0,0,0])
-  ;;; (# of delay times to test) x (# of cross-correlations) x (# of models)
-  correlations = dblarr(nt-2,3,n_elements(vsMdot[0,0,0,*]))
-  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-    ;; cross-correlation of accretion rate vs. SFR
-    cc = c_correlate(vsmdot[1:(nt-1),0,0,j],vsmdot[1:(nt-1),0,13,j],indgen(nt-2))
-    ac = c_correlate(vsmdot[1:(nt-1),0,0,j],vsmdot[1:(nt-1),0,0,j],indgen(nt-2)) ;; autocorr
-    correlations[*,0,j] = cc
-    correlations[*,1,j] = ac
-    correlations[*,2,j] = c_correlate(vsmdot[1:(nt-1),0,13,j],vsmdot[1:(nt-1),0,13,j],indgen(nt-2))
-  ENDFOR
-  ;; Now plot them!
-  setct,1,0,2
-  FIGUREINIT,(expName2+"_cc"),1,2,2
-  PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[MIN(correlations[*,0,*]),MAX(correlations[*,0,*])],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="x-corr: Accr with SFR",XLOG=1
-  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-    OPLOT, time[1:(nt-2)],correlations[*,0,j],COLOR=colors[0,j]
-  ENDFOR
-  FIGURECLEAN,(expName2+"_cc"),1
-
-  FIGUREINIT,(expName2+"_acAccr"),1,2,2
-  PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[MIN(correlations[*,1,*]),MAX(correlations[*,1,*])],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="autocorr: AccRate",XLOG=1
-  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-    OPLOT, time[1:(nt-2)],correlations[*,1,j],COLOR=colors[0,j]
-  ENDFOR
-  FIGURECLEAN,(expName2+"_acAccr"),1
-
-  FIGUREINIT,(expName2+"_acSFR"),1,2,2
-  PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[MIN(correlations[*,2,*]),MAX(correlations[*,2,*])],XSTYLE=1,YSTYLE=1,CHARSIZE=1.4,THICK=1,CHARTHICK=1,XTITLE="Lag Time (Ga)",YTITLE="autocorr: SFR",XLOG=1
-  FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-    OPLOT, time[1:(nt-2)],correlations[*,2,j],COLOR=colors[0,j]
-  ENDFOR
-  FIGURECLEAN,(expName2+"_acSFR"),1
-
+  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2,sv=1,nt0=20,thicknesses=thicknesses
 
   ;; Now make some standalone plots.
   
@@ -632,13 +659,13 @@ PRO variability3,expNames,keys,N,sv
   zn = n_elements(Mh[*,0,0,0])
 	
   ;; Plot the accretion rates.
-  SETCT,3,n_elements(vsMdot[0,0,0,*]),0
+  ;SETCT,3,n_elements(vsMdot[0,0,0,*]),0
   FIGUREInit,(expName2+'_accRates'),1,3,3
   yr=[MIN(vsMdot[zn-1,0,0,*])*.5,MAX(vsMdot[0,0,0,*])*2];[.01,1000];[MIN(sortdVsMdot[*,0,0,*]),MAX(sortdVsmdot[*,0,0,*])]
-  Plot,time,vsMdot[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=yr,YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Accretion Rate",CHARSIZE=3,THICK=4,CHARTHICK=2
-  FOR m=1,n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-    setct,5,n_elements(vsMdot[0,0,0,*]),m
-    OPLOT,time,vsMdot[*,0,0,m],COLOR=m,THICK=4
+  Plot,[time[0]],[vsMdot[0,0,0,0]],COLOR=0,BACKGROUND=255,XRANGE=[MIN(time),MAX(time)],YRANGE=yr,YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Accretion Rate",CHARSIZE=2,THICK=2,CHARTHICK=1.5
+  FOR m=0,n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+    ;setct,5,n_elements(vsMdot[0,0,0,*]),m
+    OPLOT,time,vsMdot[*,0,0,m],COLOR=colors[0,m],THICK=thicknesses[m]
 	
   ENDFOR
   FIGURECLEAN,(expName2+'_accRates'),1
@@ -646,21 +673,22 @@ PRO variability3,expNames,keys,N,sv
 
 
   ;; Plot the halo mass
-  SETCT,3,n_elements(vsMdot[0,0,0,*]),0
+  ;SETCT,3,n_elements(vsMdot[0,0,0,*]),0
   FIGUREInit,(expName2+'_Mh'),1,3,3
-  Plot,time,Mh[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=[Min(Mh[zn-1,0,0,*])*.1,Max(Mh[zn-1,0,0,*])*2],YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Halo Mass",CHARSIZE=3,THICK=4,CHARTHICK=2
-  FOR m=1,n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-    setct,5,n_elements(vsMdot[0,0,0,*]),m
-    OPLOT,time,Mh[*,0,0,m],COLOR=m,THICK=4
+  ;Plot,time,Mh[*,0,0,0],COLOR=0,BACKGROUND=255,YRANGE=[Min(Mh[zn-1,0,0,*])*.1,Max(Mh[zn-1,0,0,*])*2],YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Halo Mass",CHARSIZE=3,THICK=thicknesses[0],CHARTHICK=2
+  PLOT,[time[0]],[Mh[0,0,0,0]],COLOR=0,BACKGROUND=255,XRANGE=[MIN(time),MAX(time)],YRANGE=[MIN(Mh[zn-1,0,0,*])*.1,MAX(Mh[zn-1,0,0,*])*2],YLOG=1,XSTYLE=1,YSTYLE=1,XTITLE="Time (Ga)",YTITLE="Halo Mass",CHARSIZE=2,THICK=2,CHARTHICK=1.5
+  FOR m=0,n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+    ;setct,5,n_elements(vsMdot[0,0,0,*]),m
+    OPLOT,time,Mh[*,0,0,m],COLOR=colors[0,m],THICK=thicknesses[m]
 	
   ENDFOR
   FIGURECLEAN,(expName2+'_Mh'),1
 
 
 
-  FIGUREInit,(expName2+'_z0AccRates'),1,1,1
-  cgHistoplot, alog10(vsMdot[n_elements(vsMdot[*,0,0,0])-1,0,0,*]), BinSize=.1
-  FIGURECLEAN,(expName2+'_z0AccRates'),1
+;  FIGUREInit,(expName2+'_z0AccRates'),1,1,1
+;  cgHistoplot, alog10(vsMdot[n_elements(vsMdot[*,0,0,0])-1,0,0,*]), BinSize=.1
+;  FIGURECLEAN,(expName2+'_z0AccRates'),1
 	
   proftimes[4]=systime(1)
 

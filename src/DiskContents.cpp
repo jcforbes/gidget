@@ -685,7 +685,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 //  double MIn = - dt*tauvec[2][1]/(uu[1]*(1+beta[1]));
   double MIn = dt*MdotiPlusHalf[0]+dt*dmdtCosInner(AccRate);
 //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
-  ZBulge = (ZBulge*MBulge +MIn*ZDisk[1])/(MBulge + MIn);
+  ZBulge = (ZBulge*MBulge +dt*MdotiPlusHalf[0]*ZDisk[1]+dt*dmdtCosInner(AccRate)*Z_IGM)/(MBulge + MIn);
   MBulge += MIn;
   CumulativeTorque+= tauvec[1][nx]*dt;
   for(unsigned int n=1; n<=nx; ++n) {
@@ -1436,7 +1436,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
     wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
     wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
     wrt.push_back(Q_R);wrt.push_back(Q_WS);wrt.push_back(Q_RW);          // 25..27
-    wrt.push_back(verify);wrt.push_back(colSFR[n]);wrt.push_back(taupp); // 28..30
+    wrt.push_back(verify);wrt.push_back(colSFR[n]);wrt.push_back(dcoldtCos[n]); // 28..30
     wrt.push_back(dQdS[n]);wrt.push_back(dQds[n]);wrt.push_back(dQdSerr[n]); // 31..33
     wrt.push_back(dQdserr[n]);wrt.push_back(yy[n]);wrt.push_back(torqueErr); // 34..36
     wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back(MdotiPlusHalf[n]*dim.MdotExt0*speryear/MSol); // 37..39

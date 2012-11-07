@@ -466,8 +466,8 @@ void AccretionHistory::ReadTabulated(std::string fn,unsigned int zc, unsigned in
 
 double AccretionHistory::AccOfZ(double z)
 {
-  if(z > zstart) errormsg("AccOfZ: The accretion rate at this z is unspecified. z and zstart are "
-	+str(z)+" "+str(zstart));
+//  if(z > zstart) errormsg("AccOfZ: The accretion rate at this z is unspecified. z and zstart are "
+//	+str(z)+" "+str(zstart));
   double val =  gsl_spline_eval(spline,z,accel)/gsl_spline_eval(spline,zstart,accel);
   if(val<0.0) {
 // turned out it was, e.g. numbers on the order of 10^-200
@@ -480,7 +480,7 @@ double AccretionHistory::AccOfZ(double z)
 
 double AccretionHistory::MhOfZ(double z)
 {
-  if(z>zstart) errormsg("MhOfZ: The halo mass at this z is unspecified.");
+  //if(z>zrelax) errormsg("MhOfZ: The halo mass at this z is unspecified.");
 
   return gsl_spline_eval(splineMh,z,accelMh)/gsl_spline_eval(splineMh,0.0,accelMh);
 }

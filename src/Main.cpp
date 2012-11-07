@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   // Based on the user's choice of accretion history, generate the appropriate
   // mapping between redshift and accretion rate.
   if(whichAccretionHistory==0)
-    mdot0 = accr.GenerateBoucheEtAl2009(2.0,cos,filename+"_Bouche09.dat",true,true,zquench) * MSol/speryear;
+    mdot0 = accr.GenerateBoucheEtAl2009(zrelax,cos,filename+"_Bouche09.dat",true,true,zquench) * MSol/speryear;
   else if(whichAccretionHistory==2)
     mdot0 = accr.GenerateConstantAccretionHistory(2.34607,zstart,cos,filename+"_ConstAccHistory.dat",true) * MSol/speryear;
   else if(whichAccretionHistory==1)

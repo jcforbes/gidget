@@ -25,7 +25,8 @@ class Simulation {
 	     Debug&, Dimensions&);
   int runToConvergence(const double fCondition,
 		       const bool writeOut,
-		       const std::string filename);
+		       const std::string filename,
+                       const double zrelax);
   Initializer& GetInitializer() { return ini; }
  private:
   const double tmax;

@@ -157,7 +157,8 @@ double npow(double x,double ex)
 // keep trying until we get an acceptable accretion history, and keep track of the number of attempts we required.
 double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
 				            std::string fn, bool writeOut, unsigned long int seed,
-                     			    double invMassRatioLimit, double zquench, int * nattempts)
+                     			    double invMassRatioLimit, double zquench, int * nattempts,
+					    double domega, double zrelax)
 {
 	*nattempts = 0; // we have yet to attempt to generate an accretion history.
 
@@ -167,7 +168,7 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
 
         double mdotext0 = -1.0;
         while(mdotext0 < 0.0) {
-	  mdotext0 = AttemptToGenerateNeistein08(zst,cos,fn,writeOut,r,invMassRatioLimit,zquench);
+	  mdotext0 = AttemptToGenerateNeistein08(zst,cos,fn,writeOut,r,invMassRatioLimit,zquench,domega,zrelax);
 	  ++(*nattempts);
         }
 	gsl_rng_free(r);
@@ -179,7 +180,8 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
 // otherwise it will give you the gas mass accretion rate at z=zstart.
 double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos, 
 				  std::string fn, bool writeOut,gsl_rng * r,
-				  double invMassRatioLimit,double zquench)
+				  double invMassRatioLimit,double zquench,
+ 				  double domega, double zrelax )
 {
   zstart = zst;
   std::ofstream file;
@@ -187,7 +189,8 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
   double sigma8=0.82;
   if(dbg.opt(3)) sigma8=.796;
   double OmegaM=cos.OmegaM();
-  double dom = 0.1;
+  // double dom = 0.1;
+  double dom = domega;
   double zero=0.0;
   double om = omega(0.0,&zero);
   linear=true; // use linear interpolation
@@ -236,7 +239,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     SS+=deltaS;
     om += dom;
     first=false;
-  } while(zs[zs.size()-1]<zstart*1.3);
+  } while(zs[zs.size()-1]<zrelax*1.3);
 //  for(unsigned int i=0; i!=masses.size()-1; ++i) {
   double md0;
   for(unsigned int i=0; i<masses.size()-1; i+=2) {
@@ -256,6 +259,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     // occur at very different redshifts.
     accs.push_back(accr);
     accs.push_back(accr);
+    // When we cross zstart, set md0 equal to the current accretion rate.
     if((zs[i+1] - zstart)*(zs[i]-zstart) <= 0.0)
       md0 = accr;
   }
@@ -314,7 +318,8 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
 }
 
 double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos, 
-					std::string fn, bool writeOut, bool MhAtz0, double zquench)
+					std::string fn, bool writeOut, bool MhAtz0, 
+					double zquench)
 {
   double Mh012 = Mh0*1.0e-12;
   std::ofstream file;

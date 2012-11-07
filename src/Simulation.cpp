@@ -41,7 +41,8 @@ Simulation::Simulation(const double tm, const long int sm,
 // Terminate when dt>TOL * fCondition
 int Simulation::runToConvergence(const double fCondition, 
 				 const bool writeOut, 
-				 const std::string filename)
+				 const std::string filename,
+				 const double zrelax)
 {
     // Initialize a 2 by nx vector to store the torque and its first derivative.
   double **tauvec;
@@ -69,7 +70,7 @@ int Simulation::runToConvergence(const double fCondition,
 
   // Initialize some variables which will change as the simulation progresses:
   // time (outer orbits), redshift, and timestep
-  double t=0., z=zstart, dt=TOL*1.e-6, dtPrev = 1.0;
+  double t=0., z=zrelax, dt=TOL*1.e-6, dtPrev = 1.0;
 
   int whichVar,whichCell; // store which variable and which cell limits the time step.
 
@@ -85,6 +86,7 @@ int Simulation::runToConvergence(const double fCondition,
   // terribly wrong and the simulation has no chance to 
   // run to completion)
   const double dtfloor=1.e-12; 
+  const double t0 = theDisk.GetCos().Tsim(zstart);
 
   // Loop over time steps until...
   while(t<tmax &&           // the simulation has run for too many orbits
@@ -104,10 +106,10 @@ int Simulation::runToConvergence(const double fCondition,
     double duration = theDisk.GetCos().lbt(zstart); //in seconds
 //    double present = theDisk.GetCos().Tsim(z); // in seconds
 //    double previous = theDisk.GetCos().Tsim(z+dz(dt,z,theDisk.GetCos(),theDisk.GetDim())); // in seconds
-    double present = t * 2.0*M_PI*dim.Radius / dim.vphiR;
-    double previous = (t-dt) * 2.0*M_PI*dim.Radius/dim.vphiR;
+    double present = t * 2.0*M_PI*dim.Radius / dim.vphiR - t0;
+    double previous = (t-dt) * 2.0*M_PI*dim.Radius/dim.vphiR - t0;
 
-    bool timeOut = ((floor(200.0*previous/duration) < floor(200.0*present/duration) || step < 2) && writeOut) ;
+    bool timeOut = ((floor(200.0*previous/duration) < floor(200.0*present/duration) || step == 1) && writeOut ) ;
 
     if(!cosmologyOn)
       timeOut= (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
@@ -117,7 +119,7 @@ int Simulation::runToConvergence(const double fCondition,
       theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
       theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
       
-      theDisk.WriteOutStepFile(filename,accr,t,z,dt,step,tauvec);
+      theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec);
       writeIndex++;
 
       std::cout << "Writing out file "<<writeIndex<<" at t = "<<present/(speryear*1.0e9)<<" Gyr, z= "<<z<<std::endl;
@@ -273,7 +275,7 @@ int Simulation::runToConvergence(const double fCondition,
 
     theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
     theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-    theDisk.WriteOutStepFile(filename,accr,t,z,dt,step,tauvec);
+    theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec);
   }
 
  

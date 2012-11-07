@@ -41,6 +41,7 @@ int main(int argc, char **argv) {
     errmgLine.push_back("TOL (t_orb),\nMassLoadingFactor, \nBulgeRadius (kpc), \n");
     errmgLine.push_back("stDiskScale (kpc, or -1 for powerlaw),\nwhichAccretionHistory,\nalphaMRI");
     errmgLine.push_back(", \nthick,\nmigratePassive,\nQinit,\nkappaMetals,\nMh0,\nminSigSt,\nndecay");
+    errmgLine.push_back("CAUTION: this message may be out of date, so check Main.cpp");
     std::string msg="";
     for(unsigned int i=0; i!=errmgLine.size();++i) {
       msg+=errmgLine[i];
@@ -67,7 +68,7 @@ int main(int argc, char **argv) {
   const double xmin=               as.Set(.01,"inner truncation radius (dimensionless)");
   const unsigned int NActive=      as.Set(1,"N Active Stellar Populations");
   const unsigned int NPassive=     as.Set(10,"N Passive Stellar Populations");
-  const double vphiRatMh12 =       as.Set(220,"Circular velocity (km/s) for a 10^12 MSun halo")*1.e5;
+  const double vphiR =             as.Set(220,"Circular velocity (km/s)")*1.e5;
   const double radius=             as.Set(20.,"Outer Radius (kpc)")*cmperkpc;
 //  const double sigth=         sqrt(as.Set(7000,"Gas Temperature (K)")*kB/mH)/vphiR;
   const double Tgas =		   as.Set(7000,"Gas Temperature (K)");
@@ -78,14 +79,14 @@ int main(int argc, char **argv) {
   const double tmax =              as.Set(1000,"Maximum Time (outer orbits)");
   const unsigned int stepmax=      as.Set(10000000,"Maximum Number of Steps");
   const double TOL =               as.Set(.0001,"TOL (outer orbits)");
-  const double MassLoadingFactorAtMh12=  as.Set(1,"Mass Loading Factor at Mh=10^12 MSun");
+  const double MassLoadingFactor=  as.Set(1,"Mass Loading Factor");
   const double BulgeRadius      =  as.Set(0,"Velocity Curve Turnover Radius (kpc)");
   const double innerPowerLaw    =  as.Set(.5,"Index of the inner power law part of the rot curve");
   const double softening        =  as.Set(2.0,"Softening of transition from flat to inner powerlaw rot curve");
   const double stScaleLength    =  as.Set(-1,"Initial Stellar Disk Scale Length (kpc)");
   const int whichAccretionHistory= as.Set(0,"Which Accretion History- 0-Bouche, 1-High, 2-Low");
   const double alphaMRI         =  as.Set(0,"alpha viscosity for the MRI");
-  const double thick =             as.Set(1.5,"Thickness correction to Q");
+  const double thick            =  as.Set(1.5,"Thickness correction to Q");
   const bool migratePassive=      (as.Set(1,"Migrate Passive population")==1);
   const double Qinit =             as.Set(2.0,"The fixed Q");
   const double kappaMetals =       as.Set(.001,"Kappa Metals");
@@ -93,8 +94,8 @@ int main(int argc, char **argv) {
 
 
   // Scale the things which scale with halo mass.
-  const double MassLoadingFactor = MassLoadingFactorAtMh12 * pow((Mh0/1.0e12) , -1./3.);
-  const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./3.);
+//  const double MassLoadingFactor = MassLoadingFactorAtMh12 * pow((Mh0/1.0e12) , -1./3.);
+//  const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./3.);
   const double sigth = sqrt(Tgas *kB/mH)/vphiR;
 
   const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
@@ -102,11 +103,20 @@ int main(int argc, char **argv) {
   const unsigned int Experimental= as.Set(0,"Debug parameter");
   const double accScaleLength    = as.Set(2.0,"Accretion ScaleLength (kpc)");
 
-  const double zquench =           as.Set(-1.0,"Redshift at whcih accretion shuts off.");
-  
+  const double zquench =           as.Set(-1.0,"Redshift at which accretion shuts off.");
+  const double zrelax =            as.Set(zstart+1.0,"Redshift at which to start the relaxation of the disk");
+  const double zetaREC =           as.Set(1.0,"Metal loading factor");
+  const double RfREC =             as.Set(0.46,"Remnant fraction for inst. rec. approx.");
+  const double deltaOmega =        as.Set(0.1,"Delta omega to generate Neistein10");
+  const unsigned int Noutputs =    as.Set(200,"Number of outputs, excluding an initial and final output.");
+
+ 
   // Make an object to deal with basic cosmological quantities.9
   // Omega_Lambda = .734, H0 = 2.29e-18 s^-1
-  Cosmology cos(1.-.734, .734, 2.29e-18 ,zstart);
+  double OmegaLambda = 0.734;
+  double OmegaMatter = 1.0-OmegaLambda;
+  double H0 = 2.29e-18;
+  Cosmology cos(OmegaMatter, OmegaLambda, H0 ,zrelax);
 
   Debug dbg(Experimental);
 
@@ -135,8 +145,11 @@ int main(int argc, char **argv) {
     else
       mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,-3.0*M_PI/2.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
   }
-  else
-    mdot0 = accr.GenerateNeistein08(2.0,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",true,whichAccretionHistory,invMassRatio,zquench,&attempts)*MSol/speryear;
+  else {
+    mdot0 = accr.GenerateNeistein08(zstart,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",
+				    true,whichAccretionHistory,invMassRatio,zquench,&attempts,
+				    deltaOmega, zrelax)*MSol/speryear;
+  }
   // Note that the following line does nothing but put a line in the comment file to
   // record MdotExt0 for this run.
   as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
@@ -165,22 +178,24 @@ int main(int argc, char **argv) {
       DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
                         TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                         thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-                        minSigSt,accScaleLength/(radius/cmperkpc));
-      double sig0 = 8.0/220.0; 
+                        minSigSt,accScaleLength/(radius/cmperkpc),RfREC,zetaREC);
+      // double sig0 = 8.0/220.0; 
+      double sig0 = sigth;
       double fcool = 1.0 ;//* sqrt(MhZs / 1.0e12);
       disk.Initialize(.1*Z_Sol,fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
 
       Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
                      zstart,NActive,NPassive,alphaMRI,
                      sigth,ndecay,disk,accr,dbg,dim);
-      int result = sim.runToConvergence(1.0e10, true, filename);
+      int result = sim.runToConvergence(1.0e10, true, filename,zrelax);
 
   }
   if(!dbg.opt(5)) {
       //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
       DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
     		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-    		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc));
+    		      thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc),
+		      RfREC,zetaREC);
       if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
       else diskIC.Initialize(0.1*Z_Sol, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
 
@@ -192,7 +207,7 @@ int main(int argc, char **argv) {
                        zstart,NActive,NPassive,
                        alphaMRI,sigth,ndecay,
                        diskIC,accr,dbg,dim);
-      int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen"); // set false-> true to debug initial condition generator
+      int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen",zstart); // set false-> true to debug initial condition generator
       if(result!=5) // The simulation converges when the time step reaches 1*TOL.
         errormsg("Initial Condition generator failed to converge, code "+str(result));
 
@@ -201,14 +216,15 @@ int main(int argc, char **argv) {
       DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
                         TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
 		        thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-                        minSigSt,accScaleLength/(radius/cmperkpc));
+                        minSigSt,accScaleLength/(radius/cmperkpc),
+			RfREC,zetaREC);
       disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
       Simulation sim(tmax,stepmax,
                      cosmologyOn,nx,TOL,
 		     zstart,NActive,NPassive,
 		     alphaMRI,sigth,ndecay,
 		     disk,accr,dbg,dim);
-      result = sim.runToConvergence(1.0e10, true, filename);
+      result = sim.runToConvergence(1.0e10, true, filename,zstart);
   }
  
 }

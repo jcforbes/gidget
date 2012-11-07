@@ -167,8 +167,8 @@ FUNCTION readOutput,name
   md0=ExtractCmtFlt(lunCom)
 
   ;; Now we need to rescale some values for mh0!=1e12
-  MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
-  vphiR = vphiR * (Mh0/1.0e12)^  (1.0/3.0)
+ ; MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
+ ; vphiR = vphiR * (Mh0/1.0e12)^  (1.0/3.0)
 	
 
   Rf = 0.46 ;; remnant fraction

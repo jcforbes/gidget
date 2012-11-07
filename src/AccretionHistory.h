@@ -31,13 +31,15 @@ class AccretionHistory {
 
   double GenerateNeistein08(double zstart, Cosmology & cos,
 			    std::string fn, bool writeOut, unsigned long int seed,
-			    double invMassRatioLimit, double zquench, int * attempts);
+			    double invMassRatioLimit, double zquench, int * attempts,
+                            double domega, double zrelax);
   
   // Generate a realistic accretion history given a halo mass at z=0
   double AttemptToGenerateNeistein08(double zstart, 
 			    Cosmology& cos, std::string fn, 
 			    bool writeOut,gsl_rng * r,
-			    double invMassRatioLimit, double zquench);
+			    double invMassRatioLimit, double zquench,
+                            double domega, double zrelax);
 
   // Generate an accretion history given a halo mass Mh0 at zstart.
   // If MhAtz0 is true, the given halo mass Mh0 is assumed to be for z=0, not z=zstart

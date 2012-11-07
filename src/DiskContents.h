@@ -28,7 +28,8 @@ class DiskContents {
 	       double thk,bool migratePassive,
                double Qinit, double km,
 	       unsigned int NA, unsigned int NP,
-	       double minSigSt, double accSL);
+	       double minSigSt, double accSL,
+               double rfrec, double zetarec);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for

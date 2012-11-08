@@ -86,7 +86,7 @@ int Simulation::runToConvergence(const double fCondition,
   // terribly wrong and the simulation has no chance to 
   // run to completion)
   const double dtfloor=1.e-12; 
-  const double t0 = theDisk.GetCos().Tsim(zstart);
+  const double t0 = theDisk.GetCos().lbt(zrelax) - theDisk.GetCos().lbt(zstart);
 
   // Loop over time steps until...
   while(t<tmax &&           // the simulation has run for too many orbits

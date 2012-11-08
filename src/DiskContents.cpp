@@ -1500,7 +1500,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
   wrt2.push_back(CumulativeTorque);//18
   wrt2.push_back(accr.GetMh0() * accr.MhOfZ(z)); // 19
   wrt2.push_back(accr.AccOfZ(z) * dim.MdotExt0/MSol * speryear); // 20
-  if(step==0) {
+  if(step==1) {
     int ncol = wrt2.size();
     file2.write((char *) &ncol,sizeof(ncol));
     //////    file2 << wrt2.size()<<std::endl;

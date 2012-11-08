@@ -164,14 +164,19 @@ FUNCTION readOutput,name
   debugParam = ExtractCmtL(lunCom)
   accScaleLength = ExtractCmtFlt(lunCom)
   zquench = ExtractCmtFlt(lunCom)
-  md0=ExtractCmtFlt(lunCom)
+  zrelax = ExtractCmtFlt(lunCom)
+  zetaREC = ExtractCmtFlt(lunCom)
+  Rf = ExtractCmtFlt(lunCom)
+  deltaOmega = ExtractCmtFlt(lunCom)
+  NoutputsNominal = ExtractCmtL(lunCom)
+  md0 = ExtractCmtFlt(lunCom)
+  ND08attempts = ExtractCmtL(lunCom)
 
   ;; Now we need to rescale some values for mh0!=1e12
  ; MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
  ; vphiR = vphiR * (Mh0/1.0e12)^  (1.0/3.0)
 	
 
-  Rf = 0.46 ;; remnant fraction
   b=b/Radius ;; b is read in in kpc (as is Radius). Now set b to its dimensionless value (incidentally, b is the turnover radius of the rotation curve)
   FREE_LUN,luncom
 

@@ -6,6 +6,8 @@
 class DiskContents;
 class Cosmology;
 
+double ComputeVariance(double,double,double,double,double,double,double);
+
 class StellarPop {
  public:
   StellarPop();
@@ -27,7 +29,7 @@ class StellarPop {
 
   // Over a time period dt and given a dimensionless velocity yy inwards, migrate 
   // the stars in such a way that mass, energy, and mass in metals are conserved.
-  void MigrateStellarPop(double dt,std::vector<double>& yy, DiskContents&);
+  void MigrateStellarPop(double dt,double ** tauvecStar, DiskContents&);
 
   // Set the contents of the current stellar population equal to 
   // some fraction f of the mass in the population sp2.
@@ -37,11 +39,13 @@ class StellarPop {
   void extract(StellarPop& sp2, double f);
 
   std::vector<double> GetSpCol() const { return spcol; };
-  std::vector<double> GetSpSig() const { return spsig; };
+  std::vector<double> GetSpSigR() const { return spsigR; };
+  std::vector<double> GetSpSigZ() const { return spsigZ; };
   std::vector<double> GetSpZ() const { return spZ; };
   std::vector<double> GetSpZV() const { return spZV; };
   std::vector<double> GetdQdS() const { return dQdS; };
-  std::vector<double> GetdQds() const { return dQds; };
+  std::vector<double> GetdQdsR() const { return dQdsR; };
+  std::vector<double> GetdQdsZ() const { return dQdsZ; };
   std::vector<double> GetdQdSerr() const { return dQdSerr;};
   std::vector<double> GetdQdserr() const { return dQdserr;};
   double GetYoungest() const { return youngest; };
@@ -50,12 +54,14 @@ class StellarPop {
 
  private:
   std::vector<double> spcol; // column density as a function of position.
-  std::vector<double> spsig; // stellar velocity dispersion as a function of position.
+  std::vector<double> spsigR; // R-direction stellar velocity dispersion as a function of position.
+  std::vector<double> spsigZ; // phi- (and z-) direction stellar velocity dispersion.
   double ageAtz0; // i.e. lookback time at creation of these stars, in seconds
   std::vector<double> spZ; // metallicity of the stars as a function of position.
   std::vector<double> spZV; // metallicity variance
   std::vector<double> dQdS; // The partial derivative of Q wrt this population's S_*
-  std::vector<double> dQds; // The partial derivative of Q wrt this population's s_*
+  std::vector<double> dQdsR; // The partial derivative of Q wrt this population's s_*
+  std::vector<double> dQdsZ;
   std::vector<double> dQdSerr; // the error in dQ/dS_*
   std::vector<double> dQdserr; // the error in dQ/ds_*
   double youngest,oldest; // stored in seconds, boundaries on the ages of stars in this population

@@ -53,9 +53,8 @@ class DiskContents {
   // each state variable
   void ComputePartials();
 
-  // Fill in vectors of the coefficients for the torque eq, 
-  // namely h2,h1,h0,H in h2 tau'' + h1 tau' + h0 tau=H
-  void UpdateCoeffs(double redshift);
+  void UpdateStTorqueCoeffs( std::vector<double>& UUst, std::vector<double>& DDst, std::vector<double>& LLst, std::vector<double>& FFst);
+  void UpdateCoeffs(double redshift,std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF,double ** tauvecStar);
 
   // Diffuse metals in such a way that the total mass in 
   // metals is conserved. This diffusion is not meant to 
@@ -67,11 +66,12 @@ class DiskContents {
   void DiffuseMetalsUnstable(double dt, double km);
 
   double activeColSt(unsigned int n);
-  double activeSigSt(unsigned int n);
+  double activeSigStR(unsigned int n);
+  double activeSigStZ(unsigned int n);
   double ComputeQst(unsigned int n);
-  void TridiagonalWrapper(unsigned int,unsigned int);
-  void ComputeGItorque(double**,double, double);
-  void TauPrimeFromTau(double**);
+  // void TridiagonalWrapper(unsigned int,unsigned int);
+  void ComputeGItorque(double**,const double,const double,std::vector<double>& UU,std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF, std::vector<double>& MdotiPlusHalf);
+//  void TauPrimeFromTau(double**);
 
   // At a given cell, compute the fraction of gas which is 
   // in H2, i.e. what fraction of the gas is available to 
@@ -88,8 +88,10 @@ class DiskContents {
 
   // Compute the time rate of change of the velocity 
   // dispersion of stellar population sp.
-  double dSigstdt(unsigned int n, unsigned int sp, 
-		  double reshift,std::vector<StellarPop>&);
+  double dSigStRdt(unsigned int n, unsigned int sp, 
+		  double reshift,std::vector<StellarPop>&, double ** tauvecStar);
+  double dSigStZdt(unsigned int n, unsigned int sp, 
+		  double reshift,std::vector<StellarPop>&, double ** tauvecStar);
 
   // Append the properties of each StellarPop in the 
   // given vector to an output file.
@@ -101,7 +103,7 @@ class DiskContents {
   // and the purely time dependent properties to a different file
   void WriteOutStepFile(std::string filename,AccretionHistory & acc, 
                         double t, double z, double dt, 
-                        unsigned int step,double **tauvec);
+                        unsigned int step,double **tauvec,double **tauvecStar,std::vector<double>& MdotiPlusHalf);
 
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};
@@ -114,32 +116,26 @@ class DiskContents {
   std::vector<double>& GetColSFR() { return colSFR;}
   std::vector<StellarPop>& active() { return spsActive;}
   std::vector<StellarPop>& passive() { return spsPassive;}
-  std::vector<double>& GetYy() {return yy;}
+  //std::vector<double>& GetYy() {return yy;}
   Dimensions& GetDim() { return dim;}
   Cosmology& GetCos() { return cos;}
   FixedMesh& GetMesh() { return mesh;}
 
-  // Compute the dimensionless inward velocity of stars 
-  // as a function of radius- computed such that 
-  // dQ_*/dt = max((Qlim - Q_*),0)/(T_mig (2 pi Omega)^-1), 
-  // i.e.  the stars will attempt to reach Qlim if they are 
-  // less stable than Qlim.
-  void ComputeY(const double ndecay);
-  void ComputeY2();
   // Compute the time derivatives of all state variables 
   // at all radii.
-  void ComputeDerivs(double **tauvec);
+  void ComputeDerivs(double **tauvec,std::vector<double>& MdotiPlusHalf);
 
   // Given the state variables and their derivatives, 
   // compute a time step such that no quantity is 
   // changing too quickly. The pointers record which
   // variable and which cell is limiting the time step.
-  double ComputeTimeStep(const double z,int*,int*);
+  double ComputeTimeStep(const double z,int*,int*,double **);
 
   // Given a time step, state variables, and their time 
   // derivatives, do a forward Euler step
   void UpdateStateVars(const double dt, const double dtPrev, 
-		       const double redshift,double **tauvec,double AccRate);
+		       const double redshift,double **tauvec,double AccRate,
+                       double **tauvecStar,std::vector<double>& MdotiPlusHalf);
 
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
@@ -211,7 +207,7 @@ class DiskContents {
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
   std::vector<double> dcoldtPrev,dsigdtPrev,dZDiskdtPrev; // time derivatives at the previous timestep.
   std::vector<double> dcoldtCos;
-  std::vector<double> MdotiPlusHalf;
+//  std::vector<double> MdotiPlusHalf;
 //  std::vector<double> MstarDotIPlusHalf;
 
   // store the cells where we have turned off forcing in the
@@ -240,11 +236,11 @@ class DiskContents {
     x,     // position of each cell
     beta,  // power law index of rotation curve
     uu,    // local circular velocity
-    yy,    // inward velocity of stars
+//    yy,    // inward velocity of stars
     betap; //d(beta)/dx 
 
-  std::vector<double>
-    LL,UU,DD,FF; // coefficients of the torque equation
+//  std::vector<double>
+//    LL,UU,DD,FF; // coefficients of the torque equation
 
 
   // inner truncation radius, logarithmic width of a cell,

@@ -10,7 +10,8 @@ struct RafikovQParams {
   std::vector<double> ri; // sigma_{*,i}/sigma
   double Qg;
   double mostRecentq; // the most recent least stable wavenumber
-  double thick;
+  double thickGas;
+  double thickStars;
   double fixedQ;
   bool analyticQ;
 };

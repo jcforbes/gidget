@@ -65,7 +65,8 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
   FOR i=0, npassive DO BEGIN
     pop=strcompress(STRING(i),/remove)
     tLabels[ncolstep+npostprocess+i*stvars : ncolstep+npostprocess+(i+1)*stvars -1]$
-    =["Column Density "+pop,"Velocity Dispersion "+pop,$
+    =["Column Density "+pop,"Velocity Dispersion R "+pop,$
+    "Velocity Dispersion Z "+pop,$
     "Metallicity "+pop,"Metallicity disp "+pop,"Scale Height "+pop,$
     "Q_i "+pop,"[Z-sig_Z] "+pop,"[Z+sig_Z] "+pop]
   ENDFOR
@@ -205,7 +206,7 @@ FUNCTION readOutput,name
 
   ;; This is the number of variables output for each stellar population		
   ;; at each timestep at each radius.
-  STVars=4
+  STVars=5
   ;; starsHyperCube stores the passive stars..
   starsHyperCube = dblarr(currentStep,NPassive+1,nx,STVars) 
       ;; (reduced nsteps) x (NAgeBins+1) x (nx) x (4) 

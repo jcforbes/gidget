@@ -1,6 +1,7 @@
 class Cosmology;
 class DiskContents;
 class Dimensions;
+class StellarPop;
 struct RafikovQParams;
 
 #include "Str.h"
@@ -31,8 +32,7 @@ double flux(unsigned int n, std::vector<double>& yy, std::vector<double>& x, std
 
 // Compute dS_*/dt owing to stellar migration, at this particular cell,
 // given an inward velocity y and a column density profile col_st
-double dSMigdt(unsigned int n,std::vector<double>& yy, 
-	       std::vector<double>& x, std::vector<double>& col_st);
+double dSMigdt(unsigned int n, double ** tauvecStar, DiskContents& disk, std::vector<double>& spcol);
 
 // Return the age in seconds of the oldest star in age bin i out of N.
 // By age, I mean the star's age at redshift zero.

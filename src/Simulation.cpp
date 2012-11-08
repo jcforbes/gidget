@@ -44,17 +44,26 @@ int Simulation::runToConvergence(const double fCondition,
 				 const std::string filename,
 				 const double zrelax)
 {
+
+  std::vector<double> UU(nx+1,0.),LL(nx+1,0.),DD(nx+1,0.),FF(nx+1,0.), 
+               UUst(nx+1,0.),LLst(nx+1,0.),DDst(nx+1,0.),FFst(nx+1,0.),
+               MdotiPlusHalf(nx+1,0.), MdotiPlusHalfStar(nx+1,0.);
     // Initialize a 2 by nx vector to store the torque and its first derivative.
   double **tauvec;
+  double **tauvecStar;
   tauvec = new double *[3];
+  tauvecStar = new double *[3];
   for(unsigned int k=1; k<=2; ++k) {
     tauvec[k] = new double[nx+2];
+    tauvecStar[k] = new double[nx+2];
   }
 
   // This is the equilibrium solution to the torque eq from Krumholz & Burkert 2010
   for(unsigned int n=1; n<=nx; ++n) {
     tauvec[1][n]=-theDisk.GetX()[n];
     tauvec[2][n]=-1.;
+    tauvecStar[1][n] = 0.0;
+    tauvecStar[2][n] = 0.0;
   }
 
   // Record various quantities at various time intervals at various
@@ -119,7 +128,8 @@ int Simulation::runToConvergence(const double fCondition,
       theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
       theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
       
-      theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec);
+      theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
+
       writeIndex++;
 
       std::cout << "Writing out file "<<writeIndex<<" at t = "<<present/(speryear*1.0e9)<<" Gyr, z= "<<z<<std::endl;
@@ -140,21 +150,8 @@ int Simulation::runToConvergence(const double fCondition,
     
     // Compute the rate at which stars are moving inwards (yy)
 
-    /*  // Uncomment this block of code and comment 'theDisk.ComputeY();' 
-	// to set vr_*=vr_g artificially. Note, of course, that this will 
-	// completely toss out the prescription that 
-	// dQ_* /dt = max(Qlim-Q*,0)/(Tmig(2pi Omega)^-1)
-	// I have not had success with this- weird things tend to 
-	// happen near the center of the disk.
-    for(unsigned int n=1;n<=nx;++n) {
-      if(step==0)
-	theDisk.GetYy()[n]=0.;
-      else 
-	theDisk.GetYy()[n] = tauvec[2][n] / (2.*PI*theDisk.GetX()[n]*theDisk.GetUu()[n]*theDisk.GetCol()[n]*(1.+theDisk.GetBeta()[n]));
-    }
-    */
 
-    theDisk.ComputeY(ndecay);
+    // theDisk.ComputeY(ndecay);
 
     // Compute dQ/dA and its error, where A is a stand-in for every state variable
     theDisk.ComputePartials();
@@ -170,8 +167,13 @@ int Simulation::runToConvergence(const double fCondition,
     // the accretion rate remains non-negative.
     if(AccRate<0.0) errormsg("Negative accretion history!");
 
+    theDisk.UpdateStTorqueCoeffs(UUst,DDst,LLst,FFst);
+    theDisk.ComputeGItorque(tauvecStar,0.0,0.0,UUst,DDst,LLst,FFst,MdotiPlusHalfStar);
+
+
+
     // Update the coefficients of the torque equation
-    theDisk.UpdateCoeffs(z);
+    theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar);
 
 
     // Solve the torque equation. The commented versions represent various choices
@@ -191,23 +193,23 @@ int Simulation::runToConvergence(const double fCondition,
         OBC=-1.0*theDisk.dmdtCosOuter(AccRate);
     else
         OBC=-1.0*AccRate;
-    theDisk.ComputeGItorque(tauvec,IBC,OBC);
+    theDisk.ComputeGItorque(tauvec,IBC,OBC,UU,DD,LL,FF,MdotiPlusHalf);
     //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 
     // In situations where the alpha viscosity produces larger torques 
     // than the GI viscosity, use the alpha viscosity instead:
-    theDisk.ComputeMRItorque(tauvec,alphaMRI,IBC,OBC,ndecay);
+    // theDisk.ComputeMRItorque(tauvec,alphaMRI,IBC,OBC,ndecay);
 
     // Given the solution to the torque equation, compute time 
     // derivatives of the state variables
-    theDisk.ComputeDerivs(tauvec);
+    theDisk.ComputeDerivs(tauvec,MdotiPlusHalf);
 
     // Given the derivatives, compute a time step over which none of the variables
     // change by too much. whichVar tells us which state variable is limiting the timestep
     // and whichCell tells us which cell is limiting the timestep. Both of these values
     // are printed every 5000 timesteps (see below).
     dtPrev = dt;
-    dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell); 
+    dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell,tauvecStar); 
 
     // Every time step, check whether each of the convergence checks has a value
     // which needs to be updated.
@@ -226,7 +228,7 @@ int Simulation::runToConvergence(const double fCondition,
 
 
     // And finally, update the state variables
-    theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate); 
+    theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate,tauvecStar,MdotiPlusHalf); 
 
     // update the independent variables.
     if(cosmologyOn) z-=dz(dt,z,theDisk.GetCos(),theDisk.GetDim());
@@ -275,15 +277,17 @@ int Simulation::runToConvergence(const double fCondition,
 
     theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
     theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-    theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec);
+    theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
   }
 
  
   // de-allocate memory
   for(unsigned int k=1; k<=2; ++k) {
     delete tauvec[k];
+    delete tauvecStar[k];
   }
   delete[] tauvec;
+  delete[] tauvecStar;
 
 
   // Tell the caller why the run halted.

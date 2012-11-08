@@ -10,10 +10,13 @@
 
 // typical constructor
 StellarPop::StellarPop(unsigned int nx,double y,double o) :
-  spcol(std::vector<double>(nx+1,0.)), spsig(std::vector<double>(nx+1,0.)),
+  spcol(std::vector<double>(nx+1,0.)), spsigR(std::vector<double>(nx+1,0.)),
+  spsigZ(std::vector<double>(nx+1,0.)),
   spZ(std::vector<double>(nx+1,0.)), spZV(std::vector<double>(nx+1,0.)),
   dQdS(std::vector<double>(nx+1,0.)),
-  dQds(std::vector<double>(nx+1,0.)), dQdSerr(std::vector<double>(nx+1,0.)),
+  dQdsR(std::vector<double>(nx+1,0.)), 
+  dQdsZ(std::vector<double>(nx+1,0.)),
+  dQdSerr(std::vector<double>(nx+1,0.)),
   dQdserr(std::vector<double>(nx+1,0.)),
   youngest(y),oldest(o),ageAtz0((o+y)/2.0)
 { }
@@ -21,11 +24,13 @@ StellarPop::StellarPop(unsigned int nx,double y,double o) :
 // default constructor
 StellarPop::StellarPop() :  
   spcol(std::vector<double>(1,0.)), 
-  spsig(std::vector<double>(1,0.)),
+  spsigR(std::vector<double>(1,0.)),
+  spsigZ(std::vector<double>(1,0.)),
   spZ(std::vector<double>(1,0.)), 
   spZV(std::vector<double>(1,0.)),
   dQdS(std::vector<double>(1,0.)),
-  dQds(std::vector<double>(1,0.)), 
+  dQdsR(std::vector<double>(1,0.)), 
+  dQdsZ(std::vector<double>(1,0.)),
   dQdSerr(std::vector<double>(1,0.)),
   dQdserr(std::vector<double>(1,0.)),
   youngest(-1.),oldest(-1.),ageAtz0(-1.)      
@@ -60,11 +65,13 @@ StellarPop::StellarPop() :
 // copy constructor
 StellarPop::StellarPop(const StellarPop& copy_from) :
   spcol(copy_from.GetSpCol()),
-  spsig(copy_from.GetSpSig()),
+  spsigR(copy_from.GetSpSigR()),
+  spsigZ(copy_from.GetSpSigZ()),
   spZ(copy_from.GetSpZ()),
   spZV(copy_from.GetSpZV()),
   dQdS(copy_from.GetdQdS()),
-  dQds(copy_from.GetdQds()),
+  dQdsR(copy_from.GetdQdsR()),
+  dQdsZ(copy_from.GetdQdsZ()),
   dQdSerr(copy_from.GetdQdSerr()),
   dQdserr(copy_from.GetdQdserr()),
   youngest(copy_from.GetYoungest()),
@@ -79,11 +86,13 @@ StellarPop & StellarPop::operator= (const StellarPop& copy_from)
 {
   const unsigned int nxp1= copy_from.GetSpCol().size();
   spcol.resize(nxp1);
-  spsig.resize(nxp1);
+  spsigR.resize(nxp1);
+  spsigZ.resize(nxp1);
   spZ.resize(nxp1);
   spZV.resize(nxp1);
   dQdS.resize(nxp1);
-  dQds.resize(nxp1);
+  dQdsR.resize(nxp1);
+  dQdsZ.resize(nxp1);
   dQdSerr.resize(nxp1);
   dQdserr.resize(nxp1);
 
@@ -91,11 +100,13 @@ StellarPop & StellarPop::operator= (const StellarPop& copy_from)
   youngest = copy_from.GetYoungest();
   oldest=copy_from.GetOldest();
   spcol = copy_from.GetSpCol();
-  spsig = copy_from.GetSpSig();
+  spsigR = copy_from.GetSpSigR();
+  spsigZ = copy_from.GetSpSigZ();
   spZ = copy_from.GetSpZ();
   spZV = copy_from.GetSpZV();
   dQdS = copy_from.GetdQdS();
-  dQds = copy_from.GetdQds();
+  dQdsR = copy_from.GetdQdsR();
+  dQdsZ = copy_from.GetdQdsZ();
   dQdSerr = copy_from.GetdQdSerr();
   dQdserr = copy_from.GetdQdserr();
 //
@@ -127,9 +138,12 @@ void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)
       // otherwise do nothing.
       
       // sig3 ^2 = (col1*sig1^2 + col2*sig2^2)/(col1+col2):
-      (*this).spsig[i]= sqrt((((*this).spcol[i])*((*this).spsig[i])*((*this).spsig[i]) 
-                              + (sp2.spcol[i])*(sp2.spsig[i])*(sp2.spsig[i]))
+      spsigR[i]= sqrt(((spcol[i])*((*this).spsigR[i])*((*this).spsigR[i]) 
+                              + (sp2.spcol[i])*(sp2.spsigR[i])*(sp2.spsigR[i]))
                              /((*this).spcol[i]+sp2.spcol[i]));
+      spsigZ[i]= sqrt((spcol[i]*spsigZ[i]*spsigZ[i] 
+		       + sp2.spcol[i]*sp2.spsigZ[i]*sp2.spsigZ[i])
+		      /(spcol[i]+sp2.spcol[i]));
       //    (*this).spZ[i] = ((*this).spZ[i] * (*this).spcol[i] + sp2.spZ[i] * sp2.spcol[i]) / ((*this).spcol[i] + sp2.spcol[i]);
       // explicitly state the moments of each metallicity distribution:
       double wtdAvg = ((*this).spZ[i]*(*this).spcol[i] + sp2.spZ[i]*sp2.spcol[i])/((*this).spcol[i] + sp2.spcol[i]);
@@ -142,11 +156,13 @@ void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)
       
       // Merge the two distributions:
       (*this).spZ[i] = wtdAvg;
-      (*this).spZV[i] = wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
-        + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
+ //     (*this).spZV[i] = wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
+ //       + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
+      spZV[i] = ComputeVariance(spcol[i],0.0, sp2.spcol[i],
+				spZ[i],sp2.spZ[i],spZV[i],sp2.spZV[i]);
       
-      if((*this).spsig[i]!=(*this).spsig[i])
-        errormsg("Error merging populations:  this spcol,spsig  sp2 spcol,spsig  "+str((*this).spcol[i])+" "+str((*this).spsig[i])+"  "+str(sp2.spcol[i])+" "+str(sp2.spsig[i]));
+      if((*this).spsigR[i]!=(*this).spsigR[i] || spsigZ[i]!=spsigZ[i])
+        errormsg("Error merging populations:  this spcol,spsig  sp2 spcol,spsig  "+str((*this).spcol[i])+" "+str((*this).spsigR[i])+"  "+str(sp2.spcol[i])+" "+str(sp2.spsigR[i]));
     }
   }
   double m1= disk.TotalWeightedByArea((*this).spcol); // mass of sp1
@@ -168,7 +184,8 @@ void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)
 void StellarPop::extract(StellarPop& sp2, double frac) 
 {
   for(unsigned int n=1; n<=sp2.spcol.size()-1; ++n) {
-    spsig[n] = sp2.spsig[n];
+    spsigR[n] = sp2.spsigR[n];
+    spsigZ[n] = sp2.spsigZ[n];
     spcol[n] = frac*sp2.spcol[n];
     spZ[n] = sp2.spZ[n];
     spZV[n] = sp2.spZV[n];
@@ -178,90 +195,133 @@ void StellarPop::extract(StellarPop& sp2, double frac)
 
 }
 
-void StellarPop::MigrateStellarPop(double dt, std::vector<double>& yy, DiskContents& disk)
+void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents& disk)
 {
-  std::vector<double> dcolh((*this).spcol.size());
-  std::vector<double> dsigh(dcolh.size());
-  std::vector<double> dZh(dcolh.size());
-  std::vector<double> incomingMass(dcolh.size());
-  std::vector<double> outgoingMass(dcolh.size());
-  std::vector<double> incomingZ(dcolh.size());
-  std::vector<double> incomingZV(dcolh.size());
-  std::vector<double> cellMass(dcolh.size());
+  // A few convenience vectors to store data before updating the state variables.
+  // These hold derivatives:
+  std::vector<double> dcoldt(spcol.size());
+  std::vector<double> dsigRdt(spcol.size());
+  std::vector<double> dZdt(spcol.size());
+  std::vector<double> MdotiPlusHalf(spcol.size());
+  // These refer back to mesh variables referenced by the disk object:
+  std::vector<double>& uu = disk.GetUu();
+  std::vector<double>& beta = disk.GetBeta();
+  std::vector<double>& x = disk.GetX();
+  FixedMesh & mesh = disk.GetMesh();
+  // These store information about the metal fluxes to calculate the new variance of Z, spZV.
+  std::vector<double> incomingMass(spcol.size(),0.0);
+  std::vector<double> outgoingMass(spcol.size(),0.0);
+  std::vector<double> incomingZ(spcol.size());
+  std::vector<double> incomingZV(spcol.size());
+  std::vector<double> cellMass(spcol.size());
 
-  std::vector<double> flux(dcolh.size());
-  for(unsigned int n=1; n<=spcol.size()-2; ++n) {
-    double ym = yy[n+1];
-    if(fabs(ym) > fabs(yy[n])) ym=yy[n]; //minmod
-    if(yy[n] * yy[n+1] <= 0.0) ym=0.0;
-    double cst = spcol[n+1];
-    if(ym > 0.0) cst = spcol[n+1];
-
-    flux[n] = 2.0*M_PI*sqrt(disk.GetX()[n]*disk.GetX()[n+1]) * ym * cst ;
-    if(n==1 && flux[n]>1.0) {
-	flux[n]=0.0; // no stars can come out of the bulge.
-//	std::cerr << "Warning: positive flux of stars out of the bulge. flux= "+str(flux[n]) << std::endl;
-    }
-  }
-  flux[spcol.size()-1]=0.0;
-
-//  double sum1=0;
-//  double sum2=0;
-//  double sum3=0;
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
-//    dcolh[n] = -2.*M_PI*((*this).spcol[n]*ddx(yy,n,disk.GetX()) + ddx((*this).spcol,n,disk.GetX()) *yy[n] + (*this).spcol[n]*yy[n]/disk.GetX()[n]);
-//    dsigh[n] = -2.*M_PI*yy[n]*((1.+disk.GetBeta()[n])*disk.GetUu()[n]*disk.GetUu()[n]/(3.*(*this).spsig[n]*disk.GetX()[n]) + ddx((*this).spsig,n,disk.GetX()));
-    if(n<spcol.size()-1) {
-     double sigp2 = (2./3.) * (disk.GetMesh().psi(disk.GetX()[n+1])-disk.GetMesh().psi(disk.GetX()[n])) + (1./3.) * (disk.GetUu()[n+1]*disk.GetUu()[n+1]-disk.GetUu()[n]*disk.GetUu()[n]) + spsig[n+1]*spsig[n+1];
-     dsigh[n] = -2.0*M_PI/ (2.0*disk.GetX()[n]*disk.GetX()[n]*disk.GetDlnx()*spcol[n]*spsig[n]) * (disk.GetX()[n+1]*yy[n+1]*spcol[n+1]*(sigp2-spsig[n]*spsig[n]));
+  //  tauvecStar[2][n] = (tauvecStar[1][n+1]-tauvecStar[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
+    MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvecStar[1][n+1]-tauvecStar[1][n])/(mesh.x(n+1)-x[n]);
+  }
+  MdotiPlusHalf[0]= -1.0/mesh.u1pbPlusHalf(0) * (tauvecStar[1][1]-tauvecStar[1][0])/(x[1]-mesh.x(0.0));
+  
+  for(unsigned int n=1; n<=spcol.size()-1; ++n) {
+    double f = (spcol[n]/disk.activeColSt(n));
+    dcoldt[n] = f*(MdotiPlusHalf[n]-MdotiPlusHalf[n-1])/(x[n]*mesh.dx(n));
+    double MdotCentered = (-tauvecStar[2][n]*f
+		          /(uu[n]*(1+beta[n]))); // FOR THIS COMPONENT (note the Sigma_*,i/Sigma_* term) 
+    dsigRdt[n] = MdotCentered* 
+      (1.0/(x[n]*spcol[n]*(spsigR[n] + spsigZ[n]))) *
+      (2.0*spsigZ[n]*ddx(spsigZ,n,x)
+       + 3.0* spsigR[n]*ddx(spsigR,n,x) 
+       + spsigR[n]*spsigR[n]*ddx(spcol,n,x)/spcol[n] 
+       + (spsigR[n]*spsigR[n] - spsigZ[n]*spsigZ[n])/x[n]);
+    dZdt[n] =  MdotCentered*ddx(spZ,n,x)/(x[n]*spcol[n]);
+
+
+
+    // Now we proceed to do what looks like a ridiculous amount of work to compute spZV.
+    cellMass[n] = spcol[n]*x[n]*mesh.dx(n);
+    bool fromRight = MdotiPlusHalf[n]>0.0;
+    bool fromLeft = MdotiPlusHalf[n-1]<0.0;
+    unsigned nx = spcol.size()-1;
+    double spZp1, spZVp1, spZm1, spZVm1;
+    if(n<nx) { 
+      spZp1=spZ[n+1];
+      spZVp1=spZ[n+1];
     }
-    else dsigh[n] = 0.0;
-     
-
-    dZh[n] = -2.*M_PI*yy[n]*ddx((*this).spZ,n,disk.GetX());
-    
-    //    dcolh[n] = (flux[n-1]-flux[n])  / (disk.GetX()[n] * disk.GetX()[n] * disk.GetDlnx());
-    dcolh[n] = dSMigdt(n,yy,disk.GetX(),(*this).spcol);
-
-
-//    sum1+=-2.*M_PI*((*this).spcol[n]*ddx(yy,n,disk.GetX())) * disk.GetX()[n] * disk.GetX()[n];
-//    sum2+=-2.*M_PI*ddx((*this).spcol,n,disk.GetX())*yy[n] * disk.GetX()[n] * disk.GetX()[n];
-//    sum3+=-2.*M_PI*(*this).spcol[n]*yy[n]/disk.GetX()[n] * disk.GetX()[n] * disk.GetX()[n];
-
-    if(n==spcol.size()-1) {
-      incomingMass[n]=0.0;
-      incomingZ[n]=0;
-      incomingZV[n]=0;
+    else { // these values shouldn't matter in theory.
+      spZp1 = 0.0;
+      spZVp1 = 0.0;
     }
-    else {
-      incomingMass[n] = -4*M_PI*M_PI*disk.GetX()[n+1]*spcol[n+1]*yy[n+1]*dt;
-      incomingZ[n] = spZ[n+1];
-      incomingZV[n]=spZV[n+1];
+    if(n>1) {
+      spZm1=spZ[n-1];
+      spZVm1=spZV[n-1];
     }
-    outgoingMass[n] = -4*M_PI*M_PI*disk.GetX()[n]*spcol[n]*yy[n]*dt;
-    cellMass[n] = 2.*M_PI*disk.GetX()[n]*disk.GetX()[n]*disk.GetDlnx()*spcol[n];
+    else { // again, these values should not affect the calculation.
+      spZm1= 0.0;
+      spZVm1= 0.0;
+    }
+    if(fromRight) {
+      incomingMass[n] += MdotiPlusHalf[n]*dt;
+      if( !fromLeft) {
+        incomingZ[n] = spZ[n+1];
+        incomingZV[n] = spZV[n+1];
+      }
+    }
+    if(!fromRight) {
+      outgoingMass[n] -= MdotiPlusHalf[n]*dt; 
+    }
+    if(fromLeft) {
+      incomingMass[n] -= MdotiPlusHalf[n-1]*dt;
+      if(n>1 && !fromRight) {
+        incomingZ[n] = spZ[n-1];
+        incomingZV[n] = spZV[n-1];
+      }
+    }
+    if(!fromLeft) {
+      outgoingMass[n] += MdotiPlusHalf[n-1]*dt;
+    }
+    if(fromLeft && fromRight) {
+      incomingZ[n] = (MdotiPlusHalf[n]*dt*spZp1 - MdotiPlusHalf[n-1]*dt*spZm1)/incomingMass[n];
+      incomingZV[n] = ComputeVariance(MdotiPlusHalf[n]*dt,0.0,-MdotiPlusHalf[n-1]*dt,
+                                      spZp1, spZm1, spZVp1, spZVm1);
+    }
+
   }
 
-  //  if(sum1+sum2+sum3>0.0) {
-  //    errormsg("Error migrating the population: mass was artificially created! sum1 sum2 sum3 sum: "+str(sum1)+" "+str(sum2)+" "+str(sum3)+" "+str(sum1+sum2+sum3));
-  //  }
-
-  for(unsigned int n=1; n<=dZh.size()-1; ++n) {
-//    (*this).spcol[n] += dcolh[n]*dt;
-    (*this).spsig[n] += dsigh[n]*dt;
-    if(spsig[n] < disk.GetMinSigSt()*.9999999) 
-	errormsg("Sigst below floor!");
-    (*this).spZ[n] += dZh[n]*dt ;
-    (*this).spcol[n] += dSMigdt(n,yy,disk.GetX(),(*this).spcol)*dt;
-    double wt1 = cellMass[n] - outgoingMass[n];
-    double wt2 = incomingMass[n];
-    double avg1 = spZ[n];
-    double avg2 = incomingZ[n];
-    double var1 = spZV[n];
-    double var2 = incomingZV[n];
-    double wtdAvg = (wt1*avg1 + wt2*avg2)/(wt1+wt2);
-    spZV[n] = wt1/(wt1+wt2)* (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
-      + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
-
+  for(unsigned int n=1; n<=spcol.size()-1; ++n) {
+    spcol[n] += dcoldt[n]*dt;
+    spsigR[n] += dsigRdt[n]*dt;
+    spsigZ[n] += .5*dsigRdt[n]*dt;
+    spZ[n] += dZdt[n]*dt;
+    spZV[n] = ComputeVariance(cellMass[n],outgoingMass[n],incomingMass[n],
+                              spZ[n],incomingZ[n],spZV[n],incomingZV[n]);
+    if(spcol[n]<0 || spsigR[n]<0 || spsigZ[n]<0 || spZ[n]<0 || spZV[n]<0 ||
+       spcol[n]!=spcol[n] || spsigR[n]!=spsigR[n] || spsigZ[n]!=spsigZ[n] ||
+       spZ[n]!=spZ[n] || spZV[n]!=spZV[n])
+       errormsg("Migrating the populations has produced nonsensical results!");
   }
 }
+
+
+
+
+
+
+double ComputeVariance(double cellMass, double outgoingMass, double incomingMass, 
+                       double Z, double incomingZ, double ZV, double incomingZV)
+{
+    double wt1 = cellMass - outgoingMass;
+    double wt2 = incomingMass;
+    double avg1 = Z;
+    double avg2 = incomingZ;
+    double var1 = ZV;
+    double var2 = incomingZV;
+    double wtdAvg = (wt1*avg1 + wt2*avg2)/(wt1+wt2);
+    double val;
+    val =  wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
+         + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
+
+    if(val >= 0.0) return val;
+    else if(val <-1.0e-10)
+      errormsg("Something has gone wrong in computing the variance of metallicity.");
+    else return 0.0;
+}
+

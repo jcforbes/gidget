@@ -15,9 +15,9 @@ FUNCTION simpleranges,data,wrtxlog
     IF(wrtXlog[k] EQ 1) THEN BEGIN
       flat = data[*,*,k,*]
       ind = WHERE(flat GT 0.0, ct)
-      IF(ct NE 0) THEN ranges[0,k] = MIN(flat[ind])
-      med = median(flat[ind])
-   
+      IF(ct NE 0) THEN ranges[0,k] = MIN(flat[ind]) ELSE ranges[0,k]=.1
+      IF(ct NE 0) THEN med = median(flat[ind]) ELSE med =1
+      IF(ct EQ 0) THEN ranges[*,k] = [.1,1]
       fac = 1.0e9
       ;; Set a maximum dynamic range so that a few bad apples don't spoil the readability of the plot
       IF(ranges[1,k] / ranges[0,k] GT fac) THEN BEGIN

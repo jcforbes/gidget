@@ -547,9 +547,10 @@ if __name__ == "__main__":
     for i in range(len(factors)):
       rq7.append(experiment("rq14"+chr(ord("a")+i)))
       rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-      rq7[i].irregularVary("TOL",1.0e-4)
+      rq7[i].irregularVary("TOL",1.0e-3)
       Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
       rq7[i].irregularVary('phi0',[1.0])
+      #rq7[i].irregularVary('Qlim',[0.0])
       #rq4[i].irregularVary('xmin',[.001])
       #rq4[i].irregularVary('R',[50])
       scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
@@ -559,6 +560,7 @@ if __name__ == "__main__":
       rq7[i].irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1.0/3.0)),3)
       rq7[i].irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1.0/3.0)),3)
       #rq7[i].irregularVary('zquench',[1.4])
+
 
     rq8=[]
     # rq8: same sort of experiments as above, but vary the accretion histories.

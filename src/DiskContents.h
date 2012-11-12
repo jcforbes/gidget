@@ -120,6 +120,7 @@ class DiskContents {
   Dimensions& GetDim() { return dim;}
   Cosmology& GetCos() { return cos;}
   FixedMesh& GetMesh() { return mesh;}
+  Debug& GetDbg() { return dbg;}
 
   // Compute the time derivatives of all state variables 
   // at all radii.
@@ -135,7 +136,9 @@ class DiskContents {
   // derivatives, do a forward Euler step
   void UpdateStateVars(const double dt, const double dtPrev, 
 		       const double redshift,double **tauvec,double AccRate,
-                       double **tauvecStar,std::vector<double>& MdotiPlusHalf);
+                       double **tauvecStar,
+		       std::vector<double>& MdotiPlusHalf,
+		       std::vector<double>& MdotiPlusHalfStar);
 
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables

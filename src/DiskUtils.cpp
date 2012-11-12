@@ -58,6 +58,7 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
  
 double dSMigdt(unsigned int n, double ** tauvecStar, DiskContents& disk, std::vector<double>& spcol)
 {
+  // return 0.0; //// VERY ARTIFICIAL - FOR DEBUGGING ONLY
   FixedMesh & mesh = disk.GetMesh();
   std::vector<double>& x = disk.GetX();
   return 
@@ -65,6 +66,16 @@ double dSMigdt(unsigned int n, double ** tauvecStar, DiskContents& disk, std::ve
   - (-1.0/mesh.u1pbPlusHalf(n-1))*(tauvecStar[1][n]-tauvecStar[1][n-1])/(x[n]-mesh.x(n-1))) // mass flux from n->n-1
   *(1.0/(x[n]*mesh.dx(n))) * (spcol[n] / disk.activeColSt(n)); // (1/area) * (fraction of stars in this pop)
 }
+
+
+//double dSMigdt(unsigned int n, std::vector<double>& MdotiPlusHalfStar, DiskContents& disk, std::vector<double>& spcol)
+//{
+//  FixedMesh & mesh = disk.GetMesh();
+//  std::vector<double>& x = disk.GetX();
+// return 
+//  (MdotiPlusHalfStar[n] - MdotiPlusHalfStar[n-1])
+//  *(1.0/(x[n]*mesh.dx(n))) * (spcol[n] / disk.activeColSt(n)); // (1/area) * (fraction of stars in this pop)
+//}
 
 
 
@@ -141,7 +152,7 @@ double Q(RafikovQParams *qp, double *absc)
     double Qst = rs / QsinvRi;
     double W = 2./ (rs + 1./rs);
     
-    if(Qst > (*qp).Qg) {
+    if(Qst * (qp->thickStars) > (*qp).Qg * (qp->thickGas)) {
       return 1.0/ (W/(Qst*(*qp).thickStars) + 1./((*qp).Qg *(*qp).thickGas) );
     }
     else {

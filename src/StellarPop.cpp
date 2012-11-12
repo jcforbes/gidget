@@ -3,6 +3,7 @@
 #include "DiskContents.h"
 #include "DiskUtils.h"
 #include "FixedMesh.h"
+#include "Debug.h"
 
 #include <math.h>
 #include <vector>
@@ -36,31 +37,7 @@ StellarPop::StellarPop() :
   youngest(-1.),oldest(-1.),ageAtz0(-1.)      
 { }
 
-//// copy constructor
-//StellarPop::StellarPop(const StellarPop& copy_from) :
-//  spcol(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  spsig(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  spZ(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  spZV(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  dQdS(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  dQds(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  dQdSerr(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  dQdserr(std::vector<double>(copy_from.GetSpCol().size(),0.)),
-//  youngest(copy_from.GetYoungest()),
-//  oldest(copy_from.GetOldest()),
-//  ageAtz0(copy_from.GetAgeAtz0())
-//{
-//  for(unsigned int n=1; n<=spcol.size(); ++n) {
-//    spcol[n] = copy_from.GetSpCol()[n];
-//    spsig[n] = copy_from.GetSpSig()[n];
-//    spZ[n] = copy_from.GetSpZ()[n];
-//    spZV[n] = copy_from.GetSpZV()[n];
-//    dQdS[n] = copy_from.GetdQdS()[n];
-//    dQds[n] = copy_from.GetdQds()[n];
-//    dQdSerr[n] = copy_from.GetdQdSerr()[n];
-//    dQdserr[n] = copy_from.GetdQdserr()[n];
-//  }
-//}
+
 
 // copy constructor
 StellarPop::StellarPop(const StellarPop& copy_from) :
@@ -195,14 +172,14 @@ void StellarPop::extract(StellarPop& sp2, double frac)
 
 }
 
-void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents& disk)
+void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents& disk, std::vector<double>& MdotiPlusHalf)
 {
   // A few convenience vectors to store data before updating the state variables.
   // These hold derivatives:
   std::vector<double> dcoldt(spcol.size());
   std::vector<double> dsigRdt(spcol.size());
   std::vector<double> dZdt(spcol.size());
-  std::vector<double> MdotiPlusHalf(spcol.size());
+  //std::vector<double> MdotiPlusHalf(spcol.size());
   // These refer back to mesh variables referenced by the disk object:
   std::vector<double>& uu = disk.GetUu();
   std::vector<double>& beta = disk.GetBeta();
@@ -214,23 +191,38 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
   std::vector<double> incomingZ(spcol.size());
   std::vector<double> incomingZV(spcol.size());
   std::vector<double> cellMass(spcol.size());
+  Debug& dbg = disk.GetDbg();
+  double spsigZp1,spsigRp1,spcolp1;
+  unsigned int nx=spcol.size()-1;
 
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
   //  tauvecStar[2][n] = (tauvecStar[1][n+1]-tauvecStar[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
-    MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvecStar[1][n+1]-tauvecStar[1][n])/(mesh.x(n+1)-x[n]);
+  //  MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvecStar[1][n+1]-tauvecStar[1][n])/(mesh.x(n+1)-x[n]);
   }
-  MdotiPlusHalf[0]= -1.0/mesh.u1pbPlusHalf(0) * (tauvecStar[1][1]-tauvecStar[1][0])/(x[1]-mesh.x(0.0));
+//  MdotiPlusHalf[0]= -1.0/mesh.u1pbPlusHalf(0) * (tauvecStar[1][1]-tauvecStar[1][0])/(x[1]-mesh.x(0.0));
   
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
     double f = (spcol[n]/disk.activeColSt(n));
     dcoldt[n] = f*(MdotiPlusHalf[n]-MdotiPlusHalf[n-1])/(x[n]*mesh.dx(n));
     double MdotCentered = (-tauvecStar[2][n]*f
-		          /(uu[n]*(1+beta[n]))); // FOR THIS COMPONENT (note the Sigma_*,i/Sigma_* term) 
+		          /(uu[n]*(1+beta[n]))); 
+    if(dbg.opt(10)) MdotCentered=(-tauvecStar[2][n]*f/mesh.u1pbPlusHalf(n));
+    if(n<nx) {
+      spsigZp1=spsigZ[n+1];
+      spsigRp1=spsigR[n+1];
+      spcolp1 =spcol[n+1];
+    }
+    else {
+      spsigZp1=spsigZ[nx];
+      spsigRp1=spsigR[nx];
+      spcolp1 =spcol[nx];
+    }
+
     dsigRdt[n] = MdotCentered* 
       (1.0/(x[n]*spcol[n]*(spsigR[n] + spsigZ[n]))) *
       (2.0*spsigZ[n]*ddx(spsigZ,n,x)
-       + 3.0* spsigR[n]*ddx(spsigR,n,x) 
-       + spsigR[n]*spsigR[n]*ddx(spcol,n,x)/spcol[n] 
+       + 3.0* spsigR[n]* ddx(spsigR,n,x) 
+       + spsigR[n]*spsigR[n]/spcol[n]*ddx(spcol,n,x)
        + (spsigR[n]*spsigR[n] - spsigZ[n]*spsigZ[n])/x[n]);
     dZdt[n] =  MdotCentered*ddx(spZ,n,x)/(x[n]*spcol[n]);
 

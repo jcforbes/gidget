@@ -283,6 +283,8 @@ PRO variability3,expNames,keys,N,sv
   DEVICE,DECOMPOSED=0
   DEVICE,RETAIN=2
 
+  theNTS=202
+
   proftimes=dblarr(5)
   proftimes[0]=systime(1)
 
@@ -329,13 +331,14 @@ PRO variability3,expNames,keys,N,sv
 
   time = model.evArray[1,*]  
   z = model.evArray[10-1,*]
+  
 
   ;; (# timesteps) x (nx) x (# of columns) x (# models)
-  theData= dblarr(n_elements(model.dataCube[*,0,0]),n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
+  theData= dblarr(theNTS,n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
 
   NVS = 28
   ;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 20) x (# models)
-  vsMdot = dblarr(n_elements(model.dataCube[*,0,0]),1,NVS,n_elements(nameList2))
+  vsMdot = dblarr(theNTS,1,NVS,n_elements(nameList2))
   nameList4 = strarr(n_elements(nameList2))
 
 
@@ -358,12 +361,16 @@ PRO variability3,expNames,keys,N,sv
        IF(i NE 0) THEN model = (*(modelPtr[0]))
        zi=nearest("redshift",1,model,0.0)
        offsets=[0,model.ncolstep,model.ncolstep+model.npostprocess]
-
+       IF(n_elements(model.evArray[1,*]) EQ theNTS) THEN BEGIN
+         time = model.evArray[1,*]  
+         z = model.evArray[10-1,*]
+       ENDIF
        x = model.dataCube[0,*,0]
 
        ;; if this model has the appropriate number of time steps..
        ;;PRINT,"Number of time steps",n_elements(model.dataCube[*,0,0]),n_elements(theData[*,0,0,0])
-       IF(n_elements(model.dataCube[*,0,0]) EQ n_elements(theData[*,0,0,0])) THEN BEGIN
+       ;IF(n_elements(model.dataCube[*,0,0]) EQ n_elements(theData[*,0,0,0])) THEN BEGIN
+       IF(n_elements(model.dataCube[*,0,0]) EQ theNTS) THEN BEGIN
          FOR k=0,n_elements(wrtXyy)-1 DO BEGIN	
            theData[*,*,k,ctr] = model.dataCube[*,*,wrtXyy[k]+offsets[wrtXyp[k]]-1]
          ENDFOR
@@ -493,6 +500,7 @@ PRO variability3,expNames,keys,N,sv
         wh = WHERE (st GE nc*(float(nmodels)/float(ncolors)) and st LT (nc+1)*(float(nmodels)/float(ncolors)))
         ll = fix(float(nc)*float(nmodels)/float(ncolors))
         hh = fix(float(nc+1)*(float(nmodels)/float(ncolors)))-1
+        IF(hh LT 0) THEN hh=0
         colors[zi,st[ll:hh]] = nc
         ;STOP
       ENDFOR
@@ -500,11 +508,12 @@ PRO variability3,expNames,keys,N,sv
   ENDIF
 
   thicknesses=intarr(nmodels)+1
-  st= sort(vsMdot[201,0,2,*]/vsMdot[201,0,14,*]) ;; sort by halo mass at redshift 0.
+  st= sort(vsMdot[theNTS-1,0,2,*]/vsMdot[theNTS-1,0,14,*]) ;; sort by halo mass at redshift 0.
   FOR nc=0, ncolors-1 DO BEGIN
       wh = WHERE(st GE nc*(float(nmodels)/float(ncolors)) and st LT (nc+1)*(float(nmodels)/float(ncolors)))
       ll = fix(float(nc)*float(nmodels)/float(ncolors))
       hh = fix(float(nc+1)*(float(nmodels)/float(ncolors)))-1
+      IF(hh LT 0) THEN hh=0
       thicknesses[st[ll:hh]] = 1.0 + .5*float(nc) ;; thicker lines have higher Mh0.
   ENDFOR
 

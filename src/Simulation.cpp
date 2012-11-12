@@ -95,7 +95,8 @@ int Simulation::runToConvergence(const double fCondition,
   // terribly wrong and the simulation has no chance to 
   // run to completion)
   const double dtfloor=1.e-12; 
-  const double t0 = theDisk.GetCos().lbt(zrelax) - theDisk.GetCos().lbt(zstart);
+  const double t0 = theDisk.GetCos().lbt(zrelax) - theDisk.GetCos().lbt(zstart); // seconds
+  const double tzs = t0*dim.vphiR/(2.0*M_PI*dim.Radius);
 
   // Loop over time steps until...
   while(t<tmax &&           // the simulation has run for too many orbits
@@ -118,7 +119,7 @@ int Simulation::runToConvergence(const double fCondition,
     double present = t * 2.0*M_PI*dim.Radius / dim.vphiR - t0;
     double previous = (t-dt) * 2.0*M_PI*dim.Radius/dim.vphiR - t0;
 
-    bool timeOut = ((floor(200.0*previous/duration) < floor(200.0*present/duration) || step == 1) && writeOut ) ;
+    bool timeOut = ((floor(200.0*previous/duration) < floor(200.0*present/duration) && present>0.0 || step == 1) && writeOut ) ;
 
     if(!cosmologyOn)
       timeOut= (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
@@ -128,7 +129,7 @@ int Simulation::runToConvergence(const double fCondition,
       theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
       theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
       
-      theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
+      theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
 
       writeIndex++;
 
@@ -153,8 +154,6 @@ int Simulation::runToConvergence(const double fCondition,
 
     // theDisk.ComputeY(ndecay);
 
-    // Compute dQ/dA and its error, where A is a stand-in for every state variable
-    theDisk.ComputePartials();
 
     // Set the non-dimensional accretion rate at this redshift. Used to set
     // the boundary conditions of the torque equation.
@@ -170,6 +169,17 @@ int Simulation::runToConvergence(const double fCondition,
     theDisk.UpdateStTorqueCoeffs(UUst,DDst,LLst,FFst);
     theDisk.ComputeGItorque(tauvecStar,0.0,0.0,UUst,DDst,LLst,FFst,MdotiPlusHalfStar);
 
+    //    if(dbg.opt(10)) {
+    //      FixedMesh & mesh = theDisk.GetMesh();
+    //      for(unsigned int n=1; n<=nx; ++n) {
+    //	tauvecStar[2][n] = (tauvecStar[1][n+1]-tauvecStar[1][n])/(mesh.x(n+1)-mesh.x(n));
+    //      }
+
+    //    }
+
+
+    // Compute dQ/dA and its error, where A is a stand-in for every state variable
+    theDisk.ComputePartials();
 
 
     // Update the coefficients of the torque equation
@@ -228,7 +238,21 @@ int Simulation::runToConvergence(const double fCondition,
 
 
     // And finally, update the state variables
-    theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate,tauvecStar,MdotiPlusHalf); 
+    std::vector<double> QBeforeUpdate(nx+1,0.0);
+    std::vector<double> QAfterUpdate(nx+1,0.0);
+    for(unsigned int n=1; n<=nx; ++n) {
+      QBeforeUpdate[n] = Qsimple(n,theDisk);
+    }
+    theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate,tauvecStar,MdotiPlusHalf,MdotiPlusHalfStar); 
+    for(unsigned int n=1; n<=nx; ++n) {
+      QAfterUpdate[n] = Qsimple(n,theDisk);
+    }
+    if(z < .1) {
+      for(unsigned int n=20; n<=40; ++n) {
+        std::cout << "dQ/dt measured: z,n,val: "<<z<<" "<<n<<" "<<(QAfterUpdate[n]-QBeforeUpdate[n])/dt<<std::endl;
+      }
+    }
+
 
     // update the independent variables.
     if(cosmologyOn) z-=dz(dt,z,theDisk.GetCos(),theDisk.GetDim());
@@ -277,7 +301,7 @@ int Simulation::runToConvergence(const double fCondition,
 
     theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
     theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-    theDisk.WriteOutStepFile(filename,accr,t-t0,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
+    theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
   }
 
  

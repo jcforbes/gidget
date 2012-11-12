@@ -543,9 +543,17 @@ if __name__ == "__main__":
     # Compare to rq3. We'd like to see if the spikiness in sig can be ameliorated with a more-careful timestep.
     # rq10: put in some quenching at z=1.4
     # rq14: test out the recent minor modifications to the code
+    # 15:  16: change when partials are computed 17: change OBC to fixed-value instead of Dirichlet
+    # 18: change where mdot is calculated 19: qlim=0 20: RH Mdot, 21: slight change in dSigStZ- u1pb
+    # 22: change other derivatives to exclusively-RH. 23: short migration time
+    # 24: phi0=3, 25: fixed RW Q transition criterion, back to centered 26: dbg printed to cout
+    # 27: lower minsigst 28: d{}*dt = nominal 29: lower Qlim again 30: artificially set dSigStR=0
+    # 31: artificially set dSigStZ=0 # 32: artificially set dSMig=0, 33: artificially set sR & sZ=0
+    # 34: artificially set sR,sZ,dSMig=0, 35: back to 33 but eliminate the 'zeroing out torques'
+    # 36: with elimination of the semi-colon in torque eq.
     rq7=[]
     for i in range(len(factors)):
-      rq7.append(experiment("rq14"+chr(ord("a")+i)))
+      rq7.append(experiment("rq36"+chr(ord("a")+i)))
       rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
       rq7[i].irregularVary("TOL",1.0e-3)
       Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
@@ -556,9 +564,12 @@ if __name__ == "__main__":
       scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
       rq7[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
       rq7[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
-      rq7[i].irregularVary('zrelax',[3])
+      rq7[i].irregularVary('zrelax',[2.5])
       rq7[i].irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1.0/3.0)),3)
       rq7[i].irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1.0/3.0)),3)
+      rq7[i].irregularVary('NPassive',[1])
+      rq7[i].irregularVary('minSigSt',[0])
+      rq7[i].irregularVary('tauHeat',[10])
       #rq7[i].irregularVary('zquench',[1.4])
 
 

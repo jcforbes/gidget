@@ -29,7 +29,7 @@ class StellarPop {
 
   // Over a time period dt and given a dimensionless velocity yy inwards, migrate 
   // the stars in such a way that mass, energy, and mass in metals are conserved.
-  void MigrateStellarPop(double dt,double ** tauvecStar, DiskContents&);
+  void MigrateStellarPop(double dt,double ** tauvecStar, DiskContents&, std::vector<double>& MdotiPlusHalf);
 
   // Set the contents of the current stellar population equal to 
   // some fraction f of the mass in the population sp2.

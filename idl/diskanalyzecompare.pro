@@ -85,7 +85,8 @@ PRO MakeComparisonMovie,modelList,Xind,ind,npx,npy,fname,xranges,ranges,sv,cmt,l
   IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm "+ fn+".mpg")
   IF(sv EQ 2 || sv EQ 3) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
   IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm -rf " + dn)
-        
+  
+
   !p.multi=[0,1,1] ; clean up
   set_plot,'x'
 END
@@ -155,7 +156,7 @@ PRO diskAnalyzeCompare,modelList,sv,cmt,leg
 	ranges[1,4:7]=100
 	ranges[0,8:11]=-1.5
 	ranges[1,8:11]=.5
-	MakeComparisonMovie,modelList,Xind,ind,4,3,"stars",getranges5(modelList,Xind),getranges5(modelList,ind),sv,CMT,leg
+	;MakeComparisonMovie,modelList,Xind,ind,4,3,"stars",getranges5(modelList,Xind),getranges5(modelList,ind),sv,CMT,leg
 
 ;;	ind=[4,6,17]
 ;;	xind=ind*0+1

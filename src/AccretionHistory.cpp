@@ -17,9 +17,9 @@ AccretionHistory::~AccretionHistory()
     gsl_interp_accel_free(accel);
     gsl_spline_free(splineMh);
     gsl_interp_accel_free(accelMh);
-    delete[] acc;
-    delete[] redshift;
-    delete[] hMass;
+    //delete[] acc;
+    //delete[] redshift;
+    //delete[] hMass;
   }
 }
 

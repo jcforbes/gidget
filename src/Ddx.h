@@ -12,7 +12,7 @@ inline double ddx(double left, double right)
 };
 
 template <class T>
-double ddx(T & arr, unsigned int n, std::vector<double>& x)
+double ddx(T & arr, unsigned int n, std::vector<double>& x, bool zeroSecondDeriv)
 {
   unsigned int nx=x.size()-1;
   if(n<nx && n>1) {
@@ -33,8 +33,10 @@ double ddx(T & arr, unsigned int n, std::vector<double>& x)
     double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
     double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
 //    return ddx(left,center); <=rk36
-    return ddx(left,right); // <= rn22
-//    return left; // rn23
+    if(zeroSecondDeriv)
+      return ddx(left,right); // <= rn22
+    else
+      return left; // rn23
   }
 };
 

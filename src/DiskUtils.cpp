@@ -58,7 +58,6 @@ double flux(unsigned int n,std::vector<double>& yy, std::vector<double>& x, std:
  
 double dSMigdt(unsigned int n, double ** tauvecStar, DiskContents& disk, std::vector<double>& spcol)
 {
-  // return 0.0; //// VERY ARTIFICIAL - FOR DEBUGGING ONLY
   FixedMesh & mesh = disk.GetMesh();
   std::vector<double>& x = disk.GetX();
   return 

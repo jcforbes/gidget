@@ -550,10 +550,10 @@ if __name__ == "__main__":
     # 27: lower minsigst 28: d{}*dt = nominal 29: lower Qlim again 30: artificially set dSigStR=0
     # 31: artificially set dSigStZ=0 # 32: artificially set dSMig=0, 33: artificially set sR & sZ=0
     # 34: artificially set sR,sZ,dSMig=0, 35: back to 33 but eliminate the 'zeroing out torques'
-    # 36: with elimination of the semi-colon in torque eq.
+    # 36: with elimination of the semi-colon in torque eq. 37: change ddx
     rq7=[]
     for i in range(len(factors)):
-      rq7.append(experiment("rq36"+chr(ord("a")+i)))
+      rq7.append(experiment("rq37"+chr(ord("a")+i)))
       rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
       rq7[i].irregularVary("TOL",1.0e-3)
       Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)

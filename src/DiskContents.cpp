@@ -458,7 +458,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
       dlnZdxR=(log(ZDisk[n+1])-log(ZDisk[n]))/(x[n+1]-x[n]);
     }
     dlnZdx = ddx(dlnZdxL,dlnZdxR);
-    double taupp = ddx(tauvec[2],n,x);
+//    double taupp = ddx(tauvec[2],n,x);
     
     double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
 
@@ -468,7 +468,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
       
     dsigdtPrev[n] = dsigdt[n];
     dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
-                  - 5.0*ddx(sig,n,x)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
+                  - 5.0*ddx(sig,n,x,true)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
                   +uu[n]*(beta[n]-1.)*tauvec[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
     if(sig[n] >= sigth) {
       dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
@@ -495,7 +495,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         +std::string("tau[1],tau[2],  col,sig,taupp: ")+str(n)+" "+str(dcoldt[n])+" "
         +str(dsigdt[n])+space+str(dZDiskdt[n])+space+str(tauvec[1][n])
         +space+str(tauvec[2][n])+space+str(col[n])+space+str(sig[n])+" "
-        +str(taupp));
+        );
     }
   }
 }
@@ -825,10 +825,6 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     dColStDtMeasured[n] += activeColSt(n)/dt; // we'll subtract from this number in a bit..
     dSigStRDtMeasured[n] += activeSigStR(n)/dt;
     dSigStZDtMeasured[n] += activeSigStZ(n)/dt;
-  }
-  for(unsigned int n=1; n<=10; ++n) {
-    if(redshift <2.0 && redshift>1.95)
-      std::cout << "DBG: n, meas/nom-1: col,sigR,sigZ "<<n<<" "<<dColStDtMeasured[n]/dColStDtNominal[n]-1.0<<" "<<dSigStRDtMeasured[n]/dSigStRDtNominal[n]-1.0<<" "<<dSigStZDtMeasured[n]/dSigStZDtNominal[n]-1.0<<std::endl;
   }
 
 }
@@ -1274,7 +1270,6 @@ double DiskContents::dmdtCosInner(double AccRate)
 // knowing d s_*/dt. This function is NOT used for actually updating s_*.
 double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps,double ** tauvecStar)
 {
- // return 0.0; /// VERY ARTIFICIAL - FOR DEBUGGING ONLY
   std::vector<double> col_st ( sps[sp].spcol );
   std::vector<double> sig_stR ( sps[sp].spsigR );
   std::vector<double> sig_stZ ( sps[sp].spsigZ );
@@ -1286,9 +1281,9 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,s
   
 
   val = (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/mesh.u1pbPlusHalf(n)) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
-           (2.0*sig_stZ[n]*ddx(sig_stZ,n,x)
-          + 3.0* sig_stR[n]*ddx(sig_stR,n,x) 
-	    + sig_stR[n]*sig_stR[n]*ddx(col_st,n,x) * 1.0/col_st[n] 
+           (2.0*sig_stZ[n]*ddx(sig_stZ,n,x,false)
+          + 3.0* sig_stR[n]*ddx(sig_stR,n,x,false) 
+	    + sig_stR[n]*sig_stR[n]*ddx(col_st,n,x,false) * 1.0/col_st[n] 
           + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
 
 
@@ -1309,7 +1304,6 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,s
 // knowing d s_*/dt. This function is NOT used for actually updating s_*.
 double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps,double ** tauvecStar)
 {
-//  return 0.0; //// VERY ARTIFICIAL - FOR DEBUGGING ONLY
   std::vector<double>& col_st = sps[sp].spcol;
   std::vector<double>& sig_stR = sps[sp].spsigR;
   std::vector<double>& sig_stZ = sps[sp].spsigZ;
@@ -1317,9 +1311,9 @@ double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,double redshift,s
   double val = 0.0;
   
   val =0.5* (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/mesh.u1pbPlusHalf(n)) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
-           (2.0*sig_stZ[n]*ddx(sig_stZ,n,x)
-          + 3.0* sig_stR[n]*ddx(sig_stR,n,x) 
-          + sig_stR[n]*sig_stR[n]/col_st[n]*ddx(col_st,n,x)
+           (2.0*sig_stZ[n]*ddx(sig_stZ,n,x,false)
+          + 3.0* sig_stR[n]*ddx(sig_stR,n,x,false) 
+          + sig_stR[n]*sig_stR[n]/col_st[n]*ddx(col_st,n,x,false)
           + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
 
 
@@ -1345,11 +1339,11 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
   for(unsigned int n=1; n<=nx; ++n) {
 
     
-    UUst[n] = -1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * ddx(sigStZ,n,x) + 3.0*sigStR[n]*ddx(sigStR,n,x) + sigStR[n]*sigStR[n]*ddx(colst,n,x)/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
+    UUst[n] = -1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * ddx(sigStZ,n,x,false) + 3.0*sigStR[n]*ddx(sigStR,n,x,false) + sigStR[n]*sigStR[n]*ddx(colst,n,x,false)/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
 	- 1.0/colst[n] * 1.0/(x[n+1]-x[n]) * -1.0/mesh.u1pbPlusHalf(n) * 1.0/(x[n]*mesh.dx(n));
     DDst[n] = -1.0/colst[n] * -1.0/(mesh.x(n+1)-x[n]) * -1.0/mesh.u1pbPlusHalf(n)  * 1.0/(x[n]*mesh.dx(n))
 	+1.0/colst[n] *  1.0/(x[n]-mesh.x(n-1)) * -1.0/mesh.u1pbPlusHalf(n-1)* 1.0/(x[n]*mesh.dx(n));
-    LLst[n] = 1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * ddx(sigStZ,n,x) + 3.0*sigStR[n]*ddx(sigStR,n,x) + sigStR[n]*sigStR[n]*ddx(colst,n,x)/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
+    LLst[n] = 1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * ddx(sigStZ,n,x,false) + 3.0*sigStR[n]*ddx(sigStR,n,x,false) + sigStR[n]*sigStR[n]*ddx(colst,n,x,false)/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
 	- 1.0/colst[n] * 1.0/(x[n]-mesh.x(n-1.0)) * -1.0/mesh.u1pbPlusHalf(n-1) * 1.0/(x[n]*mesh.dx(n));
     
 
@@ -1374,8 +1368,8 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
 //  std::vector<double> LL(nx+1,0.), DD(nx+1,0.0), UU(nx+1,0.0), FF(nx+1,0.0);
   for(unsigned int n=1; n<=nx; ++n) {
     ComputeRafikovQParams(&rqp,n);
-    UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1.0)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddx(sig,n,x)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
-    LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddx(sig,n,x)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
+    UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1.0)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
+    LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)));
     DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1.0)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1.0)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n];
     FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*dcoldtCos[n];
     if(sigth<=sig[n]) {
@@ -1588,7 +1582,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
     wrt.push_back(dQdserr[n]);wrt.push_back(yy);wrt.push_back(torqueErr); // 34..36
     wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back(MdotiPlusHalf[n]*dim.MdotExt0*speryear/MSol); // 37..39
     wrt.push_back(0.0);wrt.push_back(0);wrt.push_back(0);//40..42
-    wrt.push_back(ddx(tauvec[2],n,x));wrt.push_back(ddx(sig,n,x));wrt.push_back(0); // 43..45
+    wrt.push_back(ddx(tauvec[2],n,x,false));wrt.push_back(ddx(sig,n,x,true));wrt.push_back(0); // 43..45
     wrt.push_back(0);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
     wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
     wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52

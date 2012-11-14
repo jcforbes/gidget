@@ -557,6 +557,7 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
 
     } // end loop over active stellar populations
 
+
     for(unsigned int j=0; j!=spsPassive.size(); ++j) {
       if(spsPassive[j].IsForming(cos,redshift)) {
         if(fabs(colSFR[n]/spsPassive[j].spcol[n])>dmax) { 
@@ -671,19 +672,15 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 
 
 
-  double ostars1=spsActive[0].spcol[200];
   unsigned int szA = spsActive.size();
   unsigned int szP = spsPassive.size();
   StellarPop currentlyForming(nx,
         YoungIthBin(szA,cos,1),
         OldIthBin(szA,cos,1));
   for(unsigned int n=1; n<=nx; ++n) {
-    //spsActive[0].spcol[n] += dt* (RfREC*colSFR[n] + dSMigdt(n,tauvecStar,(*this),spsActive[0].spcol));
-    //spsActive[0].spsigR[n]+= dt* dSigStRdt(n,0,redshift,spsActive,tauvecStar);
-    //spsActive[0].spsigZ[n]+= dt* dSigStZdt(n,0,redshift,spsActive,tauvecStar);
-    spsActive[0].spcol[n] += dt * dColStDtNominal[n];
-    spsActive[0].spsigR[n] += dt*dSigStRDtNominal[n];
-    spsActive[0].spsigZ[n] += dt*dSigStZDtNominal[n];
+    //spsActive[0].spcol[n] += dt * dColStDtNominal[n];
+    //spsActive[0].spsigR[n] += dt*dSigStRDtNominal[n];
+    //spsActive[0].spsigZ[n] += dt*dSigStZDtNominal[n];
 
 
 
@@ -695,7 +692,6 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
       currentlyForming.spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
     else
 	currentlyForming.spsigR[n] = minsigst;
-//      currentlyForming.spsig[n] = sigth; // what the velocity dispersion of the gas should be!
 
     currentlyForming.spsigZ[n] = currentlyForming.spsigR[n];
 
@@ -708,27 +704,31 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
   bool incA=false;
   for(unsigned int i=0; i!=spsActive.size();++i) {
     incA = (incA || spsActive[i].IsForming(cos,redshift));
-    //spsActive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+//    spsActive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
   }
   bool incP=false;
   for(unsigned int i=0; i!=spsPassive.size();++i) {
     incP = (incP || spsPassive[i].IsForming(cos,redshift));
-    //if(migratePassive) spsPassive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+//    if(migratePassive) spsPassive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
   }
-  double ostars2=spsActive[0].spcol[200];
 
   if(!incA || !incP) {
     errormsg(std::string("UpdateStateVars: currently forming stars not included in the extant stellar populations!"));
   }
   else {
-    //spsActive[szA-1].MergeStellarPops(currentlyForming,(*this));
-    //spsPassive[szP-1].MergeStellarPops(currentlyForming,(*this));
+    spsActive[szA-1].MergeStellarPops(currentlyForming,(*this));
+    spsPassive[szP-1].MergeStellarPops(currentlyForming,(*this));
   }
-  double ostars3=spsActive[0].spcol[200];
 
-  //  std::cout << "Stars at n=200: " << ostars1 << " " << ostars2 << " "<< ostars3 <<std::endl;
+  for(unsigned int i=0; i!=spsActive.size();++i) {
+    spsActive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+  }
+  for(unsigned int i=0; i!=spsPassive.size();++i) {
+    if(migratePassive) spsPassive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+  }
 
-//  double MIn = - dt*tauvec[2][1]/(uu[1]*(1+beta[1]));
+
+
   double MIn = dt*MdotiPlusHalf[0]+dt*dmdtCosInner(AccRate);
 //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
   ZBulge = (ZBulge*MBulge +dt*MdotiPlusHalf[0]*ZDisk[1]+dt*dmdtCosInner(AccRate)*Z_IGM)/(MBulge + MIn);
@@ -1350,6 +1350,16 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
     double Qst = sqrt(2.*(beta[n]+1.))*uu[n]*sigStR[n]/(M_PI*dim.chi()*x[n]*colst[n]);
     FFst[n] = (Qlim - Qst)*uu[n] / (x[n]*tauHeat*Qst);
 
+    // Add in forcing?
+    if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n])
+      FFst[n] -= 1.0/sigStR[n] * (sig[n]*sig[n] - sigth*sigth - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
+                 /(2.0*colst[n]*sigStR[n]);
+    else
+      FFst[n] -= 1.0/sigStR[n] * (minsigst*minsigst - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
+                 /(2.0*colst[n]*sigStR[n]);
+    FFst[n] += 1.0/colst[n] * RfREC*colSFR[n];
+
+
     if(Qst > Qlim) {
       FFst[n] = 0.0;
       UUst[n] = 0.0;
@@ -1397,7 +1407,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
     //    std::cout << "Components of torque eq: n, S,sR,sZ "<<n<<" "<<spsActive[i].dQdsR[n] * dSigStRdt(n,i,redshift,spsActive,tauvecStar)<<" "<<
     //}
     double QQ = Q(&rqp,&absc);
-
+    
     // When this cell is stable, set the torque equal to zero. This may imply a non-zero
     // mass flux if tau' is nonzero, in which case mass may flow into this cell, but that's
     // exactly what we want to happen.

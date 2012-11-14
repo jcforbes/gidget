@@ -7,7 +7,7 @@ ArgumentSetter::ArgumentSetter(int ac, char** av,std::string fn) :
   argc(ac), argv(av), arg(2), cmtfile((fn+"_comment.txt").c_str())
 { 
   cmtfile << "--------------" << std::endl;
-  cmtfile << argv[2] << std::endl;
+  cmtfile << argv[1] << std::endl;
 }
 ArgumentSetter::~ArgumentSetter()
 {

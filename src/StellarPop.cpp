@@ -220,11 +220,11 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
 
     dsigRdt[n] = MdotCentered* 
       (1.0/(x[n]*spcol[n]*(spsigR[n] + spsigZ[n]))) *
-      (2.0*spsigZ[n]*ddx(spsigZ,n,x)
-       + 3.0* spsigR[n]* ddx(spsigR,n,x) 
-       + spsigR[n]*spsigR[n]/spcol[n]*ddx(spcol,n,x)
+      (2.0*spsigZ[n]*ddx(spsigZ,n,x,false)
+       + 3.0* spsigR[n]* ddx(spsigR,n,x,false) 
+       + spsigR[n]*spsigR[n]/spcol[n]*ddx(spcol,n,x,false)
        + (spsigR[n]*spsigR[n] - spsigZ[n]*spsigZ[n])/x[n]);
-    dZdt[n] =  MdotCentered*ddx(spZ,n,x)/(x[n]*spcol[n]);
+    dZdt[n] =  MdotCentered*ddx(spZ,n,x,true)/(x[n]*spcol[n]);
 
 
 

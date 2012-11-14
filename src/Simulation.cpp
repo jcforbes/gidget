@@ -42,8 +42,12 @@ Simulation::Simulation(const double tm, const long int sm,
 int Simulation::runToConvergence(const double fCondition, 
 				 const bool writeOut, 
 				 const std::string filename,
-				 const double zrelax)
+				 const double zrelax,
+				 const unsigned int Noutputs)
 {
+
+  if(zrelax < zstart)
+    errormsg("zrelax < zstart. The code makes the assumption that this is not true.");
 
   std::vector<double> UU(nx+1,0.),LL(nx+1,0.),DD(nx+1,0.),FF(nx+1,0.), 
                UUst(nx+1,0.),LLst(nx+1,0.),DDst(nx+1,0.),FFst(nx+1,0.),
@@ -94,6 +98,10 @@ int Simulation::runToConvergence(const double fCondition,
   // value (in general this means that something has gone 
   // terribly wrong and the simulation has no chance to 
   // run to completion)
+
+  // t0 is the number of seconds between zrelax and zstart. Recording this lets us
+  // put out the same snapshots for the same zstart value, regardless of the zrelax
+  // we choose.
   const double dtfloor=1.e-12; 
   const double t0 = theDisk.GetCos().lbt(zrelax) - theDisk.GetCos().lbt(zstart); // seconds
   const double tzs = t0*dim.vphiR/(2.0*M_PI*dim.Radius);
@@ -102,7 +110,7 @@ int Simulation::runToConvergence(const double fCondition,
   while(t<tmax &&           // the simulation has run for too many orbits
 	step<=stepmax &&    // the simulation has run for too many steps
 	z>=0.0 &&           // the simulation has reached redshift zero
-	dt>TOL*dtfloor &&   // the simulation has stalled
+	(dtPrev>TOL*dtfloor || dt>TOL*dtfloor) &&   // the simulation has stalled
         dt<fCondition*TOL)  // the simulation has converged
   {
 
@@ -119,7 +127,8 @@ int Simulation::runToConvergence(const double fCondition,
     double present = t * 2.0*M_PI*dim.Radius / dim.vphiR - t0;
     double previous = (t-dt) * 2.0*M_PI*dim.Radius/dim.vphiR - t0;
 
-    bool timeOut = ((floor(200.0*previous/duration) < floor(200.0*present/duration) && present>0.0 || step == 1) && writeOut ) ;
+    double NOUT = ((double) Noutputs);
+    bool timeOut = ((floor(NOUT*previous/duration) < floor(NOUT*present/duration) && present>0.0 || step == 1) && writeOut ) ;
 
     if(!cosmologyOn)
       timeOut= (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);

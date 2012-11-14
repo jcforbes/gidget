@@ -84,7 +84,20 @@ class experiment:
         self.xgrid=self.base+'/xgrid'
 
         allModels[name] = self
-        
+       
+    def changeName(self,newName):
+        ''' If this object is copied to form the starting point for a separate experiment,
+            the self.expName, the names of each GIDGET run, and the entry in allModels will
+            need to be updated. This method takes care of all of these tasks.'''
+        oldName = self.expName
+
+        self.p[0] = newName
+        self.p_orig[0] = newName
+        for p in self.pl:
+            p[0] = newName + p[0][len(oldName):] # new prefix + old suffixes
+        self.expName = newName
+        allModels[newName] = self
+ 
     def vary(self,name,mmin,mmax,n,log,cov=0):
         '''Set up to vary a particular parameter, name, over the
         range [min,max] with n steps spaced linearly if log=0 or
@@ -107,7 +120,7 @@ class experiment:
         array of parameter values to use for parameter "name",
         this list is specified explicitly in "values"'''
         keyNum = self.keys[name]
-        typ = type(self.p[keyNum])
+        typ = type(self.p_orig[keyNum])
         if(type(values) == type([1])): # if values is a list..
             # replace the given index of p with the list given by values.
             self.p[keyNum]=[typ(value) for value in values]
@@ -180,16 +193,23 @@ class experiment:
 	                        if(i<=25):
         	                    base='a'
                 	            app=''
+                                # If there are more than 26 variations, add a numeral for each
+                                # time we have looped through the alphabet when this number is
+                                # greater than zero.
                         	else:
 	                            base='a'
         	                    app=str((i-(i%26))/26)
-                	        a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
+                                # avoid adding more letters to distinguish individual models
+                                # if such a distinction is unnecessary.
+                                if(len(param) > 1):
+                                    # but if such a distinction is necessary, by all means:
+                	            a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
 	                    # end loop over p's in pl2[i]
         	        # end loop over range of this varied parameter
 		
 			# collapse pl to be a 1d array of p's.
 	                self.pl=[element for sub in pl2 for element in sub]
-		
+	    # end of param-being-a-list contingency
             else : #just a regular non-varying parameter
                 # If the user has used vary() but with N=1, the new argument will
                 # not be a list! In this case, we set this parameter in each element 
@@ -199,7 +219,8 @@ class experiment:
                         self.pl[i][j]=param
                     else:
                         pass # nothing to do- just use default value
-
+            # end of non-varying parameter contingency 
+        # end of for loop over each parameter.
 
             
     def write(self,name):
@@ -446,7 +467,8 @@ def PrintSuccessTables(successTables):
     print
     print strSumOfSuccessTables
 
-
+def letter(i):
+    return chr(ord("a")+i)
 
 if __name__ == "__main__":
 
@@ -550,10 +572,11 @@ if __name__ == "__main__":
     # 27: lower minsigst 28: d{}*dt = nominal 29: lower Qlim again 30: artificially set dSigStR=0
     # 31: artificially set dSigStZ=0 # 32: artificially set dSMig=0, 33: artificially set sR & sZ=0
     # 34: artificially set sR,sZ,dSMig=0, 35: back to 33 but eliminate the 'zeroing out torques'
-    # 36: with elimination of the semi-colon in torque eq. 37: change ddx
+    # 36: with elimination of the semi-colon in torque eq. 37: change ddx 38: try higher minsigst
+    # 39: try higher resolution 
     rq7=[]
     for i in range(len(factors)):
-      rq7.append(experiment("rq37"+chr(ord("a")+i)))
+      rq7.append(experiment("rq39"+chr(ord("a")+i)))
       rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
       rq7[i].irregularVary("TOL",1.0e-3)
       Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
@@ -568,10 +591,42 @@ if __name__ == "__main__":
       rq7[i].irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1.0/3.0)),3)
       rq7[i].irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1.0/3.0)),3)
       rq7[i].irregularVary('NPassive',[1])
-      rq7[i].irregularVary('minSigSt',[0])
-      rq7[i].irregularVary('tauHeat',[10])
+      rq7[i].irregularVary('minSigSt',[2.0])
+      rq7[i].irregularVary('tauHeat',[3])
+      rq7[i].irregularVary('nx',500)
       #rq7[i].irregularVary('zquench',[1.4])
 
+    # back to lower resolution, more forgiving time step cutoff
+    rq40 = copy.deepcopy(rq7)
+    for i in range(len(rq40)):
+       rq40[i].changeName("rq40"+letter(i))
+       rq40[i].irregularVary('nx',200)
+
+    # go back to old method of updating stars in UpdateStateVars
+    rq41 = copy.deepcopy(rq40)
+    for i in range(len(rq41)):
+        rq41[i].changeName("rq41"+letter(i))
+
+    # 42 & 45 have this turnover. 45 is based on 44, namely do not restrict tau<0.
+    rq42= copy.deepcopy(rq41)
+    for i in range(len(rq42)):
+        rq42[i].changeName("rq45"+letter(i))
+        rq42[i].irregularVary('b',2)
+        rq42[i].irregularVary('innerPowerLaw',.5)
+
+    # try not restricting the passive time step.
+    rq43 = copy.deepcopy(rq41)
+    for i in range(len(rq43)):
+        rq43[i].changeName("rq43"+letter(i))
+
+    # try not restricting tau<0.
+    # 46: ddx -> second derivative = 0
+    # 47: back to the new ddx. Try adding forcing to stellar torque eq.
+    # 48: limit time step w/ passive populations.
+    rq44 = copy.deepcopy(rq43)
+    for i in range(len(rq44)):
+        rq44[i].changeName("rq48"+letter(i))
+    
 
     rq8=[]
     # rq8: same sort of experiments as above, but vary the accretion histories.

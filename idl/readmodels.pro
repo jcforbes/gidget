@@ -550,7 +550,9 @@ FUNCTION readOutput,name
 		NPostProcess:NPostProcess,NPassive:NPassive,STVars:STVars, $
 		MLF:MLF,mdotext0:md0,Rf:Rf,whichAccHistory:whichAccHistory,$;}
 		fixedQ:fixedQ,diskScaleLength:scaleLength,Qlim:Qlim,dlnx:dlnx,$
-		mh0:mh0, minStsig:minStsig,zquench:zquench,xmin:xmin }
+		mh0:mh0, minStsig:minStsig,zquench:zquench,xmin:xmin,$
+		zrelax:zrelax, zetaREC:zetaREC, deltaOmega:deltaOmega, $
+                NoutputsNominal:NoutputsNominal,  ND08attempts:ND08attempts }
 	
 	RETURN,model ;; end of the readOutput function
 END

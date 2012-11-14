@@ -46,10 +46,8 @@ END
 ;; fourth column indexes models, and a vector of time labels, and axis labels
 ;; make one or a few movies! The third column indexes which variable we're plotting.
 ;; 
-;; Right this second, colors has the same number of indices as there are models.
-;; But we would like to be able to color each model differently at each time. So the plan
-;; is to make colors into a (# timesteps) by (# models) array.
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText
+;; colors is a (# timesteps) by (# models) array.
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,saveFrames=saveFrames,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentiles=percentiles
   lth=1
   chth=1
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
@@ -72,6 +70,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
   IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(n_elements(time))
   IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
   IF(n_elements(timeText) EQ 0) THEN timeText="z = "
+  IF(n_elements(NIndVarBins) EQ 0) THEN NIndVarBins=0
+  IF(n_elements(percentiles) EQ 0) THEN percentiles=[.025,.5,.975]
 
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
@@ -148,6 +148,32 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
         ENDIF
       ENDFOR ;; end loop over models
 
+      ;; All of the models have been plotted. Now if the user has requested it, we would like to 
+      ;; bin the data by its independent variable, and then its dependent variable!
+      IF(NIndVarBins GT 0) THEN BEGIN
+          ;;;; ASSUMING that there are some galaxies in each color bin,
+          ncolors = MAX(colors)+1
+          theCurves = dblarr(NIndVarBins, n_elements(percentiles), ncolors)
+          ;; each color gets its own percentile curves
+          FOR aColor=0, ncolors-1 DO BEGIN
+              subset = WHERE(aColor EQ colors[ti,*], NInThisSubset)
+              binCenters = dblarr(NIndVarBins)
+              IF(NInThisSubset GT 0) THEN BEGIN
+                  FOR indVarIndex=0, NIndVarBins-1 DO BEGIN
+                      ;; 
+                      thisIndBin = GetIthBin(indVarIndex, data[ti,0,0,*], NIndVarBins, subset)
+                      IF(wrtXlog[0] EQ 1 ) THEN binCenters[indVarIndex] = 10.0^average(alog10(data[ti,0,0,subset])) ELSE binCenters[indVarIndex] = average(data[ti,0,0,subset])
+                      ;; The following is the list of
+                      dependentData = sort((data[ti,0,k,subset])[thisIndBin])
+                      FOR percentileIndex=0, n_elements(percentiles)-1 DO BEGIN
+                          theCurves[indVarIndex, percentileIndex, aColor] = depndentData[fix(percentiles[percentileIndex]*n_elements(depndentData))]
+                      ENDFOR ; end loop over percentiles
+                  ENDFOR ; end loop over independent variable bins.
+                  FOR percentileIndex=0,n_elements(percentiles)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor
+              ENDIF ; end check that there are models w/ this color
+          ENDFOR ; end loop over color
+      ENDIF
+
 
       ;; We've created a single frame. What do we do with it?
       IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
@@ -174,10 +200,11 @@ END
 
 ;; Given an array of mdot's vs. other variables, compute the cross-correlations between mdot and the others
 ;; and also the autocorrelation of each variable.
-PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thicknesses=thicknesses
+PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thicknesses=thicknesses,logarithms=logarithms
     IF(n_elements(nt0) EQ 0) THEN nt0 = 1
     IF(n_elements(sv) EQ 0 ) THEN sv=1
-    IF(n_elements(thicknesses) EQ 0) THEN thicknesses=intarr(n_elements(vsMdot[0,0,0,*]))+1
+    IF(n_elements(thicknesses) EQ 0) THEN thicknesses=intarr(n_elements(vsMdot[0,0,0,*]))+1 ; set each model's thickness to 1
+    IF(n_elements(logarithms) EQ 0) THEN logarithms=intarr(n_elements(vsMdot[0,0,*,0])) ; set each variable to be not logarithmic
 
     ;; Construct some cross-correlations
     nt = n_elements(vsMdot[*,0,0,0])
@@ -186,7 +213,12 @@ PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thick
     autoCorrelations = dblarr(nt-1-nt0,n_elements(vsMdot[0,0,*,0]),n_elements(vsMdot[0,0,0,*]))
     ;;; loop over models
     FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+        ;; loop over variables
         FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
+            laggingVar = vsMdot[nt0:(nt-1),0,k,j]
+            IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar)
+            mdot = vsMdot[nt0:(nt-1),0,0,j]
+            IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot)
             crossCorrelations[*,k,j] = c_correlate(vsmdot[nt0:(nt-1),0,0,j],vsmdot[nt0:(nt-1),0,k,j],indgen(nt-1-nt0))
             autoCorrelations[*,k,j] = c_correlate(vsmdot[nt0:(nt-1),0,k,j],vsmdot[nt0:(nt-1),0,k,j],indgen(nt-1-nt0))
         ENDFOR
@@ -283,8 +315,6 @@ PRO variability3,expNames,keys,N,sv
   DEVICE,DECOMPOSED=0
   DEVICE,RETAIN=2
 
-  theNTS=202
-
   proftimes=dblarr(5)
   proftimes[0]=systime(1)
 
@@ -328,6 +358,7 @@ PRO variability3,expNames,keys,N,sv
   ;; record the data specified in the arrays above (e.g. yy)
   modelPtr=ReadModels([nameList2[0]])
   model = (*(modelPtr[0]))
+  theNTS = model.NOutputsNominal+2
 
   time = model.evArray[1,*]  
   z = model.evArray[10-1,*]
@@ -657,7 +688,7 @@ PRO variability3,expNames,keys,N,sv
   ENDIF
 
 
-  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2,sv=1,nt0=20,thicknesses=thicknesses
+  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2,sv=4,nt0=20,thicknesses=thicknesses
 
   ;; Now make some standalone plots.
   

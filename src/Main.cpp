@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
       Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
                      zstart,NActive,NPassive,alphaMRI,
                      sigth,ndecay,disk,accr,dbg,dim);
-      int result = sim.runToConvergence(1.0e10, true, filename,zrelax);
+      int result = sim.runToConvergence(1.0e10, true, filename,zrelax,Noutputs);
 
   }
   if(!dbg.opt(5)) {
@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
                        zstart,NActive,NPassive,
                        alphaMRI,sigth,ndecay,
                        diskIC,accr,dbg,dim);
-      int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen",zstart); // set false-> true to debug initial condition generator
+      int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen",zstart,200); // set false-> true to debug initial condition generator
       if(result!=5) // The simulation converges when the time step reaches 1*TOL.
         errormsg("Initial Condition generator failed to converge, code "+str(result));
 
@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
 		     zstart,NActive,NPassive,
 		     alphaMRI,sigth,ndecay,
 		     disk,accr,dbg,dim);
-      result = sim.runToConvergence(1.0e10, true, filename,zstart);
+      result = sim.runToConvergence(1.0e10, true, filename,zstart,200);
   }
  
 }

@@ -704,12 +704,10 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
   bool incA=false;
   for(unsigned int i=0; i!=spsActive.size();++i) {
     incA = (incA || spsActive[i].IsForming(cos,redshift));
-//    spsActive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
   }
   bool incP=false;
   for(unsigned int i=0; i!=spsPassive.size();++i) {
     incP = (incP || spsPassive[i].IsForming(cos,redshift));
-//    if(migratePassive) spsPassive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
   }
 
   if(!incA || !incP) {
@@ -719,13 +717,13 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     spsActive[szA-1].MergeStellarPops(currentlyForming,(*this));
     spsPassive[szP-1].MergeStellarPops(currentlyForming,(*this));
   }
-
-  for(unsigned int i=0; i!=spsActive.size();++i) {
-    spsActive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
-  }
   for(unsigned int i=0; i!=spsPassive.size();++i) {
     if(migratePassive) spsPassive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
   }
+  for(unsigned int i=0; i!=spsActive.size();++i) {
+    spsActive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+  }
+
 
 
 
@@ -903,28 +901,7 @@ void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha,
                                     const double IBC, const double OBC, const double ndecay)
 {
   std::vector<double> tauMRI(nx+1,0.0);
-  std::vector<double> taupMRI(nx+1,0.0);
-  std::vector<int> replaceWithMRI(nx+1,0);
-  for(unsigned int n=1; n<=nx; ++n) {
-    // Compute a torque and its derivative given an alpha.
-    //    tauMRI[n] = 2.0*M_PI*x[n]*x[n]*col[n]*alpha*sigth*sig[n]*(beta[n]-1);
-    //    taupMRI[n] = tauMRI[n] * (2.0/x[n] + ddx(col,n,x)/col[n] 
-    //       + ddx(sig,n,x)/sig[n] + betap[n]/(beta[n]-1));
-    tauMRI[n] = IBC;
-
-
-    // Where GI has shut down and no longer transports mass inwards, 
-    // allow another source of viscosity to drive gas inwards.
-//    if(tauMRI[n] < tauvec[1][n] || taupMRI[n] < (tauvec[1][n+1]-tauvec[1][n-1])/(mesh.x(n+1)-mesh.x(n-1)) ) { // larger negative value
-    if(tauMRI[n] < tauvec[1][n]) {
-      tauvec[1][n]=tauMRI[n];
-//      tauvec[2][n]=taupMRI[n];
-        replaceWithMRI[n] = 1;
-    }
-  }
-
-
-  // TauPrimeFromTau(tauvec);
+  return;
 }
 
 // Should apply to both gas and stars
@@ -1270,12 +1247,9 @@ double DiskContents::dmdtCosInner(double AccRate)
 // knowing d s_*/dt. This function is NOT used for actually updating s_*.
 double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps,double ** tauvecStar)
 {
-  std::vector<double> col_st ( sps[sp].spcol );
-  std::vector<double> sig_stR ( sps[sp].spsigR );
-  std::vector<double> sig_stZ ( sps[sp].spsigZ );
-  sig_stR.push_back(sig_stR[sig_stR.size()-1]);
-  sig_stZ.push_back(sig_stZ[sig_stZ.size()-1]);
-  col_st.push_back(col_st[col_st.size()-1]);
+  std::vector<double>& col_st = sps[sp].spcol ;
+  std::vector<double>& sig_stR = sps[sp].spsigR ;
+  std::vector<double>& sig_stZ = sps[sp].spsigZ ;
 
   double val = 0.0;
   

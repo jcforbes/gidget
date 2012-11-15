@@ -170,7 +170,6 @@ int main(int argc, char **argv) {
   // Set the dimensional quantities. 
   Dimensions dim(radius,vphiR,mdot0);
   FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
-  double dummy = mesh.psi(0.5);
   double MhZs = accr.MhOfZ(zstart)*Mh0;
 
   // don't relax the disk!

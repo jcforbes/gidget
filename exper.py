@@ -627,6 +627,46 @@ if __name__ == "__main__":
     for i in range(len(rq44)):
         rq44[i].changeName("rq48"+letter(i))
     
+    factors = [1./3.,1.0,3.0] 
+    rq50=[]
+    for i in range(len(factors)):
+        rq50.append(experiment("rq50"+letter(i)))
+        rq50[i].irregularVary('dbg',2**10+2**8+2**5+2**3+2**6+2**7)
+        rq50[i].irregularVary('TOL',1.0e-3)
+        Mh0s = rq50[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
+        scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
+        rq50[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
+        rq50[i].irregularVary('diskScaleLength',list(scls),3)
+        rq50[i].irregularVary('zrelax',[2.5])
+        rq50[i].irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1.0/3.0)),3)
+        rq50[i].irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1.0/3.0)),3)
+        rq50[i].irregularVary('NPassive',1)
+
+    rq51=copy.deepcopy(rq50[1])
+    rq51.changeName("rq51")
+    rq51.irregularVary('NPassive',3)
+
+    rq52=copy.deepcopy(rq50[1])
+    rq52.changeName("rq52")
+    rq52.irregularVary('zrelax',[2,3,4])
+
+    rq53=copy.deepcopy(rq50[1])
+    rq53.changeName("rq53")
+    rq53.irregularVary('R',60)
+
+    # 54 was a flat rotation curve and crashed for xmin=.001, and included an xmin=.003
+    # 56: see if we can solve our problem w/ a turnover in the rotation curve
+    rq54=copy.deepcopy(rq50[1])
+    rq54.changeName("rq56")
+    rq54.irregularVary('xmin',[.001])
+    rq54.irregularVary('b',2)
+    rq54.irregularVary('innerPowerLaw',1)
+    rq54.irregularVary('softening',2)
+
+    rq55=copy.deepcopy(rq50[1])
+    rq55.changeName("rq55")
+    rq55.irregularVary('kappaMetals',[1.0e-5,1.0e-4,1.0e-2])
+   
 
     rq8=[]
     # rq8: same sort of experiments as above, but vary the accretion histories.

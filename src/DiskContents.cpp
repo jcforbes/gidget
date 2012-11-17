@@ -705,7 +705,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
   }
   for(unsigned int i=0; i!=spsActive.size();++i) {
       spsActive[i]->MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
-      spsPassive[i]->ComputeSpatialDerivs();
+      spsActive[i]->ComputeSpatialDerivs();
   }
 
 

@@ -655,13 +655,22 @@ if __name__ == "__main__":
     rq53.irregularVary('R',60)
 
     # 54 was a flat rotation curve and crashed for xmin=.001, and included an xmin=.003
-    # 56: see if we can solve our problem w/ a turnover in the rotation curve
+    # 56: see if we can solve our problem w/ a turnover in the rotation curve; use beta_0=1, i.e. very steep. Runs tend to be fairly slow and produce a turnover in stellar mass at very small radii.
+    # 57: more foregiving inner power law.
+    # 58: rerun 56
     rq54=copy.deepcopy(rq50[1])
     rq54.changeName("rq56")
     rq54.irregularVary('xmin',[.001])
     rq54.irregularVary('b',2)
     rq54.irregularVary('innerPowerLaw',1)
     rq54.irregularVary('softening',2)
+
+    rq57=copy.deepcopy(rq54)
+    rq57.irregularVary('innerPowerLaw',.5)
+    rq57.changeName("rq57")
+
+    rq58=copy.deepcopy(rq54)
+    rq58.changeName("rq58")
 
     rq55=copy.deepcopy(rq50[1])
     rq55.changeName("rq55")

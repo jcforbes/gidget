@@ -105,6 +105,8 @@ int Simulation::runToConvergence(const double fCondition,
   const double dtfloor=1.e-12; 
   const double t0 = theDisk.GetCos().lbt(zrelax) - theDisk.GetCos().lbt(zstart); // seconds
   const double tzs = t0*dim.vphiR/(2.0*M_PI*dim.Radius);
+  const double duration = theDisk.GetCos().lbt(zstart); //in seconds
+
 
   // Loop over time steps until...
   while(t<tmax &&           // the simulation has run for too many orbits
@@ -121,9 +123,6 @@ int Simulation::runToConvergence(const double fCondition,
     // bool timeOut = (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
     //    bool timeOut = true; // write out at every time step. Use only if 
                                // things crash and burn very quickly
-    double duration = theDisk.GetCos().lbt(zstart); //in seconds
-//    double present = theDisk.GetCos().Tsim(z); // in seconds
-//    double previous = theDisk.GetCos().Tsim(z+dz(dt,z,theDisk.GetCos(),theDisk.GetDim())); // in seconds
     double present = t * 2.0*M_PI*dim.Radius / dim.vphiR - t0;
     double previous = (t-dt) * 2.0*M_PI*dim.Radius/dim.vphiR - t0;
 
@@ -151,12 +150,10 @@ int Simulation::runToConvergence(const double fCondition,
     // Make sure that stars formed this time step have a stellar 
     // population to which they belong. If they don't, create
     // one and add it to the appropriate vector of stellar populations
-    bool checkActiveStars = 
-      theDisk.CheckStellarPops(dt, z, theDisk.active(),
-			       NActive,true);
-    bool checkPassiveStars = 
-      theDisk.CheckStellarPops(dt, z, theDisk.passive(),
-			       NPassive,false);
+    if(NActive>1 && floor(((double) NActive)*previous/duration) < floor(((double) NActive)*present/duration) && present>0.0)
+        theDisk.AddNewStellarPop(z,dt,theDisk.active(),true);
+    if(NPassive>1 && floor(((double) NPassive)*previous/duration) < floor(((double) NPassive)*present/duration) && present>0.0)
+        theDisk.AddNewStellarPop(z,dt,theDisk.passive(),false);
     
 
     // Set the non-dimensional accretion rate at this redshift. Used to set

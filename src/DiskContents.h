@@ -89,14 +89,14 @@ class DiskContents {
   // Compute the time rate of change of the velocity 
   // dispersion of stellar population sp.
   double dSigStRdt(unsigned int n, unsigned int sp, 
-		  double reshift,std::vector<StellarPop>&, double ** tauvecStar);
+		   std::vector<StellarPop*>&, double ** tauvecStar);
   double dSigStZdt(unsigned int n, unsigned int sp, 
-		  double reshift,std::vector<StellarPop>&, double ** tauvecStar);
+		   std::vector<StellarPop*>&, double ** tauvecStar);
 
   // Append the properties of each StellarPop in the 
   // given vector to an output file.
   void WriteOutStarsFile(std::string filename, 
-			 std::vector<StellarPop>&,
+			 std::vector<StellarPop*>&,
 			 unsigned int,unsigned int step);
 
   // Append the radially-dependent properties of the disk to an output file, 
@@ -114,8 +114,8 @@ class DiskContents {
   std::vector<double>& GetSig() { return sig;};
   std::vector<double>& GetCol() { return col;};
   std::vector<double>& GetColSFR() { return colSFR;}
-  std::vector<StellarPop>& active() { return spsActive;}
-  std::vector<StellarPop>& passive() { return spsPassive;}
+  std::vector<StellarPop*>& active() { return spsActive;}
+  std::vector<StellarPop*>& passive() { return spsPassive;}
   //std::vector<double>& GetYy() {return yy;}
   Dimensions& GetDim() { return dim;}
   Cosmology& GetCos() { return cos;}
@@ -168,9 +168,9 @@ class DiskContents {
   // will be taken from an older population. In the latter case, 
   // the new stellar population will be just the stars formed in 
   // this time step.
-  bool CheckStellarPops(const double dt, const double redshift,
-			std::vector<StellarPop>&,
-			unsigned int numberOfAgeBins,
+  void AddNewStellarPop(const double redshift,
+                        const double dt,
+			std::vector<StellarPop *>&,
 			bool active);
 
   // Fill tauvec with the torque and its first derivative, i.e. 
@@ -226,10 +226,10 @@ class DiskContents {
 
   // a vector of stellar populations which affect the gravitational 
   // dynamics of the disk
-  std::vector<StellarPop> spsActive; 
+  std::vector<StellarPop*> spsActive; 
   // stellar populations which evolve passively, i.e. do not 
   // affect the gas dynamics.
-  std::vector<StellarPop> spsPassive; 
+  std::vector<StellarPop*> spsPassive; 
   
   std::vector<double> ZDisk; // metallicity at each cell
   unsigned int nx; // number of cells

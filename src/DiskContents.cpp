@@ -54,11 +54,12 @@ DiskContents::DiskContents(double tH, double eta,
   dim(d), mesh(m), dbg(ddbg),
   XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
   cos(c),tauHeat(tH),sigth(sflr),
-  EPS_ff(epsff),ETA(eta),MassLoadingFactor(mlf),
+  EPS_ff(epsff),ETA(eta),
 //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
 //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
-  spsActive(std::vector<StellarPop>(0)),
-  spsPassive(std::vector<StellarPop>(0)),
+  MassLoadingFactor(mlf),
+  spsActive(std::vector<StellarPop*>(0)),
+  spsPassive(std::vector<StellarPop*>(0)),
   dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
   yREC(.054),RfREC(rfrec),zetaREC(zetarec), 
   analyticQ(aq),
@@ -144,14 +145,9 @@ DiskContents::~DiskContents()
 // from a disk, to which you've done whatever... (typically relaxed to an equilibrium configuration).
 void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 {
-  StellarPop initialStarsA(nx,
-         YoungIthBin(0,cos,in.NActive),
-         OldIthBin(0,cos,in.NActive));
-  StellarPop initialStarsP(nx,
-         YoungIthBin(0,cos,in.NPassive),
-         OldIthBin(0,cos,in.NPassive));
+  StellarPop * initialStarsA = new StellarPop(mesh);
+  StellarPop * initialStarsP = new StellarPop(mesh);
 
-//  InitializeGrid(in.BulgeRadius);
 
   double Z_Init = 0.1 * Z_Sol;
   for(unsigned int n=1; n<=nx; ++n) {
@@ -159,23 +155,23 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
     
     col[n] = in.col[n];
     sig[n] = in.sig[n];
-    initialStarsA.spcol[n] = in.col_st[n];
-    initialStarsA.spsigR[n] = in.sig_stR[n];
-    initialStarsA.spsigZ[n] = in.sig_stZ[n];
-    initialStarsA.spZ[n]   = Z_Init;
-    initialStarsA.spZV[n]  = 0.0;
+    initialStarsA->spcol[n] = in.col_st[n];
+    initialStarsA->spsigR[n] = in.sig_stR[n];
+    initialStarsA->spsigZ[n] = in.sig_stZ[n];
+    initialStarsA->spZ[n]   = Z_Init;
+    initialStarsA->spZV[n]  = 0.0;
 
-    initialStarsP.spcol[n] = initialStarsA.spcol[n];
-    initialStarsP.spsigR[n] = initialStarsA.spsigR[n];
-    initialStarsP.spsigZ[n] = initialStarsA.spsigZ[n];
-    initialStarsP.spZ[n]   = initialStarsA.spZ[n];
-    initialStarsP.spZV[n]  = initialStarsA.spZV[n];
+    initialStarsP->spcol[n] = initialStarsA->spcol[n];
+    initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
+    initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
+    initialStarsP->spZ[n]   = initialStarsA->spZ[n];
+    initialStarsP->spZV[n]  = initialStarsA->spZV[n];
   }
 
   // MBulge here is dimensionless:
-  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]);
-  initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
-  initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA->spcol[1]);
+  initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
+  initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
 
 //  spsActive.clear();
 //  spsPassive.clear();
@@ -183,7 +179,7 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
   spsPassive.push_back(initialStarsP);
   EnforceFixedQ(fixedPhi0,true);
 
-  initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
+  initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
   initialGasMass = TotalWeightedByArea(col) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -196,10 +192,8 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
 			      double sig0, double phi0, double Mh0,
                               double MhZs, double stScaleLength)
 {
-    StellarPop initialStarsA(nx,YoungIthBin(0,cos,NActive),
-			   OldIthBin(0,cos,NActive));
-    StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
-			   OldIthBin(0,cos,NPassive));
+    StellarPop * initialStarsA = new StellarPop(mesh);
+    StellarPop * initialStarsP = new StellarPop(mesh);
 
     double xd = stScaleLength/dim.d(1.0);
     // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
@@ -214,17 +208,17 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
 
     for(unsigned int n=1; n<=nx; ++n) {
       ZDisk[n] = Z_Init;
-      initialStarsA.spcol[n] = S0*(1-fg0)*exp(-x[n]/xd);
-      initialStarsA.spsigR[n] = max(sig0 * phi0, minsigst);
-      initialStarsA.spsigZ[n] = max(sig0 * phi0, minsigst);
-      initialStarsA.spZ[n] = Z_Init;
-      initialStarsA.spZV[n] = 0.0;
+      initialStarsA->spcol[n] = S0*(1-fg0)*exp(-x[n]/xd);
+      initialStarsA->spsigR[n] = max(sig0 * phi0, minsigst);
+      initialStarsA->spsigZ[n] = max(sig0 * phi0, minsigst);
+      initialStarsA->spZ[n] = Z_Init;
+      initialStarsA->spZV[n] = 0.0;
 
-      initialStarsP.spcol[n] = initialStarsA.spcol[n];
-      initialStarsP.spsigR[n] = initialStarsA.spsigR[n];
-      initialStarsP.spsigZ[n] = initialStarsA.spsigZ[n];
-      initialStarsP.spZ[n] = initialStarsA.spZ[n];
-      initialStarsP.spZV[n] = initialStarsA.spZV[n];
+      initialStarsP->spcol[n] = initialStarsA->spcol[n];
+      initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
+      initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
+      initialStarsP->spZ[n] = initialStarsA->spZ[n];
+      initialStarsP->spZV[n] = initialStarsA->spZV[n];
 
       col[n] = S0*fg0*exp(-x[n]/xd);
       sig[n] = max(sig0, sigth);
@@ -232,9 +226,9 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
       
     }
 
-  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
-  initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
-  initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA->spcol[1]); // dimensionless!
+  initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
+  initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
 
 
   spsActive.push_back(initialStarsA);
@@ -243,7 +237,7 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
   bool EnforceWhenQgtrQf = false;
   EnforceFixedQ(fixedPhi0,EnforceWhenQgtrQf);
 
-  initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
+  initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
   initialGasMass = TotalWeightedByArea(col) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -257,10 +251,8 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 			      double sigst0, double Mh0,double MhZs,
 			      double stScaleLength)
 {			     
-  StellarPop initialStarsA(nx,YoungIthBin(0,cos,NActive),
-			   OldIthBin(0,cos,NActive));
-  StellarPop initialStarsP(nx,YoungIthBin(0,cos,NPassive),
-			   OldIthBin(0,cos,NPassive));
+  StellarPop * initialStarsA = new StellarPop(mesh);
+  StellarPop * initialStarsP = new StellarPop(mesh);
 
 
   if(true) {
@@ -279,57 +271,57 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
       ZDisk[n] = Z_Init;
 
       // Put in the exponential stellar profile.
-      initialStarsA.spcol[n] = S0 *exp(-x[n]/xd);
-      initialStarsA.spsigR[n] = max(sigst0,minsigst);
-      initialStarsA.spsigZ[n] = max(sigst0,minsigst);
+      initialStarsA->spcol[n] = S0 *exp(-x[n]/xd);
+      initialStarsA->spsigR[n] = max(sigst0,minsigst);
+      initialStarsA->spsigZ[n] = max(sigst0,minsigst);
 
 
 
       // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by 
       // heating the stars beyond what the user requested.
-      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
+      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n] / (initialStarsA->spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
         lowQst = true;
-        initialStarsA.spsigR[n] = max(Qlim*M_PI*x[n]*initialStarsA.spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
+        initialStarsA->spsigR[n] = max(Qlim*M_PI*x[n]*initialStarsA->spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
       }
  
-      if(initialStarsA.spsigR[n] > maxsig) { 
-  	maxsig=initialStarsA.spsigR[n];
+      if(initialStarsA->spsigR[n] > maxsig) { 
+  	maxsig=initialStarsA->spsigR[n];
   	maxsign=n;
       }
-      initialStarsA.spZ[n] = Z_Init;
-      initialStarsA.spZV[n] = 0.0;
+      initialStarsA->spZ[n] = Z_Init;
+      initialStarsA->spZV[n] = 0.0;
   
-      initialStarsP.spcol[n] = initialStarsA.spcol[n];
-      initialStarsP.spsigR[n] = initialStarsA.spsigR[n];
-      initialStarsP.spsigZ[n] = initialStarsA.spsigZ[n];
-      initialStarsP.spZ[n] = initialStarsA.spZ[n];
-      initialStarsP.spZV[n] = initialStarsA.spZV[n];
+      initialStarsP->spcol[n] = initialStarsA->spcol[n];
+      initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
+      initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
+      initialStarsP->spZ[n] = initialStarsA->spZ[n];
+      initialStarsP->spZV[n] = initialStarsA->spZV[n];
 
       sig[n] = max(pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.),  sigth);
     
-      col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA.spcol[n]/initialStarsA.spsigR[n]) *sig[n];
+      col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA->spcol[n]/initialStarsA->spsigR[n]) *sig[n];
 
 
-      if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 
-          || initialStarsA.spsigR[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] 
-          || initialStarsA.spsigR[n]!=initialStarsA.spsigR[n]) 
+      if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA->spcol[n]<0.0 
+          || initialStarsA->spsigR[n]<0.0 || initialStarsA->spcol[n]!=initialStarsA->spcol[n] 
+          || initialStarsA->spsigR[n]!=initialStarsA->spsigR[n]) 
       {
   	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "
-                  +str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "
-                  +str(initialStarsA.spsigR[n])+" "
-                  +str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsigR[n]
-                             /(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
+                  +str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA->spcol[n])+" "
+                  +str(initialStarsA->spsigR[n])+" "
+                  +str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA->spsigR[n]
+                             /(M_PI*x[n]*initialStarsA->spcol[n]*dim.chi())));
       }
     } // end loop over all cells
   
     if(lowQst) {
      // make sig_st monotonically increasing towards the center of the disk.
       for(unsigned int n=1; n<=maxsign; ++n ) {
-        if(initialStarsA.spsigR[n] < maxsig) { 
-          initialStarsA.spsigR[n] = max(maxsig,minsigst);
-          initialStarsP.spsigR[n] = max(maxsig,minsigst);
-          initialStarsA.spsigZ[n] = max(maxsig,minsigst);
-          initialStarsP.spsigZ[n] = max(maxsig,minsigst);
+        if(initialStarsA->spsigR[n] < maxsig) { 
+          initialStarsA->spsigR[n] = max(maxsig,minsigst);
+          initialStarsP->spsigR[n] = max(maxsig,minsigst);
+          initialStarsA->spsigZ[n] = max(maxsig,minsigst);
+          initialStarsP->spsigZ[n] = max(maxsig,minsigst);
           
         }
       }
@@ -340,8 +332,8 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
     unsigned int minQstN=0;
     // locate the minimum value of Q_*
     for(unsigned int n=1; n<=nx; ++n) {
-      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n]/(initialStarsA.spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
-  	minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n] / (initialStarsA.spcol[n]*M_PI*x[n]*dim.chi());
+      if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n]/(initialStarsA->spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
+  	minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n] / (initialStarsA->spcol[n]*M_PI*x[n]*dim.chi());
   	minQstN = n;
       }
     }
@@ -349,29 +341,29 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 
     // Inwards of minQstN, set col_* such that Q_* doesn't turn back up at small radii.
     for(unsigned int n=1; n<=minQstN; ++n) {
-      initialStarsA.spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA.spsigR[n] / (minQst*M_PI*x[n]*dim.chi());
-      initialStarsP.spcol[n] = initialStarsA.spcol[n];
+      initialStarsA->spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n] / (minQst*M_PI*x[n]*dim.chi());
+      initialStarsP->spcol[n] = initialStarsA->spcol[n];
     }
     for(unsigned int n=1; n<=nx; ++n) {
-      initialStarsA.spsigR[n] = max(initialStarsA.spsigR[n] * Qlim / minQst,minsigst);
-      initialStarsP.spsigR[n] = initialStarsA.spsigR[n];
-      initialStarsA.spsigZ[n] = max(initialStarsA.spsigZ[n] * Qlim / minQst,minsigst);
-      initialStarsP.spsigZ[n] = initialStarsA.spsigZ[n];
+      initialStarsA->spsigR[n] = max(initialStarsA->spsigR[n] * Qlim / minQst,minsigst);
+      initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
+      initialStarsA->spsigZ[n] = max(initialStarsA->spsigZ[n] * Qlim / minQst,minsigst);
+      initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
     }
   }
 
 
 
-  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
-  initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
-  initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA->spcol[1]); // dimensionless!
+  initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
+  initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
 
 
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
   EnforceFixedQ(false,true);
 
-  initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
+  initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
   initialGasMass = TotalWeightedByArea(col) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -380,12 +372,8 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 void DiskContents::Initialize(double tempRatio, double fg0)
 {
   // an active and passive stellar population..
-  StellarPop initialStarsA(nx,
-      YoungIthBin(0,cos,NActive),
-      OldIthBin(0,cos,NActive));
-  StellarPop initialStarsP(nx,
-      YoungIthBin(0,cos,NPassive),
-      OldIthBin(0,cos,NPassive));
+  StellarPop * initialStarsA = new StellarPop(mesh);
+  StellarPop * initialStarsP = new StellarPop(mesh);
 
 //  InitializeGrid(BulgeRadius);
 
@@ -396,34 +384,34 @@ void DiskContents::Initialize(double tempRatio, double fg0)
     sig[n] = pow(dim.chi()/(ETA*fg0),1./3.)/sqrt(2.);
     col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
          tempRatio/(x[n]*M_PI*dim.chi() * (tempRatio + (1.-fg0)/fg0));
-    initialStarsA.spcol[n] = col[n]*(1.-fg0)/fg0;
-    initialStarsA.spsigR[n] = max(tempRatio*sig[n],minsigst);
-    initialStarsA.spsigZ[n] = initialStarsA.spsigR[n];
-    initialStarsA.spZ[n]   = Z_Init;
-    initialStarsA.spZV[n]  = 0.0;
-    initialStarsP.spcol[n] = initialStarsA.spcol[n];
-    initialStarsP.spsigR[n] = initialStarsA.spsigR[n];
-    initialStarsP.spsigZ[n] = initialStarsA.spsigZ[n];
-    initialStarsP.spZ[n]   = initialStarsA.spZ[n];
-    initialStarsP.spZV[n]  = initialStarsA.spZV[n];
+    initialStarsA->spcol[n] = col[n]*(1.-fg0)/fg0;
+    initialStarsA->spsigR[n] = max(tempRatio*sig[n],minsigst);
+    initialStarsA->spsigZ[n] = initialStarsA->spsigR[n];
+    initialStarsA->spZ[n]   = Z_Init;
+    initialStarsA->spZV[n]  = 0.0;
+    initialStarsP->spcol[n] = initialStarsA->spcol[n];
+    initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
+    initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
+    initialStarsP->spZ[n]   = initialStarsA->spZ[n];
+    initialStarsP->spZV[n]  = initialStarsA->spZV[n];
 
-    if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA.spcol[n]<0.0 || initialStarsA.spsigR[n]<0.0 || initialStarsA.spcol[n]!=initialStarsA.spcol[n] || initialStarsA.spsigR[n]!=initialStarsA.spsigR[n]) {
-	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA.spcol[n])+" "+str(initialStarsA.spsigR[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA.spsigR[n]/(M_PI*x[n]*initialStarsA.spcol[n]*dim.chi())));
+    if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA->spcol[n]<0.0 || initialStarsA->spsigR[n]<0.0 || initialStarsA->spcol[n]!=initialStarsA->spcol[n] || initialStarsA->spsigR[n]!=initialStarsA->spsigR[n]) {
+	errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA->spcol[n])+" "+str(initialStarsA->spsigR[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA->spsigR[n]/(M_PI*x[n]*initialStarsA->spcol[n]*dim.chi())));
     }
 
   }
 
-  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA.spcol[1]); // dimensionless!
-  initialStarsA.ageAtz0 = cos.lbt(cos.ZStart());
-  initialStarsP.ageAtz0 = cos.lbt(cos.ZStart());
+  MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA->spcol[1]); // dimensionless!
+  initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
+  initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
   spsActive.push_back(initialStarsA);
   spsPassive.push_back(initialStarsP);
 //  EnforceFixedQ(true); // this is no longer reasonable given the floor, minsigst.
-  bool fixedPhi0 = initialStarsA.spsigR[1] > 2.0*minsigst;
+  bool fixedPhi0 = initialStarsA->spsigR[1] > 2.0*minsigst;
   EnforceFixedQ(fixedPhi0,true); // only allow sig and sigst to covary if initial stellar velocity dispersion is far above minsigst.
   if(!fixedPhi0)  std::cerr << "WARNING: minsigst set too high to allow intiial conditions to be set by covarying gas and stellar velocity dispersions.";
 
-  initialStellarMass = TotalWeightedByArea(initialStarsA.spcol) * 
+  initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
   initialGasMass = TotalWeightedByArea(col) * 
     (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -524,66 +512,65 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
       }
     }
 
+    unsigned int sa=spsActive.size();
+    if(fabs(colSFR[n]/spsActive[sa-1]->spcol[n])>dmax) { 
+       dmax=fabs(colSFR[n]/spsActive[sa-1]->spcol[n]);
+       *whichCell=n;
+       *whichVar=5;
+    }
 
-    for(unsigned int i=0; i!=spsActive.size(); ++i) {
-      if(spsActive[i].IsForming(cos,redshift)) {
-        if(fabs(colSFR[n]/spsActive[i].spcol[n])>dmax) { 
-          dmax=fabs(colSFR[n]/spsActive[i].spcol[n]);
-	  *whichCell=n;
-          *whichVar=5;
-        }
-      }
-      if(fabs(dSMigdt(n,tauvecStar,(*this),spsActive[i].spcol)
-               /spsActive[i].spcol[n]) > dmax) {
-        dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsActive[i].spcol)
-          /spsActive[i].spcol[n]);
+    for(unsigned int i=0; i!=sa; ++i) {
+      if(fabs(dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol)
+               /spsActive[i]->spcol[n]) > dmax) {
+        dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol)
+          /spsActive[i]->spcol[n]);
         *whichVar=6;
 	*whichCell=n;
       }
-      if(fabs(dSigStZdt(n,i,redshift,spsActive,tauvecStar)
-                /spsActive[i].spsigZ[n]) > dmax) {
-        dmax=fabs(dSigStZdt(n,i,redshift,spsActive,tauvecStar)
-           /spsActive[i].spsigZ[n]);
+      if(fabs(dSigStZdt(n,i,spsActive,tauvecStar)
+                /spsActive[i]->spsigZ[n]) > dmax) {
+        dmax=fabs(dSigStZdt(n,i,spsActive,tauvecStar)
+           /spsActive[i]->spsigZ[n]);
         *whichVar=7;
 	*whichCell=n;
       }
-      if(fabs(dSigStRdt(n,i,redshift,spsActive,tauvecStar)
-                /spsActive[i].spsigR[n]) > dmax) {
-        dmax=fabs(dSigStRdt(n,i,redshift,spsActive,tauvecStar)
-           /spsActive[i].spsigR[n]);
+      if(fabs(dSigStRdt(n,i,spsActive,tauvecStar)
+                /spsActive[i]->spsigR[n]) > dmax) {
+        dmax=fabs(dSigStRdt(n,i,spsActive,tauvecStar)
+           /spsActive[i]->spsigR[n]);
         *whichVar=8;
 	*whichCell=n;
       }
 
     } // end loop over active stellar populations
 
+    unsigned int sp = spsPassive.size();
+    if(fabs(colSFR[n]/spsPassive[sp-1]->spcol[n])>dmax) { 
+      dmax=fabs(colSFR[n]/spsPassive[sp-1]->spcol[n]);
+      *whichCell=n;
+      *whichVar=9;
+    }
 
-    for(unsigned int j=0; j!=spsPassive.size(); ++j) {
-      if(spsPassive[j].IsForming(cos,redshift)) {
-        if(fabs(colSFR[n]/spsPassive[j].spcol[n])>dmax) { 
-          dmax=fabs(colSFR[n]/spsPassive[j].spcol[n]);
-	  *whichCell=n;
-          *whichVar=9;
-        }
-      }
-      if(fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j].spcol)
-               /spsPassive[j].spcol[n]) > dmax) {
-        dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j].spcol)
-          /spsPassive[j].spcol[n]);
+    for(unsigned int j=0; j!=sp; ++j) {
+      
+      if(fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j]->spcol)
+               /spsPassive[j]->spcol[n]) > dmax) {
+        dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j]->spcol)
+          /spsPassive[j]->spcol[n]);
         *whichVar=10;
 	*whichCell=n;
       }
-      if(fabs(dSigStZdt(n,j,redshift,spsPassive,tauvecStar)
-                /spsPassive[j].spsigZ[n]) > dmax) {
-        dmax=fabs(dSigStZdt(n,j,redshift,spsPassive,tauvecStar)
-           /spsPassive[j].spsigZ[n]);
+      if(fabs(dSigStZdt(n,j,spsPassive,tauvecStar)
+                /spsPassive[j]->spsigZ[n]) > dmax) {
+        dmax=fabs(dSigStZdt(n,j,spsPassive,tauvecStar)
+           /spsPassive[j]->spsigZ[n]);
         *whichVar=11;
 	*whichCell=n;
       }
-      if(fabs(dSigStRdt(n,j,redshift,spsPassive,tauvecStar)
-                /spsPassive[j].spsigR[n]) > dmax) {
-        dmax=fabs(dSigStRdt(n,j,redshift,spsPassive,tauvecStar)
-           /spsPassive[j].spsigR[n]);
+      if(fabs(dSigStRdt(n,j,spsPassive,tauvecStar)
+                /spsPassive[j]->spsigR[n]) > dmax) {
+        dmax=fabs(dSigStRdt(n,j,spsPassive,tauvecStar)
+           /spsPassive[j]->spsigR[n]);
         *whichVar=12;
 	*whichCell=n;
       }
@@ -597,42 +584,34 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
   return TOL/max(dmax,10.0*TOL/x[1]); // maximum stepsize of .1 innermost orbital times
 }
 
-bool DiskContents::CheckStellarPops(const double dt, const double redshift,
-				    std::vector<StellarPop>& sps, 
-				    unsigned int NAB,bool active)
+void DiskContents::AddNewStellarPop(const double redshift, 
+                                    const double dt,
+				    std::vector<StellarPop*>& sps, 
+				    bool active)
 {
-  bool inc=false;
-  for(unsigned int i=0; i!=sps.size(); ++i) {
-    inc=(inc || sps[i].IsForming(cos,redshift));
-  }
-  if(inc)
-    return true;
-  if(!inc) { // add in the new population!
     unsigned int sz=sps.size();
-    StellarPop currentlyForming(nx,
-        YoungIthBin(sz,cos,NAB),
-        OldIthBin(sz,cos,NAB));
-    currentlyForming.ageAtz0 = cos.lbt(redshift);
+    StellarPop * currentlyForming = new StellarPop(mesh);
+    currentlyForming->ageAtz0 = cos.lbt(redshift);
     if(active) { // this is a huge kludge. Used to speed up 
                  // runtimes in the case that NActive>1
-      currentlyForming.extract(sps[sz-1],.01);
+      currentlyForming->extract(*(sps[sz-1]),.01);
     }
     else {
       for(unsigned int n=1; n<=nx; ++n) {
-        currentlyForming.spcol[n] = RfREC*colSFR[n]*dt;
-        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) currentlyForming.spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
-	else currentlyForming.spsigR[n] = minsigst;
-        currentlyForming.spsigZ[n] = currentlyForming.spsigR[n];
-        currentlyForming.spZ[n]   = ZDisk[n];
-        currentlyForming.spZV[n]  = 0.0;
+        currentlyForming->spcol[n] = RfREC*colSFR[n]*dt;
+        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) currentlyForming->spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
+	else currentlyForming->spsigR[n] = minsigst;
+        currentlyForming->spsigZ[n] = currentlyForming->spsigR[n];
+        currentlyForming->spZ[n]   = ZDisk[n];
+        currentlyForming->spZV[n]  = 0.0;
 
-	if( currentlyForming.spcol[n] <0.0 || currentlyForming.spsigR[n]<0.0 
-	 || currentlyForming.spZ[n]<0.0    || currentlyForming.spZV[n] <0.0
-	 || currentlyForming.spcol[n]!=currentlyForming.spcol[n]
-	 || currentlyForming.spsigR[n]!=currentlyForming.spsigR[n]
-	 || currentlyForming.spZ[n]!=currentlyForming.spZ[n]
-	 || currentlyForming.spZV[n]!=currentlyForming.spZV[n])
-	     errormsg("Error forming new stellar population: "+str(currentlyForming.spcol[n])+" "+str(colSFR[n])+" "+str(dt));
+	if( currentlyForming->spcol[n] <0.0 || currentlyForming->spsigR[n]<0.0 
+	 || currentlyForming->spZ[n]<0.0    || currentlyForming->spZV[n] <0.0
+	 || currentlyForming->spcol[n]!=currentlyForming->spcol[n]
+	 || currentlyForming->spsigR[n]!=currentlyForming->spsigR[n]
+	 || currentlyForming->spZ[n]!=currentlyForming->spZ[n]
+	 || currentlyForming->spZV[n]!=currentlyForming->spZV[n])
+	     errormsg("Error forming new stellar population: "+str(currentlyForming->spcol[n])+" "+str(colSFR[n])+" "+str(dt));
       }
     }
     sps.push_back(currentlyForming);
@@ -642,8 +621,6 @@ bool DiskContents::CheckStellarPops(const double dt, const double redshift,
     else {
       std::cout << "Creating spsPassive["<<sz<<"]"<<std::endl;
     }
-  }
-  return false;
 }
 
 void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
@@ -664,9 +641,9 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     dColStDtMeasured[n] = -activeColSt(n)/dt; // we'll subtract from this number in a bit..
     dSigStRDtMeasured[n] = -activeSigStR(n)/dt;
     dSigStZDtMeasured[n] = -activeSigStZ(n)/dt;
-    dColStDtNominal[n] = dSMigdt(n,tauvecStar, (*this), spsActive[0].spcol) + RfREC*colSFR[n];
-    dSigStRDtNominal[n] = dSigStRdt(n,0,redshift,spsActive,tauvecStar);
-    dSigStZDtNominal[n] = dSigStZdt(n,0,redshift,spsActive,tauvecStar);
+    dColStDtNominal[n] = dSMigdt(n,tauvecStar, (*this), spsActive[0]->spcol) + RfREC*colSFR[n];
+    dSigStRDtNominal[n] = dSigStRdt(n,0,spsActive,tauvecStar);
+    dSigStZDtNominal[n] = dSigStZdt(n,0,spsActive,tauvecStar);
 
   }
 
@@ -674,13 +651,11 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 
   unsigned int szA = spsActive.size();
   unsigned int szP = spsPassive.size();
-  StellarPop currentlyForming(nx,
-        YoungIthBin(szA,cos,1),
-        OldIthBin(szA,cos,1));
+  StellarPop currentlyForming(mesh);
   for(unsigned int n=1; n<=nx; ++n) {
-    //spsActive[0].spcol[n] += dt * dColStDtNominal[n];
-    //spsActive[0].spsigR[n] += dt*dSigStRDtNominal[n];
-    //spsActive[0].spsigZ[n] += dt*dSigStZDtNominal[n];
+    //spsActive[0]->spcol[n] += dt * dColStDtNominal[n];
+    //spsActive[0]->spsigR[n] += dt*dSigStRDtNominal[n];
+    //spsActive[0]->spsigZ[n] += dt*dSigStZDtNominal[n];
 
 
 
@@ -700,28 +675,14 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
   }
   currentlyForming.ageAtz0 = cos.lbt(redshift);
 
-  // are the currently-forming stars included in a pre-existing population?
-  bool incA=false;
-  for(unsigned int i=0; i!=spsActive.size();++i) {
-    incA = (incA || spsActive[i].IsForming(cos,redshift));
-  }
-  bool incP=false;
-  for(unsigned int i=0; i!=spsPassive.size();++i) {
-    incP = (incP || spsPassive[i].IsForming(cos,redshift));
-  }
+  spsActive[szA-1]->MergeStellarPops(currentlyForming,(*this));
+  spsPassive[szP-1]->MergeStellarPops(currentlyForming,(*this));
 
-  if(!incA || !incP) {
-    errormsg(std::string("UpdateStateVars: currently forming stars not included in the extant stellar populations!"));
-  }
-  else {
-    spsActive[szA-1].MergeStellarPops(currentlyForming,(*this));
-    spsPassive[szP-1].MergeStellarPops(currentlyForming,(*this));
-  }
   for(unsigned int i=0; i!=spsPassive.size();++i) {
-    if(migratePassive) spsPassive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+    if(migratePassive) spsPassive[i]->MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
   }
   for(unsigned int i=0; i!=spsActive.size();++i) {
-    spsActive[i].MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+    spsActive[i]->MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
   }
 
 
@@ -737,11 +698,11 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 //      for(unsigned int j=0; j!=spsActive.size(); ++j) {
 //        CuStarsOut[n] += 2.0*M_PI*
 //	  sqrt(x[n]*x[n-1] * 
-//	       spsActive[j].spcol[n]*spsActive[j].spcol[n-1] * 
+//	       spsActive[j]->spcol[n]*spsActive[j]->spcol[n-1] * 
 //	       yy[n]*yy[n-1]) * 
 //	  dt * 2.0*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR  * (1.0/MSol);
 //        if(CuStarsOut[n] != CuStarsOut[n])
-///         errormsg("Error computing CuStarsOut. "+str(spsActive[j].spcol[n])+" "+str(spsActive[j].spcol[n-1])+" "+str(yy[n])+" "+str(yy[n-1]));
+///         errormsg("Error computing CuStarsOut. "+str(spsActive[j]->spcol[n])+" "+str(spsActive[j]->spcol[n-1])+" "+str(yy[n])+" "+str(yy[n-1]));
 //      }
       CuGasOut[n] +=  
 	sqrt(max(tauvec[2][n]*tauvec[2][n-1],1.0e-20))
@@ -752,7 +713,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
       /((XMIN*exp(dlnx/2.)*expm1(dlnx))*uu[1]*(1+beta[1])) * 
       dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
 //    for(unsigned int j=0; j!=spsActive.size(); ++j) {
-//      CuStarsOut[1] += 2*M_PI*x[1]*spsActive[j].spcol[1]*yy[1]*
+//      CuStarsOut[1] += 2*M_PI*x[1]*spsActive[j]->spcol[1]*yy[1]*
 //	dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
 //    }
 
@@ -796,8 +757,8 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
       errormsg(std::string("Error updating statevars- dt,col,sig,ZDisk,dcoldt,dsigdt")
          +std::string(",dZDiskdt: ")+str(dt)+spc+str(col[n])+spc+str(sig[n])+spc
          +str(ZDisk[n])+spc+spc+str(dcoldt[n])+spc+str(dsigdt[n])+spc
-         +str(dZDiskdt[n])+spc+spc+str(spsActive[szA-1].spcol[n])+spc
-         +str(spsActive[szA-1].spsigR[n])+spc+str(spsActive[szA-1].spZ[n]));
+         +str(dZDiskdt[n])+spc+spc+str(spsActive[szA-1]->spcol[n])+spc
+         +str(spsActive[szA-1]->spsigR[n])+spc+str(spsActive[szA-1]->spZ[n]));
     }
   }
 
@@ -813,7 +774,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
      * MdotiPlusHalf[0] * dt * (2*M_PI*dim.Radius/dim.vphiR) * (1.0/MSol);
 //  for(unsigned int j=0; j!=spsActive.size(); ++j) {
 //    cumulativeStellarMassThroughIB += 2.*M_PI*(x[1]*dim.Radius)
-//     *(spsActive[j].spcol[1]*dim.MdotExt0/(dim.vphiR*dim.Radius))
+//     *(spsActive[j]->spcol[1]*dim.MdotExt0/(dim.vphiR*dim.Radius))
 //     *(yy[1]*dim.vphiR) * dt * (2*M_PI*dim.Radius/dim.vphiR) * (1.0/MSol);
 //  }
   cumulativeMassAccreted += AccRate*dim.MdotExt0 * 
@@ -841,15 +802,15 @@ void DiskContents::ComputeRafikovQParams(RafikovQParams* p, unsigned int n)
   (*p).var=-1;
   (*p).analyticQ = analyticQ;
   (*p).thickGas = 1.5; // thickness;
-  (*p).thickStars = 0.8 + 0.7 * spsActive[0].spsigZ[n] / spsActive[0].spsigR[n];
+  (*p).thickStars = 0.8 + 0.7 * spsActive[0]->spsigZ[n] / spsActive[0]->spsigR[n];
   //  (*p).mostRecentq = 1.;
   (*p).Qg = sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
   (*p).Qsi.clear();
   (*p).ri.clear();
   for(unsigned int i=0; i!=spsActive.size(); ++i) {
-    (*p).Qsi.push_back( sqrt(2.*(beta[n]+1.))*uu[n]*spsActive[i].spsigR[n]
-           /(M_PI*dim.chi()*x[n]*spsActive[i].spcol[n]));
-    (*p).ri.push_back( spsActive[i].spsigR[n] / sig[n]);
+    (*p).Qsi.push_back( sqrt(2.*(beta[n]+1.))*uu[n]*spsActive[i]->spsigR[n]
+           /(M_PI*dim.chi()*x[n]*spsActive[i]->spcol[n]));
+    (*p).ri.push_back( spsActive[i]->spsigR[n] / sig[n]);
   }
   (*p).fixedQ=fixedQ;
 }
@@ -885,12 +846,12 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0, bool EnforceWhenQgrtQf)
 
       if(fixedPhi0) {
         for(unsigned int i=0; i!=spsActive.size(); ++i) {
-          spsActive[i].spsigR[n] *= factor;
-          spsActive[i].spsigZ[n] *= factor;
+          spsActive[i]->spsigR[n] *= factor;
+          spsActive[i]->spsigZ[n] *= factor;
         }
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-          spsPassive[i].spsigR[n] *=factor;
-          spsPassive[i].spsigZ[n] *=factor;
+          spsPassive[i]->spsigR[n] *=factor;
+          spsPassive[i]->spsigZ[n] *=factor;
         }
       }
     }
@@ -1245,11 +1206,11 @@ double DiskContents::dmdtCosInner(double AccRate)
 
 // The only place this function is used is in computing the coefficient for the torque equation which requires
 // knowing d s_*/dt. This function is NOT used for actually updating s_*.
-double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps,double ** tauvecStar)
+double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,std::vector<StellarPop*>& sps,double ** tauvecStar)
 {
-  std::vector<double>& col_st = sps[sp].spcol ;
-  std::vector<double>& sig_stR = sps[sp].spsigR ;
-  std::vector<double>& sig_stZ = sps[sp].spsigZ ;
+  std::vector<double>& col_st = sps[sp]->spcol ;
+  std::vector<double>& sig_stR = sps[sp]->spsigR ;
+  std::vector<double>& sig_stZ = sps[sp]->spsigZ ;
 
   double val = 0.0;
   
@@ -1261,7 +1222,7 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,s
           + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
 
 
-  if(sps[sp].IsForming(cos,redshift)) {
+  if(sps.size()-1==sp) { // i.e. this population is having stars added presently.
     if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
       val += (sig[n]*sig[n] - sigth*sigth - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
              /(2.0*col_st[n]*sig_stR[n]);
@@ -1276,11 +1237,11 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,double redshift,s
 
 // The only place this function is used is in computing the coefficient for the torque equation which requires
 // knowing d s_*/dt. This function is NOT used for actually updating s_*.
-double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,double redshift,std::vector<StellarPop>& sps,double ** tauvecStar)
+double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,std::vector<StellarPop*>& sps,double ** tauvecStar)
 {
-  std::vector<double>& col_st = sps[sp].spcol;
-  std::vector<double>& sig_stR = sps[sp].spsigR;
-  std::vector<double>& sig_stZ = sps[sp].spsigZ;
+  std::vector<double>& col_st = sps[sp]->spcol;
+  std::vector<double>& sig_stR = sps[sp]->spsigR;
+  std::vector<double>& sig_stZ = sps[sp]->spsigZ;
 
   double val = 0.0;
   
@@ -1291,7 +1252,7 @@ double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,double redshift,s
           + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
 
 
-  if(sps[sp].IsForming(cos,redshift)) {
+  if(sps.size()-1==sp) { // i.e. this population is forming stars
     if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
       val += (sig[n]*sig[n] - sigth*sigth - sig_stZ[n]*sig_stZ[n])*RfREC*colSFR[n]
              /(2.0*col_st[n]*sig_stZ[n]);
@@ -1306,9 +1267,9 @@ double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,double redshift,s
 
 void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<double>& DDst, std::vector<double>& LLst, std::vector<double>& FFst)
 {
-  std::vector<double>& sigStR = spsActive[0].spsigR;
-  std::vector<double>& sigStZ = spsActive[0].spsigZ;
-  std::vector<double>& colst = spsActive[0].spcol;
+  std::vector<double>& sigStR = spsActive[0]->spsigR;
+  std::vector<double>& sigStZ = spsActive[0]->spsigZ;
+  std::vector<double>& colst = spsActive[0]->spcol;
 
   for(unsigned int n=1; n<=nx; ++n) {
 
@@ -1369,13 +1330,14 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
     // Add the contributions to H from the stellar components. Here we see 
     // the difference between an active and a passive stellar population- 
     // only the active populations contribute to H:
-    for(unsigned int i=0; i!=spsActive.size(); ++i) {
-      if(spsActive[i].IsForming(cos,redshift)) {
-        FF[n] -= spsActive[i].dQdS[n] * RfREC * colSFR[n];
+    unsigned int sa = spsActive.size();
+    for(unsigned int i=0; i!=sa; ++i) {
+      if(sa-1 == i) { // i.e. population i is forming stars
+        FF[n] -= spsActive[i]->dQdS[n] * RfREC * colSFR[n];
       }
-      FF[n] -= spsActive[i].dQdsR[n] * dSigStRdt(n,i,redshift,spsActive,tauvecStar) 
-        + spsActive[i].dQdsZ[n] *dSigStZdt(n,i,redshift,spsActive,tauvecStar)
-	+ spsActive[i].dQdS[n] * dSMigdt(n,tauvecStar,(*this),spsActive[i].spcol);
+      FF[n] -= spsActive[i]->dQdsR[n] * dSigStRdt(n,i,spsActive,tauvecStar) 
+        + spsActive[i]->dQdsZ[n] *dSigStZdt(n,i,spsActive,tauvecStar)
+	+ spsActive[i]->dQdS[n] * dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol);
     }
     //if(redshift <.1 && n>=20 && n<=40) {
     //    std::cout << "Components of torque eq: n, S,sR,sZ "<<n<<" "<<spsActive[i].dQdsR[n] * dSigStRdt(n,i,redshift,spsActive,tauvecStar)<<" "<<
@@ -1399,9 +1361,9 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
       errormsg(std::string("Error calculating torque eq. coefficients: FF,DD,LL,RR")
          +std::string("   col,sig  dQdS,dQds,dQdSst,dQdsst ")+str(FF[n])+" "+str(DD[n])
          +spc+str(LL[n])+spc+str(UU[n])+spc+spc+str(col[n])+spc+str(sig[n])
-         +spc+spc+str(dQdS[n])+" "+str(dQds[n])+spc+str(spsActive[0].dQdS[n])
-         +spc+str(spsActive[0].dQdsR[n])+spc+spc+str(dSigStRdt(n,0,redshift,spsActive,tauvecStar))+spc
-	+str(dSMigdt(n,tauvecStar,*this,spsActive[0].spcol)));
+         +spc+spc+str(dQdS[n])+" "+str(dQds[n])+spc+str(spsActive[0]->dQdS[n])
+         +spc+str(spsActive[0]->dQdsR[n])+spc+spc+str(dSigStRdt(n,0,spsActive,tauvecStar))+spc
+	+str(dSMigdt(n,tauvecStar,*this,spsActive[0]->spcol)));
     }
   
   }
@@ -1409,7 +1371,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
 
 
 void DiskContents::WriteOutStarsFile(std::string filename,
-				     std::vector<StellarPop>& sps,
+				     std::vector<StellarPop *>& sps,
 				     unsigned int NAgeBins,unsigned int step)
 {
   std::ofstream starsFile;
@@ -1432,24 +1394,24 @@ void DiskContents::WriteOutStarsFile(std::string filename,
   }
   
   for(unsigned int i=0; i!=sps.size(); ++i) {
-    double yrs = sps[i].ageAtz0/speryear;
+    double yrs = sps[i]->ageAtz0/speryear;
     starsFile.write((char *) &yrs,sizeof(yrs));
 //    std::cerr << "i, step, Age in Ga (resp): "<<i<<" "<<step<<" "<<yrs*1.0e-9<<std::endl;
     for(unsigned int n=1; n<=nx; ++n) {
-      starsFile.write((char *) &(sps[i].spcol[n]),sizeof(sps[i].spcol[n]));
+      starsFile.write((char *) &(sps[i]->spcol[n]),sizeof(sps[i]->spcol[n]));
     }
     for(unsigned int n=1; n<=nx; ++n) {
-      starsFile.write((char *) &(sps[i].spsigR[n]),sizeof(sps[i].spsigR[n]));
+      starsFile.write((char *) &(sps[i]->spsigR[n]),sizeof(sps[i]->spsigR[n]));
     }
     for(unsigned int n=1; n<=nx; ++n) {
-      starsFile.write((char *) &(sps[i].spsigZ[n]),sizeof(sps[i].spsigZ[n]));
+      starsFile.write((char *) &(sps[i]->spsigZ[n]),sizeof(sps[i]->spsigZ[n]));
     }
     for(unsigned int n=1; n<=nx; ++n) {
-      starsFile.write((char *) &(sps[i].spZ[n]),sizeof(sps[i].spZ[n]));
+      starsFile.write((char *) &(sps[i]->spZ[n]),sizeof(sps[i]->spZ[n]));
     }
 
     for(unsigned int n=1; n<=nx; ++n) {
-      double zv = sqrt(sps[i].spZV[n]);
+      double zv = sqrt(sps[i]->spZV[n]);
       starsFile.write((char *) &(zv),sizeof(zv));
     }
 //    for(unsigned int n=1; n<=nx; ++n) {
@@ -1492,9 +1454,9 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
   for(unsigned int n=1;n<=nx;++n) {
 //    col_st[n]=0.; sig_st[n]=0.;
 //    for(unsigned int i=0;i!=spsActive.size();++i) {
-//      col_st[n]+=spsActive[i].spcol[n];
-//      sig_st[n]+=spsActive[i].spcol[n]
-//                *spsActive[i].spsig[n]*spsActive[i].spsig[n];
+//      col_st[n]+=spsActive[i]->spcol[n];
+//      sig_st[n]+=spsActive[i]->spcol[n]
+//                *spsActive[i]->spsig[n]*spsActive[i]->spsig[n];
 //    }
 //    sig_st[n]=sqrt(sig_st[n]/col_st[n]);
     col_st[n]=activeColSt(n);
@@ -1604,7 +1566,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
   double totalMass = TotalWeightedByArea(col);
   double gasMass=totalMass;
   for(unsigned int aa=0; aa!=spsActive.size(); ++aa) {
-    totalMass+= TotalWeightedByArea(spsActive[aa].spcol);
+    totalMass+= TotalWeightedByArea(spsActive[aa]->spcol);
   }
   wrt2.push_back((double) step);wrt2.push_back(t);wrt2.push_back(dt); // 1..3
   wrt2.push_back(MBulge);wrt2.push_back(ZBulge);wrt2.push_back(0.0); // 4..6
@@ -1613,7 +1575,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
   double currentStellarMass=0.0;
   double currentGasMass = TotalWeightedByArea(col)* (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) * (1.0/MSol);
   for(unsigned int i=0; i!=spsActive.size(); ++i) {
-    currentStellarMass += TotalWeightedByArea(spsActive[i].spcol) * 
+    currentStellarMass += TotalWeightedByArea(spsActive[i]->spcol) * 
       (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) * (1.0/MSol);
   }
   wrt2.push_back(currentGasMass-initialGasMass); //12
@@ -1684,19 +1646,19 @@ void DiskContents::ComputePartials()
                     +errsum*errsum);
       
       for(unsigned int k=0; k<rqp.ri.size(); ++k) {
-        spsActive[k].dQdS[n] = auxpartials[k+1] * 
-           (-1)*(rqp.Qsi[k])/(spsActive[k].spcol[n]);
-        spsActive[k].dQdsR[n] = auxpartials[k+1] * 
-           rqp.Qsi[k]/(spsActive[k].spsigR[n]) 
+        spsActive[k]->dQdS[n] = auxpartials[k+1] * 
+           (-1)*(rqp.Qsi[k])/(spsActive[k]->spcol[n]);
+        spsActive[k]->dQdsR[n] = auxpartials[k+1] * 
+           rqp.Qsi[k]/(spsActive[k]->spsigR[n]) 
           + auxpartials[k+1+spsActive.size()] * rqp.ri[k] 
-               / (spsActive[k].spsigR[n]);
+               / (spsActive[k]->spsigR[n]);
         
-        spsActive[k].dQdSerr[n] = fabs(auxpartialerrors[k+1]
-                                  *(-rqp.Qsi[k])/(spsActive[k].spcol[n]));
-        spsActive[k].dQdserr[n] = sqrt(pow(auxpartialerrors[k+1] 
-                                  *(rqp.Qsi[k]/(spsActive[k].spsigR[n])),2.) 
+        spsActive[k]->dQdSerr[n] = fabs(auxpartialerrors[k+1]
+                                  *(-rqp.Qsi[k])/(spsActive[k]->spcol[n]));
+        spsActive[k]->dQdserr[n] = sqrt(pow(auxpartialerrors[k+1] 
+                                  *(rqp.Qsi[k]/(spsActive[k]->spsigR[n])),2.) 
                                  + pow(auxpartialerrors[k+1+spsActive.size()]
-                                    *rqp.ri[k]/(spsActive[k].spsigR[n]),2.));
+                                    *rqp.ri[k]/(spsActive[k]->spsigR[n]),2.));
       }
     }
   }
@@ -1726,12 +1688,12 @@ void DiskContents::ComputePartials()
         dQds[n] = - ( -(2./3.)/(Qg*sig[n]) - 4.0*sig[n]*sig[n]*sigStR/(Qst*pow(sig[n]*sig[n]+sigStR*sigStR,2.0)*thickStars)   + 2.0*sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars)) /
            pow( (2./3.)/Qg  + 2.0*sig[n]*sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0);
 
-        spsActive[0].dQdS[n] = - 2.0*sig[n]*sig[n] / (Qg*col[n]*(sig[n]*sig[n]+sigStR*sigStR)*thickStars*pow((2./3.)/Qg + 2.0 *sig[n] * sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0));
+        spsActive[0]->dQdS[n] = - 2.0*sig[n]*sig[n] / (Qg*col[n]*(sig[n]*sig[n]+sigStR*sigStR)*thickStars*pow((2./3.)/Qg + 2.0 *sig[n] * sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0));
 
-        spsActive[0].dQdsR[n] = -( 1.4*sig[n]*sigStZ/(Qst*sigStR*(sig[n]*sig[n]+sigStR*sigStR)*thickStars*thickStars)  - 4.0*sig[n]*sigStR*sigStR/(Qst*pow(sig[n]*sig[n]+sigStR*sigStR,2.0)*thickStars)  ) /
+        spsActive[0]->dQdsR[n] = -( 1.4*sig[n]*sigStZ/(Qst*sigStR*(sig[n]*sig[n]+sigStR*sigStR)*thickStars*thickStars)  - 4.0*sig[n]*sigStR*sigStR/(Qst*pow(sig[n]*sig[n]+sigStR*sigStR,2.0)*thickStars)  ) /
            pow(2./(3.*Qg)  + 2*sig[n]*sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0);
 
-        spsActive[0].dQdsZ[n] = 1.4 * sig[n] / (Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars*thickStars*pow(2./(3.*Qg) + 2.0*sig[n]*sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0));
+        spsActive[0]->dQdsZ[n] = 1.4 * sig[n] / (Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars*thickStars*pow(2./(3.*Qg) + 2.0*sig[n]*sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0));
       }
 
       else {
@@ -1739,26 +1701,26 @@ void DiskContents::ComputePartials()
 
          dQds[n] = (8./3.)*sig[n]*sig[n]*sigStR/(Qg*pow(sig[n]*sig[n]+sigStR*sigStR,2.0)*pow((4./3.)*sig[n]*sigStR/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0));
 
-         spsActive[0].dQdS[n] = -1.0/( Qst*col_st*thickStars*pow( (4./3.)*sigStR*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0));
+         spsActive[0]->dQdS[n] = -1.0/( Qst*col_st*thickStars*pow( (4./3.)*sigStR*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0));
 
-         spsActive[0].dQdsR[n] = -(-(8./3.)*sig[n]*sigStR*sigStR/(Qg*pow(sig[n]*sig[n]+sigStR*sigStR,2.0)) + (4./3.)*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 0.7*sigStZ/(Qst*sigStR*sigStR*thickStars*thickStars) - 1.0/(Qst*sigStR*thickStars)) / pow((4./3.)*sigStR*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0); 
+         spsActive[0]->dQdsR[n] = -(-(8./3.)*sig[n]*sigStR*sigStR/(Qg*pow(sig[n]*sig[n]+sigStR*sigStR,2.0)) + (4./3.)*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 0.7*sigStZ/(Qst*sigStR*sigStR*thickStars*thickStars) - 1.0/(Qst*sigStR*thickStars)) / pow((4./3.)*sigStR*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0); 
 
-         spsActive[0].dQdsZ[n] = 0.7/(Qst*sigStR*thickStars*thickStars*pow((4./3.)*sigStR*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0));
+         spsActive[0]->dQdsZ[n] = 0.7/(Qst*sigStR*thickStars*thickStars*pow((4./3.)*sigStR*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0));
 
 
 
 
 
       }
-      dQdSerr[n]=dQdserr[n]=spsActive[0].dQdSerr[n]=spsActive[0].dQdserr[n]=0.;
+      dQdSerr[n]=dQdserr[n]=spsActive[0]->dQdSerr[n]=spsActive[0]->dQdserr[n]=0.;
       
       if(dQdS[n]!=dQdS[n] || dQds[n]!=dQds[n] 
-         || spsActive[0].dQdS[n]!=spsActive[0].dQdS[n] 
-         || spsActive[0].dQdsR[n]!=spsActive[0].dQdsR[n]) {
+         || spsActive[0]->dQdS[n]!=spsActive[0]->dQdS[n] 
+         || spsActive[0]->dQdsR[n]!=spsActive[0]->dQdsR[n]) {
         std::string spc(" ");
         errormsg(std::string("Error computing partials:  dQdS,dQds,dQdSst,dQdsst  ")
                  +std::string("Qst,Qg   W,rs  ")+str(dQdS[n])+spc+str(dQds[n])+spc
-                 +str(spsActive[0].dQdS[n])+spc+str(spsActive[0].dQdsR[n])
+                 +str(spsActive[0]->dQdS[n])+spc+str(spsActive[0]->dQdsR[n])
                  +spc+spc+str(Qst)+spc+str(Qg)+spc+spc+str(W)+spc+str(rs));
       }
 
@@ -1772,14 +1734,14 @@ double DiskContents::activeColSt(unsigned int n)
   double val = 0.0;
   bool alert=false;
   for(unsigned int i=0; i!=spsActive.size(); ++i) {
-	double tval = spsActive[i].spcol[n];
+	double tval = spsActive[i]->spcol[n];
 	val += tval;
 	if(tval < 0.0) alert=true;
   }
   if(alert) {
     std::string msg=("Negative column density! n= " + str(n)+"; ");
     for(unsigned int i=0; i!=spsActive.size(); ++i) {
-      msg+=str(spsActive[i].spcol[n]) + ", ";
+      msg+=str(spsActive[i]->spcol[n]) + ", ";
     }
     errormsg(msg,true);
   }
@@ -1790,7 +1752,7 @@ double DiskContents::activeSigStR(unsigned int n)
 {
   double val = 0.0;
   for(unsigned int i=0; i!=spsActive.size(); ++i ) {
-    val += spsActive[i].spcol[n] * spsActive[i].spsigR[n]*spsActive[i].spsigR[n];
+    val += spsActive[i]->spcol[n] * spsActive[i]->spsigR[n]*spsActive[i]->spsigR[n];
   }
   val/=activeColSt(n);
   val = sqrt(val);
@@ -1801,7 +1763,7 @@ double DiskContents::activeSigStZ(unsigned int n)
 {
   double val = 0.0;
   for(unsigned int i=0; i!=spsActive.size(); ++i ) {
-    val += spsActive[i].spcol[n] * spsActive[i].spsigZ[n]*spsActive[i].spsigZ[n];
+    val += spsActive[i]->spcol[n] * spsActive[i]->spsigZ[n]*spsActive[i]->spsigZ[n];
   }
   val/=activeColSt(n);
   val = sqrt(val);

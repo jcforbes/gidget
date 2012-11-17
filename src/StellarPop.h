@@ -5,21 +5,22 @@
 #include <string>
 class DiskContents;
 class Cosmology;
+class FixedMesh;
 
 double ComputeVariance(double,double,double,double,double,double,double);
 
 class StellarPop {
  public:
-  StellarPop();
-  StellarPop(const StellarPop&);
-  StellarPop & operator=(const StellarPop&);
+//  StellarPop();
+//  StellarPop(const StellarPop&);
+//  StellarPop & operator=(const StellarPop&);
 
   // Create a stellar Population which will form between 
   // lookback times youngest and oldest (in seconds)
-  StellarPop(unsigned int nx,double youngest, double oldest);
+  StellarPop(FixedMesh & mesh);
 
   // Is this stellar population forming at this redshift?
-  bool IsForming(Cosmology&,double reshift);
+//  bool IsForming() const { return isForming; }; // It's probably a bad idea to do things this way.
 
   friend class DiskContents;
 
@@ -38,9 +39,14 @@ class StellarPop {
   // potentially very small
   void extract(StellarPop& sp2, double f);
 
+  void ComputeSpatialDerivs();
+
   std::vector<double> GetSpCol() const { return spcol; };
   std::vector<double> GetSpSigR() const { return spsigR; };
   std::vector<double> GetSpSigZ() const { return spsigZ; };
+  std::vector<double> GetdSigRdr() const { return dSigRdr; };
+  std::vector<double> GetdSigZdr() const { return dSigZdr; };
+  std::vector<double> GetdColdr() const {return dColdr; };
   std::vector<double> GetSpZ() const { return spZ; };
   std::vector<double> GetSpZV() const { return spZV; };
   std::vector<double> GetdQdS() const { return dQdS; };
@@ -48,8 +54,9 @@ class StellarPop {
   std::vector<double> GetdQdsZ() const { return dQdsZ; };
   std::vector<double> GetdQdSerr() const { return dQdSerr;};
   std::vector<double> GetdQdserr() const { return dQdserr;};
-  double GetYoungest() const { return youngest; };
-  double GetOldest() const { return oldest; };
+  FixedMesh & GetMesh() { return mesh; };
+//  double GetYoungest() const { return youngest; };
+//  double GetOldest() const { return oldest; };
   double GetAgeAtz0() const { return ageAtz0; };
 
  private:
@@ -62,9 +69,13 @@ class StellarPop {
   std::vector<double> dQdS; // The partial derivative of Q wrt this population's S_*
   std::vector<double> dQdsR; // The partial derivative of Q wrt this population's s_*
   std::vector<double> dQdsZ;
+  std::vector<double> dSigRdr;
+  std::vector<double> dSigZdr;
+  std::vector<double> dColdr;
   std::vector<double> dQdSerr; // the error in dQ/dS_*
   std::vector<double> dQdserr; // the error in dQ/ds_*
-  double youngest,oldest; // stored in seconds, boundaries on the ages of stars in this population
+  //double youngest,oldest; // stored in seconds, boundaries on the ages of stars in this population
+  FixedMesh & mesh;
 };
 
 #endif /* STPOP_H */

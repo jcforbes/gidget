@@ -37,7 +37,7 @@ FixedMesh::FixedMesh(double innerPowerlaw, double turnoverRadius, double sft, do
   xiPlusHalf[0] = x(0.5);
   u1pbiPlusHalf[0] = uu(x(0.5)) * (1.0 + beta(x(0.5)));
   for(unsigned int n=1; n<=nxc; ++n) {
-    xv[n] = x(n);
+    xv[n] = x(((double) n));
     xiPlusHalf[n] = x(((double) n) + 0.5);
     u1pbiPlusHalf[n] = uu(xiPlusHalf[n])*(1.0+beta(xiPlusHalf[n]));
     dxi[n] = xiPlusHalf[n]-xiPlusHalf[n-1];
@@ -118,6 +118,9 @@ FixedMesh::~FixedMesh()
 }
 double FixedMesh::x(unsigned int n)
 {
+  if(n>=1 && n<=nxc) {
+    return xv[n];
+  }
   return xminc*exp(dlnxc*(((double) n) - 1.));
 }
 

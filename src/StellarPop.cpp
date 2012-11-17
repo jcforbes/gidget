@@ -10,102 +10,43 @@
 #include <iostream>
 
 // typical constructor
-StellarPop::StellarPop(unsigned int nx,double y,double o) :
-  spcol(std::vector<double>(nx+1,0.)), spsigR(std::vector<double>(nx+1,0.)),
-  spsigZ(std::vector<double>(nx+1,0.)),
-  spZ(std::vector<double>(nx+1,0.)), spZV(std::vector<double>(nx+1,0.)),
-  dQdS(std::vector<double>(nx+1,0.)),
-  dQdsR(std::vector<double>(nx+1,0.)), 
-  dQdsZ(std::vector<double>(nx+1,0.)),
-  dQdSerr(std::vector<double>(nx+1,0.)),
-  dQdserr(std::vector<double>(nx+1,0.)),
-  youngest(y),oldest(o),ageAtz0((o+y)/2.0)
-{ }
-
-// default constructor
-StellarPop::StellarPop() :  
-  spcol(std::vector<double>(1,0.)), 
-  spsigR(std::vector<double>(1,0.)),
-  spsigZ(std::vector<double>(1,0.)),
-  spZ(std::vector<double>(1,0.)), 
-  spZV(std::vector<double>(1,0.)),
-  dQdS(std::vector<double>(1,0.)),
-  dQdsR(std::vector<double>(1,0.)), 
-  dQdsZ(std::vector<double>(1,0.)),
-  dQdSerr(std::vector<double>(1,0.)),
-  dQdserr(std::vector<double>(1,0.)),
-  youngest(-1.),oldest(-1.),ageAtz0(-1.)      
+StellarPop::StellarPop(FixedMesh & m) :
+  spcol(std::vector<double>(m.nx()+1,0.)), 
+  spsigR(std::vector<double>(m.nx()+1,0.)),
+  spsigZ(std::vector<double>(m.nx()+1,0.)),
+  dSigRdr(std::vector<double>(m.nx()+1,0.)),
+  dSigZdr(std::vector<double>(m.nx()+1,0.)),
+  dColdr(std::vector<double>(m.nx()+1,0.)),
+  spZ(std::vector<double>(m.nx()+1,0.)), 
+  spZV(std::vector<double>(m.nx()+1,0.)),
+  dQdS(std::vector<double>(m.nx()+1,0.)),
+  dQdsR(std::vector<double>(m.nx()+1,0.)), 
+  dQdsZ(std::vector<double>(m.nx()+1,0.)),
+  dQdSerr(std::vector<double>(m.nx()+1,0.)),
+  dQdserr(std::vector<double>(m.nx()+1,0.)),
+  ageAtz0(-1.0),
+  mesh(m)
 { }
 
 
-
-// copy constructor
-StellarPop::StellarPop(const StellarPop& copy_from) :
-  spcol(copy_from.GetSpCol()),
-  spsigR(copy_from.GetSpSigR()),
-  spsigZ(copy_from.GetSpSigZ()),
-  spZ(copy_from.GetSpZ()),
-  spZV(copy_from.GetSpZV()),
-  dQdS(copy_from.GetdQdS()),
-  dQdsR(copy_from.GetdQdsR()),
-  dQdsZ(copy_from.GetdQdsZ()),
-  dQdSerr(copy_from.GetdQdSerr()),
-  dQdserr(copy_from.GetdQdserr()),
-  youngest(copy_from.GetYoungest()),
-  oldest(copy_from.GetOldest()),
-  ageAtz0(copy_from.GetAgeAtz0())
+void StellarPop::ComputeSpatialDerivs()
 {
-  return;
-}
-
-// assignment operator
-StellarPop & StellarPop::operator= (const StellarPop& copy_from) 
-{
-  const unsigned int nxp1= copy_from.GetSpCol().size();
-  spcol.resize(nxp1);
-  spsigR.resize(nxp1);
-  spsigZ.resize(nxp1);
-  spZ.resize(nxp1);
-  spZV.resize(nxp1);
-  dQdS.resize(nxp1);
-  dQdsR.resize(nxp1);
-  dQdsZ.resize(nxp1);
-  dQdSerr.resize(nxp1);
-  dQdserr.resize(nxp1);
-
-  ageAtz0 = copy_from.GetAgeAtz0();
-  youngest = copy_from.GetYoungest();
-  oldest=copy_from.GetOldest();
-  spcol = copy_from.GetSpCol();
-  spsigR = copy_from.GetSpSigR();
-  spsigZ = copy_from.GetSpSigZ();
-  spZ = copy_from.GetSpZ();
-  spZV = copy_from.GetSpZV();
-  dQdS = copy_from.GetdQdS();
-  dQdsR = copy_from.GetdQdsR();
-  dQdsZ = copy_from.GetdQdsZ();
-  dQdSerr = copy_from.GetdQdSerr();
-  dQdserr = copy_from.GetdQdserr();
-//
-//  for(unsigned int n=1; n<=spcol.size(); ++n) {
-//    spcol[n] = copy_from.GetSpCol()[n];
-//    spsig[n] = copy_from.GetSpSig()[n];
-//    spZ[n] = copy_from.GetSpZ()[n];
-//    spZV[n] = copy_from.GetSpZV()[n];
-//    dQdS[n] = copy_from.GetdQdS()[n];
-//    dQds[n] = copy_from.GetdQds()[n];
-//    dQdSerr[n] = copy_from.GetdQdSerr()[n];
-//    dQdserr[n] = copy_from.GetdQdserr()[n];
-//  }
-  return *this;
+  std::vector<double> & x = mesh.x();
+  unsigned int nx = mesh.nx(); 
+  for(unsigned int n=1; n<=nx; ++n) {
+    dSigRdr[n] = ddx(spsigR,n,x,false);
+    dSigZdr[n] = ddx(spsigZ,n,x,false);
+    dColdr[n] = ddx(spcol,n,x,false);
+  }
 }
 
 
-bool StellarPop::IsForming(Cosmology& cos, double redshift)
-{
-  double age = cos.lbt(redshift);
-  return (age > youngest && age<=oldest);
-}
+
+//bool StellarPop::IsForming(Cosmology& cos, double redshift)
+//{
+//  double age = cos.lbt(redshift);
+//  return (age > youngest && age<=oldest);
+//}
 
 // Merge sp2 into sp1. sp2 should be unaffected by the procedure.
 void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)
@@ -123,12 +64,12 @@ void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)
 		      /(spcol[i]+sp2.spcol[i]));
       //    (*this).spZ[i] = ((*this).spZ[i] * (*this).spcol[i] + sp2.spZ[i] * sp2.spcol[i]) / ((*this).spcol[i] + sp2.spcol[i]);
       // explicitly state the moments of each metallicity distribution:
-      double wtdAvg = ((*this).spZ[i]*(*this).spcol[i] + sp2.spZ[i]*sp2.spcol[i])/((*this).spcol[i] + sp2.spcol[i]);
-      double avg1 = (*this).spZ[i];
+      double wtdAvg = (spZ[i]*spcol[i] + sp2.spZ[i]*sp2.spcol[i])/(spcol[i] + sp2.spcol[i]);
+      double avg1 = spZ[i];
       double avg2 = sp2.spZ[i];
-      double var1 = (*this).spZV[i];
+      double var1 = spZV[i];
       double var2 = sp2.spZV[i];
-      double wt1 = (*this).spcol[i];
+      double wt1 = spcol[i];
       double wt2 = sp2.spcol[i];
       
       // Merge the two distributions:
@@ -184,7 +125,7 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
   std::vector<double>& uu = disk.GetUu();
   std::vector<double>& beta = disk.GetBeta();
   std::vector<double>& x = disk.GetX();
-  FixedMesh & mesh = disk.GetMesh();
+  // FixedMesh & mesh = disk.GetMesh();
   // These store information about the metal fluxes to calculate the new variance of Z, spZV.
   std::vector<double> incomingMass(spcol.size(),0.0);
   std::vector<double> outgoingMass(spcol.size(),0.0);
@@ -295,12 +236,12 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
 
 
 
-
-
-double ComputeVariance(double cellMass, double outgoingMass, double incomingMass, 
+double ComputeVariance(double cellMass, double outgoingMassINPUT, double incomingMass, 
                        double Z, double incomingZ, double ZV, double incomingZV)
 {
+    double outgoingMass = outgoingMassINPUT;
     double wt1 = cellMass - outgoingMass;
+    if(wt1 < 0.0) wt1=0.0;
     double wt2 = incomingMass;
     double avg1 = Z;
     double avg2 = incomingZ;
@@ -313,7 +254,7 @@ double ComputeVariance(double cellMass, double outgoingMass, double incomingMass
 
     if(val >= 0.0) return val;
     else if(val <-1.0e-10)
-      errormsg("Something has gone wrong in computing the variance of metallicity.");
+      errormsg("Something has gone wrong in computing the variance of metallicity. We were given the following: cellMass, outgoingMass, incomingMass, Z, incomingZ, ZV, incoming ZV:  "+str(cellMass)+" "+str(outgoingMass)+" "+str(incomingMass)+" "+str(Z)+" "+str(incomingZ)+" "+str(ZV)+" "+str(incomingZV));
     else return 0.0;
 }
 

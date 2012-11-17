@@ -121,7 +121,7 @@ double FixedMesh::x(unsigned int n)
   if(n>=1 && n<=nxc) {
     return xv[n];
   }
-  return xminc*exp(dlnxc*(((double) n) - 1.));
+  return x((double) n); //xminc*exp(dlnxc*(((double) n) - 1.));
 }
 
 double FixedMesh::xPlusHalf(unsigned int n)

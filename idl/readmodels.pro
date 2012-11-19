@@ -170,8 +170,13 @@ FUNCTION readOutput,name
   Rf = ExtractCmtFlt(lunCom)
   deltaOmega = ExtractCmtFlt(lunCom)
   NoutputsNominal = ExtractCmtL(lunCom)
+  accNormalization=ExtractCmtFlt(lunCom)
+  accAlphaZ = ExtractCmtFlt(lunCom)
+  accAlphaMh = ExtractCmtFlt(lunCom)
+  accCeiling = ExtractCmtFlt(lunCom)
   md0 = ExtractCmtFlt(lunCom)
   ND08attempts = ExtractCmtL(lunCom)
+  
 
   ;; Now we need to rescale some values for mh0!=1e12
  ; MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);

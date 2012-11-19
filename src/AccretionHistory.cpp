@@ -292,30 +292,47 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
   return md0;
 }
 
-// Mh in units of 10^12 solar masses
+void AccretionHistory::SetEfficiencyParams(double norm, double a_z, double a_Mh, double ceil)
+{
+  normalization = norm;
+  alpha_z = a_z;
+  alpha_Mh = a_Mh;
+  ceiling = ceil;
+
+}
+
+// IMPORTANT: Mh in units of 10^12 solar masses
 double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquench)
 {
-   if(dbg.opt(6)) {
+   if(dbg.opt(6)) { // CAFG+ (2012) - fit to hydro sim for z>2
      // used to be 1.0
      double val= .47*pow((1.0+z)/3.0,.38)*pow(Mh,-0.25);
      if(val>1.0) val=1.0;
      if(z < zquench) val = 0.0;
      return val;
     }
-    double fOfz;
-    if(z>=2.2)
-        fOfz=1.0;
-    else if(z<=1.0)
-        fOfz=0.5;
-    else {
-        fOfz = 1.0 - (cos.Tsim(z)-cos.Tsim(2.2))* 0.5 / (cos.Tsim(1.0) - cos.Tsim(2.2));
+    if(dbg.opt(9)) { // Bouche+ (2009) - simple guess
+      double fOfz;
+      if(z>=2.2)
+          fOfz=1.0;
+      else if(z<=1.0)
+          fOfz=0.5;
+      else {
+          fOfz = 1.0 - (cos.Tsim(z)-cos.Tsim(2.2))* 0.5 / (cos.Tsim(1.0) - cos.Tsim(2.2));
+      }
+      double eps;
+      if(Mh < 5.0 && z>zquench) 
+          eps = 0.7*fOfz;
+      else
+          eps = 0.0;
+      return eps;
     }
-    double eps;
-    if(Mh < 5.0 && z>zquench) 
-        eps = 0.7*fOfz;
-    else
-        eps = 0.0;
-    return eps;
+    // New default: try a reasonably general formula with user-controlled values.
+    // Use the same functional form as CAFG.
+    double val = normalization * pow(1.0+z, alpha_z) * pow(Mh, alpha_Mh);
+    if(val > ceiling) val=ceiling;
+    if(z<zquench) val = 0.0;
+    return val;
 }
 
 double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos, 

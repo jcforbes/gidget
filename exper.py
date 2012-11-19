@@ -17,8 +17,9 @@ import random
 # will execute the example used in the README file.
 
 
-
+t0=time.time()
 allModels={} # a global dictionary of all experiments created.
+allProcs=[] # a global list of all processes we've started
 
 def HowManyStillRunning(procs):
     ''' Given a list of processes created with subprocess.Popen, (each of which
@@ -62,11 +63,11 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,3.0,1.0,0.46,0.1,200]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -100,7 +101,7 @@ class experiment:
  
     def vary(self,name,mmin,mmax,n,log,cov=0):
         '''Set up to vary a particular parameter, name, over the
-        range [min,max] with n steps spaced linearly if log=0 or
+        range [mmin,mmax] with n steps spaced linearly if log=0 or
         logarithmically if log=1. The cov flag means that all variables
         with the same value of cov, e.g. accScaleLength and whichAccretionHistory,
         will be varied together rather than independently. '''
@@ -119,14 +120,19 @@ class experiment:
         ''' Similar to vary, except, rather than generating the
         array of parameter values to use for parameter "name",
         this list is specified explicitly in "values"'''
-        keyNum = self.keys[name]
-        typ = type(self.p_orig[keyNum])
+        keyNum = self.keys[name] # the element of the list self.p which we're editing today.
+        typ = type(self.p_orig[keyNum]) # what type of variable is this in a single run of gidget?
         if(type(values) == type([1])): # if values is a list..
             # replace the given index of p with the list given by values.
             self.p[keyNum]=[typ(value) for value in values]
         else:
+           # even though we weren't given a list, put our new value in a single-parameter list.
             self.p[keyNum]=[typ(values)]
+        # Next, we want to pass along the information we've been given on whether this parameter
+        # should be covaried:
 	self.covariables[self.keys[name]] = cov
+        # and finally, give back what we've done.
+        return self.p[keyNum]
     
     def ConsistencyCheck(self):
         ''' Here we check whether all parameters in a covarying set have
@@ -339,6 +345,7 @@ class experiment:
                     print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
                     os.chdir(expDir)
                     procs.append(subprocess.Popen([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]],stdout=stdo,stderr=stde))
+                    allProcs.append(procs[-1])
                     nPrinted=True
 
             # we've started a process off and running, but there are
@@ -347,7 +354,7 @@ class experiment:
             # is willing to let run at once, so let's check what
             # our processes are up to:
             while True:
-                nStillRunning=HowManyStillRunning(procs)
+                nStillRunning=HowManyStillRunning(allProcs)
     
                 # if our processors are all booked, wait a minute and try again
                 if(nStillRunning >= nproc):
@@ -360,20 +367,20 @@ class experiment:
                 # If there are no more runs, we're done!
                 else:
                     break
-        # now all of our processes have been sent off
-        nPrev = 0
-        while True:
-            nStillRunning=HowManyStillRunning(procs)
-            # has anything changed since the last time we checked?
-            if(nStillRunning == nPrev and nStillRunning != 0):
-                # do nothing except wait a little bit
-                time.sleep(5)
-            else:
-                nPrev=nStillRunning
-                if(nPrev == 0):
-                    break # we're done!
-                print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
-        print "Local run complete!"
+##        # now all of our processes have been sent off
+##        nPrev = 0
+##        while True:
+##            nStillRunning=HowManyStillRunning(allProcs)
+##            # has anything changed since the last time we checked?
+##            if(nStillRunning == nPrev and nStillRunning != 0):
+##                # do nothing except wait a little bit
+##                time.sleep(5)
+##            else:
+##                nPrev=nStillRunning
+##                if(nPrev == 0):
+##                    break # we're done!
+##                print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
+##        print "Local run complete!"
 
 
 def LocalRun(runBundle,nproc):
@@ -472,6 +479,11 @@ def letter(i):
 
 if __name__ == "__main__":
 
+    # The structure here is straightforward:
+    #   1) First, parse the arguments
+    #   2) Then define a bunch of experiments
+    #   3) Run the experiments the user told us to run in the command line arguments
+
     # Read in the arguments. To see the results of this bit of code, just try to run
     # this script without any arguments, i.e. $ python exper.py
     parser = argparse.ArgumentParser(description='Analyze data and/or run experiments associated with a list of experiment names.')
@@ -492,217 +504,102 @@ if __name__ == "__main__":
 
     # Begin defining experiments!
 
-    # Here what we're doing is varying halo mass, and varying the angular momentum of the incoming material
-    # in roughly the way we would expect from N-body simulations. There is neither scatter in the angular momentum
-    # nor accretion histories, so these are the median cases for each halo mass. Or rather, that's what rq1b is.
-    # rq1 a,b,and c correspond to systematically varying the angular momentum of infalling gas by factors of 3.
-    rq1=[]
-    basename="rq1"
-    factors=[1.0/3.0,1.0,3.0]
-    for i in range(len(factors)):
-      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
-      rq1.append(experiment(basename+chr(ord("a")+i)))
-      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR
-      rq1[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-      Mh0s = rq1[i].vary("Mh0",1.0e10,1.0e12,21,1,3)
-      scls = np.array(GetScaleLengths(21,Mh0=Mh0s,scatter=1.0e-10))
-      rq1[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
-      rq1[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
 
+    # A vanilla setup: 11 models equally spaced in log Mh0.
+    rr01=experiment("rr01")
+    rr01.irregularVary('dbg',2**8+2**5+2**3+2**7)
+    Mh0s = rr01.vary("Mh0",1.0e10,1.0e12,11,1,3)
+    Mh0s11 = Mh0s
+    rr01.irregularVary('R',40)
+    rr01.irregularVary('accScaleLength',GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10),3)
+    rr01.irregularVary('diskScaleLength',GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10),3)
+    rr01.irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1./3.)),3)
+    rr01.irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1./3.)),3)
+    rr01.irregularVary('NPassive',1)
 
-    # Here what we're doing is varying halo mass, and varying the angular momentum of the incoming material, 
-    # just as in rq1. This time we're using the const. column density profile for accretion.
-    # rq2 a,b,and c correspond to systematically varying the angular momentum of infalling gas by factors of 3.
-    # Note also that all the factors must be multiplied by 3 to be directly comparable with rq1 in terms of J.
-    rq2=[]
-    factors=[1.0/3.0,1.0,3.0]
-    for i in range(len(factors)):
-      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
-      rq2.append(experiment("rq2"+chr(ord("a")+i)))
-      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR, const accr profile
-      rq2[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7+2**0])
-      Mh0s = rq2[i].vary("Mh0",1.0e10,1.0e12,21,1,3)
-      scls = np.array(GetScaleLengths(21,Mh0=Mh0s,scatter=1.0e-10))
-      rq2[i].irregularVary('accScaleLength',list(scls*factors[i])*3,3)
-      rq2[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
+    # Another vanilla setup: 1001 models equally spaced in log Mh0 with varying accr. histories.
+    rr02=experiment("rr02")
+    rr02.irregularVary('dbg',2**8+2**5+2**3+2**7)
+    Mh0s = rr02.vary("Mh0",1.0e10,1.0e12,1001,1,3)
+    Mh0s1001 = Mh0s
+    rr02.irregularVary("R",40)
+    rr02.irregularVary('accScaleLength',GetScaleLengths(1001,Mh0=Mh0s,scatter=1.0e-10),3)
+    rr02.irregularVary('diskScaleLength',GetScaleLengths(1001,Mh0=Mh0s,scatter=1.0e-10),3)
+    rr02.vary('whichAccretionHistory',1000,2000,1001,0,3)
+    rr02.irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1./3.)),3)
+    rr02.irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1./3.)),3)
+    rr02.irregularVary('NPassive',1)
 
+    # A useful starting point for cross-correlation analysis.
+    rr03=copy.deepcopy(rr01)
+    rr03.vary('whichAccretionHistory',1000,1010,11,0,3)   
 
-    # Take the same setup as rq1, but make the stars much hotter initially.
-    rq3=[]
-    factors=[1.0/3.0,1.0,3.0]
-    for i in range(len(factors)):
-      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
-      rq3.append(experiment("rq3"+chr(ord("a")+i)))
-      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR
-      rq3[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-      rq3[i].irregularVary('phi0',[10.0])
-      Mh0s = rq3[i].vary("Mh0",1.0e10,1.0e12,21,1,3)
-      scls = np.array(GetScaleLengths(21,Mh0=Mh0s,scatter=1.0e-10))
-      rq3[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
-      rq3[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
-
-    # Take rq3, and try it out at really high resolution, as in more cells, more radial coverage.
-    # rq5 is exactly the same except we've implemented Adams-Bashforth timesteps for the gas variables.
-    # rq6 is exactly the same, except we've taken out Adams-Bashforth and just lowered TOL
-    rq4=[]
-    basename="rq6"
-    factors=[1.0/3.0,1.0,3.0]
-    for i in range(len(factors)):
-      # For each of the factors, create a new experiment with the appropriate letter appended to its name.
-      rq4.append(experiment(basename+chr(ord("a")+i)))
-      # These debug parameters are resp.: allow stellar mass flux even when Q_*>Q_lim, exp accr, exp IC, Neistein (2010), CAFG epsilon, hybrid SFR
-      rq4[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-      rq4[i].irregularVary("TOL",1.0e-4)
-      Mh0s = rq4[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
-      rq4[i].irregularVary('phi0',[10.0])
-      rq4[i].irregularVary('nx',[2000])
-      rq4[i].irregularVary('xmin',[.001])
-      rq4[i].irregularVary('R',[50])
-      scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
-      rq4[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
-      rq4[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
-
-    # Compare to rq3. We'd like to see if the spikiness in sig can be ameliorated with a more-careful timestep.
-    # rq10: put in some quenching at z=1.4
-    # rq14: test out the recent minor modifications to the code
-    # 15:  16: change when partials are computed 17: change OBC to fixed-value instead of Dirichlet
-    # 18: change where mdot is calculated 19: qlim=0 20: RH Mdot, 21: slight change in dSigStZ- u1pb
-    # 22: change other derivatives to exclusively-RH. 23: short migration time
-    # 24: phi0=3, 25: fixed RW Q transition criterion, back to centered 26: dbg printed to cout
-    # 27: lower minsigst 28: d{}*dt = nominal 29: lower Qlim again 30: artificially set dSigStR=0
-    # 31: artificially set dSigStZ=0 # 32: artificially set dSMig=0, 33: artificially set sR & sZ=0
-    # 34: artificially set sR,sZ,dSMig=0, 35: back to 33 but eliminate the 'zeroing out torques'
-    # 36: with elimination of the semi-colon in torque eq. 37: change ddx 38: try higher minsigst
-    # 39: try higher resolution 
-    rq7=[]
-    for i in range(len(factors)):
-      rq7.append(experiment("rq39"+chr(ord("a")+i)))
-      rq7[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-      rq7[i].irregularVary("TOL",1.0e-3)
-      Mh0s = rq7[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
-      rq7[i].irregularVary('phi0',[1.0])
-      #rq7[i].irregularVary('Qlim',[0.0])
-      #rq4[i].irregularVary('xmin',[.001])
-      #rq4[i].irregularVary('R',[50])
-      scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
-      rq7[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
-      rq7[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
-      rq7[i].irregularVary('zrelax',[2.5])
-      rq7[i].irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1.0/3.0)),3)
-      rq7[i].irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1.0/3.0)),3)
-      rq7[i].irregularVary('NPassive',[1])
-      rq7[i].irregularVary('minSigSt',[2.0])
-      rq7[i].irregularVary('tauHeat',[3])
-      rq7[i].irregularVary('nx',500)
-      #rq7[i].irregularVary('zquench',[1.4])
-
-    # back to lower resolution, more forgiving time step cutoff
-    rq40 = copy.deepcopy(rq7)
-    for i in range(len(rq40)):
-       rq40[i].changeName("rq40"+letter(i))
-       rq40[i].irregularVary('nx',200)
-
-    # go back to old method of updating stars in UpdateStateVars
-    rq41 = copy.deepcopy(rq40)
-    for i in range(len(rq41)):
-        rq41[i].changeName("rq41"+letter(i))
-
-    # 42 & 45 have this turnover. 45 is based on 44, namely do not restrict tau<0.
-    rq42= copy.deepcopy(rq41)
-    for i in range(len(rq42)):
-        rq42[i].changeName("rq45"+letter(i))
-        rq42[i].irregularVary('b',2)
-        rq42[i].irregularVary('innerPowerLaw',.5)
-
-    # try not restricting the passive time step.
-    rq43 = copy.deepcopy(rq41)
-    for i in range(len(rq43)):
-        rq43[i].changeName("rq43"+letter(i))
-
-    # try not restricting tau<0.
-    # 46: ddx -> second derivative = 0
-    # 47: back to the new ddx. Try adding forcing to stellar torque eq.
-    # 48: limit time step w/ passive populations.
-    rq44 = copy.deepcopy(rq43)
-    for i in range(len(rq44)):
-        rq44[i].changeName("rq48"+letter(i))
+    # Let's vary accAlphaMh from -.4 to 0 (-.25 is the default)
+    values = [-.1*i for i in range(5)]
+    rr04 = [copy.deepcopy(rr01) for i in range(len(values))]
+    for i in range(len(rr04)):
+      rr04[i].changeName("rr04"+letter(i))
+      rr04[i].irregularVary('accAlphaMh',[values[i]])
     
-    factors = [1./3.,1.0,3.0] 
-    rq50=[]
-    for i in range(len(factors)):
-        rq50.append(experiment("rq50"+letter(i)))
-        rq50[i].irregularVary('dbg',2**10+2**8+2**5+2**3+2**6+2**7)
-        rq50[i].irregularVary('TOL',1.0e-3)
-        Mh0s = rq50[i].vary("Mh0",1.0e10,1.0e12,11,1,3)
-        scls = np.array(GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10))
-        rq50[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
-        rq50[i].irregularVary('diskScaleLength',list(scls),3)
-        rq50[i].irregularVary('zrelax',[2.5])
-        rq50[i].irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1.0/3.0)),3)
-        rq50[i].irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1.0/3.0)),3)
-        rq50[i].irregularVary('NPassive',1)
+    rr05 = [copy.deepcopy(rr04[i]) for i in range(len(rr04))]
+    for i in range(len(rr05)):
+        rr05[i].changeName("rr05"+letter(i))
+        rr05[i].irregularVary("accNorm",.1)
 
-    rq51=copy.deepcopy(rq50[1])
-    rq51.changeName("rq51")
-    rq51.irregularVary('NPassive',3)
+    # Let's vary accAlphaZ from 0 to .5 (.38 is the default)
+    values = [.1*i for i in range(6)]
+    rr06 = [copy.deepcopy(rr01) for i in range(len(values))]
+    for i in range(len(rr06)):
+      rr06[i].changeName("rr06"+letter(i))
+      rr06[i].irregularVary('accAlphaZ',[values[i]])
 
-    rq52=copy.deepcopy(rq50[1])
-    rq52.changeName("rq52")
-    rq52.irregularVary('zrelax',[2,3,4])
+    # Vary the accretion scale length
+    values = [2.0**(i-1.0) for i in range(5)]
+    rr07 = [copy.deepcopy(rr01) for i in range(len(values))]
+    for i in range(len(rr07)):
+      rr07[i].changeName('rr07'+letter(i))
+      rr07[i].irregularVary('accScaleLength', \
+                list(np.array(GetScaleLengths(11,Mh0=Mh0s11,scatter=1.0e-10))*values[i]), 3)
 
-    rq53=copy.deepcopy(rq50[1])
-    rq53.changeName("rq53")
-    rq53.irregularVary('R',60)
+    rr08 = [copy.deepcopy(rr03) for i in range(len(values))]
+    for i in range(len(rr08)):
+      rr08[i].changeName('rr08'+letter(i))
+      rr08[i].irregularVary('accScaleLength', \
+                list(np.array(GetScaleLengths(11,Mh0=Mh0s11,scatter=1.0e-10))*values[i]), 3)
 
-    # 54 was a flat rotation curve and crashed for xmin=.001, and included an xmin=.003
-    # 56: see if we can solve our problem w/ a turnover in the rotation curve; use beta_0=1, i.e. very steep. Runs tend to be fairly slow and produce a turnover in stellar mass at very small radii.
-    # 57: more foregiving inner power law.
-    # 58: rerun 56
-    rq54=copy.deepcopy(rq50[1])
-    rq54.changeName("rq56")
-    rq54.irregularVary('xmin',[.001])
-    rq54.irregularVary('b',2)
-    rq54.irregularVary('innerPowerLaw',1)
-    rq54.irregularVary('softening',2)
+    # back to smooth cases; let's just try varying mass loading factors
+    values = [-.15*i for i in range(6)]
+    rr09 = [copy.deepcopy(rr01) for i in range(len(values))]
+    for i in range(len(rr09)):
+      rr09[i].changeName('rr09'+letter(i))
+      rr09[i].irregularVary('mu',list(1.0*(np.array(Mh0s11)/1.0e12)**(values[i])),3)
 
-    rq57=copy.deepcopy(rq54)
-    rq57.irregularVary('innerPowerLaw',.5)
-    rq57.changeName("rq57")
+    # try a few more interesting things: vary rot. curve, vary zrelax
+    values = [2.01+.2*i for i in range(6)]
+    rr10 = [copy.deepcopy(rr01) for i in range(len(values))]
+    for i in range(len(rr10)):
+      rr10[i].changeName('rr10'+letter(i))
+      rr10[i].irregularVary('zrelax',values[i])
 
-    rq58=copy.deepcopy(rq54)
-    rq58.changeName("rq58")
+    values = range(6)
+    rr11 = [copy.deepcopy(rr01) for i in range(len(values))]
+    for i in range(len(rr11)):
+      rr11[i].changeName('rr11'+letter(i))
+      rr11[i].irregularVary('b',values[i])
+      
+    values = [-.1*i for i in range(6)]
+    # each letter will have a different outflow scaling
+    rr12 = [copy.deepcopy(rr09x) for rr09x in rr09]
+    for i in range(len(rr12)):
+      rr12[i].changeName('rr12'+letter(i))
+      rr12[i].irregularVary("accAlphaMh",values[i])
 
-    rq55=copy.deepcopy(rq50[1])
-    rq55.changeName("rq55")
-    rq55.irregularVary('kappaMetals',[1.0e-5,1.0e-4,1.0e-2])
-   
+    # each letter will have a different outflow scaling - the reverse scaling of rr12
+    rr13 = [copy.deepcopy(rr09x) for rr09x in rr09]
+    for i in range(len(rr13)):
+      rr13[i].changeName('rr13'+letter(i))
+      rr13[i].irregularVary("accAlphaMh",values[len(rr13)-1-i])
 
-    rq8=[]
-    # rq8: same sort of experiments as above, but vary the accretion histories.
-    for i in range(len(factors)):
-        rq8.append(experiment("rq8"+chr(ord("a")+i)))
-        rq8[i].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-        Mh0s = rq8[i].vary("Mh0",1.0e10,1.0e12,501,1,3)
-        rq8[i].irregularVary("phi0",[10.0])
-        scls=np.array(GetScaleLengths(501,Mh0=Mh0s,scatter=1.0e-10))
-        rq8[i].irregularVary('accScaleLength',list(scls*factors[i]),3)
-        rq8[i].irregularVary('diskScaleLength',list(scls*factors[i]),3)
-        rq8[i].vary('whichAccretionHistory',1000*(i+1),1000*(i+1)+500,501,1,3)
-
-
-    rq9=[]
-    # rq9: now do something approaching what we'd like to do in production. Small scatter in initial scalelengths, but large scatter in accretion scale lengths on top of the variations in accretion history.
-    rq9.append(experiment("rq9"))
-    rq9[0].irregularVary('dbg',[2**10+2**8+2**5+2**3+2**6+2**7])
-    Mh0s = rq9[0].vary("Mh0",1.0e10,1.0e12,1501,1,3)
-    rq9[0].irregularVary("phi0",[10.0])
-    scls=np.array(GetScaleLengths(1501,Mh0=Mh0s,scatter=1.0e-10))
-    sclsV=np.array(GetScaleLengths(1501,Mh0=Mh0s))
-    rq9[0].irregularVary('accScaleLength',list(sclsV),3)
-    rq9[0].irregularVary('diskScaleLength',list(scls),3)
-    rq9[0].vary('whichAccretionHistory',4000,5500,1501,1,3)
-
-    #experiments[i].irregularVary('fg0',.4*(Mh0/1.0e12)**(-.13))
 
     successTables=[]
     for model in modelList:
@@ -714,3 +611,21 @@ if __name__ == "__main__":
         else:
           print "You asked me to run ",model," but did not define it in the script."
 
+
+    # now all of our processes have been sent off
+    nPrev = 0
+    while True:
+        nStillRunning=HowManyStillRunning(allProcs)
+        # has anything changed since the last time we checked?
+        if(nStillRunning == nPrev and nStillRunning != 0):
+            # do nothing except wait a little bit
+            time.sleep(5)
+        else:
+            nPrev=nStillRunning
+            if(nPrev == 0):
+                break # we're done!
+            print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
+    print "All local runs complete!"
+
+
+    print "Time elapsed (seconds): ", time.time()-t0

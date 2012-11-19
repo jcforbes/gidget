@@ -184,9 +184,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
     ENDFOR ;; end loop over time indices
     IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
     IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
-    IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("rm " + fn+".mpg") 
-    IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
-    IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
+    ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("rm " + fn+".mpg") 
+    ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
+    ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
     IF(sv EQ 5) THEN BEGIN
 	figureClean,(fn+"_timeSeries"),2
         latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]],[.6,.6],height=8.89*(2-horizontal),width=8.89*(1+horizontal)
@@ -194,6 +194,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,strt,prev=prev,ps
     ENDIF
     set_plot,'x'
   ENDFOR ;; end loop over dependent variables
+  IF(sv EQ 2|| sv EQ 3 || sv EQ 4) THEN spawn,"python makeGidgetMovies.py"
 END
 
 

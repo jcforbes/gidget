@@ -109,6 +109,10 @@ int main(int argc, char **argv) {
   const double RfREC =             as.Set(0.46,"Remnant fraction for inst. rec. approx.");
   const double deltaOmega =        as.Set(0.1,"Delta omega to generate Neistein10");
   const unsigned int Noutputs =    as.Set(200,"Number of outputs, excluding an initial and final output.");
+  const double accNormalization=   as.Set(0.30959,"Normalization of accretion efficiency");
+  const double accAlpha_z =        as.Set(0.38,"Power to which to raise (1+z) in accretion efficiency");
+  const double accAlpha_Mh=        as.Set(-0.25,"Power to which to raise (M_h/10^12 Msun) in acc eff");
+  const double accCeiling =        as.Set(1.0,"Maximum accretion efficiency.");
 
  
   // Make an object to deal with basic cosmological quantities.9
@@ -122,6 +126,7 @@ int main(int argc, char **argv) {
 
   // Make an object to deal with the accretion history
   AccretionHistory accr(Mh0,dbg);
+  accr.SetEfficiencyParams(accNormalization, accAlpha_z, accAlpha_Mh, accCeiling);
   double mdot0;
 
   testAccretionHistory();

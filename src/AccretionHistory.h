@@ -71,7 +71,7 @@ class AccretionHistory {
 			 std::vector<double> haloMass);
 
   double epsin(double z, double Mh, Cosmology & cos,double zquench);
-
+  void SetEfficiencyParams(double norm, double alpha_z, double alpha_Mh, double ceiling);
 
  private:
   // vector of tabulated dimensionless accretion - same 
@@ -102,6 +102,8 @@ class AccretionHistory {
   double Mh0;
 
   Debug & dbg;
+
+  double normalization, alpha_z, alpha_Mh, ceiling;
 
 };
 

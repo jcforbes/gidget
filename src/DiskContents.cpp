@@ -1309,14 +1309,15 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
     FFst[n] = (Qlim - Qst)*uu[n] / (x[n]*tauHeat*Qst);
 
     // Add in forcing?
-    if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n])
-      FFst[n] -= 1.0/sigStR[n] * (sig[n]*sig[n] - sigth*sigth - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
-                 /(2.0*colst[n]*sigStR[n]);
-    else
-      FFst[n] -= 1.0/sigStR[n] * (minsigst*minsigst - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
-                 /(2.0*colst[n]*sigStR[n]);
-    FFst[n] += 1.0/colst[n] * RfREC*colSFR[n];
-
+    if(dbg.opt(4)) {
+        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n])
+          FFst[n] -= 1.0/sigStR[n] * (sig[n]*sig[n] - sigth*sigth - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
+                     /(2.0*colst[n]*sigStR[n]);
+        else
+          FFst[n] -= 1.0/sigStR[n] * (minsigst*minsigst - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
+                     /(2.0*colst[n]*sigStR[n]);
+        FFst[n] += 1.0/colst[n] * RfREC*colSFR[n];
+    }
 
     if(Qst > Qlim) {
       FFst[n] = 0.0;
@@ -1362,11 +1363,19 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         + spsActive[i]->dQdsZ[n] *dSigStZdt(n,i,spsActive,tauvecStar)
 	+ spsActive[i]->dQdS[n] * dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol);
     }
+
+
     //if(redshift <.1 && n>=20 && n<=40) {
     //    std::cout << "Components of torque eq: n, S,sR,sZ "<<n<<" "<<spsActive[i].dQdsR[n] * dSigStRdt(n,i,redshift,spsActive,tauvecStar)<<" "<<
     //}
     double QQ = Q(&rqp,&absc);
     
+    if(dbg.opt(4)) {
+      FF[n] = (fixedQ-QQ)*uu[n] / (x[n]*(tauHeat/3.0));
+ 
+    }
+
+
     // When this cell is stable, set the torque equal to zero. This may imply a non-zero
     // mass flux if tau' is nonzero, in which case mass may flow into this cell, but that's
     // exactly what we want to happen.
@@ -1542,7 +1551,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
     wrt.push_back(sig_stR[n]);wrt.push_back(dcoldt[n]);wrt.push_back(dsigdt[n]);   // 7..9
     wrt.push_back(dcol_stdt);wrt.push_back(dsig_stdt);wrt.push_back(currentQ);    // 10..12
     wrt.push_back(0);wrt.push_back(0);wrt.push_back(0);   // 13..15
-    wrt.push_back(0);wrt.push_back(col[n]/(col[n]+col_st[n]));wrt.push_back(temp2); // 16..18
+    wrt.push_back(uu[n]);wrt.push_back(col[n]/(col[n]+col_st[n]));wrt.push_back(temp2); // 16..18
     wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
     wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
     wrt.push_back(Q_R);wrt.push_back(Q_WS);wrt.push_back(Q_RW);          // 25..27

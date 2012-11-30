@@ -13,19 +13,15 @@ PRO gfunct, X, p, F, pder
         R0=p[2]
         k=p[3]
         n=p[4]
+        ;; sersic + exponential
         F = A*exp(-x/R0) + B*exp(-k*x^(1.0/n))
         IF(n_params() GE 4) THEN BEGIN
                 pder=dblarr(n_elements(x),n_elements(p))
                 pder[*,0]= exp(-x/R0)
-;;              pder[*,0]= 1.0 / (A + B * exp(-k*x^(1.0/n) + x/R0))
                 pder[*,1]=exp(-k*x^(1.0/n))
-;;              pder[*,1]= 1.0 / (B + A* exp(k * x^(1.0/n)-x/R0))
                 pder[*,2]=A*exp(-x/R0)*x/(R0^2)
-;;              pder[*,2]=A*exp(k*x^(1.0/n))*x/(R0*R0*(A*exp(k*x^(1.0/n))+B*exp(x/R0)))
                 pder[*,3]=-B*exp(-k*x^(1.0/n))*x^(1.0/n)
-;;              pder[*,3]=-B*exp(x/R0)*x^(1.0/n)/(A*exp(k*x^(1.0/n))+B*exp(x/R0))
                 pder[*,4]=B*exp(-k*x^(1.0/n))*k*x^(1.0/n)*alog(x)/(n*n)
-;;              pder[*,4]=B*exp(x/R0)*k*x^(1.0/n)*alog(x)/(n*n*(A*exp(k*x^(1.0/n)) + B*exp(x/R0)))
                 
         ENDIF
 END

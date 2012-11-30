@@ -517,15 +517,16 @@ if __name__ == "__main__":
     rr01.irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1./3.)),3)
     rr01.irregularVary('NPassive',1)
 
-    # Another vanilla setup: 1001 models equally spaced in log Mh0 with varying accr. histories.
+    # Another vanilla setup: 401 models equally spaced in log Mh0 with varying accr. histories.
+    # Alright, I've changed the default scaling to mu=const w/ Mh, and the default # to 401 from 1001.
     rr02=experiment("rr02")
     rr02.irregularVary('dbg',2**8+2**5+2**3+2**7)
-    Mh0s = rr02.vary("Mh0",1.0e10,1.0e12,1001,1,3)
-    Mh0s1001 = Mh0s
+    Mh0s = rr02.vary("Mh0",1.0e10,1.0e12,401,1,3)
+    Mh0s401 = Mh0s
     rr02.irregularVary("R",40)
-    rr02.irregularVary('accScaleLength',GetScaleLengths(1001,Mh0=Mh0s,scatter=1.0e-10),3)
-    rr02.irregularVary('diskScaleLength',GetScaleLengths(1001,Mh0=Mh0s,scatter=1.0e-10),3)
-    rr02.vary('whichAccretionHistory',1000,2000,1001,0,3)
+    rr02.irregularVary('accScaleLength',GetScaleLengths(401,Mh0=Mh0s,scatter=1.0e-10),3)
+    rr02.irregularVary('diskScaleLength',GetScaleLengths(401,Mh0=Mh0s,scatter=1.0e-10),3)
+    rr02.vary('whichAccretionHistory',1000,1400,401,0,3)
     rr02.irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1./3.)),3)
     rr02.irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1./3.)),3)
     rr02.irregularVary('NPassive',1)
@@ -600,6 +601,60 @@ if __name__ == "__main__":
       rr13[i].changeName('rr13'+letter(i))
       rr13[i].irregularVary("accAlphaMh",values[len(rr13)-1-i])
 
+    # Vary the accretion scale length
+    values = [2.0**(i-1.0) for i in range(4)]
+    rr14 = [copy.deepcopy(rr02) for i in range(len(values))]
+    for i in range(len(rr14)):
+      rr14[i].changeName('rr14'+letter(i))
+      rr14[i].irregularVary('accScaleLength', \
+                list(np.array(GetScaleLengths(401,Mh0=Mh0s401,scatter=1.0e-10))*values[i]), 3)
+
+    # re-run rr14 with a fix which will hopefully allow the code not to crash instantly for 
+    # small-scale-length initial conditions w/ large scale length accretion.
+    rr15=[copy.deepcopy(rr14i) for rr14i in rr14]
+    for i in range(len(rr15)):
+      rr15[i].changeName('rr15'+letter(i))
+
+    # re-run rr15 w/ fewer models and a flat scaling of mu w/ Mh
+    rr16=[copy.deepcopy(rr15[i]) for i in range(len(rr15))]
+    for i in range(len(rr16)):
+      rr16[i].changeName('rr16'+letter(i)) 
+      rr16[i].irregularVary('mu',1)
+
+    # smaller deltaOmega
+    rr17=[copy.deepcopy(rr16[i])  for i in range(len(rr16))]
+    for i in range(len(rr17)):
+        rr17[i].changeName('rr17'+letter(i))
+        rr17[i].irregularVary('deltaOmega',.01)
+        rr17[i].irregularVary('mu',1)
+
+    values = [2.0**(i-1.0) for i in range(4)]    
+    rr18 = [copy.deepcopy(rr03) for i in range(len(values))]
+    for i in range(len(rr18)):
+        rr18[i].changeName('rr18'+letter(i))
+        rr18[i].irregularVary('mu',1)
+        rr18[i].irregularVary('accScaleLength', \
+                     list(np.array(GetScaleLengths(11,Mh0=Mh0s11,scatter=1.0e-10))*values[i]),3)
+
+    rr19 = [copy.deepcopy(rr18[i]) for i in range(len(rr18))]
+    for i in range(len(rr19)):
+        rr19[i].changeName('rr19'+letter(i))
+        rr19[i].irregularVary('deltaOmega',.01)
+
+    rr20 = [copy.deepcopy(rr17[i]) for i in range(len(rr17))]
+    for i in range(len(rr20)):
+        rr20[i].changeName('rr20'+letter(i))
+        rr20[i].irregularVary('dbg',2**8+2**5+2**3+2**7+2**16) # loosen major merger restriction
+
+    rr21 = [copy.deepcopy(rr18[i]) for i in range(len(rr18))]
+    for i in range(len(rr21)):
+        rr21[i].changeName('rr21'+letter(i))
+        rr21[i].irregularVary('dbg',2**8+2**5+2**3+2**7+2**4)
+ 
+    rr22 = [copy.deepcopy(rr07[i]) for i in range(len(rr07))]
+    for i in range(len(rr22)):
+        rr22[i].changeName('rr22'+letter(i))
+        rr22[i].irregularVary('dbg',2**8+2**5+2**3+2**7+2**4)
 
     successTables=[]
     for model in modelList:

@@ -291,7 +291,7 @@ int findRoot(gsl_function & F, double * guess)
 
   gsl_root_fsolver_free(s);
 
-  double sanity = GSL_FN_EVAL(&F,*guess);  
+  // double sanity = GSL_FN_EVAL(&F,*guess);  
 
   return status;
 }

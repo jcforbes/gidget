@@ -488,7 +488,7 @@ FUNCTION readOutput,name
 	;;; 	tdc    index mapping (indexed from 1)
 	; 1- x,     2- tau,    3- tau',     4- S,        5- s,   6- S_*,    7- s_*
 	; 8- dS/dT, 9- ds/dT, 10- dS_*/dT, 11- ds_*/dT, 12- Q,  13- h0,    14- h1
-	;15- h2,   16- H,     17- f_g,     18- q        19- Toomre Length, 20- Toomre Mass
+	;15- h2,   16- uu,    17- f_g,     18- q        19- Toomre Length, 20- Toomre Mass
 	;21- dZ/dt,22- Z,     23- Q_*      24- Q_g      25- Q_Raf 26- Q_WS,27- Q_RW, 
 	;28- Q(q) ,29- dS/dT_SF, 30- tau''(torqueEq)    31- dQ/dS 32- dQ/ds 33- dQ/dS_err 
 	;34- dQ/ds_err 35- y, 36- torqueErr 37- vrg, 38- Cumulative Stars Out, 

@@ -81,9 +81,10 @@ int Simulation::runToConvergence(const double fCondition,
     ctrSF4(4.,4.2,.4,.45),     ctrSF25(25.,25.2,.4,.45),
     outSF4(4.,4.2,.9,.95),     outSF25(25.,25.2,.9,.95); 
 
+  const double dtfloor=1.e-12; 
   // Initialize some variables which will change as the simulation progresses:
   // time (outer orbits), redshift, and timestep
-  double t=0., z=zrelax, dt=TOL*1.e-6, dtPrev = 1.0;
+  double t=0., z=zrelax, dt=dtfloor*100, dtPrev = 1.0;
 
   int whichVar,whichCell; // store which variable and which cell limits the time step.
 
@@ -102,7 +103,6 @@ int Simulation::runToConvergence(const double fCondition,
   // t0 is the number of seconds between zrelax and zstart. Recording this lets us
   // put out the same snapshots for the same zstart value, regardless of the zrelax
   // we choose.
-  const double dtfloor=1.e-12; 
   const double t0 = theDisk.GetCos().lbt(zrelax) - theDisk.GetCos().lbt(zstart); // seconds
   const double tzs = t0*dim.vphiR/(2.0*M_PI*dim.Radius);
   const double duration = theDisk.GetCos().lbt(zstart); //in seconds
@@ -212,7 +212,8 @@ int Simulation::runToConvergence(const double fCondition,
     // and whichCell tells us which cell is limiting the timestep. Both of these values
     // are printed every 5000 timesteps (see below).
     dtPrev = dt;
-    dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell,tauvecStar); 
+    if(step>0)
+      dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell,tauvecStar); 
 
     // Every time step, check whether each of the convergence checks has a value
     // which needs to be updated.

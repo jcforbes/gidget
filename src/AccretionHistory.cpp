@@ -212,7 +212,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     else { // use wmap5 cosmology, w/ fit from Neistein2010
       double a1 = -0.333;
       double a2 = -0.321;
-      double a3 =  0.0808;
+      double a3 =  0.0807;
       double a4 =  0.622;
       double b1 =  0.132;
       double b2 =  2.404;
@@ -231,6 +231,8 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     
     // update our tabulated value of halo mass.
     double M=MofS(SS,sp.sigma8,sp.OmegaM)/cos.h();
+    if(M < 1.0e8)
+        return -1.0;
     masses.push_back(M);
     if(!first)  masses.push_back(M); // solar masses
     std::cout<<"z,om;S,M;ds,s,x: "<<zs[zs.size()-1]<<" "<<om<<"; "<<SS<<" "<<
@@ -239,7 +241,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     SS+=deltaS;
     om += dom;
     first=false;
-  } while(zs[zs.size()-1]<zrelax*1.3);
+  } while(zs[zs.size()-1]<zrelax*1.1);
 //  for(unsigned int i=0; i!=masses.size()-1; ++i) {
   double md0;
   for(unsigned int i=0; i<masses.size()-1; i+=2) {

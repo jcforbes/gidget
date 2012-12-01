@@ -26,13 +26,13 @@ PRO figureInit,nm,sv,nx,ny
 	
 	IF(sv EQ 4) THEN BEGIN
 		set_plot,'z'
-		cgDisplay,2048,2048
+		cgDisplay,1024*nx,1024*ny
 	ENDIF
 	
-	!p.thick=1.5
-	!x.thick=1.5
-	!y.thick=1.5
-	!z.thick=1.5
+	!p.thick=2.5
+	!x.thick=2.5
+	!y.thick=2.5
+	!z.thick=2.5
 	IF(sv EQ 2) THEN BEGIN
 		Set_Plot,'ps'
 		!p.font = 0

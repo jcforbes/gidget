@@ -54,8 +54,10 @@ FUNCTION diskStats,model,z=z
         vrglt0 = WHERE(vrg LT 0,gCtr)
         IF(gCtr GT 0) THEN fitGas = lindgen(MAX([MIN(vrglt0),10])) ELSE fitGas = lindgen(n_elements(x))
         pg=dblarr(2)
-        fitprofile,x[fitGas]*model.Radius,col[fitGas],pg,gchisq,single=1
+        ;fitprofile,x[fitGas]*model.Radius,col[fitGas],pg,gchisq,single=1
         gasScaleLength = pg[1] ; in kpc
+        gchisq=2
+        stchisq=2
 
 
 	; for the stars, only fit where Qst has fallen below Qlim
@@ -63,10 +65,10 @@ FUNCTION diskStats,model,z=z
         IF(stCtr LT 10) THEN fitStars = lindgen(n_elements(x))
         pst=dblarr(5)
         colstfit = dblarr(n_elements(fitStars))
-        fitprofile,x[fitStars]*model.Radius,colst[fitStars],pst,stchisq,colfit=colstfit
+        ;fitprofile,x[fitStars]*model.Radius,colst[fitStars],pst,stchisq,colfit=colstfit
         starScaleLengthMeas = pst[2]
         starSersic = pst[4]
-        starBTMeas = TOTAL(x[fitStars]*x[fitStars]*(pst[1]*exp(-(x[fitStars]/pst[3])^(1.0/pst[4]))))/TOTAL(x[fitStars]*x[fitStars]*colstFit)
+        starBTMeas = 0; TOTAL(x[fitStars]*x[fitStars]*(pst[1]*exp(-(x[fitStars]/pst[3])^(1.0/pst[4]))))/TOTAL(x[fitStars]*x[fitStars]*colstFit)
         
 
         indexGI = where(Q LE model.fixedQ,ct)

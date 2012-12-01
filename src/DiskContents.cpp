@@ -1371,7 +1371,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
     double QQ = Q(&rqp,&absc);
     
     if(dbg.opt(4)) {
-      FF[n] = (fixedQ-QQ)*uu[n] / (x[n]*(tauHeat/3.0));
+      FF[n] = exp((fixedQ-QQ)*uu[n] / (x[n]*(tauHeat/3.0)));
  
     }
 

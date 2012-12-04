@@ -113,6 +113,8 @@ int main(int argc, char **argv) {
   const double accAlpha_z =        as.Set(0.38,"Power to which to raise (1+z) in accretion efficiency");
   const double accAlpha_Mh=        as.Set(-0.25,"Power to which to raise (M_h/10^12 Msun) in acc eff");
   const double accCeiling =        as.Set(1.0,"Maximum accretion efficiency.");
+  const double fscatter =          as.Set(1.0,"Artificial factor by which to multiply scatter in ND10");
+  const double invMassRatio =      as.Set(.3,"Maximum change in halo mass across 1 step in domega");
 
  
   // Make an object to deal with basic cosmological quantities.9
@@ -132,8 +134,6 @@ int main(int argc, char **argv) {
   testAccretionHistory();
 
   int attempts=0;
-  double invMassRatio = .3;
-  if(dbg.opt(16)) invMassRatio=1.0;
 
   // Based on the user's choice of accretion history, generate the appropriate
   // mapping between redshift and accretion rate.
@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
   else {
     mdot0 = accr.GenerateNeistein08(zstart,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",
 				    true,whichAccretionHistory,invMassRatio,zquench,&attempts,
-				    deltaOmega, zrelax)*MSol/speryear;
+				    deltaOmega, zrelax,fscatter)*MSol/speryear;
   }
   // Note that the following line does nothing but put a line in the comment file to
   // record MdotExt0 for this run.
@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
   double MhZs = accr.MhOfZ(zstart)*Mh0;
 
   // don't relax the disk!
-  if(dbg.opt(5)) {
+  if(!dbg.opt(5)) {
       DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
                         TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                         thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
@@ -194,7 +194,9 @@ int main(int argc, char **argv) {
       int result = sim.runToConvergence(1.0e10, true, filename,zrelax,Noutputs);
 
   }
-  if(!dbg.opt(5)) {
+
+  // This section hasn't been used in a while and only really makes sense under certain conditions:
+  if(dbg.opt(5)) {
       //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
       DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
     		      TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,

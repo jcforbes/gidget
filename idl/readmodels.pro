@@ -174,6 +174,9 @@ FUNCTION readOutput,name
   accAlphaZ = ExtractCmtFlt(lunCom)
   accAlphaMh = ExtractCmtFlt(lunCom)
   accCeiling = ExtractCmtFlt(lunCom)
+
+  ;; these next two are special: The user doesn't specify them; they are computed
+  ;; at the beginning of a run based on whichAccretionHistory.
   md0 = ExtractCmtFlt(lunCom)
   ND08attempts = ExtractCmtL(lunCom)
   

@@ -28,13 +28,13 @@
 ;; timeText - a string to be printed in front of time[i] at each timestep i.
 ;; NIndVarBins - when plotting many galaxies, this variable allows you to divide the galaxies into this many
 ;;   bins according to their value of the independent variable, such that equal numbers will appear in each bin.
-;; percentiles - after dividing galaxies up into bins by their independent value, within each bin find 
+;; percentileList - after dividing galaxies up into bins by their independent value, within each bin find 
 ;;   the value of each dependent variable at each percentile specified here. For instance the default plots 
 ;;   2-sigma contours+the median
 ;; svSinglePlot - the value of sv to use if we're producing a single plot. See figureinit.pro; typically 4 is a good choice
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
 
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentiles=percentiles,svSingePlot=svSinglePlot,strt=strt
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSingePlot=svSinglePlot,strt=strt
   lth=1
   chth=1
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
@@ -44,6 +44,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     chth=2
     lth=5
   ENDIF
+
+  PRINT, "Starting to make the files of the form: ", name,"*"
 
   ;; exclude the first time step from setting the range.
   ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog)
@@ -58,9 +60,10 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
   IF(n_elements(timeText) EQ 0) THEN timeText="z = "
   IF(n_elements(NIndVarBins) EQ 0) THEN NIndVarBins=0
-  IF(n_elements(percentiles) EQ 0) THEN percentiles=[.025,.5,.975]
+  IF(n_elements(percentileList) EQ 0) THEN percentileList=[.025,.5,.975]
   IF(n_elements(svSinglePlot) EQ 0) THEN svSinglePlot = 4
   IF(n_elements(strt) EQ 0) THEN strt = intarr(n_elements(labels))
+
 
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
@@ -84,6 +87,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     ENDIF
 
     symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
+    IF(NIndVarBins GT 0) THEN symsize = symsize/3.0
 
     ;; counter of frames.
     count=0 
@@ -101,8 +105,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       ;; Either way, this long statement draws the first plot for this frame.
       ;; Everything else will be overplotted on top in a few lines. 
       xt = axisLabels[0]
-      IF(sv EQ 5 AND tii NE n_elements(whichFrames)-1) THEN xt=""
+      IF(sv EQ 5 AND tii NE n_elements(whichFrames)-1 AND horizontal EQ 0) THEN xt=""
       yt = axisLabels[k]
+      IF(sv EQ 5 AND tii NE 0 AND horizontal EQ 1) THEN yt=""
       ;IF(sv EQ 5) THEN yt=yt+" at z="+str(time)
       IF(strt[k] EQ 0) THEN $
         PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
@@ -119,9 +124,10 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       ;; Print the time in the upper left of the screen
       
       theTimeText = timeText+string(time[ti],Format='(D0.3)')
-      IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-      ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-      ELSE XYOUTS,.1+float(tii)/float(n_elements(whichFrames)),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+
+      IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth ; $
+;      ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+;      ELSE XYOUTS,.1+float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
 
       ;; loop over models (4th column of data)
       FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
@@ -142,7 +148,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(NIndVarBins GT 0) THEN BEGIN
           ;;;; ASSUMING that there are some galaxies in each color bin,
           ncolors = MAX(colors)+1
-          theCurves = dblarr(NIndVarBins, n_elements(percentiles), ncolors)
+          theCurves = dblarr(NIndVarBins, n_elements(percentileList), ncolors)
           ;; each color gets its own percentile curves
           FOR aColor=0, ncolors-1 DO BEGIN
               subset = WHERE(aColor EQ colors[ti,*], NInThisSubset)
@@ -150,15 +156,17 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
               IF(NInThisSubset GT 0) THEN BEGIN
                   FOR indVarIndex=0, NIndVarBins-1 DO BEGIN
                       ;; 
-                      thisIndBin = GetIthBin(indVarIndex, data[ti,0,0,*], NIndVarBins, subset)
+                      thisIndBin = GetIthBin(indVarIndex, data[ti,0,0,*], NIndVarBins, subset=subset)
                       IF(wrtXlog[0] EQ 1 ) THEN binCenters[indVarIndex] = 10.0^avg(alog10((data[ti,0,0,subset])[thisIndBin]))$
                         ELSE binCenters[indVarIndex] = avg((data[ti,0,0,subset])[thisIndBin])
-                      ;; The following is the list of
-                      dependentData = sort((data[ti,0,k,subset])[thisIndBin])
-                      FOR percentileIndex=0, n_elements(percentiles)-1 DO BEGIN
-                          ;stop
-                          theCurves[indVarIndex, percentileIndex, aColor] = ((data[ti,0,k,subset])[thisIndBin])[dependentData[fix(percentiles[percentileIndex]*n_elements(dependentData))]]
-                      ENDFOR ; end loop over percentiles
+                      
+                      ;dependentData = sort((data[ti,0,k,subset])[thisIndBin])
+                      ;FOR percentileIndex=0, n_elements(percentileList)-1 DO BEGIN
+                      ;    ;stop
+                      ;    theCurves[indVarIndex, percentileIndex, aColor] = ((data[ti,0,k,subset])[thisIndBin])[dependentData[fix(percentileList[percentileIndex]*n_elements(dependentData))]]
+                      ;ENDFOR ; end loop over percentiles
+		  theCurves[indVarIndex, *, aColor] = percentiles((data[ti,0,k,subset])[thisIndBin],percentileList,wrtXlog[k])
+
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop
                   FOR percentileIndex=0,n_elements(percentiles)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2

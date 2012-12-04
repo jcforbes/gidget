@@ -247,9 +247,10 @@ PRO variability3,expNames,keys,N,sv
   theData = (temporary(theData))[*,*,*,0:ctr-1]
   colors = intarr(n_elements(theData[*,0,0,0]),n_elements(nameList2))
 
+  intervals = dblarr(n_elements(theData[*,0,0,0]),  n_elements(theData[0,*,0,0]), n_elements(theData[0,0,*,0]), 3*n_elements(expNames))  
   ;; having accumulated theData, let's do some analysis!
-  sortdData = theData * 0.0
-  sortdData[*,*,0,*] = theData[*,*,0,*] ;; don't sort radii..
+;  sortdData = theData * 0.0
+;  sortdData[*,*,0,*] = theData[*,*,0,*] ;; don't sort radii..
   ;sortdVsMdot = vsMdot*0.0
   FOR expInd=1, n_elements(expNames) DO BEGIN
     low = modelcounter[expInd-1]
@@ -258,8 +259,10 @@ PRO variability3,expNames,keys,N,sv
       FOR k=1,n_elements(wrtXyy)-1 DO BEGIN ;; loop over variables
         FOR xx=0,n_elements(theData[0,*,0,0])-1 DO BEGIN ;; loop over x-coord
 	  ;;; Sort the models, within each experiment
-	  srtd = sort(theData[j,xx,k,low:high])
-          sortdData[j,xx,k,low:high] = theData[j,xx,k,low+srtd]
+          intervals[j,xx,k,(expInd-1)*3:(expInd)*3-1] = percentiles(theData[j,xx,k,low:high],[.05,.5,.95],wrtXlog[k])
+
+;	  srtd = sort(theData[j,xx,k,low:high])
+;          sortdData[j,xx,k,low:high] = theData[j,xx,k,low+srtd]
           IF(xx EQ 4 AND j EQ n_elements(theData[*,0,0,0])-1) THEN BEGIN
           ENDIF
 	ENDFOR ;; end loop over x-coord 
@@ -271,7 +274,6 @@ PRO variability3,expNames,keys,N,sv
 
   proftimes[3]=systime(1)
 
-  intervals = dblarr(n_elements(theData[*,0,0,0]),  n_elements(theData[0,*,0,0]), n_elements(theData[0,0,*,0]), 3*n_elements(expNames))
   FOR expInd=1, n_elements(expNames) DO BEGIN
     low=modelcounter[expInd-1]
     high=modelcounter[expInd]-1

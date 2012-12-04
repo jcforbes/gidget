@@ -158,7 +158,7 @@ double npow(double x,double ex)
 double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
 				            std::string fn, bool writeOut, unsigned long int seed,
                      			    double invMassRatioLimit, double zquench, int * nattempts,
-					    double domega, double zrelax)
+					    double domega, double zrelax,double fscatter)
 {
 	*nattempts = 0; // we have yet to attempt to generate an accretion history.
 
@@ -168,7 +168,7 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
 
         double mdotext0 = -1.0;
         while(mdotext0 < 0.0) {
-	  mdotext0 = AttemptToGenerateNeistein08(zst,cos,fn,writeOut,r,invMassRatioLimit,zquench,domega,zrelax);
+	  mdotext0 = AttemptToGenerateNeistein08(zst,cos,fn,writeOut,r,invMassRatioLimit,zquench,domega,zrelax,fscatter);
 	  ++(*nattempts);
         }
 	gsl_rng_free(r);
@@ -181,7 +181,7 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
 double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos, 
 				  std::string fn, bool writeOut,gsl_rng * r,
 				  double invMassRatioLimit,double zquench,
- 				  double domega, double zrelax )
+         			  double domega, double zrelax, double fscatter )
 {
   zstart = zst;
   std::ofstream file;
@@ -207,8 +207,8 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     double s= log10(SS);
     // employ the formula in ND08a to compute the delta S for the chosen value of x.
     double deltaS;
-    if(!dbg.opt(3))
-      deltaS= exp((1.367+0.012*s+0.234*s*s)*x + (-3.682+0.76*s-0.36*s*s));
+    if(dbg.opt(3))
+      deltaS= exp((1.367+0.012*s+0.234*s*s)*x*fscatter + (-3.682+0.76*s-0.36*s*s));
     else { // use wmap5 cosmology, w/ fit from Neistein2010
       double a1 = -0.333;
       double a2 = -0.321;
@@ -220,7 +220,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
       double b4 = -0.436;
       double sigp = (a1*s + a2) * log10(dom) + a3*s + a4;
       double mup  = (b1*s + b2) * log10(dom) + b3*s + b4;
-      deltaS= exp(x*sigp + mup);
+      deltaS= exp(x*sigp*fscatter + mup);
     }
     // update our list of redshifts, given our uniformly spaced value of omega.
     // subtract a small number so that when we evaluate some quantity at z=0, we don't get an interpolation error.

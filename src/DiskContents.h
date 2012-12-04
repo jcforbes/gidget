@@ -54,7 +54,7 @@ class DiskContents {
   void ComputePartials();
 
   void UpdateStTorqueCoeffs( std::vector<double>& UUst, std::vector<double>& DDst, std::vector<double>& LLst, std::vector<double>& FFst);
-  void UpdateCoeffs(double redshift,std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF,double ** tauvecStar);
+  void UpdateCoeffs(double redshift,std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF,double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar);
 
   // Diffuse metals in such a way that the total mass in 
   // metals is conserved. This diffusion is not meant to 
@@ -89,9 +89,9 @@ class DiskContents {
   // Compute the time rate of change of the velocity 
   // dispersion of stellar population sp.
   double dSigStRdt(unsigned int n, unsigned int sp, 
-		   std::vector<StellarPop*>&, double ** tauvecStar);
+		   std::vector<StellarPop*>&, double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar);
   double dSigStZdt(unsigned int n, unsigned int sp, 
-		   std::vector<StellarPop*>&, double ** tauvecStar);
+		   std::vector<StellarPop*>&, double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar);
 
   // Append the properties of each StellarPop in the 
   // given vector to an output file.
@@ -130,7 +130,7 @@ class DiskContents {
   // compute a time step such that no quantity is 
   // changing too quickly. The pointers record which
   // variable and which cell is limiting the time step.
-  double ComputeTimeStep(const double z,int*,int*,double **);
+  double ComputeTimeStep(const double z,int*,int*,double **,std::vector<double>& MdotiPlusHalfStar);
 
   // Given a time step, state variables, and their time 
   // derivatives, do a forward Euler step

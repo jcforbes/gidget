@@ -176,7 +176,7 @@ int Simulation::runToConvergence(const double fCondition,
 
 
     // Update the coefficients of the torque equation
-    theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar);
+    theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar,MdotiPlusHalfStar);
 
 
     // Solve the torque equation. The commented versions represent various choices
@@ -192,7 +192,7 @@ int Simulation::runToConvergence(const double fCondition,
       IBC = -1.0*theDisk.GetMesh().x(0.0); // d
     }
     double OBC;
-    if(dbg.opt(8))
+    if(!dbg.opt(8))
         OBC=-1.0*theDisk.dmdtCosOuter(AccRate);
     else
         OBC=-1.0*AccRate;
@@ -213,7 +213,7 @@ int Simulation::runToConvergence(const double fCondition,
     // are printed every 5000 timesteps (see below).
     dtPrev = dt;
     if(step>0)
-      dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell,tauvecStar); 
+      dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell,tauvecStar,MdotiPlusHalfStar); 
 
     // Every time step, check whether each of the convergence checks has a value
     // which needs to be updated.

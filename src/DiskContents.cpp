@@ -506,7 +506,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
   }
 }
 
-double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int * whichCell, double ** tauvecStar)
+double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int * whichCell, double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar)
 {
   // Compute a bunch of timescales for variation in each cell, i.e. Quantity / (dQuantity/dt)
   // Find the maximum value of the inverse of all such timescales. 
@@ -545,16 +545,16 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
         *whichVar=6;
 	*whichCell=n;
       }
-      if(fabs(dSigStZdt(n,i,spsActive,tauvecStar)
+      if(fabs(dSigStZdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
                 /spsActive[i]->spsigZ[n]) > dmax) {
-        dmax=fabs(dSigStZdt(n,i,spsActive,tauvecStar)
+        dmax=fabs(dSigStZdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
            /spsActive[i]->spsigZ[n]);
         *whichVar=7;
 	*whichCell=n;
       }
-      if(fabs(dSigStRdt(n,i,spsActive,tauvecStar)
+      if(fabs(dSigStRdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
                 /spsActive[i]->spsigR[n]) > dmax) {
-        dmax=fabs(dSigStRdt(n,i,spsActive,tauvecStar)
+        dmax=fabs(dSigStRdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
            /spsActive[i]->spsigR[n]);
         *whichVar=8;
 	*whichCell=n;
@@ -578,16 +578,16 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
         *whichVar=10;
 	*whichCell=n;
       }
-      if(fabs(dSigStZdt(n,j,spsPassive,tauvecStar)
+      if(fabs(dSigStZdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
                 /spsPassive[j]->spsigZ[n]) > dmax) {
-        dmax=fabs(dSigStZdt(n,j,spsPassive,tauvecStar)
+        dmax=fabs(dSigStZdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
            /spsPassive[j]->spsigZ[n]);
         *whichVar=11;
 	*whichCell=n;
       }
-      if(fabs(dSigStRdt(n,j,spsPassive,tauvecStar)
+      if(fabs(dSigStRdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
                 /spsPassive[j]->spsigR[n]) > dmax) {
-        dmax=fabs(dSigStRdt(n,j,spsPassive,tauvecStar)
+        dmax=fabs(dSigStRdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
            /spsPassive[j]->spsigR[n]);
         *whichVar=12;
 	*whichCell=n;
@@ -661,8 +661,8 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     dSigStRDtMeasured[n] = -activeSigStR(n)/dt;
     dSigStZDtMeasured[n] = -activeSigStZ(n)/dt;
     dColStDtNominal[n] = dSMigdt(n,tauvecStar, (*this), spsActive[0]->spcol) + RfREC*colSFR[n];
-    dSigStRDtNominal[n] = dSigStRdt(n,0,spsActive,tauvecStar);
-    dSigStZDtNominal[n] = dSigStZdt(n,0,spsActive,tauvecStar);
+    dSigStRDtNominal[n] = dSigStRdt(n,0,spsActive,tauvecStar,MdotiPlusHalfStar);
+    dSigStZDtNominal[n] = dSigStZdt(n,0,spsActive,tauvecStar,MdotiPlusHalfStar);
 
   }
 
@@ -672,9 +672,9 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
   unsigned int szP = spsPassive.size();
   StellarPop currentlyForming(mesh);
   for(unsigned int n=1; n<=nx; ++n) {
-    //spsActive[0]->spcol[n] += dt * dColStDtNominal[n];
-    //spsActive[0]->spsigR[n] += dt*dSigStRDtNominal[n];
-    //spsActive[0]->spsigZ[n] += dt*dSigStZDtNominal[n];
+//    spsActive[0]->spcol[n] += dt * dColStDtNominal[n];
+//    spsActive[0]->spsigR[n] += dt*dSigStRDtNominal[n];
+//    spsActive[0]->spsigZ[n] += dt*dSigStZDtNominal[n];
 
 
 
@@ -693,6 +693,9 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
       errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsigR[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
   }
   currentlyForming.ageAtz0 = cos.lbt(redshift);
+
+  
+
 
   spsActive[szA-1]->MergeStellarPops(currentlyForming,(*this));
   spsPassive[szP-1]->MergeStellarPops(currentlyForming,(*this));
@@ -809,6 +812,9 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     dSigStZDtMeasured[n] += activeSigStZ(n)/dt;
   }
 
+  for (unsigned int n=1; n<=10; ++n) {
+//    std::cout <<"col, sigR, sigZ: " << dColStDtMeasured[n]/dColStDtNominal[n]-1. << " " << dSigStRDtMeasured[n]/dSigStRDtNominal[n]-1.<<" "<<dSigStZDtMeasured[n]/dSigStZDtNominal[n]-1.<<std::endl;
+  }
 }
 
 double DiskContents::TotalWeightedByArea(const std::vector<double>& perArea)
@@ -1143,14 +1149,14 @@ double DiskContents::ComputeColSFR()
    
    // constant SF depletion time.
    double tdepConst = 2.0; // in Ga
-   double valConst = (EPS_ff/.01) * fH2 * col[n] / (tdepConst * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
+   double valConst = fH2 * col[n] / (tdepConst * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
     
     
    double val;
    val = valToomre;
    if(dbg.opt(19))
      val = valConst;
-   if(dbg.opt(7)) {
+   if(!dbg.opt(7)) {
      val = max(valConst, valToomre); // pick the shorter depletion time, i.e. higher SFR. 
    }
 
@@ -1172,7 +1178,7 @@ double DiskContents::ComputedSdTCos(double AccRate)
     double sum = 0.0;
 
     for(unsigned int n=1; n<=nx; ++n) {
-      if(dbg.opt(8)) {
+      if(!dbg.opt(8)) {
         double nD = ((double) n);
         double xlo = mesh.x(nD -0.5);
         double xhi = mesh.x(nD +0.5);
@@ -1221,7 +1227,7 @@ double DiskContents::dmdtCosOuter(double AccRate)
 }
 double DiskContents::dmdtCosInner(double AccRate)
 {
-    if(!dbg.opt(8)) return 0.0;
+    if(dbg.opt(8)) return 0.0;
     double xb = mesh.x(0.5);
     return AccRate * (1 - exp(-xb/accScaleLength) * (1.0+xb/accScaleLength));
 }
@@ -1229,7 +1235,7 @@ double DiskContents::dmdtCosInner(double AccRate)
 
 // The only place this function is used is in computing the coefficient for the torque equation which requires
 // knowing d s_*/dt. This function is NOT used for actually updating s_*.
-double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,std::vector<StellarPop*>& sps,double ** tauvecStar)
+double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,std::vector<StellarPop*>& sps,double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar)
 {
   std::vector<double>& col_st = sps[sp]->spcol ;
   std::vector<double>& sig_stR = sps[sp]->spsigR ;
@@ -1238,11 +1244,14 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,std::vector<Stell
   double val = 0.0;
   
 
-  val = (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/mesh.u1pbPlusHalf(n)) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
-           (2.0*sig_stZ[n]*sps[sp]->dSigZdr[n]  //ddx(sig_stZ,n,x,false)
-          + 3.0* sig_stR[n]*sps[sp]->dSigRdr[n]//ddx(sig_stR,n,x,false) 
-	    + sig_stR[n]*sig_stR[n]/col_st[n] * sps[sp]->dColdr[n] //ddx(col_st,n,x,false) 
-          + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
+//  val = (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/mesh.u1pbPlusHalf(n)) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
+//           (2.0*sig_stZ[n]*sps[sp]->dSigZdr[n]  //ddx(sig_stZ,n,x,false)
+//          + 3.0* sig_stR[n]*sps[sp]->dSigRdr[n]//ddx(sig_stR,n,x,false) 
+//	    + sig_stR[n]*sig_stR[n]/col_st[n] * sps[sp]->dColdr[n] //ddx(col_st,n,x,false) 
+//          + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
+  val =  1.0/(x[n]*col_st[n]*(sig_stR[n]+sig_stZ[n])) * ((beta[n]-1.)*uu[n]*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*sig_stR[n]*sps[sp]->dSigRdr[n] + 2.0*sig_stZ[n]*sps[sp]->dSigZdr[n]) *(-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/(uu[n]*(1.+beta[n]))) + sig_stR[n]*sig_stR[n]*(MdotiPlusHalfStar[n]-MdotiPlusHalfStar[n])/mesh.dx(n));
+
+
 
 
   if(sps.size()-1==sp) { // i.e. this population is having stars added presently.
@@ -1260,7 +1269,7 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,std::vector<Stell
 
 // The only place this function is used is in computing the coefficient for the torque equation which requires
 // knowing d s_*/dt. This function is NOT used for actually updating s_*.
-double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,std::vector<StellarPop*>& sps,double ** tauvecStar)
+double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,std::vector<StellarPop*>& sps,double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar)
 {
   std::vector<double>& col_st = sps[sp]->spcol;
   std::vector<double>& sig_stR = sps[sp]->spsigR;
@@ -1268,11 +1277,15 @@ double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,std::vector<Stell
 
   double val = 0.0;
   
-  val =0.5* (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/mesh.u1pbPlusHalf(n)) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
-           (2.0*sig_stZ[n]* sps[sp]->dSigZdr[n] // ddx(sig_stZ,n,x,false)
-          + 3.0* sig_stR[n]* sps[sp]->dSigRdr[n] // ddx(sig_stR,n,x,false) 
-          + sig_stR[n]*sig_stR[n]/col_st[n] * sps[sp]->dColdr[n] // ddx(col_st,n,x,false)
-          + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
+
+  val =  1.0/(x[n]*col_st[n]*(sig_stR[n]+sig_stZ[n])) * ((beta[n]-1.)*uu[n]*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*sig_stR[n]*sps[sp]->dSigRdr[n] + 2.0*sig_stZ[n]*sps[sp]->dSigZdr[n]) *(-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/(uu[n]*(1.+beta[n]))) + sig_stR[n]*sig_stR[n]*(MdotiPlusHalfStar[n]-MdotiPlusHalfStar[n])/mesh.dx(n));
+
+  val *= .5;
+//  val =0.5* (-tauvecStar[2][n]*(col_st[n]/activeColSt(n))/mesh.u1pbPlusHalf(n)) * (1.0/(x[n]*col_st[n]*(sig_stR[n] + sig_stZ[n]))) *
+//           (2.0*sig_stZ[n]* sps[sp]->dSigZdr[n] // ddx(sig_stZ,n,x,false)
+//          + 3.0* sig_stR[n]* sps[sp]->dSigRdr[n] // ddx(sig_stR,n,x,false) 
+//          + sig_stR[n]*sig_stR[n]/col_st[n] * sps[sp]->dColdr[n] // ddx(col_st,n,x,false)
+//          + (sig_stR[n]*sig_stR[n] - sig_stZ[n]*sig_stZ[n])/x[n]);
 
 
   if(sps.size()-1==sp) { // i.e. this population is forming stars
@@ -1297,13 +1310,29 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
   for(unsigned int n=1; n<=nx; ++n) {
 
     
-    UUst[n] = -1.0/(mesh.x(n+1)-mesh.x(n-1)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * spsActive[0]->dSigZdr[n] + 3.0*sigStR[n]*spsActive[0]->dSigRdr[n] + sigStR[n]*sigStR[n]*spsActive[0]->dColdr[n]/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
-	- 1.0/colst[n] * 1.0/(x[n+1]-x[n]) * -1.0/mesh.u1pbPlusHalf(n) * 1.0/(x[n]*mesh.dx(n));
-    DDst[n] = -1.0/colst[n] * -1.0/(mesh.x(n+1)-x[n]) * -1.0/mesh.u1pbPlusHalf(n)  * 1.0/(x[n]*mesh.dx(n))
-	+1.0/colst[n] *  1.0/(x[n]-mesh.x(n-1)) * -1.0/mesh.u1pbPlusHalf(n-1)* 1.0/(x[n]*mesh.dx(n));
-    LLst[n] = 1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * spsActive[0]->dSigZdr[n] + 3.0*sigStR[n]*spsActive[0]->dSigRdr[n] + sigStR[n]*sigStR[n]*spsActive[0]->dColdr[n]/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
-	- 1.0/colst[n] * 1.0/(x[n]-mesh.x(n-1)) * -1.0/mesh.u1pbPlusHalf(n-1) * 1.0/(x[n]*mesh.dx(n));
-    
+//    UUst[n] = -1.0/(mesh.x(n+1)-mesh.x(n-1)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * spsActive[0]->dSigZdr[n] + 3.0*sigStR[n]*spsActive[0]->dSigRdr[n] + sigStR[n]*sigStR[n]*spsActive[0]->dColdr[n]/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
+//	- 1.0/colst[n] * 1.0/(x[n+1]-x[n]) * -1.0/mesh.u1pbPlusHalf(n) * 1.0/(x[n]*mesh.dx(n));
+//    DDst[n] = -1.0/colst[n] * -1.0/(mesh.x(n+1)-x[n]) * -1.0/mesh.u1pbPlusHalf(n)  * 1.0/(x[n]*mesh.dx(n))
+//	+1.0/colst[n] *  1.0/(x[n]-mesh.x(n-1)) * -1.0/mesh.u1pbPlusHalf(n-1)* 1.0/(x[n]*mesh.dx(n));
+//    LLst[n] = 1.0/(mesh.x(n+1.0)-mesh.x(n-1.0)) * 1.0/(uu[n]*(1+beta[n])) * 1.0/(x[n]*colst[n]) * 1.0/(sigStZ[n]+sigStR[n]) * (2.0*sigStZ[n] * spsActive[0]->dSigZdr[n] + 3.0*sigStR[n]*spsActive[0]->dSigRdr[n] + sigStR[n]*sigStR[n]*spsActive[0]->dColdr[n]/colst[n] + (sigStR[n]*sigStR[n]-sigStZ[n]*sigStZ[n])/x[n]) * 1/sigStR[n]
+//	- 1.0/colst[n] * 1.0/(x[n]-mesh.x(n-1)) * -1.0/mesh.u1pbPlusHalf(n-1) * 1.0/(x[n]*mesh.dx(n));
+  
+
+//    UUst[n] = 1.0/(x[n]*colst[n]*(sigStR[n]+sigStZ[n])*sigStR[n]) * ( -(3.0*sigStR[n]* spsActive[0]->dSigRdr[n] + 2.0*sigStZ[n]*spsActive[0]->dSigZdr[n])/((mesh.x(n+1)-mesh.x(n-1)) * uu[n]*(1.+beta[n]))  - sigStR[n]*sigStR[n]/(x[n]*(mesh.x(n+1)-x[n])*mesh.u1pbPlusHalf(n)) ) + 1.0/(colst[n]*x[n]*mesh.dx(n)*(mesh.x(n+1)-x[n])*mesh.u1pbPlusHalf(n));
+//    DDst[n] = 1.0/(x[n]*colst[n]*(sigStR[n]+sigStZ[n])*sigStR[n]) * ( (beta[n]-1)*uu[n]/(x[n]*x[n]) + sigStR[n]*sigStR[n]/mesh.dx(n) * ( 1.0/((mesh.x(n+1)-x[n])*mesh.u1pbPlusHalf(n)) + 1.0/((x[n]-mesh.x(n-1))*mesh.u1pbPlusHalf(n-1)))) - 1.0/(colst[n]*x[n]*mesh.dx(n)) * ( 1.0/((mesh.x(n+1)-x[n])*mesh.u1pbPlusHalf(n)) + 1.0/((x[n]-mesh.x(n-1))*mesh.u1pbPlusHalf(n-1)));
+//    LLst[n] = 1.0/(x[n]*colst[n]*(sigStR[n]+sigStZ[n])*sigStR[n]) * ( (3.0*sigStR[n]*spsActive[0]->dSigRdr[n] + 2.0*sigStZ[n]*spsActive[0]->dSigZdr[n] )/((mesh.x(n+1)-mesh.x(n-1))*uu[n]*(1.+beta[n])) - sigStR[n]*sigStR[n]/(mesh.dx(n)*(x[n]-mesh.x(n-1)) * mesh.u1pbPlusHalf(n-1))) + 1.0/(colst[n]*x[n]*mesh.dx(n)*(x[n]-mesh.x(n-1))*mesh.u1pbPlusHalf(n-1));
+
+  
+    UUst[n] = 1.0/(x[n]*colst[n]*(sigStR[n]+sigStZ[n])*sigStR[n]) * -1./(uu[n]*(1.+beta[n])) * 1./(mesh.x(n+1)-mesh.x(n-1)) * (3.*sigStR[n]*spsActive[0]->dSigRdr[n] + 2.*sigStZ[n]*spsActive[0]->dSigZdr[n]) 
+		+ sigStR[n]/(x[n]*mesh.dx(n)*colst[n]*(sigStR[n]+sigStZ[n]))*(-1./mesh.u1pbPlusHalf(n)) * 1./(mesh.x(n+1)-x[n]) 
+		- 1./(colst[n]*x[n]*mesh.dx(n))*-1./mesh.u1pbPlusHalf(n)*1./(mesh.x(n+1)-x[n]);
+    DDst[n] = sigStR[n]/(x[n]*colst[n]*(sigStR[n]+sigStZ[n])*mesh.dx(n))*(-1./mesh.u1pbPlusHalf(n) * -1./(mesh.x(n+1)-x[n]) - -1./mesh.u1pbPlusHalf(n-1)*1./(x[n]-mesh.x(n-1)))
+		- uu[n]*(1.-beta[n])/(x[n]*x[n]*x[n]*colst[n]*(sigStR[n]+sigStZ[n])*sigStR[n])
+		-1./(colst[n]*x[n]*mesh.dx(n))*(-1./mesh.u1pbPlusHalf(n)*-1./(mesh.x(n+1)-x[n]) - -1./mesh.u1pbPlusHalf(n-1)*1./(x[n]-mesh.x(n-1)));
+    LLst[n] = 1./(x[n]*colst[n]*(sigStR[n]+sigStZ[n])*sigStR[n])*-1./(uu[n]*(1.+beta[n]))*-1./(mesh.x(n+1)-mesh.x(n-1))*(3.*sigStR[n]*spsActive[0]->dSigRdr[n]+2.*sigStZ[n]*spsActive[0]->dSigZdr[n])
+		+ sigStR[n]/(x[n]*mesh.dx(n)*colst[n]*(sigStR[n]+sigStZ[n])) * 1./mesh.u1pbPlusHalf(n-1)* -1./(x[n]-mesh.x(n-1))
+		 - 1./(colst[n]*x[n]*mesh.dx(n)) * 1./mesh.u1pbPlusHalf(n-1) * -1./(x[n]-mesh.x(n-1));
+
 
     double Qst = sqrt(2.*(beta[n]+1.))*uu[n]*sigStR[n]/(M_PI*dim.chi()*x[n]*colst[n]);
     FFst[n] = (Qlim - Qst)*uu[n] / (x[n]*tauHeat*Qst);
@@ -1330,7 +1359,7 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
 
 }
 
-void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF,double ** tauvecStar)
+void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF,double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar)
 {
   double absc = 1.;
   RafikovQParams rqp;
@@ -1359,8 +1388,8 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
       if(sa-1 == i) { // i.e. population i is forming stars
         FF[n] -= spsActive[i]->dQdS[n] * RfREC * colSFR[n];
       }
-      FF[n] -= spsActive[i]->dQdsR[n] * dSigStRdt(n,i,spsActive,tauvecStar) 
-        + spsActive[i]->dQdsZ[n] *dSigStZdt(n,i,spsActive,tauvecStar)
+      FF[n] -= spsActive[i]->dQdsR[n] * dSigStRdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar) 
+        + spsActive[i]->dQdsZ[n] *dSigStZdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
 	+ spsActive[i]->dQdS[n] * dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol);
     }
 
@@ -1394,7 +1423,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
          +std::string("   col,sig  dQdS,dQds,dQdSst,dQdsst ")+str(FF[n])+" "+str(DD[n])
          +spc+str(LL[n])+spc+str(UU[n])+spc+spc+str(col[n])+spc+str(sig[n])
          +spc+spc+str(dQdS[n])+" "+str(dQds[n])+spc+str(spsActive[0]->dQdS[n])
-         +spc+str(spsActive[0]->dQdsR[n])+spc+spc+str(dSigStRdt(n,0,spsActive,tauvecStar))+spc
+         +spc+str(spsActive[0]->dQdsR[n])+spc+spc+str(dSigStRdt(n,0,spsActive,tauvecStar,MdotiPlusHalfStar))+spc
 	+str(dSMigdt(n,tauvecStar,*this,spsActive[0]->spcol)));
     }
   

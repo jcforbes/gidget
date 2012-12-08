@@ -9,10 +9,10 @@ PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thick
     cs = 2
     ct = 1
     IF(sv EQ 4) THEN cs = 3
-    IF(sv EQ 4) THEN ct = 2
+    IF(sv EQ 4) THEN ct = 3
     IF(sv EQ 4) THEN thicknesses = temporary(thicknesses)*3
     ls=0
-    IF(n_elements(vsMdot[0,0,0,*]) GT 50) THEN ls =1
+    IF(n_elements(vsMdot[0,0,0,*]) GT 50) THEN ls =1 
 
     ;; Construct some cross-correlations
     nt = n_elements(vsMdot[*,0,0,0])
@@ -50,7 +50,7 @@ PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thick
         ENDFOR
         FIGURECLEAN,(name+"_ac_"+names[k]),sv
     ENDFOR
-
+    IF(sv EQ 4) THEN thicknesses = temporary(thicknesses)/3.0
 END
 
 

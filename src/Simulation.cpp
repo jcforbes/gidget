@@ -212,7 +212,7 @@ int Simulation::runToConvergence(const double fCondition,
     // and whichCell tells us which cell is limiting the timestep. Both of these values
     // are printed every 5000 timesteps (see below).
     dtPrev = dt;
-    if(step>0)
+    if(step>1)
       dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell,tauvecStar,MdotiPlusHalfStar); 
 
     // Every time step, check whether each of the convergence checks has a value

@@ -34,15 +34,13 @@
 ;; svSinglePlot - the value of sv to use if we're producing a single plot. See figureinit.pro; typically 4 is a good choice
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
 
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSingePlot=svSinglePlot,strt=strt
-  lth=1
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSingePlot=svSinglePlot,strt=strt,thicknesses=thicknesses
   chth=1
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
   IF(sv EQ 1) THEN cs=1 ELSE cs=2.8
   IF(sv EQ 4) THEN BEGIN 
     cs=2.5
     chth=2
-    lth=5
   ENDIF
 
   PRINT, "Starting to make the files of the form: ", name,"*"
@@ -60,10 +58,11 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
   IF(n_elements(timeText) EQ 0) THEN timeText="z = "
   IF(n_elements(NIndVarBins) EQ 0) THEN NIndVarBins=0
-  IF(n_elements(percentileList) EQ 0) THEN percentileList=[.025,.5,.975]
+  IF(n_elements(percentileList) EQ 0) THEN percentileList=[.17,.5,.83]
   IF(n_elements(svSinglePlot) EQ 0) THEN svSinglePlot = 4
   IF(n_elements(strt) EQ 0) THEN strt = intarr(n_elements(labels))
-
+  IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+1
+  IF(sv EQ 4) THEN thicknesses= 3*temporary(thicknesses)
 
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
@@ -82,7 +81,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 	IF (wf GT 10) THEN message,"You have requested an unreasonable number of frames for a single plot."
 	;cs = .3
         figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal,1+(1-horizontal)
-	multiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0]
+	multiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square
 	!p.noerase=0
     ENDIF
 
@@ -111,14 +110,14 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       ;IF(sv EQ 5) THEN yt=yt+" at z="+str(time)
       IF(strt[k] EQ 0) THEN $
         PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
-         YTITLE=axislabels[k], XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
-         xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=lth,XTHICK=lth,YTHICK=lth $
+         YTITLE=yt, XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
+         xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=thicknesses[0],XTHICK=thicknesses[0],YTHICK=thicknesses[0] $
        ELSE $
         PLOT,findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
 	 findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
          COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
-         YTITLE=axislabels[k],XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
-         xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth,THICK=lth,XTHICK=lth,YTHICK=lth
+         YTITLE=yt,XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
+         xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth,THICK=thicknesses[0],XTHICK=thicknesses[0],YTHICK=thicknesses[0]
       ;; that was all one line! It's now over, and our plotting space is set up.
 
       ;; Print the time in the upper left of the screen
@@ -137,9 +136,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 	setct,1,n_elements(styles),j
         
         ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
-        OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=lth
+        OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
         IF(prev EQ 1) THEN BEGIN
-          OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=0,THICK=1
+          OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=0,THICK=thicknesses[j]
         ENDIF
       ENDFOR ;; end loop over models
 
@@ -165,11 +164,11 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
                       ;    ;stop
                       ;    theCurves[indVarIndex, percentileIndex, aColor] = ((data[ti,0,k,subset])[thisIndBin])[dependentData[fix(percentileList[percentileIndex]*n_elements(dependentData))]]
                       ;ENDFOR ; end loop over percentiles
-		  theCurves[indVarIndex, *, aColor] = percentiles((data[ti,0,k,subset])[thisIndBin],percentileList,wrtXlog[k])
+		      theCurves[indVarIndex, *, aColor] = percentiles((data[ti,0,k,subset])[thisIndBin],percentileList,wrtXlog[k])
 
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop
-                  FOR percentileIndex=0,n_elements(percentiles)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2
+                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2,PSYM=-2,SYMSIZE=symsize*3
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
       ENDIF

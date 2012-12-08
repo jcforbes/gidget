@@ -488,7 +488,7 @@ if __name__ == "__main__":
     # this script without any arguments, i.e. $ python exper.py
     parser = argparse.ArgumentParser(description='Analyze data and/or run experiments associated with a list of experiment names.')
     parser.add_argument('models', metavar='experiment', type=str, nargs='+',
-                   help='an experiment to be run / analyzed')
+                   help='a string contained in any experiment to be run, e.g. if rs04a rs04b rs05a are the models defined, then exper.py rs04 will run the first two, exper.py a will run the first and last, exper.py rs will run all three, exper.py rs04b rs05 will run the last two, etc.')
     parser.add_argument('--nproc',type=int,help="maximum number of processors to use (default: 16)",default=16)
     parser.add_argument('--start',metavar='startingModel',type=int,
                    help='The number of the model in the experiment (as ordered by GeneratePl) at which we will start sending experiments to the processors to run. (default: 0)',default=0)
@@ -507,7 +507,6 @@ if __name__ == "__main__":
 
     # A vanilla setup: 11 models equally spaced in log Mh0.
     rs01=experiment("rs01")
-    rs01.irregularVary('dbg',2**8+2**5+2**3+2**7)
     Mh0s = rs01.vary("Mh0",1.0e10,1.0e12,11,1,3)
     Mh0s11 = Mh0s
     rs01.irregularVary('R',40)
@@ -518,9 +517,8 @@ if __name__ == "__main__":
     rs01.irregularVary('NPassive',1)
 
     # Another vanilla setup: 101 models equally spaced in log Mh0 with varying accr. histories.
-    # Alright, I've changed the default scaling to mu=const w/ Mh, and the default # to 401 from 1001.
+    # I'm hoping this will be a minimal set of models which can test the functionality of variability3.
     rs02=experiment("rs02")
-    rs02.irregularVary('dbg',2**8+2**5+2**3+2**7)
     Mh0s = rs02.vary("Mh0",1.0e10,1.0e12,101,1,3)
     Mh0s101 = Mh0s
     rs02.irregularVary("R",40)
@@ -532,18 +530,96 @@ if __name__ == "__main__":
     rs02.irregularVary('NPassive',1)
 
 
+    # What I'd like to do here is compare Bouche+ to Neistein+ w/ fscatter = 0
+    rs03=[copy.deepcopy(rs01) for i in range(4)]
+    [rs03[i].changeName("rs03"+letter(i)) for i in range(len(rs03))]
+    # no scatter - should be the median case
+    rs03[1].irregularVary('fscatter',0.0)
+    rs03[1].vary('whichAccretionHistory',1000,1010,11,0,3)
+    # small scatter
+    rs03[2].irregularVary('fscatter',.03)
+    rs03[2].vary('whichAccretionHistory',1000,1010,11,0,3)
+    # no scatter again, but with smaller Delta omega.
+    rs03[3].irregularVary('fscatter',0.0)
+    rs03[3].vary('whichAccretionHistory',1000,1010,11,0,3)
+    rs03[3].irregularVary('deltaOmega',.01)
 
+    # A simple comparison between low and high angular momentum systems w/ realistic accr scatter
+    rs04=[copy.deepcopy(rs02) for i in range(2)]
+    values=[0.5, 5.0]
+    [rs04[i].changeName("rs04"+letter(i)) for i in range(len(rs04))]
+    for i in range(len(values)):
+        rs04[i].irregularVary('accScaleLength', \
+	  list(np.array(GetScaleLengths(101,Mh0=Mh0s101,scatter=1.0e-10))*values[i]),3)
+
+    # some runs in rs04b were crashing because the gas added per time step at very large radii
+    # was very large compared to the initial column density there. rs05 implements a fix wherein
+    # the simulation executes the first 2 time steps without altering dt.
+    rs05=[copy.deepcopy(rs04[i]) for i in range(len(rs04))]
+    [rs05[i].changeName("rs05"+letter(i)) for i in range(len(rs05))]
+
+    # see what happens when we take our default model and artificially alter fscatter.
+    fscatters = [0.2,1.0,1.5]
+    rs06=[copy.deepcopy(rs02) for i in range(len(fscatters))]
+    [rs06[i].changeName("rs06"+letter(i)) for i in range(len(rs06))]
+    [rs06[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs06))]
+
+    # With a smooth accretion history, see what effect we get from Q-dep forcing terms.
+    rs07=[copy.deepcopy(rs01) for i in range(2)]
+    [rs07[i].changeName("rs07"+letter(i)) for i in range(len(rs07))]
+    rs07[1].irregularVary("dbg",2**4)
+
+    # Look at a different scaling of mu with halo mass
+    rs08 = copy.deepcopy(rs02)
+    rs08.changeName("rs08")
+    rs08.irregularVary('mu',1.0)
+
+    # vary kappa.
+    kappa = [3.0e-4, 3.0e-3]
+    dbgs = [0, 2**15]
+    rs09 = [copy.deepcopy(rs02) for i in range(len(kappa)*len(dbgs))]
+    [rs09[i].changeName("rs09"+letter(i)) for i in range(len(rs09))]
+    [rs09[i].irregularVary('kappaMetals',kappa[i/2]) for i in range(len(rs09))]
+    [rs09[i].irregularVary('dbg',dbgs[1]) for i in [1,3]]
+
+    # vary metal loading efficiency yields
+    rs10 = copy.deepcopy(rs02)
+    rs10.changeName("rs10")
+    rs10.irregularVary('zetaREC',2.0)
+
+    # vary kappa, assuming high angular momentum inflows
+    kappas=[1.0e-5,1.0e-4,1.0e-3]
+    rs11 = [copy.deepcopy(rs04[1]) for i in range(len(kappas))]
+    [rs11[i].changeName("rs11"+letter(i)) for i in range(len(rs11))]
+    [rs11[i].irregularVary("kappaMetals",kappas[i]) for i in range(len(rs11))]
+
+    # just decay based on the initial conditions!
+    rs12 = [copy.deepcopy(rs04[i]) for i in range(len(rs04))]
+    [rs12[i].changeName("rs12"+letter(i)) for i in range(len(rs12))]
+    [rs12[i].irregularVary("zrelax",2.01) for i in range(len(rs12))]
+    [rs12[i].irregularVary("zquench",1.8) for i in range(len(rs12))]
+
+    # try another round of varying fscatter. This time do not restrict the mass ratio so much, and try smaller values.
+    fscatters = [0.1,0.3,0.6,1.0]
+    rs13 = [copy.deepcopy(rs02) for i in range(len(fscatters))]
+    [rs13[i].changeName("rs13"+letter(i)) for i in range(len(rs13))]
+    [rs13[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs13))]
+    [rs13[i].irregularVary('invMassRatio',1.0) for i in range(len(rs13))]
 
 
     successTables=[]
-    for model in modelList:
-        if(model in allModels): 
-          if(not args.xgrid): #local run
-            allModels[model].localRun(args.nproc,args.start)
-          else: # write a file to run on the xgrid
-            allModels[model].write('runExperiment_'+model+'.txt')
+    for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
+        # Get a list of all defined models (allModels.keys())
+        # for each such key (aModel) check whether this inputString is contained in its name
+        matches = [aModel for aModel in sorted(allModels.keys()) if inputString in aModel]
+        if(len(matches) != 0): 
+	    for model in matches: #if(model in allModels): 
+	        if(not args.xgrid): #local run
+	            allModels[model].localRun(args.nproc,args.start)
+		else: # write a file to run on the xgrid
+		    allModels[model].write('runExperiment_'+model+'.txt')
         else:
-          print "You asked me to run ",model," but did not define it in the script."
+          print "You asked me to run ",inputString," but did not define it in the script."
 
 
     # now all of our processes have been sent off

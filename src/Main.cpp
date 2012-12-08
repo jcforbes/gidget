@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
   // Done reading in arguments. Write out a comment file containing all of the arguments.
   as.~ArgumentSetter();
   // If we're recording the convergence of the initial conditions, copy the comment file we just wrote out.
-  if(dbg.opt(2)) {
+  if(dbg.opt(2) && dbg.opt(5)) {
       std::ifstream  src((filename+"_comment.txt").c_str());
       std::ofstream  dst((filename+"_icgen_comment.txt").c_str());
 

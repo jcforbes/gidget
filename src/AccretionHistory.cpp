@@ -208,7 +208,9 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     // employ the formula in ND08a to compute the delta S for the chosen value of x.
     double deltaS;
     if(dbg.opt(3))
-      deltaS= exp((1.367+0.012*s+0.234*s*s)*x*fscatter + (-3.682+0.76*s-0.36*s*s));
+      double sigp = (1.367+0.012*s+0.234*s*s);
+      double mup = (-3.682+0.76*s-0.36*s*s);
+      deltaS= exp(sigp*x*fscatter + mup + sigp*sigp*(1-fscatter*fscatter)/2.0);
     else { // use wmap5 cosmology, w/ fit from Neistein2010
       double a1 = -0.333;
       double a2 = -0.321;
@@ -220,7 +222,11 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
       double b4 = -0.436;
       double sigp = (a1*s + a2) * log10(dom) + a3*s + a4;
       double mup  = (b1*s + b2) * log10(dom) + b3*s + b4;
-      deltaS= exp(x*sigp*fscatter + mup);
+      // The reason for the last term below is to maintain a constant average deltaS,
+      // regardless of fscatter. Note that for f=1, we get the standard lognormal distr. back,
+      // while for f=0, we get a relation with no scatter but the same mean as before, since.
+      // the mean of a lognormal distribution is exp(mu+sig^2/2).
+      deltaS= exp(x*sigp*fscatter + mup + sigp*sigp*(1-fscatter*fscatter)/2.0);
     }
     // update our list of redshifts, given our uniformly spaced value of omega.
     // subtract a small number so that when we evaluate some quantity at z=0, we don't get an interpolation error.
@@ -228,7 +234,9 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     double z=zOfOmega(om); // avoids interpolation errors at the end of the simulation...
     zs.push_back(z);
     if(!first) zs.push_back(z+.0001); // z's cannot have identical values or the GSL interpreter chokes.
-    
+    if(SS > 50.0) {
+        return -1.0;
+    } 
     // update our tabulated value of halo mass.
     double M=MofS(SS,sp.sigma8,sp.OmegaM)/cos.h();
     if(M < 1.0e8)
@@ -371,7 +379,7 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
 
     haloMass.push_back(Mh); // solar masses
 
-    if(z>zquench) {
+    if(true) { //z>zquench) {
       // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
       if(!MhAtz0) // starting from high redshift..
           Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;

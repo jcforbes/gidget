@@ -71,7 +71,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     set_plot,'x'
     IF(sv EQ 3 || sv EQ 4) THEN set_plot,'z'
     IF(cg NE 1) THEN WINDOW,1,XSIZE=1024,YSIZE=1024,RETAIN=2
-    IF(sv EQ 3 || sv EQ 4) THEN cgDisplay,1024,1024
+    IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cgDisplay,1024,1024
     IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([1024,1024],FILENAME=(fn+".mpg"))
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
       FILE_MKDIR,dn
@@ -124,6 +124,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       
       theTimeText = timeText+string(time[ti],Format='(D0.3)')
 
+      ; Having set up the plotting space, loop over models and plot each one.
       IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth ; $
 ;      ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
 ;      ELSE XYOUTS,.1+float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
@@ -138,7 +139,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
         ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
         OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
         IF(prev EQ 1) THEN BEGIN
-          OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=0,THICK=thicknesses[j]
+          OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=styles[j],THICK=thicknesses[j]
         ENDIF
       ENDFOR ;; end loop over models
 
@@ -159,12 +160,10 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
                       IF(wrtXlog[0] EQ 1 ) THEN binCenters[indVarIndex] = 10.0^avg(alog10((data[ti,0,0,subset])[thisIndBin]))$
                         ELSE binCenters[indVarIndex] = avg((data[ti,0,0,subset])[thisIndBin])
                       
-                      ;dependentData = sort((data[ti,0,k,subset])[thisIndBin])
-                      ;FOR percentileIndex=0, n_elements(percentileList)-1 DO BEGIN
-                      ;    ;stop
-                      ;    theCurves[indVarIndex, percentileIndex, aColor] = ((data[ti,0,k,subset])[thisIndBin])[dependentData[fix(percentileList[percentileIndex]*n_elements(dependentData))]]
-                      ;ENDFOR ; end loop over percentiles
-		      theCurves[indVarIndex, *, aColor] = percentiles((data[ti,0,k,subset])[thisIndBin],percentileList,wrtXlog[k])
+                      ; for this bin of the independent variable, for this color (i.e. subset of all models)
+                      ; record the values of the dependent variable corresponding to the percentiles in
+                      ; percentileList.
+		              theCurves[indVarIndex, *, aColor] = percentiles((data[ti,0,k,subset])[thisIndBin],percentileList,wrtXlog[k])
 
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop

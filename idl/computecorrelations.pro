@@ -39,28 +39,28 @@ PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thick
         FIGUREINIT,(name+"_cc_"+names[k]),sv,2,2
         PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="Lag Time (Ga)",YTITLE="x-corr: "+labels[0]+" with "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
         FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-            OPLOT, time[1:(nt-1-nt0)],crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+            OPLOT, time[1:(nt-1-nt0)],crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
         ENDFOR
         FIGURECLEAN,(name+"_cc_"+names[k]),sv
 
         FIGUREINIT,(name+"_ac_"+names[k]),sv,2,2
         PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="Lag Time (Ga)",YTITLE="autocorr: "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
         FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-             OPLOT, time[1:(nt-1-nt0)],autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+             OPLOT, time[1:(nt-1-nt0)],autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
         ENDFOR
         FIGURECLEAN,(name+"_ac_"+names[k]),sv
 
         FIGUREINIT,(name+"_xcc_"+names[k]),sv,2,2
         PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[-1.0,1.0],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="mdot autocorrelation",YTITLE="x-corr: "+labels[0]+" with "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
         FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-            OPLOT, crossCorrelations[*,0,j] , crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+            OPLOT, crossCorrelations[*,0,j] , crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
         ENDFOR
         FIGURECLEAN,(name+"_xcc_"+names[k]),sv
 
         FIGUREINIT,(name+"_xac_"+names[k]),sv,2,2
         PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[-1.0,1.0],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="mdot autocorrelation",YTITLE="autocorr: "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
         FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-            OPLOT, crossCorrelations[*,0,j] , autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+            OPLOT, crossCorrelations[*,0,j] , autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
         ENDFOR
         FIGURECLEAN,(name+"_xac_"+names[k]),sv
 

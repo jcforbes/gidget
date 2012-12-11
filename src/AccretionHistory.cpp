@@ -273,7 +273,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     sp.rhs=0.0;
     sp.sigma8=sigma8;
     sp.OmegaM=OmegaM;
-    std::vector<double> zs(0),accs(0),masses(0);
+    std::vector<double> zs(0),accs(0),masses(0),zs2(0),accs2(0),masses2(0);
     double SS= S(Mh0*cos.h(),&sp);
     bool first=true;
     do {
@@ -309,7 +309,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
 
         double z=zOfOmega(om); // avoids interpolation errors at the end of the simulation...
         zs.push_back(z);
-        if(!first) zs.push_back(z+.0001); // z's cannot have identical values or the GSL interpreter chokes.
+        if(!first) zs.push_back(z+.000001); // z's cannot have identical values or the GSL interpreter chokes.
         if(SS > 50.0) {
             return -1.0;
         } 
@@ -364,6 +364,30 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     accs.push_back(accs[accsSZ-1]); accs.push_back(accs[accsSZ-1]); accs.push_back(accs[accsSZ-1]);
     masses.push_back(masses[massSZ-1]); masses.push_back(masses[massSZ-1]); masses.push_back(masses[massSZ-1]);
 
+    // The purpose of the following for loop is to add a bunch of intermediate points to our M(z), Mdot(z)
+    // histories. This is because with only a few points, the interpolation may lead to annoying errors.
+    // In particular, even though Mh should grow linearly between different draws from the lognormal distr.,
+    // the interpolation scheme will interpolate in /redshift/, not time, so Mh will grow linearly in redshift.
+    // This is problematic because between big enough interpolation steps, Mh will diverge from the sum of 
+    // all accreted matter, only to reconverge at the next interpolation point.
+    // At this point zs is going from high redshift to low.
+    for(unsigned int i=0; i!=zs.size()-1; ++i) {
+        zs2.push_back(zs[i]);
+        accs2.push_back(accs[i]);
+        masses2.push_back(masses[i]);
+        unsigned int NExpand = 100;
+        for(unsigned int j=1; j!=NExpand; ++j ) {
+            double z = zs[i] - ((double) j)/((double) NExpand) * (zs[i]-zs[i+1]);
+            // These are the easy ones..
+            zs2.push_back(z);
+            accs2.push_back(accs[i]);
+            // Now let's make Mh(z) linear in time not redshift!
+            double Mhz = masses[i] + (masses[i+1]-masses[i]) * (cos.Tsim(z) - cos.Tsim(zs[i]))/(cos.Tsim(zs[i+1])-cos.Tsim(zs[i]));
+            masses2.push_back(Mhz);
+        }
+    }
+
+
     if(writeOut) {
         for(unsigned int i=0; i!=accs.size(); ++i) {
             file << zs[i] <<" "<<accs[i]<<std::endl;
@@ -372,7 +396,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     }
 
 
-    InitializeGSLObjs(zs,accs,masses);
+    InitializeGSLObjs(zs2,accs2,masses2);
 
     // return accs[accs.size()-1] / AccOfZ(zs[zs.size()-1]);
     return md0;
@@ -468,148 +492,153 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
 
         tabulatedAcc.push_back(MdotExt);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
-        }
-
-        // 
-        if(MhAtz0) { // then we need to reverse redshifts and tabulatedAcc
-            reverse(redshifts.begin(),redshifts.end());
-            reverse(tabulatedAcc.begin(), tabulatedAcc.end());
-            reverse(haloMass.begin(),haloMass.end());
-        }
-
-        file.close();
-        InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
-        return MdotExt0;
     }
 
-    // redshifts should range from zstart to 0, tabulatedAcc, haloMass, and redshifts have 
-    // to have the same size; redshifts must start high and end low
-    void AccretionHistory::InitializeGSLObjs(std::vector<double> redshifts, std::vector<double> tabulatedAcc,
-            std::vector<double> haloMass)
-    {
-        if(redshifts.size()!=tabulatedAcc.size() || redshifts.size()!=haloMass.size())
-            errormsg("InitializeGSLObjs: tabulatedAcc and redshifts must be the same size.");
-
-        allocated=true;
-        accel=gsl_interp_accel_alloc();
-        accelMh=gsl_interp_accel_alloc();
-        if(!linear) {
-            spline=gsl_spline_alloc(gsl_interp_cspline,tabulatedAcc.size());
-            splineMh=gsl_spline_alloc(gsl_interp_cspline,haloMass.size());
-        }
-        else {
-            spline=gsl_spline_alloc(gsl_interp_linear,tabulatedAcc.size());
-            splineMh = gsl_spline_alloc(gsl_interp_linear,haloMass.size());
-        }
-        acc = new double[tabulatedAcc.size()];
-        redshift = new double[redshifts.size()];
-        hMass = new double[haloMass.size()];
-        unsigned int tabAcc=tabulatedAcc.size();
-        //  double norm = tabulatedAcc[0];
-        //  // Normalize accretion rate to the highest-redshift value given.
-        //  for(unsigned int i=0; i<tabAcc; ++i) {
-        //    tabulatedAcc[i]/=norm;
-        //  }
-
-        // reverse order!
-        for(unsigned int i=0; i<tabAcc; ++i) {
-            acc[tabAcc-i-1]=tabulatedAcc[i];
-            redshift[tabAcc-i-1]=redshifts[i];
-            hMass[tabAcc-i-1]=haloMass[i];
-        }
-
-        gsl_spline_init(spline,redshift,acc, tabulatedAcc.size());  
-        gsl_spline_init(splineMh,redshift,hMass, haloMass.size());
+    // 
+    if(MhAtz0) { // then we need to reverse redshifts and tabulatedAcc
+        reverse(redshifts.begin(),redshifts.end());
+        reverse(tabulatedAcc.begin(), tabulatedAcc.end());
+        reverse(haloMass.begin(),haloMass.end());
     }
 
+    file.close();
+    InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
+    return MdotExt0;
+}
 
-    // fn=filename
-    // zc= redshift column
-    // acC= accretion column
-    // rs = rows skipped before data is read
-    // nc = total number of columns
-    void AccretionHistory::ReadTabulated(std::string fn,unsigned int zc, unsigned int acC, 
-            unsigned int rs, unsigned int nc, double zst)
-    {
-        zstart = zst;
-        std::vector<double> redshifts(0);
-        std::vector<double> tabulatedAcc(0);
-        std::vector<double> haloMass(0);
-        std::ifstream f(fn.c_str());
-        if(!f.is_open()) errormsg("Error opening file containing the tabulated accretion history!");
-        std::string line;
-        for(unsigned int i=0; i<rs; ++i) {
-            getline(f,line); // get a line and discard it
-        }
-        double nm;
-        while(f.good() ) {
-            for(unsigned int i=0; i<nc; ++i) {  // for each column..
-                f >> nm; // read the number
-                if(i+1 == zc) { // if we're in the redshift column, ..
-                    if(redshifts.size()==0 && zstart >= zc) redshifts.push_back(zstart);
-                    else if(redshifts.size()==0) redshifts.push_back(nm*1.0001);
-                    redshifts.push_back(nm); // 
-                }
-                if(i+1 == acC) {
-                    tabulatedAcc.push_back(nm);
-                    if(tabulatedAcc.size()==1) tabulatedAcc.push_back(nm);
-                }
+// redshifts should range from zstart to 0, tabulatedAcc, haloMass, and redshifts have 
+// to have the same size; redshifts must start high and end low
+void AccretionHistory::InitializeGSLObjs(std::vector<double> redshifts, std::vector<double> tabulatedAcc,
+        std::vector<double> haloMass)
+{
+    if(redshifts.size()!=tabulatedAcc.size() || redshifts.size()!=haloMass.size())
+        errormsg("InitializeGSLObjs: tabulatedAcc and redshifts must be the same size.");
+
+    allocated=true;
+    accel=gsl_interp_accel_alloc();
+    accelMh=gsl_interp_accel_alloc();
+    if(!linear) {
+        spline=gsl_spline_alloc(gsl_interp_cspline,tabulatedAcc.size());
+        splineMh=gsl_spline_alloc(gsl_interp_cspline,haloMass.size());
+    }
+    else {
+        spline=gsl_spline_alloc(gsl_interp_linear,tabulatedAcc.size());
+        splineMh = gsl_spline_alloc(gsl_interp_linear,haloMass.size());
+    }
+    acc = new double[tabulatedAcc.size()];
+    redshift = new double[redshifts.size()];
+    hMass = new double[haloMass.size()];
+    unsigned int tabAcc=tabulatedAcc.size();
+    //  double norm = tabulatedAcc[0];
+    //  // Normalize accretion rate to the highest-redshift value given.
+    //  for(unsigned int i=0; i<tabAcc; ++i) {
+    //    tabulatedAcc[i]/=norm;
+    //  }
+
+    // reverse order!
+    for(unsigned int i=0; i<tabAcc; ++i) {
+        acc[tabAcc-i-1]=tabulatedAcc[i];
+        redshift[tabAcc-i-1]=redshifts[i];
+        hMass[tabAcc-i-1]=haloMass[i];
+    }
+
+    gsl_spline_init(spline,redshift,acc, tabulatedAcc.size());  
+    gsl_spline_init(splineMh,redshift,hMass, haloMass.size());
+
+    double dummy=0;
+}
+
+
+// fn=filename
+// zc= redshift column
+// acC= accretion column
+// rs = rows skipped before data is read
+// nc = total number of columns
+void AccretionHistory::ReadTabulated(std::string fn,unsigned int zc, unsigned int acC, 
+        unsigned int rs, unsigned int nc, double zst)
+{
+    zstart = zst;
+    std::vector<double> redshifts(0);
+    std::vector<double> tabulatedAcc(0);
+    std::vector<double> haloMass(0);
+    std::ifstream f(fn.c_str());
+    if(!f.is_open()) errormsg("Error opening file containing the tabulated accretion history!");
+    std::string line;
+    for(unsigned int i=0; i<rs; ++i) {
+        getline(f,line); // get a line and discard it
+    }
+    double nm;
+    while(f.good() ) {
+        for(unsigned int i=0; i<nc; ++i) {  // for each column..
+            f >> nm; // read the number
+            if(i+1 == zc) { // if we're in the redshift column, ..
+                if(redshifts.size()==0 && zstart >= zc) redshifts.push_back(zstart);
+                else if(redshifts.size()==0) redshifts.push_back(nm*1.0001);
+                redshifts.push_back(nm); // 
+            }
+            if(i+1 == acC) {
+                tabulatedAcc.push_back(nm);
+                if(tabulatedAcc.size()==1) tabulatedAcc.push_back(nm);
             }
         }
-        tabulatedAcc.pop_back();
-        redshifts.pop_back();
-        if(redshifts[redshifts.size()-1] != 0.0) {
-            tabulatedAcc.push_back(tabulatedAcc[tabulatedAcc.size()-1]);
-            redshifts.push_back(0.);
-        }
-
-        f.close();
-
-        InitializeGSLObjs( redshifts,tabulatedAcc, haloMass);
+    }
+    tabulatedAcc.pop_back();
+    redshifts.pop_back();
+    if(redshifts[redshifts.size()-1] != 0.0) {
+        tabulatedAcc.push_back(tabulatedAcc[tabulatedAcc.size()-1]);
+        redshifts.push_back(0.);
     }
 
-    double AccretionHistory::AccOfZ(double z)
-    {
-        //  if(z > zstart) errormsg("AccOfZ: The accretion rate at this z is unspecified. z and zstart are "
-        //	+str(z)+" "+str(zstart));
-        double val =  gsl_spline_eval(spline,z,accel)/gsl_spline_eval(spline,zstart,accel);
-        if(val<0.0) {
-            // turned out it was, e.g. numbers on the order of 10^-200
-            //    std::cout << "WARNING: setting accr rate = 0. Hopefully this negative value "<<val<<" is a small error because of the interpolation scheme + the sharp cutoff from zquench." << std::endl;
-            val = 0.0;
+    f.close();
 
-        }
-        return val;
-    }
+    InitializeGSLObjs( redshifts,tabulatedAcc, haloMass);
+}
 
-    double AccretionHistory::MhOfZ(double z)
-    {
-        //if(z>zrelax) errormsg("MhOfZ: The halo mass at this z is unspecified.");
-
-        return gsl_spline_eval(splineMh,z,accelMh)/gsl_spline_eval(splineMh,0.0,accelMh);
-    }
-
-
-    void testAccretionHistory()
-    {
-        Cosmology cos(1.0-.734, .734, 2.29e-18, 2.0);
-
-
-        double dummy=0.0;
-        //  for(unsigned int whichAccretionHistory=10; whichAccretionHistory!=1000; ++whichAccretionHistory) {
-        //    AccretionHistory accr(1.0e12);
-        //    double Mdot0 = accr.GenerateNeistein08(2.0, cos, "", false, whichAccretionHistory, .3, false);
-        //    if(Mdot0>0.0) {
-        //      double dummy = 0.0;
-        //
-        //
-        //    }
-        //  }
-
-
-
+double AccretionHistory::AccOfZ(double z)
+{
+    //  if(z > zstart) errormsg("AccOfZ: The accretion rate at this z is unspecified. z and zstart are "
+    //	+str(z)+" "+str(zstart));
+    double val =  gsl_spline_eval(spline,z,accel)/gsl_spline_eval(spline,zstart,accel);
+    if(val<0.0) {
+        // turned out it was, e.g. numbers on the order of 10^-200
+        //    std::cout << "WARNING: setting accr rate = 0. Hopefully this negative value "<<val<<" is a small error because of the interpolation scheme + the sharp cutoff from zquench." << std::endl;
+        val = 0.0;
 
     }
+    return val;
+}
+
+double AccretionHistory::MhOfZ(double z)
+{
+    //if(z>zrelax) errormsg("MhOfZ: The halo mass at this z is unspecified.");
+
+    // Return the halo mass in units of Mh(z=0). This gives callers of InitializeGSLObjs the option
+    // to specify their list of halo masses in whatever units they so choose.
+    return gsl_spline_eval(splineMh,z,accelMh)/gsl_spline_eval(splineMh,0.0,accelMh);
+}
+
+// This function should be implemented, but caused unforeseen problems with flagging any production model
+// which called it as having failed (by having written to std::cerr; these should be resolved now.
+void testAccretionHistory()
+{
+    Cosmology cos(1.0-.734, .734, 2.29e-18, 2.0);
+
+
+    double dummy=0.0;
+    //  for(unsigned int whichAccretionHistory=10; whichAccretionHistory!=1000; ++whichAccretionHistory) {
+    //    AccretionHistory accr(1.0e12);
+    //    double Mdot0 = accr.GenerateNeistein08(2.0, cos, "", false, whichAccretionHistory, .3, false);
+    //    if(Mdot0>0.0) {
+    //      double dummy = 0.0;
+    //
+    //
+    //    }
+    //  }
+
+
+
+
+}
 
 
 

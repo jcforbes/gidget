@@ -621,6 +621,12 @@ if __name__ == "__main__":
     rs16=[copy.deepcopy(rs15[i]) for i in range(len(rs15))]
     [rs16[i].changeName("rs16"+letter(i)) for i in range(len(rs16))]
     [rs16[i].irregularVary('NChanges',100) for i in range(len(rs16))]
+    
+    # redo rs13d to test the effects of altering the IC generator to compute S0 (hopefully) more correctly.
+    # rs17 corrects the major error, namely initializing the disk at z=2.5 as if it were at z=2.
+    # rs17a attempts to correct a subtler error, namely that Mh was interpolated linearly in z rather than t.
+    rs17=copy.deepcopy(rs13[3])
+    rs17.changeName("rs17a")
 
     successTables=[]
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

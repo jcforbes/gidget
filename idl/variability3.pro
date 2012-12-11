@@ -1,4 +1,3 @@
-;; This is the same as variability2 (forked August 18, 2012), 
 
 
 ;; given an array whose first column indexes time, second column is irrelevant, third column
@@ -433,7 +432,9 @@ PRO variability3,expNames,keys,N,sv
     vsTime[*,0,0,j] = time[*]
   ENDFOR
   IF(n1 EQ 1) THEN BEGIN
-    simpleMovie, vsTime,z,vsTimeNames,colors,colors*0,vsTimeToLog,expName2+"_vstime",5,PSYM=3,prev=1,taillength=1000,axisLabels=vsTimeLabels,whichFrames=[n_elements(z)-1]
+    vsTimeStyles = colors*0
+    IF(n_elements(vsTime[0,0,0,*]) GT 50) THEN vsTimeStyles=temporary(vsTimeStyles)+2
+    simpleMovie, vsTime,z,vsTimeNames,colors,vsTimeStyles,vsTimeToLog,expName2+"_vstime",5,PSYM=3,prev=1,taillength=1000,axisLabels=vsTimeLabels,whichFrames=[n_elements(z)-1],NIndVarBins=20
   ENDIF
 
 

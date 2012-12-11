@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     errmgLine.push_back("fg0, \ntempRatio (sig_*/sig_g), \nzstart, \ntmax, \nstepmax, \n");
     errmgLine.push_back("TOL (t_orb),\nMassLoadingFactor, \nBulgeRadius (kpc), \n");
     errmgLine.push_back("stDiskScale (kpc, or -1 for powerlaw),\nwhichAccretionHistory,\nalphaMRI");
-    errmgLine.push_back(", \nthick,\nmigratePassive,\nQinit,\nkappaMetals,\nMh0,\nminSigSt,\nndecay");
+    errmgLine.push_back(", \nthick,\nmigratePassive,\nQinit,\nkappaMetals,\nMh0,\nminSigSt,\nnchanges");
     errmgLine.push_back("CAUTION: this message may be out of date, so check Main.cpp");
     std::string msg="";
     for(unsigned int i=0; i!=errmgLine.size();++i) {
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
   const double sigth = sqrt(Tgas *kB/mH)/vphiR;
 
   const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
-  const double ndecay =            as.Set(6,"Decay length of GI in stable regions (cells)");
+  const double NChanges =          as.Set(6,"The number of times the lognormal accretion history should draw a new value.");
   const unsigned int Experimental= as.Set(0,"Debug parameter");
   const double accScaleLength    = as.Set(2.0,"Accretion ScaleLength (kpc)");
 
@@ -144,11 +144,13 @@ int main(int argc, char **argv) {
   else if(whichAccretionHistory==1)
     mdot0 = accr.GenerateConstantAccretionHistory(12.3368,zstart,cos,filename+"_ConstAccHistory2.dat",true)*MSol/speryear;
   else if(whichAccretionHistory<0 ) {
-    if(! dbg.opt(8)) {
-      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,0.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
-    }
-    else
-      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,-3.0*M_PI/2.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
+        mdot0=MSol/speryear * accr.GenerateLogNormal(zstart, zrelax, cos, 7.0*pow(Mh0*1.0e-12,1.1)*pow(1.+zstart,2.2),
+                                fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,"_LogNormal.dat");
+//    if(! dbg.opt(8)) {
+//      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,0.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
+//    }
+//    else
+//      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,-3.0*M_PI/2.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
   }
   else {
     mdot0 = accr.GenerateNeistein08(zstart,cos,filename+"_Neistein08_"+str(whichAccretionHistory)+".dat",
@@ -190,7 +192,7 @@ int main(int argc, char **argv) {
 
       Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
                      zstart,NActive,NPassive,alphaMRI,
-                     sigth,ndecay,disk,accr,dbg,dim);
+                     sigth,disk,accr,dbg,dim);
       int result = sim.runToConvergence(1.0e10, true, filename,zrelax,Noutputs);
 
   }
@@ -211,7 +213,7 @@ int main(int argc, char **argv) {
       Simulation simIC(300.0,1000000,
                        false, nx,TOL,
                        zstart,NActive,NPassive,
-                       alphaMRI,sigth,ndecay,
+                       alphaMRI,sigth,
                        diskIC,accr,dbg,dim);
       int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen",zstart,200); // set false-> true to debug initial condition generator
       if(result!=5) // The simulation converges when the time step reaches 1*TOL.
@@ -228,7 +230,7 @@ int main(int argc, char **argv) {
       Simulation sim(tmax,stepmax,
                      cosmologyOn,nx,TOL,
 		     zstart,NActive,NPassive,
-		     alphaMRI,sigth,ndecay,
+		     alphaMRI,sigth,
 		     disk,accr,dbg,dim);
       result = sim.runToConvergence(1.0e10, true, filename,zstart,200);
   }

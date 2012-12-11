@@ -49,6 +49,22 @@ PRO ComputeCorrelations,vsmdot,colors,time,labels,names,name,sv=sv,nt0=nt0,thick
              OPLOT, time[1:(nt-1-nt0)],autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
         ENDFOR
         FIGURECLEAN,(name+"_ac_"+names[k]),sv
+
+        FIGUREINIT,(name+"_xcc_"+names[k]),sv,2,2
+        PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[-1.0,1.0],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="mdot autocorrelation",YTITLE="x-corr: "+labels[0]+" with "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
+        FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+            OPLOT, crossCorrelations[*,0,j] , crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+        ENDFOR
+        FIGURECLEAN,(name+"_xcc_"+names[k]),sv
+
+        FIGUREINIT,(name+"_xac_"+names[k]),sv,2,2
+        PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[-1.0,1.0],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="mdot autocorrelation",YTITLE="autocorr: "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
+        FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
+            OPLOT, crossCorrelations[*,0,j] , autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j]
+        ENDFOR
+        FIGURECLEAN,(name+"_xac_"+names[k]),sv
+
+
     ENDFOR
     IF(sv EQ 4) THEN thicknesses = temporary(thicknesses)/3.0
 END

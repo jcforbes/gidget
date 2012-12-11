@@ -67,7 +67,7 @@ class experiment:
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','ndecay','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -106,7 +106,7 @@ class experiment:
         with the same value of cov, e.g. accScaleLength and whichAccretionHistory,
         will be varied together rather than independently. '''
         if(n>1 and log==0):
-            self.p[self.keys[name]]=[mmin + (mmax-mmin)*type(self.p[self.keys[name]])(i)/type(self.p[self.keys[name]])(n-1) for i in range(n)]
+            self.p[self.keys[name]]=[mmin + (mmax-mmin)*type(self.p_orig[self.keys[name]])(i)/type(self.p_orig[self.keys[name]])(n-1) for i in range(n)]
         elif(n>1 and log==1 and mmin!=0 and mmin!=0.0):
             rat = (float(mmax)/float(mmin))
             typ = type(self.p[self.keys[name]])
@@ -588,7 +588,7 @@ if __name__ == "__main__":
     rs10.irregularVary('zetaREC',2.0)
 
     # vary kappa, assuming high angular momentum inflows
-    kappas=[1.0e-5,1.0e-4,1.0e-3]
+    kappas=[1.0e-5,1.0e-4,1.0e-3,3.0e-3]
     rs11 = [copy.deepcopy(rs04[1]) for i in range(len(kappas))]
     [rs11[i].changeName("rs11"+letter(i)) for i in range(len(rs11))]
     [rs11[i].irregularVary("kappaMetals",kappas[i]) for i in range(len(rs11))]
@@ -606,6 +606,21 @@ if __name__ == "__main__":
     [rs13[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs13))]
     [rs13[i].irregularVary('invMassRatio',1.0) for i in range(len(rs13))]
 
+    # Try lognormal variation
+    rs14= [copy.deepcopy(rs02) for i in range(len(fscatters))]
+    [rs14[i].changeName("rs14"+letter(i)) for i in range(len(rs14))]
+    [rs14[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs14))]
+    [rs14[i].irregularVary('NChanges',33) for i in range(len(rs14))]
+    [rs14[i].irregularVary('accNorm',1.0e4) for i in range(len(rs14))]
+    [rs14[i].vary('whichAccretionHistory',-1100,-1000,101,0,3) for i in range(len(rs14))]
+
+    rs15=[copy.deepcopy(rs14[i]) for i in range(len(rs14))]
+    [rs15[i].changeName("rs15"+letter(i)) for i in range(len(rs15))]
+    [rs15[i].irregularVary('NChanges',5) for i in range(len(rs15))]
+
+    rs16=[copy.deepcopy(rs15[i]) for i in range(len(rs15))]
+    [rs16[i].changeName("rs16"+letter(i)) for i in range(len(rs16))]
+    [rs16[i].irregularVary('NChanges',100) for i in range(len(rs16))]
 
     successTables=[]
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
@@ -629,7 +644,7 @@ if __name__ == "__main__":
         # has anything changed since the last time we checked?
         if(nStillRunning == nPrev and nStillRunning != 0):
             # do nothing except wait a little bit
-            time.sleep(5)
+            time.sleep(2)
         else:
             nPrev=nStillRunning
             if(nPrev == 0):

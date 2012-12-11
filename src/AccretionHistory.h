@@ -29,6 +29,11 @@ class AccretionHistory {
 		     unsigned int nc, // number of columns in the file
 		     double zstart); // starting redshift
 
+double GenerateLogNormal(double zstart,double zrelax, Cosmology& cos,
+                    double mean, double scatter, double Nchanges,
+                    bool writeOut, double zquench,
+                    double Mh0, unsigned int seed, std::string fn);
+
   double GenerateNeistein08(double zstart, Cosmology & cos,
 			    std::string fn, bool writeOut, unsigned long int seed,
 			    double invMassRatioLimit, double zquench, int * attempts,

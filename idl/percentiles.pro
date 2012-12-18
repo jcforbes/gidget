@@ -19,7 +19,7 @@ FUNCTION percentiles, theArray, percentileArray, log
     ENDIF
 
     thenbins = 1000
-    themin = min(theArray)
+    themin = min(theArray,/nan)
     spacing = (max(theArray)-theMin)/(thenbins-1.)
     theLinearHist = histogram(theArray,min=theMin,binsize=spacing,nbins=theNbins)
     cumulativeLinear = TOTAL(theLinearHist, /CUMULATIVE)

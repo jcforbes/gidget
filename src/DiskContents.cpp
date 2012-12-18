@@ -213,10 +213,12 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
     // This is a correction, to account for the fact that for scale lengths >~ the radius of the disk,
     // most of this mass will fall off the edge of the grid. We want to put that mass back into the grid.
     // dmdtCosOuter(1.0) is the fraction of the accretion which occurs outside the outer radius of the disk.
-    double xb = mesh.x(.5 + ((double) nx));
-    double fOuter =   (1.0 + xb/xd)*exp(-xb/xd);
+    double xouter = mesh.x(.5 + ((double) nx));
+    double xinner = mesh.x(.5);
+//    double fOuter =   (1.0 + xb/xd)*exp(-xb/xd);
 //     S0 *= 1.0 / (1.0 - fOuter);
-    double S0 = 0.18*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*xd*(xd-exp(-xb/xd)*(xd+xb))*dim.MdotExt0*dim.Radius);
+//    double S0 = 0.18*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*xd*(xd-exp(-xb/xd)*(xd+xb))*dim.MdotExt0*dim.Radius);
+    double S0 = 0.18*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
 
     for(unsigned int n=1; n<=nx; ++n) {
         ZDisk[n] = Z_Init;
@@ -1338,15 +1340,9 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
         double Qst = sqrt(2.*(beta[n]+1.))*uu[n]*sigStR[n]/(M_PI*dim.chi()*x[n]*colst[n]);
         FFst[n] = (Qlim - Qst)*uu[n] / (x[n]*tauHeat*Qst);
 
-        // Add in forcing?
+        // Instead of just allowing Q to slowly approach Qlim, make the process more vigorous.
         if(dbg.opt(4)) {
-            if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n])
-                FFst[n] -= 1.0/sigStR[n] * (sig[n]*sig[n] - sigth*sigth - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
-                    /(2.0*colst[n]*sigStR[n]);
-            else
-                FFst[n] -= 1.0/sigStR[n] * (minsigst*minsigst - sigStR[n]*sigStR[n])*RfREC*colSFR[n]
-                    /(2.0*colst[n]*sigStR[n]);
-            FFst[n] += 1.0/colst[n] * RfREC*colSFR[n];
+            FFst[n] = exp(FFst[n]);
         }
 
         if(Qst > Qlim) {

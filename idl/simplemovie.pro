@@ -46,7 +46,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   PRINT, "Starting to make the files of the form: ", name,"*"
 
   ;; exclude the first time step from setting the range.
-  ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog)
+  IF(n_elements(time) NE n_elements(data[*,0,0,0])) THEN message,"unexpected # of entries for the time vector in simplemovie"
+  IF(n_elements(data[*,0,0,0]) GT 3 ) THEN ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog) ELSE ranges=simpleranges(data[0:n_elements(time)-1,*,*,*],wrtxlog)
   
   IF(n_elements(horizontal) EQ 0) THEN horizontal = 0
   IF(horizontal GE 2 OR horizontal LT 0) THEN horizontal = 1
@@ -64,6 +65,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+1
   IF(sv EQ 4) THEN thicknesses= 3*temporary(thicknesses)
 
+  wf = n_elements(whichFrames)-1
+
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
     fn=name+"_"+labels[k]
@@ -71,18 +74,17 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     set_plot,'x'
     IF(sv EQ 3 || sv EQ 4) THEN set_plot,'z'
     IF(cg NE 1) THEN WINDOW,1,XSIZE=1024,YSIZE=1024,RETAIN=2
-    IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cgDisplay,1024,1024
+    IF(sv EQ 3 || sv EQ 4 ) THEN cgDisplay,1024,1024
     IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([1024,1024],FILENAME=(fn+".mpg"))
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
       FILE_MKDIR,dn
     ENDIF
-    IF(sv EQ 5) THEN BEGIN
-        wf = n_elements(whichFrames)
-	IF (wf GT 10) THEN message,"You have requested an unreasonable number of frames for a single plot."
-	;cs = .3
-        figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal,1+(1-horizontal)
-	multiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square
-	!p.noerase=0
+    IF(sv EQ 5 ) THEN BEGIN
+    	IF (wf GT 6) THEN message,"You have requested an unreasonable number of frames for a single plot."
+	    ;cs = .3
+        figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal*wf,1+(1-horizontal)*wf
+	    IF(wf NE 0) THEN multiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square
+	    IF(wf NE 0) THEN !p.noerase=0
     ENDIF
 
     symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
@@ -95,7 +97,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
     ;; loop over time: each iteration of this loop will save a frame in a movie
     FOR tii=0,n_elements(whichFrames)-1 DO BEGIN  
-      IF(sv EQ 5 and tii NE 0) THEN !p.noerase=1
+      IF(sv EQ 5 and tii NE 0 and wf NE 0) THEN !p.noerase=1
       ti = whichFrames[tii]
       count=count+1
       SETCT,1,n_elements(styles),2
@@ -104,9 +106,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       ;; Either way, this long statement draws the first plot for this frame.
       ;; Everything else will be overplotted on top in a few lines. 
       xt = axisLabels[0]
-      IF(sv EQ 5 AND tii NE n_elements(whichFrames)-1 AND horizontal EQ 0) THEN xt=""
+      IF(sv EQ 5 AND tii NE wf AND horizontal EQ 0 and wf NE 0) THEN xt=""
       yt = axisLabels[k]
-      IF(sv EQ 5 AND tii NE 0 AND horizontal EQ 1) THEN yt=""
+      IF(sv EQ 5 AND tii NE 0 AND horizontal EQ 1 and wf NE 0) THEN yt=""
       ;IF(sv EQ 5) THEN yt=yt+" at z="+str(time)
       IF(strt[k] EQ 0) THEN $
         PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
@@ -145,7 +147,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
       ;; All of the models have been plotted. Now if the user has requested it, we would like to 
       ;; bin the data by its independent variable, and then its dependent variable!
-      IF(NIndVarBins GT 0) THEN BEGIN
+      ;; FOR THE CASE THAT THERE IS NO X-DEPENDENCE
+      IF(NIndVarBins GT 0 and n_elements(data[0,*,0,0]) EQ 1) THEN BEGIN
           ;;;; ASSUMING that there are some galaxies in each color bin,
           ncolors = MAX(colors)+1
           theCurves = dblarr(NIndVarBins, n_elements(percentileList), ncolors)
@@ -170,15 +173,45 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
                   FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2,PSYM=-2,SYMSIZE=symsize*3
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
+          
       ENDIF
 
+      ; FOR THE CASE THAT THERE /IS/ X-DEPENDENCE WHICH IS THE SAME FROM MODEL TO MODEL
+      ; For now, we ignore the actual value of NIndVarBins and just find the percentiles for every single "x" value.
+      IF(NIndVarBins GT 0 and n_elements(data[0,*,0,0]) NE 1) THEN BEGIN
+          ;;;; ASSUMING that there are some galaxies in each color bin,
+          ncolors = MAX(colors)+1
+          theCurves = dblarr(n_elements(data[0,*,0,0]), n_elements(percentileList), ncolors)
+          ;; each color gets its own percentile curves
+          FOR aColor=0, ncolors-1 DO BEGIN
+              subset = WHERE(aColor EQ colors[ti,*], NInThisSubset)
+;              binCenters = dblarr(NIndVarBins)
+              binCenters = data[0,*,0,0]
+              IF(NInThisSubset GT 0) THEN BEGIN
+                  FOR indVarIndex=0, n_elements(binCenters)-1 DO BEGIN
+                      ;; the differences with the above IF block begin here. 
+                      ;thisIndBin = GetIthBin(indVarIndex, data[ti,*,0,0], NIndVarBins, subset=subset)
+                      ;IF(wrtXlog[0] EQ 1 ) THEN binCenters[indVarIndex] = 10.0^avg(alog10((data[ti,thisIndBin,0,subset]))) $
+                      ;  ELSE binCenters[indVarIndex] = avg((data[ti,thisIndBin,0,subset]))
+                      
+                      ; for this bin of the independent variable, for this color (i.e. subset of all models)
+                      ; record the values of the dependent variable corresponding to the percentiles in
+                      ; percentileList.
+		              theCurves[indVarIndex, *, aColor] = percentiles((data[ti,IndVarIndex,k,subset]),percentileList,wrtXlog[k])
+
+                  ENDFOR ; end loop over independent variable bins.
+		  ;stop
+                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2,PSYM=-2,SYMSIZE=symsize*3
+              ENDIF ; end check that there are models w/ this color
+          ENDFOR ; end loop over color
+      ENDIF
 
       ;; We've created a single frame. What do we do with it?
       IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
       IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_'+string(count,FORMAT="(I4.4)") + '.png',TVRD(TRUE=1)
       IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count-1,FORMAT="(I4.4)")),/png,/true,/nodialog) 
       IF(sv EQ 0) THEN wait,.05
-      IF(sv EQ 5 AND tii NE n_elements(whichFrames)-1) THEN multiplot
+      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN multiplot
     ENDFOR ;; end loop over time indices
     IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
     IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
@@ -186,9 +219,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
     ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
     IF(sv EQ 5) THEN BEGIN
-	figureClean,(fn+"_timeSeries"),svSinglePlot
+    	figureClean,(fn+"_timeSeries"),svSinglePlot
         if(svSinglePlot EQ 2) THEN latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]],[.6,.6],height=8.89*(2-horizontal),width=8.89*(1+horizontal)
-        multiplot,/default
+        IF(wf NE 0) THEN multiplot,/default
     ENDIF
     set_plot,'x'
   ENDFOR ;; end loop over dependent variables

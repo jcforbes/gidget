@@ -116,13 +116,16 @@ PRO variability3,expNames,keys,N,sv
   model = (*(modelPtr[0]))
   theNTS = model.NOutputsNominal+2
 
+  whichFrames = indgen(theNTS) ;; plot every output
+  whichFrames = indgen((theNTS+2)/3)*3 ; plot every 3rd output.
+
   time = model.evArray[1,*]  
   z = model.evArray[10-1,*]
 
   ;; (# timesteps) x (nx) x (# of columns) x (# models)
   theData= dblarr(theNTS,n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
 
-  NVS = 41
+  NVS = 47
   ;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 20) x (# models)
   vsMdot = dblarr(theNTS,1,NVS,n_elements(nameList2))
   nameList4 = strarr(n_elements(nameList2))
@@ -181,19 +184,19 @@ PRO variability3,expNames,keys,N,sv
            vsMdot[zi,0,12,ctr] = modelInfo[8]/modelInfo[19] ;; B:T
            vsMdot[zi,0,13,ctr] = modelInfo[18] ;; SFR + mdotbulgeGas
            vsMdot[zi,0,14,ctr] = modelInfo[17] ;; efficiency
-           vsMdot[zi,0,15,ctr] = alog10(modelInfo[16]) ;; metallicity
+           vsMdot[zi,0,15,ctr] = modelInfo[16]*.02 ; M_Z/M_gas ;alog10(modelInfo[16]) ;; gas metallicity
            vsMdot[zi,0,16,ctr] = modelInfo[5] ;; fG in SF region.
            vsMdot[zi,0,17,ctr] = model.evArray[20-1,zi] ;; (modelInfo[18] - modelInfo[11])/(modelInfo[18]+1.0d-10) ;; fraction of SF in the bulge
            vsMdot[zi,0,18,ctr] = modelInfo[20] ;; fgL
-           vsMdot[zi,0,19,ctr] = alog10(modelInfo[21]) ;; ZL
+           vsMdot[zi,0,19,ctr] = modelinfo[21]*.02 ;alog10(modelInfo[21]) ;; ZL
            vsMdot[zi,0,20,ctr] = modelInfo[15] ;; fg
-	   vsMdot[zi,0,21,ctr] = alog10(model.evArray[5-1,zi]/.02) ;; ZBulge
-	   vsMdot[zi,0,22,ctr] = modelInfo[23-1];; vrAvg (mass-averaged, km/s)
-	   vsMdot[zi,0,23,ctr] = modelInfo[24-1];; GIin (kpc)
-	   vsMdot[zi,0,24,ctr] = modelInfo[25-1];; Giout (kpc)
-	   vsMdot[zi,0,25,ctr] = modelInfo[26-1];; velocity dispersion (mass-averaged, km/s)
-	   vsMdot[zi,0,26,ctr] = modelInfo[27-1];; vrAvgGt0
-	   vsMdot[zi,0,27,ctr] = modelInfo[28-1];; tdep = gas mass / SFR
+	       vsMdot[zi,0,21,ctr] = model.evArray[5-1,zi] ;M_Z,bulge/M_bulge alog10(model.evArray[5-1,zi]/.02) ;; ZBulge
+	       vsMdot[zi,0,22,ctr] = modelInfo[23-1];; vrAvg (mass-averaged, km/s)
+	       vsMdot[zi,0,23,ctr] = modelInfo[24-1];; GIin (kpc)
+	       vsMdot[zi,0,24,ctr] = modelInfo[25-1];; Giout (kpc)
+       	   vsMdot[zi,0,25,ctr] = modelInfo[26-1];; velocity dispersion (mass-averaged, km/s)
+       	   vsMdot[zi,0,26,ctr] = modelInfo[27-1];; vrAvgGt0
+	       vsMdot[zi,0,27,ctr] = modelInfo[28-1];; tdep = gas mass / SFR
            vsMdot[zi,0,28,ctr] = modelInfo[29-1];; gas scale length (kpc)
            vsMdot[zi,0,29,ctr] = modelInfo[30-1];; stellar scale length (kpc)
            vsMdot[zi,0,30,ctr] = modelInfo[31-1];; stellar sersic index
@@ -207,6 +210,7 @@ PRO variability3,expNames,keys,N,sv
            vsMdot[zi,0,38,ctr] = modelInfo[39-1];; specific stellar J (kpc km/s)
            vsMdot[zi,0,39,ctr] = modelInfo[40-1];; specific gas J (kpc km/s)
            vsMdot[zi,0,40,ctr] = modelInfo[41-1];; specific outflow J (kpc km/s)
+           vsMdot[zi,0,41:46,ctr] = modelInfo[42-1:47-1];gasDZ(dex),stDZ(dex),fgmol,tdep[all](yr),stZ[],stAge(Gyr)
            
          ENDFOR ;; end loop over redshift
 
@@ -228,21 +232,21 @@ PRO variability3,expNames,keys,N,sv
 
 ;['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
 
-  vsMdotLabels = ["Mdot (Msun/yr)","DiskSFR (Msun/yr)","Stellar Mass (Msun)","Peak Radius of Column Density (kpc)","Radius of HI transition (kpc)","Column Density at r=8 kpc (Msun/pc^2)","Specific SFR (yr^-1)","Bulge Gas Mass (Msun)","Bulge Stellar Mass (Msun)","H_2 Fraction","Mdot Gas into Bulge (Msun/yr)","Mdot Stars into Bulge (Msun/yr)","Bulge to Total Ratio","SFR Including Gas Flux Into Bulge (Msun/yr)","efficiency (Mstar / (f_b M_h))","[Z/Zsun]","Gas Fraction in SF Region","Mdot (Msun/yr)","Gas Fraction in Optical Region","[Z/Zsun] in Optical Region","Gas Fraction","[Z Bulge/Zsun]","Average inward gas radial velocity (km/s)","Inner Edge of GI Region (kpc)","Outer Edge of GI Region (kpc)","Average velocity dispersion (km/s)","Average radial velocity for non-outward velocities only (km/s)","Depletion Time (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas chi^2","st chi^2","Half SFR radius (kpc)","Half gas radius (kpc)","Half stellar radius (kpc)","Central Density (Msun/pc^2)","specific J_*","specific J_g","specific J_out"]
-  vsMdotTexLabels = ["$\dot{M} (M_\odot/yr)$","Disk SFR ($M_\odot$/yr)","Stellar Mass ($M_\odot$)","Peak Radius (kpc)","Radius of HI trans. (kpc)","$\Sigma$ at $r=8$ kpc ($M_\odot/pc^2$)","sSFR ($yr^{-1}$)","Bulge Gas Mass ($M_\odot$)","Bulge Stellar Mass ($M_\odot$)","$H_2$ Fraction","$\dot{M}_g$ into Bulge ($M_\odot$/yr)","$\dot{M}_*$ into Bulge ($M_\odot$/yr)","Bulge:Total Ratio","SFR + $\dot{M}_{g,\rightarrow\mathrm{bulge}}$ ($M_\odot$/yr)","$\epsilon$ ($M_*$ / ($f_b M_h$))","$[Z/Z_\odot]$","$f_g$ in SF Region","$\dot{M}$ ($M_\odot$/yr)","$f_g$ in Optical Region","$[Z/Z_\odot]$ in Optical Region","$f_g$","$[Z_\mathrm{bulge}/Z_\odot]$","Average $-v_r$ (km/s)","Innermost GI Region (kpc)","Outermost GI Region (kpc)","$\langle\sigma\rangle$ (km/s)","Average $-v_r\ge 0$ (km/s)","$t_{dep} = M_g f_{H_2} / \dot{M}^{SF}$ (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas $\chi^2$","st $\chi^2$","$r_{\mathrm{SFR},\frac12}$ (kpc)","$r_{g,\frac12}$ (kpc)","$r_{*,\frac12}$","$\Sigma_0\ (M_\odot/pc^2)$","$J_*/M_*$","$J_g/M_g$","$J_{\mathrm{out}}/M_\mathrm{out}$"]
+  vsMdotLabels = ["Mdot (Msun/yr)","DiskSFR (Msun/yr)","Stellar Mass (Msun)","Peak Radius of Column Density (kpc)","Radius of HI transition (kpc)","Column Density at r=8 kpc (Msun/pc^2)","Specific SFR (yr^-1)","Bulge Gas Mass (Msun)","Bulge Stellar Mass (Msun)","H_2 Fraction","Mdot Gas into Bulge (Msun/yr)","Mdot Stars into Bulge (Msun/yr)","Bulge to Total Ratio","SFR Including Gas Flux Into Bulge (Msun/yr)","efficiency (Mstar / (f_b M_h))","Z","Gas Fraction in SF Region","Mdot (Msun/yr)","Gas Fraction in Optical Region","Z in Optical Region","Gas Fraction","Z Bulge","Average inward gas radial velocity (km/s)","Inner Edge of GI Region (kpc)","Outer Edge of GI Region (kpc)","Average velocity dispersion (km/s)","Average radial velocity for non-outward velocities only (km/s)","Molecular Depletion Time (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas chi^2","st chi^2","Half SFR radius (kpc)","Half gas radius (kpc)","Half stellar radius (kpc)","Central Density (Msun/pc^2)","specific J_*","specific J_g","specific J_out","gas Z decr (dex)","st Z decr (dex)","mol gas fraction","Depletion Time for all gas (yr)","Z*","Stellar Age (Gyr)"]
+  vsMdotTexLabels = ["$\dot{M} (M_\odot/yr)$","Disk SFR ($M_\odot$/yr)","Stellar Mass ($M_\odot$)","Peak Radius (kpc)","Radius of HI trans. (kpc)","$\Sigma$ at $r=8$ kpc ($M_\odot/pc^2$)","sSFR ($yr^{-1}$)","Bulge Gas Mass ($M_\odot$)","Bulge Stellar Mass ($M_\odot$)","$H_2$ Fraction","$\dot{M}_g$ into Bulge ($M_\odot$/yr)","$\dot{M}_*$ into Bulge ($M_\odot$/yr)","Bulge:Total Ratio","SFR + $\dot{M}_{g,\rightarrow\mathrm{bulge}}$ ($M_\odot$/yr)","$\epsilon$ ($M_*$ / ($f_b M_h$))","$Z=M_Z/M_g$","$f_g$ in SF Region","$\dot{M}$ ($M_\odot$/yr)","$f_g$ in Optical Region","$Z=M_Z/M_g$ in Optical Region","$f_g$","$Z_\mathrm{bulge}=M_Z/M_*$","Average $-v_r$ (km/s)","Innermost GI Region (kpc)","Outermost GI Region (kpc)","$\langle\sigma\rangle$ (km/s)","Average $-v_r\ge 0$ (km/s)","$t_{dep} = M_g f_{H_2} / \dot{M}^{SF}$ (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas $\chi^2$","st $\chi^2$","$r_{\mathrm{SFR},\frac12}$ (kpc)","$r_{g,\frac12}$ (kpc)","$r_{*,\frac12}$","$\Sigma_0\ (M_\odot/pc^2)$","$J_*/M_*$","$J_g/M_g$","$J_{\mathrm{out}}/M_\mathrm{out}$","$\max \Delta [Z_g]$","$\max \Delta [Z_*]$","$f_{g,\mathrm{mol}}$","$t_{dep} = M_g/\dot{M}_*$ (yr)","$Z_*=M_{Z,*}/M_*$","Stellar Age (Gyr)"]
 
-  vsMdotNames  = ["mdot","DiskSFR","Mst","rPeak","rHI","colsol","sSFR","BulgeGasMass","BulgeStMass","fH2","mdotBulgeGas","mdotBulgeStars","BT","SFRplusMdotIn","efficiency","Z","fgInSF","mdot","fgL","ZL","fg","ZBulge","vrAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg","GasScLength","StScLength","sersic","BTMeas","gaschi2","stchi2","rHalfSFR","rHalfGas","rHalfSt","CentralDensity","spJSt","spJg","spJout"]
-  vsMdotStrt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-  vsMdotToLog = [1,1,1,1,0,1,1,0,0,0,1,1,0,1,0,0,0,1,0,0,1,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1] 
+  vsMdotNames  = ["mdot","DiskSFR","Mst","rPeak","rHI","colsol","sSFR","BulgeGasMass","BulgeStMass","fH2","mdotBulgeGas","mdotBulgeStars","BT","SFRplusMdotIn","efficiency","Z","fgInSF","mdot","fgL","ZL","fg","ZBulge","vrAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg","GasScLength","StScLength","sersic","BTMeas","gaschi2","stchi2","rHalfSFR","rHalfGas","rHalfSt","CentralDensity","spJSt","spJg","spJout","DZg","DZst","fgmol","tdepAll","Zst","stAge"]
+  vsMdotStrt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  vsMdotToLog = [1,1,1,1,0,1,1,0,0,0,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,0,0,1,1,1,0] 
 
   modelcounter = modelcounter2[*]
-  nameList2 = nameList4[*]
+  nameList2 = nameList4[0:ctr-1]
 
   proftimes[2]=systime(1)
 
   theData = (temporary(theData))[*,*,*,0:ctr-1]
   colors = intarr(n_elements(theData[*,0,0,0]),n_elements(nameList2))
-
+  vsMdot = (temporary(vsMdot))[*,*,*,0:ctr-1]
 
   thePercentiles = [.17,.5,.83]
   nper = n_elements(thePercentiles)
@@ -327,12 +331,12 @@ PRO variability3,expNames,keys,N,sv
       intervalsColors0 = indgen(n_elements(expNames)*3)/3
       intervalsColors = intarr(n_elements(time),n_elements(intervalsColors0))
       FOR tt=0,n_elements(time)-1 DO intervalsColors[tt,*] = intervalsColors0 
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,axislabels=wrtXyt
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,axislabels=wrtXyt,whichFrames=whichFrames
   ENDIF
 
   setct,3,n_elements(theData[0,0,0,*]),0
 ;  IF(n_elements(nameList2) LT 105) THEN BEGIN 	
-    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,axislabels=wrtXyt
+    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,axislabels=wrtXyt,whichFrames=whichFrames
 ;  ENDIF
 	
 
@@ -358,7 +362,7 @@ PRO variability3,expNames,keys,N,sv
      vsAvgMdotTexLabels[0] = "$\dot{M}_{40 \mathrm{outputs}} (M_\odot/yr)$"
      vsAvgMdotNames = vsMdotNames[*]
      vsAvgMdotNames[0] = "avgMdot"
-     simpleMovie, avgdVsMdot,z,vsAvgMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsavgmdot",sv,PSYM=1,prev=1,axisLabels=vsAvgMdotLabels
+     simpleMovie, avgdVsMdot,z,vsAvgMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsavgmdot",sv,PSYM=1,prev=1,axisLabels=vsAvgMdotLabels,whichFrames=whichFrames
   ENDIF
 
 
@@ -373,8 +377,8 @@ PRO variability3,expNames,keys,N,sv
     vssSFRNames[0] = vsMdotNames[6]
     vssSFRToLog = vsMdotToLog[*]
     vssSFRToLog[0] = vsMdotToLog[6]
-    simpleMovie, vsSpecificSFR,z,vssSFRNames,colors,colors*0,vssSFRToLog,expName2+"_vsSpSFR",sv,PSYM=1,prev=1,axisLabels=vssSFRLabels,taillength=2
-    IF(n_elements(vsSpecificSFR[0,0,0,*]) GT 50) THEN simpleMovie, vsSpecificSFR,z,vssSFRNames,colors,colors*0,vssSFRToLog,expName2+"_vsSpSFRDist",sv,PSYM=1,prev=0,axisLabels=vssSFRLabels,NIndVarBins=5
+    IF(n_elements(vsSpecificSFR[0,0,0,*]) LE 50) THEN simpleMovie, vsSpecificSFR,z,vssSFRNames,colors,colors*0,vssSFRToLog,expName2+"_vsSpSFR",sv,PSYM=1,prev=1,axisLabels=vssSFRLabels,taillength=2,whichFrames=whichFrames
+    IF(n_elements(vsSpecificSFR[0,0,0,*]) GT 50) THEN simpleMovie, vsSpecificSFR,z,vssSFRNames,colors,colors*0,vssSFRToLog,expName2+"_vsSpSFRDist",sv,PSYM=1,prev=0,axisLabels=vssSFRLabels,NIndVarBins=5,whichFrames=whichFrames
 
   ENDIF    
 
@@ -409,15 +413,15 @@ PRO variability3,expNames,keys,N,sv
 
   setct,3,n_elements(vsMstar[0,0,0,*]),0
   IF(n1 EQ 1) THEN BEGIN
-    simpleMovie, vsMstar, z,vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstar",sv,PSYM=1,prev=0,axisLabels=vsMstarLabels
-    IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, z,vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstarDist",sv,PSYM=1,prev=0,axisLabels=vsMstarLabels,NIndVarBins=5,percentileList=[.17,.5,.83]
+    IF(n_elements(vsMstar[0,0,0,*]) LE 50) THEN simpleMovie, vsMstar, z,vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstar",sv,PSYM=1,prev=0,axisLabels=vsMstarLabels,whichFrames=whichFrames
+    IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, z,vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstarDist",sv,PSYM=1,prev=0,axisLabels=vsMstarLabels,NIndVarBins=5,percentileList=[.17,.5,.83],whichFrames=whichFrames
 
   ENDIF
 
 
 
   setct,3,n_elements(vsMdot[0,0,0,*]),0
-  vsTime = vsMdot[*,*,*,*]
+;  vsTime = vsMdot[*,*,*,*]
   vsTimeLabels = vsMdotLabels[*]
   vsTimeLabels[0] = "Time Since z=2 (Ga)"
   vsTimeTexLabels = vsMdotTexLabels[*]
@@ -425,16 +429,29 @@ PRO variability3,expNames,keys,N,sv
   vsTimeNames = vsMdotNames[*]
   vsTimeToLog = vsMdotToLog[*]
   vsTimeToLog[0] = 0
-  vsTimeStrt =  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
+;  vsTimeStrt =  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
+
+  nmodels = n_elements(vsMdot[0,0,0,*])
+  vsTime = dblarr(1,n_elements(vsMdot[*,0,0,0]),n_elements(vsMdot[0,0,*,0]),nmodels)
+  ;vsTimeColors = dblarr(1,nmodels*n_elements(vsMdot[*,0,0,0]))
+  FOR tt=0, n_elements(vsMdot[*,0,0,0])-1 DO BEGIN
+;    vsTime[0,0,*,tt*nmodels:(tt+1)*nmodels-1] = vsMdot[tt,0,*,*]
+;    vsTime[0,0,0,tt*nmodels:(tt+1)*nmodels-1] = time[tt]
+;    vsTimeColors[0,tt*nmodels:(tt+1)*nmodels-1]=colors[tt,*]
+    vsTime[0,tt,*,*] = vsMdot[tt,0,*,*]
+    vsTime[0,tt,0,*] = time[tt]
+  ENDFOR
 
   ;; for each model, set the independent variable equal to the time: 
-  FOR j=0, n_elements(vsTime[0,0,0,*]) -1 DO BEGIN
-    vsTime[*,0,0,j] = time[*]
-  ENDFOR
+;  FOR j=0, n_elements(vsTime[0,0,0,*]) -1 DO BEGIN
+;    vsTime[*,0,0,j] = time[*]
+;  ENDFOR
+  vsTimeStyles=colors*0
+  vsTimeColors=colors[*,*]
   IF(n1 EQ 1) THEN BEGIN
-    vsTimeStyles = colors*0
+;    vsTimeStyles = vsTimeColors*0
     IF(n_elements(vsTime[0,0,0,*]) GT 50) THEN vsTimeStyles=temporary(vsTimeStyles)+2
-    simpleMovie, vsTime,z,vsTimeNames,colors,vsTimeStyles,vsTimeToLog,expName2+"_vstime",5,PSYM=3,prev=1,taillength=1000,axisLabels=vsTimeLabels,whichFrames=[n_elements(z)-1],NIndVarBins=20
+    simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,vsTimeStyles,vsTimeToLog,expName2+"_vstime",5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20
   ENDIF
 
 
@@ -443,9 +460,9 @@ PRO variability3,expNames,keys,N,sv
 
   ;; Now make some standalone plots.
   ; roughly redshifts 2,1.5,1,.5,0 are [1,20,51,104,201]
-  simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstar",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201]
+;  simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstar",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201]
   IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarDist",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],NIndVarBins=5
-  simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarH",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],horizontal=1
+;  simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarH",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],horizontal=1
   IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarDistH",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],NIndVarBins=5,horizontal=1
   
 
@@ -455,7 +472,7 @@ PRO variability3,expNames,keys,N,sv
   ;; Plot the accretion rates.
   ;SETCT,3,n_elements(vsMdot[0,0,0,*]),0
   FIGUREInit,(expName2+'_accRates'),1,3,3
-  yr=[MIN(vsMdot[zn-1,0,0,*])*.5,MAX(vsMdot[0,0,0,*])*2];[.01,1000];[MIN(sortdVsMdot[*,0,0,*]),MAX(sortdVsmdot[*,0,0,*])]
+  yr=[MIN(vsMdot[*,0,0,*])*.5,MAX(vsMdot[*,0,0,*])*2];[.01,1000];[MIN(sortdVsMdot[*,0,0,*]),MAX(sortdVsmdot[*,0,0,*])]
   Plot,[time[0]],[vsMdot[0,0,0,0]],COLOR=0,BACKGROUND=255,XRANGE=[MIN(time),MAX(time)],YRANGE=yr,YLOG=1,XSTYLE=1,XTITLE="Time",YTITLE="Accretion Rate",CHARSIZE=2,THICK=2,CHARTHICK=1.5
   FOR m=0,n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
     ;setct,5,n_elements(vsMdot[0,0,0,*]),m

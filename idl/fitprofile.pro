@@ -42,15 +42,18 @@ END
 PRO fitprofile,r,prof,p,chi2,single=single,colfit=colfit
     IF(n_elements(single) EQ 0) THEN single=0
     
-    weights = r[*]
+;    weights = r[*]
+;    avg = exp(average(alog(prof)))
+    average = avg(prof)
+    weights = intarr(n_elements(prof))+1.0/(.4*average)^2
 
     ; guess:
-    IF(single NE 0) THEN p = [prof[0],3.5] ELSE p = [.5*prof[0],.5*prof[0],3.5,1.0,3.0]
+    IF(single NE 0) THEN p = [prof[0],3.5] ELSE p = [.7*prof[0],.3*prof[0],3.5,1.0,3.0]
 
     ; fit
     funcName='gfunct'
     IF(single NE 0) THEN funcName='gfunct2'
-    colfit = CURVEFIT(r,prof,weights,p,FUNCTION_NAME=funcName,ITMAX=500,chisq=chi2)
+    colfit = CURVEFIT(r,prof,weights,p,FUNCTION_NAME=funcName,ITMAX=200,chisq=chi2,TOL=.1)
 
 
 END

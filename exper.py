@@ -63,11 +63,11 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -113,8 +113,16 @@ class experiment:
             self.p[self.keys[name]]=[typ(float(mmin) * (rat)**(float(i)/float(n-1))) for i in range(n)]
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
-	self.covariables[self.keys[name]] = cov
-	return self.p[self.keys[name]]
+    	self.covariables[self.keys[name]] = cov
+    	return self.p[self.keys[name]]
+
+    def multiply(self,name,multiple):
+        keynum = self.keys[name]
+        if(type(self.p[keynum]) == type([])): # we're dealing with a list
+            self.p[keynum] = [a*multiple for a in self.p[keynum]]
+        else:
+            self.p[keynum] = [self.p[keynum] * multiple]
+        return self.p[keynum]
 
     def irregularVary(self,name,values,cov=0):
         ''' Similar to vary, except, rather than generating the
@@ -130,7 +138,7 @@ class experiment:
             self.p[keyNum]=[typ(values)]
         # Next, we want to pass along the information we've been given on whether this parameter
         # should be covaried:
-	self.covariables[self.keys[name]] = cov
+    	self.covariables[self.keys[name]] = cov
         # and finally, give back what we've done.
         return self.p[keyNum]
     
@@ -622,11 +630,45 @@ if __name__ == "__main__":
     [rs16[i].changeName("rs16"+letter(i)) for i in range(len(rs16))]
     [rs16[i].irregularVary('NChanges',100) for i in range(len(rs16))]
     
-    # redo rs13d to test the effects of altering the IC generator to compute S0 (hopefully) more correctly.
-    # rs17 corrects the major error, namely initializing the disk at z=2.5 as if it were at z=2.
-    # rs17a attempts to correct a subtler error, namely that Mh was interpolated linearly in z rather than t.
-    rs17=copy.deepcopy(rs13[3])
-    rs17.changeName("rs17a")
+    # The next few are analogous to the previous few, with much reduced accretion efficiencies.
+    rs17=[copy.deepcopy(rs14[i]) for i in range(len(rs14))]
+    [rs17[i].changeName("rs17"+letter(i)) for i in range(len(rs17))]
+    [rs17[i].irregularVary("accCeiling",.05) for i in range(len(rs17))]
+
+    rs18=[copy.deepcopy(rs15[i]) for i in range(len(rs15))]
+    [rs18[i].changeName("rs18"+letter(i)) for i in range(len(rs18))]
+    [rs18[i].irregularVary("accCeiling",.05) for i in range(len(rs18))]
+
+    rs19=[copy.deepcopy(rs16[i]) for i in range(len(rs16))]
+    [rs19[i].changeName("rs19"+letter(i)) for i in range(len(rs19))]
+    [rs19[i].irregularVary("accCeiling",.05) for i in range(len(rs19))]
+
+    rs21=copy.deepcopy(rs14[2])
+    rs21.changeName("rs21")
+
+    # try exp thing, didn't work
+    rs22=copy.deepcopy(rs21)
+    rs22.changeName("rs22")
+    rs22.irregularVary('dbg',2**4)
+
+    rs23=copy.deepcopy(rs21)
+    rs23.changeName("rs23")
+    rs23.irregularVary("tauHeat",.5)
+
+    ### OK, we've fixed some bugs. Let's rerun some things.
+    rs20 = [copy.deepcopy(rs05[i]) for i in range(len(rs05))]
+    [rs20[i].changeName("rs20"+letter(i)) for i in range(len(rs20))]
+
+
+    scLengthMult=[1.0,4.0]
+    rs30=[copy.deepcopy(rs02) for i in range(len(scLengthMult))]
+    [rs30[i].changeName("rs30"+letter(i)) for i in range(len(rs30))]
+    [rs30[i].multiply('accScaleLength',scLengthMult[i]) for i in range(len(rs30))]
+
+    rs31=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs31[i].changeName("rs31"+letter(i)) for i in range(len(rs31))]
+    [rs31[i].irregularVary('dbg',2**12) for i in range(len(rs31))]
+
 
     successTables=[]
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

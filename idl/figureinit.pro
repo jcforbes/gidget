@@ -24,15 +24,17 @@ PRO figureInit,nm,sv,nx,ny
         ; PRINT, "Initializng figure ",nm,"with sv,nx,ny: ",sv,nx,ny
 	IF(sv EQ 1 || sv EQ 0) THEN newWindow,nx,ny
 	
+  	!p.thick=2.5
+	!x.thick=2.5
+	!y.thick=2.5
+	!z.thick=2.5
+
 	IF(sv EQ 4) THEN BEGIN
 		set_plot,'z'
 		cgDisplay,1024*nx,1024*ny
 	ENDIF
 	
-	!p.thick=2.5
-	!x.thick=2.5
-	!y.thick=2.5
-	!z.thick=2.5
+
 	IF(sv EQ 2) THEN BEGIN
 		Set_Plot,'ps'
 		!p.font = 0

@@ -158,6 +158,7 @@ double AccretionHistory::GenerateLogNormal(double zstart,double zrelax, Cosmolog
     gsl_rng_set(r,seed);
 
     double Mh012 = Mh0*1.0e-12;
+    linear = true;
     std::ofstream file;
     if(writeOut) file.open(fn.c_str());
     unsigned int N=1000; 
@@ -174,7 +175,7 @@ double AccretionHistory::GenerateLogNormal(double zstart,double zrelax, Cosmolog
     // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
     // Otherwise, loop over redshift from zstart to z=0.
     for(unsigned int i=0; i<=N; ++i) {
-        z=((double) i)/((double) N) * (zrelax*1.1 - 0.0) -.0001;
+        z=((double) i)/((double) N) * (zrelax*1.1 - 0.0) -.05*zrelax;
         dz = 1.0/((double) N) * (zrelax*1.1 - 0.0);
 
         // Use the Bouche formula to tell us the dark matter accretion rate
@@ -192,7 +193,7 @@ double AccretionHistory::GenerateLogNormal(double zstart,double zrelax, Cosmolog
         if(z>zstart) currentAccretionRate = mean;
         MdotExt = currentAccretionRate;
 
-        if((z-zstart)*(z+dz-zstart)<0.0)// always set MdotExt0 to be MdotExt at z=2
+        if((z-zstart)*(z+dz-zstart)<=0.0)// always set MdotExt0 to be MdotExt at z=2
             MdotExt0= MdotExt;
 
         haloMass.push_back(Mh); // solar masses
@@ -207,6 +208,9 @@ double AccretionHistory::GenerateLogNormal(double zstart,double zrelax, Cosmolog
 
         // these small adjustments to z avoid interpolation errors without really affecting anything.
         redshifts.push_back(z); 
+
+        if(MdotExt < 1.0e-10)
+            errormsg("Very low Mdot.");
 
         tabulatedAcc.push_back(MdotExt);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;

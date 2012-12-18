@@ -115,7 +115,8 @@ int main(int argc, char **argv) {
     const double accCeiling =        as.Set(1.0,"Maximum accretion efficiency.");
     const double fscatter =          as.Set(1.0,"Artificial factor by which to multiply scatter in ND10");
     const double invMassRatio =      as.Set(.3,"Maximum change in halo mass across 1 step in domega");
-
+    const double fcool =             as.Set(1.0,"Fraction of f_b M_h(zstart) that has cooled into a disk");
+//    const double MeanAccRate =       as.Set();
 
     // Make an object to deal with basic cosmological quantities.9
     // Omega_Lambda = .734, H0 = 2.29e-18 s^-1
@@ -144,7 +145,8 @@ int main(int argc, char **argv) {
     else if(whichAccretionHistory==1)
         mdot0 = accr.GenerateConstantAccretionHistory(12.3368,zstart,cos,filename+"_ConstAccHistory2.dat",true)*MSol/speryear;
     else if(whichAccretionHistory<0 ) {
-        mdot0=MSol/speryear * accr.GenerateLogNormal(zstart, zrelax, cos, 7.0*pow(Mh0*1.0e-12,1.1)*pow(1.+zstart,2.2),
+        mdot0=MSol/speryear * accr.GenerateLogNormal(zstart, zrelax, cos, 
+                7.0*pow(Mh0*1.0e-12,1.1)*pow(1.+zstart,2.2)*accr.epsin(zstart,Mh0*1.0e-12,cos,zquench),
                 fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,"_LogNormal.dat");
         //      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,0.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
     }
@@ -183,7 +185,6 @@ int main(int argc, char **argv) {
                 minSigSt,accScaleLength/(radius/cmperkpc),RfREC,zetaREC);
         // double sig0 = 8.0/220.0; 
         double sig0 = sigth;
-        double fcool = 1.0 ;//* sqrt(MhZs / 1.0e12);
         disk.Initialize(.1*Z_Sol,fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
 
         Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,

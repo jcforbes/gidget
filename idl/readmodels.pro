@@ -176,6 +176,7 @@ FUNCTION readOutput,name
   accCeiling = ExtractCmtFlt(lunCom)
   fscatter = ExtractCmtFlt(lunCom)
   invMassRatio = ExtractCmtFlt(lunCom)
+;  fcool = ExtractCmtFlt(lunCom)
 
   ;; these next two are special: The user doesn't specify them; they are computed
   ;; at the beginning of a run based on whichAccretionHistory.
@@ -366,18 +367,16 @@ FUNCTION readOutput,name
     ZstDen = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
     FOR i=0,NPassive DO BEGIN
 ;	tdc[*,*,ncolstep+npostprocess+i*STVars:ncolstep+npostprocess+i*STVars-1] = starsHyperCube[*,i,*,*]
-	tdc[*,*,ncolstep+npostprocess+i*STVars] = starsHyperCube[*,i,*,0] * mdotext0/(vphiR*1d5*Radius*cmperkpc) * cmperpc*cmperpc/MSol ;; g/cm^2 * (cm/pc)^2 *msol/g
-	tdc[*,*,ncolstep+npostprocess+i*STVars+1] = starsHyperCube[*,i,*,1] * vphiR
+    	tdc[*,*,ncolstep+npostprocess+i*STVars] = starsHyperCube[*,i,*,0] * mdotext0/(vphiR*1d5*Radius*cmperkpc) * cmperpc*cmperpc/MSol ;; g/cm^2 * (cm/pc)^2 *msol/g
+    	tdc[*,*,ncolstep+npostprocess+i*STVars+1] = starsHyperCube[*,i,*,1] * vphiR
 ;	ZstNum[*,0,*,0] += starsHyperCube[*,i,*,2]*starsHyperCube[*,i,*,0]
 ;	ZstDen[*,0,*,0] += starsHyperCube[*,i,*,0]
-	tdc[*,*,ncolstep+npostprocess+i*STVars+2:ncolstep+npostprocess+(i+1)*STVars-1] = starsHyperCube[*,i,*,2:STVars-1]
+	    tdc[*,*,ncolstep+npostprocess+i*STVars+2:ncolstep+npostprocess+(i+1)*STVars-1] = starsHyperCube[*,i,*,2:STVars-1]
     ENDFOR
     FOR ii=0,NActive DO BEGIN
-	ZstNum[*,0,*,0] += starsHyperCubeA[*,ii,*,2]*starsHyperCube[*,ii,*,0]
-	ZstDen[*,0,*,0] += starsHyperCubeA[*,ii,*,0]
+	    ZstNum[*,0,*,0] += starsHyperCubeA[*,ii,*,3]*starsHyperCube[*,ii,*,0]
+    	ZstDen[*,0,*,0] += starsHyperCubeA[*,ii,*,0]
     ENDFOR
-
-
 
     tdc[0,*,39-1] = tdc[1,*,39-1] ;; currently the initial value is zero.
     evArray[9-1,0] = evArray[9-1,1]

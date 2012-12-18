@@ -198,6 +198,16 @@ int Simulation::runToConvergence(const double fCondition,
         theDisk.ComputeGItorque(tauvec,IBC,OBC,UU,DD,LL,FF,MdotiPlusHalf);
         //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 
+        // Artificially set gravitoturbulent torques to zero everywhere.
+        if(dbg.opt(12)) { 
+            for(unsigned int n=0; n<=nx; ++n) {
+                tauvec[1][n] = 0.0;
+                tauvec[2][n] = 0.0;
+                MdotiPlusHalf[n]=0.0;
+            }
+        }
+
+
         // In situations where the alpha viscosity produces larger torques 
         // than the GI viscosity, use the alpha viscosity instead:
         // theDisk.ComputeMRItorque(tauvec,alphaMRI,IBC,OBC,ndecay);
@@ -281,8 +291,13 @@ int Simulation::runToConvergence(const double fCondition,
         theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
         theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
         theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
+
+        writeIndex++;
+        std::cout << "Writing out file "<<writeIndex<<" at z= "<<z<<std::endl;
     }
 
+    if(writeIndex != Noutputs + 2)
+        errormsg("Unexpected number of outputs! "+str(writeIndex)+" vs "+str(Noutputs+2));
 
     // de-allocate memory
     for(unsigned int k=1; k<=2; ++k) {

@@ -25,7 +25,7 @@ FUNCTION generatelinearish,x,upperCutoff
     ret = lonarr(nrescaled)
     counter = 0
     FOR i=1, nrescaled DO BEGIN
-        thisX = maxDeltaX*i 
+        thisX = maxDeltaX*i + MIN(x)
         near = MIN( abs(x - thisX), index)
         IF(thisX LE upperCutoff) THEN BEGIN
             ret[i-1] = index
@@ -76,16 +76,15 @@ FUNCTION diskStats,model,z=z
     gasHalfRadius = halfRadius(x*model.Radius,model.dlnx,col)
     stHalfRadius = halfRadius(x*model.Radius,model.dlnx,colst)
 
-
+    optInd = nearest("position",1,model,stHalfRadius*2/model.Radius)
 
     ;; fit the stellar & gas column density profiles to sersic+exp profile.
     ; for the gas, let's only fit inside a disk defined by where vrg becomes outwards
     vrglt0 = WHERE(vrg LT 0,gCtr)
     IF(gCtr GT 0) THEN fitGas = lindgen(MAX([MIN(vrglt0),10])) ELSE fitGas = lindgen(n_elements(x))
-    pg=dblarr(2)
 ;    fitGas = lindgen(n_elements(x))
     fitGas = GenerateLinearish(x,2.0*gasHalfRadius/model.Radius)
-    pg=mpfitprofile(x[fitGas]*model.Radius,col[fitGas],pg,gchisq,single=1,fake=1)
+    pg=mpfitprofile(x[fitGas]*model.Radius,col[fitGas],gchisq,single=1,fake=1)
     gasScaleLength = pg[1] ; in kpc
     ;gchisq=2
     ;stchisq=2
@@ -94,15 +93,13 @@ FUNCTION diskStats,model,z=z
     ; for the stars, only fit where Qst has fallen below Qlim
     fitStars= where(model.dataCube[zj,*,23-1] LE model.qlim, stCtr)
     IF(stCtr LT 10) THEN fitStars = lindgen(n_elements(x))
-    pst=dblarr(5)
     colstfit = dblarr(n_elements(fitStars))
 ;    fitStars = lindgen(n_elements(x))
     fitStars = GenerateLinearish(x,2.0*stHalfRadius/model.Radius)
-    pst=mpfitprofile(x[fitStars]*model.Radius,colst[fitStars],pst,stchisq,colfit=colstfit,fake=1)
+    pst=mpfitprofile(x[fitStars]*model.Radius,colst[fitStars],stchisq,colfit=colstfit,fake=1)
     starScaleLengthMeas = pst[2]
     starSersic = pst[4]
-    starBTMeas = TOTAL(x[fitStars]*(pst[1]*exp(-(x[fitStars]/pst[3])^(1.0/pst[4]))))/TOTAL(x[fitStars]*colstFit)
-
+    starBTMeas = TOTAL(x[fitStars]*(pst[1]*exp(-(x[fitStars]*model.Radius/pst[3])^(1.0/pst[4]))))/TOTAL(x[fitStars]*colstFit)
 
     indexGI = where(Q LE model.fixedQ,ct)
     IF(ct GT 0) THEN BEGIN
@@ -147,7 +144,6 @@ FUNCTION diskStats,model,z=z
 
     sSFR = model.evArray[11-1,zj]/(stMass+BulgeM) ;; yr^-1
 
-    ;	stop
 
     IF(xoutInd LT xinInd) THEN BEGIN 
               xoutInd = xinInd
@@ -172,8 +168,8 @@ FUNCTION diskStats,model,z=z
 
     totfH2 = TOTAL( gasMass * fH2 ) / TOTAL( gasMass )
 
-    fgL = TOTAL( gasMass[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd] + stellarMass[0:xoutInd]) + BulgeM)
-    ZL = TOTAL( gasMass[0:xoutInd] * 10.0^metallicity[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd]))
+    fgL = TOTAL( gasMass[0:optInd] ) / (TOTAL(gasMass[0:xoutInd] + stellarMass[0:xoutInd]) + BulgeM)
+    ZL = TOTAL( gasMass[0:optInd] * 10.0^metallicity[0:xoutInd] ) / (TOTAL(gasMass[0:xoutInd]))
 
     vrAvg = TOTAL( gasMass * vrg ) / TOTAL(gasMass)
     sigAvg = TOTAL(sig*gasMass)/TOTAL(gasMass)
@@ -193,6 +189,7 @@ FUNCTION diskStats,model,z=z
     stZ = .02*((TOTAL(stellarMass * 10.0^stMetallicity) + BulgeM*10.0^bulgeMetallicity)/(stMass + BulgeM))
     gasZdelta = MAX(metallicity)-MIN(metallicity)
     stAge = TOTAL(model.evArray[11-1,0:zj]*(model.evArray[1,zj] - model.evArray[1,0:zj]))/TOTAL(model.evArray[11-1,0:zj]) ;; age(z) = Cumulative (SFR(z') * (lbt(z') - lbt(z))) / Cumulative(SFR) ---- on second thought, this is only an OK approximation because it assumes SFR is const. between outputs. Even worse, does not account for initial stars!
+    deltaCol = alog10(col[xpeakind]/col[0])
 
     xnuc=x[0:xinInd]
     xsf=x[xinInd:xoutInd]
@@ -225,7 +222,7 @@ FUNCTION diskStats,model,z=z
         tdepAvg, gasScaleLength,starScaleLengthMeas,starSersic,starBTMeas, $ ; 28,29,30,31,32
         gChiSq,stChiSq, sfrHalfRadius, gasHalfRadius, stHalfRadius, $ ; 33,34,35,36,37
         centralDensity,sStJ,sGasJ,sOutJ, $ ; 38,39,40,41
-        gasZdelta,stZdelta,molfg,tdepAllGas,stZ,stAge] ; 42,43,44,45,46,47
+        gasZdelta,stZdelta,molfg,tdepAllGas,stZ,stAge,deltaCol] ; 42,43,44,45,46,47,48
     ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
         ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

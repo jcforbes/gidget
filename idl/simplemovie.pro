@@ -34,7 +34,7 @@
 ;; svSinglePlot - the value of sv to use if we're producing a single plot. See figureinit.pro; typically 4 is a good choice
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
 
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSingePlot=svSinglePlot,strt=strt,thicknesses=thicknesses
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSingePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges
   chth=1
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
   IF(sv EQ 1) THEN cs=1 ELSE cs=2.8
@@ -47,8 +47,15 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
   ;; exclude the first time step from setting the range.
   IF(n_elements(time) NE n_elements(data[*,0,0,0])) THEN message,"unexpected # of entries for the time vector in simplemovie"
-  IF(n_elements(data[*,0,0,0]) GT 3 ) THEN ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog) ELSE ranges=simpleranges(data[0:n_elements(time)-1,*,*,*],wrtxlog)
-  
+  IF(n_elements(ranges) EQ 0) THEN  $
+      IF(n_elements(data[*,0,0,0]) GT 3 ) THEN $
+        ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog) $
+      ELSE $
+        ranges=simpleranges(data[0:n_elements(time)-1,*,*,*],wrtxlog)
+  IF(n_elements(yranges) EQ 2) THEN BEGIN
+    ranges[0,1:n_elements(ranges[0,*])-1] = yranges[0]
+    ranges[1,1:n_elements(ranges[1,*])-1] = yranges[1]
+  ENDIF
   IF(n_elements(horizontal) EQ 0) THEN horizontal = 0
   IF(horizontal GE 2 OR horizontal LT 0) THEN horizontal = 1
   IF(n_elements(axislabels) EQ 0) THEN axislabels=labels[*]
@@ -201,7 +208,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop
-                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2,PSYM=-2,SYMSIZE=symsize*3
+                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=max(thicknesses)*1.2,PSYM=-2,SYMSIZE=symsize*3
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
       ENDIF

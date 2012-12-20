@@ -91,7 +91,7 @@ PRO variability3,expNames,keys,N,sv
   wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk']
 ;  wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
 ;    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9],[1.0e8,1.0e10],[1.0e8,1.0e10],[.01,100]]
-  wrtXyl=[0,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,1] ;; log plot 18
+  wrtXyl=[1,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,1] ;; log plot 18
 
   IF(n_elements(keys) EQ 0) THEN keys=indgen(n_elements(wrtXyt)-1)+1
 
@@ -125,7 +125,7 @@ PRO variability3,expNames,keys,N,sv
   ;; (# timesteps) x (nx) x (# of columns) x (# models)
   theData= dblarr(theNTS,n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
 
-  NVS = 47
+  NVS = 48
   ;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 20) x (# models)
   vsMdot = dblarr(theNTS,1,NVS,n_elements(nameList2))
   nameList4 = strarr(n_elements(nameList2))
@@ -210,7 +210,7 @@ PRO variability3,expNames,keys,N,sv
            vsMdot[zi,0,38,ctr] = modelInfo[39-1];; specific stellar J (kpc km/s)
            vsMdot[zi,0,39,ctr] = modelInfo[40-1];; specific gas J (kpc km/s)
            vsMdot[zi,0,40,ctr] = modelInfo[41-1];; specific outflow J (kpc km/s)
-           vsMdot[zi,0,41:46,ctr] = modelInfo[42-1:47-1];gasDZ(dex),stDZ(dex),fgmol,tdep[all](yr),stZ[],stAge(Gyr)
+           vsMdot[zi,0,41:47,ctr] = modelInfo[42-1:48-1];gasDZ(dex),stDZ(dex),fgmol,tdep[all](yr),stZ[],stAge(Gyr),dCol(dex)
            
          ENDFOR ;; end loop over redshift
 
@@ -232,12 +232,12 @@ PRO variability3,expNames,keys,N,sv
 
 ;['mdot','DiskSFR','Mst','rPeak','rHI','colsol','sSFR','BulgeGasMass','BulgeStMass','fH2','mdotBulgeGas','mdotBulgeStars',"BT","SFRplusMdot_b_gas","efficiency","Z","f_gInSF","mdot","fgL","ZL","fg","ZBulge","vrgAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg"]
 
-  vsMdotLabels = ["Mdot (Msun/yr)","DiskSFR (Msun/yr)","Stellar Mass (Msun)","Peak Radius of Column Density (kpc)","Radius of HI transition (kpc)","Column Density at r=8 kpc (Msun/pc^2)","Specific SFR (yr^-1)","Bulge Gas Mass (Msun)","Bulge Stellar Mass (Msun)","H_2 Fraction","Mdot Gas into Bulge (Msun/yr)","Mdot Stars into Bulge (Msun/yr)","Bulge to Total Ratio","SFR Including Gas Flux Into Bulge (Msun/yr)","efficiency (Mstar / (f_b M_h))","Z","Gas Fraction in SF Region","Mdot (Msun/yr)","Gas Fraction in Optical Region","Z in Optical Region","Gas Fraction","Z Bulge","Average inward gas radial velocity (km/s)","Inner Edge of GI Region (kpc)","Outer Edge of GI Region (kpc)","Average velocity dispersion (km/s)","Average radial velocity for non-outward velocities only (km/s)","Molecular Depletion Time (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas chi^2","st chi^2","Half SFR radius (kpc)","Half gas radius (kpc)","Half stellar radius (kpc)","Central Density (Msun/pc^2)","specific J_*","specific J_g","specific J_out","gas Z decr (dex)","st Z decr (dex)","mol gas fraction","Depletion Time for all gas (yr)","Z*","Stellar Age (Gyr)"]
-  vsMdotTexLabels = ["$\dot{M} (M_\odot/yr)$","Disk SFR ($M_\odot$/yr)","Stellar Mass ($M_\odot$)","Peak Radius (kpc)","Radius of HI trans. (kpc)","$\Sigma$ at $r=8$ kpc ($M_\odot/pc^2$)","sSFR ($yr^{-1}$)","Bulge Gas Mass ($M_\odot$)","Bulge Stellar Mass ($M_\odot$)","$H_2$ Fraction","$\dot{M}_g$ into Bulge ($M_\odot$/yr)","$\dot{M}_*$ into Bulge ($M_\odot$/yr)","Bulge:Total Ratio","SFR + $\dot{M}_{g,\rightarrow\mathrm{bulge}}$ ($M_\odot$/yr)","$\epsilon$ ($M_*$ / ($f_b M_h$))","$Z=M_Z/M_g$","$f_g$ in SF Region","$\dot{M}$ ($M_\odot$/yr)","$f_g$ in Optical Region","$Z=M_Z/M_g$ in Optical Region","$f_g$","$Z_\mathrm{bulge}=M_Z/M_*$","Average $-v_r$ (km/s)","Innermost GI Region (kpc)","Outermost GI Region (kpc)","$\langle\sigma\rangle$ (km/s)","Average $-v_r\ge 0$ (km/s)","$t_{dep} = M_g f_{H_2} / \dot{M}^{SF}$ (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas $\chi^2$","st $\chi^2$","$r_{\mathrm{SFR},\frac12}$ (kpc)","$r_{g,\frac12}$ (kpc)","$r_{*,\frac12}$","$\Sigma_0\ (M_\odot/pc^2)$","$J_*/M_*$","$J_g/M_g$","$J_{\mathrm{out}}/M_\mathrm{out}$","$\max \Delta [Z_g]$","$\max \Delta [Z_*]$","$f_{g,\mathrm{mol}}$","$t_{dep} = M_g/\dot{M}_*$ (yr)","$Z_*=M_{Z,*}/M_*$","Stellar Age (Gyr)"]
+  vsMdotLabels = ["Mdot (Msun/yr)","DiskSFR (Msun/yr)","Stellar Mass (Msun)","Peak Radius of Column Density (kpc)","Radius of HI transition (kpc)","Column Density at r=8 kpc (Msun/pc^2)","Specific SFR (yr^-1)","Bulge Gas Mass (Msun)","Bulge Stellar Mass (Msun)","H_2 Fraction","Mdot Gas into Bulge (Msun/yr)","Mdot Stars into Bulge (Msun/yr)","Bulge to Total Ratio","SFR Including Gas Flux Into Bulge (Msun/yr)","efficiency (Mstar / (f_b M_h))","Z","Gas Fraction in SF Region","Mdot (Msun/yr)","Gas Fraction in Optical Region","Z in Optical Region","Gas Fraction","Z Bulge","Average inward gas radial velocity (km/s)","Inner Edge of GI Region (kpc)","Outer Edge of GI Region (kpc)","Average velocity dispersion (km/s)","Average radial velocity for non-outward velocities only (km/s)","Molecular Depletion Time (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas chi^2","st chi^2","Half SFR radius (kpc)","Half gas radius (kpc)","Half stellar radius (kpc)","Central Density (Msun/pc^2)","specific J_*","specific J_g","specific J_out","gas Z decr (dex)","st Z decr (dex)","mol gas fraction","Depletion Time for all gas (yr)","Z*","Stellar Age (Gyr)","col decr (dex)"]
+  vsMdotTexLabels = ["$\dot{M} (M_\odot/yr)$","Disk SFR ($M_\odot$/yr)","Stellar Mass ($M_\odot$)","Peak Radius (kpc)","Radius of HI trans. (kpc)","$\Sigma$ at $r=8$ kpc ($M_\odot/pc^2$)","sSFR ($yr^{-1}$)","Bulge Gas Mass ($M_\odot$)","Bulge Stellar Mass ($M_\odot$)","$H_2$ Fraction","$\dot{M}_g$ into Bulge ($M_\odot$/yr)","$\dot{M}_*$ into Bulge ($M_\odot$/yr)","Bulge:Total Ratio","SFR + $\dot{M}_{g,\rightarrow\mathrm{bulge}}$ ($M_\odot$/yr)","$\epsilon$ ($M_*$ / ($f_b M_h$))","$Z=M_Z/M_g$","$f_g$ in SF Region","$\dot{M}$ ($M_\odot$/yr)","$f_g$ in Optical Region","$Z=M_Z/M_g$ in Optical Region","$f_g$","$Z_\mathrm{bulge}=M_Z/M_*$","Average $-v_r$ (km/s)","Innermost GI Region (kpc)","Outermost GI Region (kpc)","$\langle\sigma\rangle$ (km/s)","Average $-v_r\ge 0$ (km/s)","$t_{dep} = M_g f_{H_2} / \dot{M}^{SF}$ (Ga)","Gas Sc Length (kpc)","St Sc Length (kpc)","sersic","BT Meas","gas $\chi^2$","st $\chi^2$","$r_{\mathrm{SFR},\frac12}$ (kpc)","$r_{g,\frac12}$ (kpc)","$r_{*,\frac12}$","$\Sigma_0\ (M_\odot/pc^2)$","$J_*/M_*$","$J_g/M_g$","$J_{\mathrm{out}}/M_\mathrm{out}$","$\max \Delta [Z_g]$","$\max \Delta [Z_*]$","$f_{g,\mathrm{mol}}$","$t_{dep} = M_g/\dot{M}_*$ (yr)","$Z_*=M_{Z,*}/M_*$","Stellar Age (Gyr)","$\log \Sigma(r_\mathrm{peak})/\Sigma(r_0)$ (dex)"]
 
-  vsMdotNames  = ["mdot","DiskSFR","Mst","rPeak","rHI","colsol","sSFR","BulgeGasMass","BulgeStMass","fH2","mdotBulgeGas","mdotBulgeStars","BT","SFRplusMdotIn","efficiency","Z","fgInSF","mdot","fgL","ZL","fg","ZBulge","vrAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg","GasScLength","StScLength","sersic","BTMeas","gaschi2","stchi2","rHalfSFR","rHalfGas","rHalfSt","CentralDensity","spJSt","spJg","spJout","DZg","DZst","fgmol","tdepAll","Zst","stAge"]
-  vsMdotStrt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-  vsMdotToLog = [1,1,1,1,0,1,1,0,0,0,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,0,0,1,1,1,0] 
+  vsMdotNames  = ["mdot","DiskSFR","Mst","rPeak","rHI","colsol","sSFR","BulgeGasMass","BulgeStMass","fH2","mdotBulgeGas","mdotBulgeStars","BT","SFRplusMdotIn","efficiency","Z","fgInSF","mdot","fgL","ZL","fg","ZBulge","vrAvg","rQin","rQout","sigAvg","vrgGtr0","tdepAvg","GasScLength","StScLength","sersic","BTMeas","gaschi2","stchi2","rHalfSFR","rHalfGas","rHalfSt","CentralDensity","spJSt","spJg","spJout","DZg","DZst","fgmol","tdepAll","Zst","stAge","dCol"]
+  vsMdotStrt =  [1,1,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  vsMdotToLog = [1,1,1,1,0,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,0,0,1,1,1,0,0] 
 
   modelcounter = modelcounter2[*]
   nameList2 = nameList4[0:ctr-1]
@@ -321,8 +321,9 @@ PRO variability3,expNames,keys,N,sv
   ENDIF ELSE expName2 +='_' + strcompress(string(n_elements(expNames)),/remove)
   expName2 = expName2 + '_' + strcompress(string(MIN([n_elements(nameList2),N*n_elements(expNames)])),/remove) ;; e.g. rk5_rk6_113
 
-
-
+  unsRanges = simpleRanges(theData[2:n_elements(time)-1,*,*,*],wrtXyl)
+  unsRanges[0,[1,3]] = 1.0 ;; manually set minimum col and colst to 1 Msun/pc^2
+  unsRanges[0,7] =  1.0d-5 ;; manually set min SFR col density to 10^-5 Msun/yr/kpc^2
   IF(n_elements(nameList2) GT 50) THEN BEGIN
       setct,1,0,0
       linestyles = intarr(n_elements(expNames)*3)+2
@@ -331,12 +332,17 @@ PRO variability3,expNames,keys,N,sv
       intervalsColors0 = indgen(n_elements(expNames)*3)/3
       intervalsColors = intarr(n_elements(time),n_elements(intervalsColors0))
       FOR tt=0,n_elements(time)-1 DO intervalsColors[tt,*] = intervalsColors0 
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,axislabels=wrtXyt,whichFrames=whichFrames
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,axislabels=wrtXyt,whichFrames=whichFrames,ranges=unsRanges
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",5,axislabels=wrtXyt,whichFrames=[n_elements(z)-1],ranges=unsRanges
   ENDIF
 
   setct,3,n_elements(theData[0,0,0,*]),0
+
+
+
 ;  IF(n_elements(nameList2) LT 105) THEN BEGIN 	
-    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,axislabels=wrtXyt,whichFrames=whichFrames
+    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,axislabels=wrtXyt,whichFrames=whichFrames,ranges=unsRanges
+    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",5,axislabels=wrtXyt,whichFrames=[n_elements(z)-1],ranges=unsRanges
 ;  ENDIF
 	
 

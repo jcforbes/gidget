@@ -14,17 +14,28 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
     ct = 1
     IF(sv EQ 4) THEN cs = 3
     IF(sv EQ 4) THEN ct = 3
-    IF(sv EQ 4) THEN thicknesses = temporary(thicknesses)*3
+    IF(sv EQ 4) THEN thicknesses = temporary(thicknesses)
     ls=0
     nmodels = n_elements(vsMdot[0,0,0,*])
     nvars = n_elements(vsMdot[0,0,*,0])
     IF(nmodels GT 50) THEN ls =1 
 
 
-    normalizations = dblarr(n_elements(vsMdot[*,0,0,0]), n_elements(vsMdot[0,0,*,0]))
-    FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
+    lowestColor = MIN(colors)
+    highestColor = MAX(colors)
+    ncolors = highestcolor-lowestcolor+1
+    normalizations = dblarr(n_elements(vsMdot[*,0,0,0]), n_elements(vsMdot[0,0,*,0]),ncolors)
+    ; An array to store the # of times each color appears in the list.
+    listOfColors=intarr(highestColor-lowestColor+1)+lowestColor
+    FOR aColor=lowestColor, highestColor DO BEGIN
         FOR ti=0, n_elements(vsMdot[*,0,0,0])-1 DO BEGIN
-            IF(normalize EQ 1) THEN normalizations[ti,k] = median(vsMdot[ti,0,k,*]) ELSE medians[ti,k]=1.0
+            wh = WHERE(colors[ti,*] EQ aColor, count)
+            listOfColors[aColor-lowestColor] = count
+            IF(count NE 0) THEN BEGIN
+                FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
+                    IF(normalize EQ 1) THEN normalizations[ti,k,acolor] = median(vsMdot[ti,0,k,wh]) ELSE medians[ti,k,wh]=1.0
+                ENDFOR
+            ENDIF
         ENDFOR
     ENDFOR
 
@@ -40,12 +51,17 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
     FOR j=0, nmodels-1 DO BEGIN
         ;; loop over variables
         FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
-            laggingVar = vsMdot[nt0:(nt-1),0,k,j]/normalizations[nt0:(nt-1),k]
-            IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar)
-            mdot = vsMdot[nt0:(nt-1),0,0,j]/normalizations[nt0:(nt-1),0]
-            IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot)
-            crossCorrelations[0,*,k,j] = c_correlate(mdot,laggingVar,indgen(nt-1-nt0))
-            autoCorrelations[0,*,k,j] = c_correlate(laggingVar,laggingVar,indgen(nt-1-nt0))
+            FOR aColor=lowestColor, highestColor DO BEGIN
+                wh = WHERE(colors[0,*] EQ aColor, count)
+                IF(count GT 0) THEN BEGIN
+                    laggingVar = vsMdot[nt0:(nt-1),0,k,j]/normalizations[nt0:(nt-1),k,aColor]
+                    IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar)
+                    mdot = vsMdot[nt0:(nt-1),0,0,j]/normalizations[nt0:(nt-1),0,aColor]
+                    IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot)
+                    crossCorrelations[0,*,k,j] = c_correlate(mdot,laggingVar,indgen(nt-1-nt0))
+                    autoCorrelations[0,*,k,j] = c_correlate(laggingVar,laggingVar,indgen(nt-1-nt0))
+                ENDIF
+            ENDFOR
         ENDFOR
 
     ENDFOR
@@ -66,8 +82,8 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
 
     qualifier = ""
     IF(normalize EQ 1) THEN qualifier="normalized "
-    simpleMovie, crossCorrelations[0,1:nt-2-nt0,*,*], [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xcc", 5, axisLabels="x-corr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
-    simpleMovie, autoCorrelations[0,1:nt-2-nt0,*,*],  [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xac", 5, axisLabels="autocorr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
+;    simpleMovie, crossCorrelations[0,1:nt-2-nt0,*,*], [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xcc", 5, axisLabels="x-corr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
+;    simpleMovie, autoCorrelations[0,1:nt-2-nt0,*,*],  [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xac", 5, axisLabels="autocorr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
 
 
     simpleMovie, ccVsTime[0,1:nt-2-nt0,*,*], [0.0], ['time',names], colors, intarr(nmodels)+ls, [1,intarr(nvars)], name+"_cc", 5, axisLabels=['lag time',"x-corr "+qualifier+labelsIn], whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses

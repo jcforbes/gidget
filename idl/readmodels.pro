@@ -176,7 +176,7 @@ FUNCTION readOutput,name
   accCeiling = ExtractCmtFlt(lunCom)
   fscatter = ExtractCmtFlt(lunCom)
   invMassRatio = ExtractCmtFlt(lunCom)
-;  fcool = ExtractCmtFlt(lunCom)
+  fcool = ExtractCmtFlt(lunCom)
 
   ;; these next two are special: The user doesn't specify them; they are computed
   ;; at the beginning of a run based on whichAccretionHistory.

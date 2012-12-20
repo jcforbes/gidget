@@ -669,6 +669,38 @@ if __name__ == "__main__":
     [rs31[i].changeName("rs31"+letter(i)) for i in range(len(rs31))]
     [rs31[i].irregularVary('dbg',2**12) for i in range(len(rs31))]
 
+    # a high-mass-only case and a low-mass-only case
+    Mh0s=[1.0e9,1.0e10,1.0e12,1.0e13]
+    rs32=[experiment("rs32"+letter(i)) for i in range(len(Mh0s))]
+    [rs32[i].irregularVary("R",40) for i in range(len(rs32))]
+    [rs32[i].irregularVary("Mh0",Mh0s[i]) for i in range(len(rs32))]
+    [rs32[i].irregularVary("accScaleLength",GetScaleLengths(1,Mh0=[Mh0s[i]],scatter=1.0e-10)) for i in range(len(rs32))]
+    [rs32[i].irregularVary('diskScaleLength',GetScaleLengths(1,Mh0=[Mh0s[i]],scatter=1.0e-10)) for i in range(len(rs32))]
+    [rs32[i].vary('whichAccretionHistory',1000,1100,101,0) for i in range(len(rs32))]
+    [rs32[i].irregularVary('mu',(Mh0s[i]/1.0e12)**(-1./3.)) for i in range(len(rs32))]
+    [rs32[i].irregularVary('vphiR',220.0*(Mh0s[i]/1.0e12)**(1./3.)) for i in range(len(rs32))]
+    [rs32[i].irregularVary("NPassive",1) for i in range(len(rs32))]
+
+    rs33=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs33[i].changeName("rs33"+letter(i)) for i in range(len(rs33))]
+    [rs33[i].irregularVary('fscatter',.5) for i in range(len(rs33))]
+
+    rs34=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs34[i].changeName("rs34"+letter(i)) for i in range(len(rs34))]
+    [rs34[i].irregularVary('fscatter',.1) for i in range(len(rs34))]
+
+    rs35=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs35[i].changeName("rs35"+letter(i)) for i in range(len(rs35))]
+    [rs35[i].irregularVary('deltaOmega',.05) for i in range(len(rs35))]
+
+    rs36=copy.deepcopy(rs32[1])
+    rs36.changeName('rs36')
+    rs36.irregularVary('b',2)
+
+    rs37=copy.deepcopy(rs32[1])
+    rs37.changeName('rs37')
+    rs37.irregularVary("R",10)
+    rs37.irregularVary('xmin',.005)
 
     successTables=[]
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

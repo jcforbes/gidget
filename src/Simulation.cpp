@@ -50,23 +50,28 @@ int Simulation::runToConvergence(const double fCondition,
 
     std::vector<double> UU(nx+1,0.),LL(nx+1,0.),DD(nx+1,0.),FF(nx+1,0.), 
         UUst(nx+1,0.),LLst(nx+1,0.),DDst(nx+1,0.),FFst(nx+1,0.),
-        MdotiPlusHalf(nx+1,0.), MdotiPlusHalfStar(nx+1,0.);
+        MdotiPlusHalf(nx+1,0.), MdotiPlusHalfStar(nx+1,0.),MdotiPlusHalfMRI(nx+1,0.);
     // Initialize a 2 by nx vector to store the torque and its first derivative.
     double **tauvec;
     double **tauvecStar;
+    double **tauvecMRI;
     tauvec = new double *[3];
     tauvecStar = new double *[3];
+    tauvecMRI = new double *[3];
     for(unsigned int k=1; k<=2; ++k) {
         tauvec[k] = new double[nx+2];
         tauvecStar[k] = new double[nx+2];
+        tauvecMRI[k] = new double[nx+2];
     }
 
     // This is the equilibrium solution to the torque eq from Krumholz & Burkert 2010
-    for(unsigned int n=1; n<=nx; ++n) {
-        tauvec[1][n]=-theDisk.GetX()[n];
-        tauvec[2][n]=-1.;
+    for(unsigned int n=0; n<=nx+1; ++n) {
+        tauvec[1][n]=0.0;
+        tauvec[2][n]=0.0;
         tauvecStar[1][n] = 0.0;
         tauvecStar[2][n] = 0.0;
+        tauvecMRI[1][n] = 0.0;
+        tauvecMRI[2][n] = 0.0;
     }
 
     // Record various quantities at various time intervals at various
@@ -175,7 +180,7 @@ int Simulation::runToConvergence(const double fCondition,
 
 
         // Update the coefficients of the torque equation
-        theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar,MdotiPlusHalfStar);
+        theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar,MdotiPlusHalfStar,tauvecMRI,MdotiPlusHalfMRI);
 
 
         // Solve the torque equation. The commented versions represent various choices
@@ -195,6 +200,9 @@ int Simulation::runToConvergence(const double fCondition,
             OBC=-1.0*theDisk.dmdtCosOuter(AccRate);
         else
             OBC=-1.0*AccRate;
+
+	IBC=0.0;
+	OBC=0.0;
         theDisk.ComputeGItorque(tauvec,IBC,OBC,UU,DD,LL,FF,MdotiPlusHalf);
         //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 
@@ -210,11 +218,14 @@ int Simulation::runToConvergence(const double fCondition,
 
         // In situations where the alpha viscosity produces larger torques 
         // than the GI viscosity, use the alpha viscosity instead:
-        // theDisk.ComputeMRItorque(tauvec,alphaMRI,IBC,OBC,ndecay);
+	if(step>1) {
+	  theDisk.ComputeMRItorque(tauvecMRI,alphaMRI);
+	  ComputeFluxes(tauvecMRI,MdotiPlusHalfMRI,theDisk.GetMesh());
+	}
 
         // Given the solution to the torque equation, compute time 
         // derivatives of the state variables
-        theDisk.ComputeDerivs(tauvec,MdotiPlusHalf);
+        theDisk.ComputeDerivs(tauvec,MdotiPlusHalf,tauvecMRI,MdotiPlusHalfMRI);
 
         // Given the derivatives, compute a time step over which none of the variables
         // change by too much. whichVar tells us which state variable is limiting the timestep
@@ -240,7 +251,8 @@ int Simulation::runToConvergence(const double fCondition,
                 <<", "<<whichVar<<", "<<whichCell<<std::endl;
 
 
-        theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate,tauvecStar,MdotiPlusHalf,MdotiPlusHalfStar); 
+        theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate,tauvecStar,
+				MdotiPlusHalf,MdotiPlusHalfStar,MdotiPlusHalfMRI); 
 
 
         // update the independent variables.
@@ -303,9 +315,11 @@ int Simulation::runToConvergence(const double fCondition,
     for(unsigned int k=1; k<=2; ++k) {
         delete tauvec[k];
         delete tauvecStar[k];
+        delete tauvecMRI[k];
     }
     delete[] tauvec;
     delete[] tauvecStar;
+    delete[] tauvecMRI;
 
 
     // Tell the caller why the run halted.

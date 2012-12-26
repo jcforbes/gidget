@@ -438,7 +438,8 @@ void DiskContents::Initialize(double tempRatio, double fg0)
         (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
-void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlusHalf)
+void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlusHalf, 
+                                double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI)
 {
     //  for(unsigned int i=0; i<=nx-1; ++i) {
     //    MdotiPlusHalf[i] = (-1.0 /  mesh.u1pbPlusHalf(i)) * (tauvec[1][i+1] - tauvec[1][i]) / (x[i+1]-mesh.x(i));
@@ -472,13 +473,16 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
 
         dcoldtPrev[n] = dcoldt[n]; 
-        dcoldt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) / (mesh.dx(n) * x[n])
+        dcoldt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n]- MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n])
             -RfREC * colSFR[n] - dSdtOutflows(n) + dcoldtCos[n];
 
         dsigdtPrev[n] = dsigdt[n];
-        dsigdt[n] = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
-            - 5.0*ddx(sig,n,x,true)*tauvec[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
-            +uu[n]*(beta[n]-1.)*tauvec[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	double dsigdtMRI = (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvecMRI[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvec[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	
+        dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
+            - 5.0*ddx(sig,n,x,true)*(tauvec[2][n]+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
+            +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
         if(sig[n] >= sigth) {
             dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
                 *col[n]*dim.chi()*(1.0+activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))/3.0;
@@ -646,11 +650,12 @@ void DiskContents::AddNewStellarPop(const double redshift,
 }
 
 void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
-        const double redshift,
-        double ** tauvec, double AccRate, 
-        double ** tauvecStar, 
-        std::vector<double>& MdotiPlusHalf,
-        std::vector<double>& MdotiPlusHalfStar)
+				   const double redshift,
+				   double ** tauvec, double AccRate, 
+				   double ** tauvecStar, 
+				   std::vector<double>& MdotiPlusHalf,
+				   std::vector<double>& MdotiPlusHalfStar,
+				   std::vector<double>& MdotiPlusHalfMRI)
 {
     // some things for debugging purposes
     std::vector<double> dColStDtMeasured(nx+1,0);
@@ -717,9 +722,12 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 
 
 
-    double MIn = dt*MdotiPlusHalf[0]+dt*dmdtCosInner(AccRate);
+    double MIn = dt*MdotiPlusHalf[0]+dt*MdotiPlusHalfStar[0]+dt*MdotiPlusHalfMRI[0]+dt*dmdtCosInner(AccRate);
     //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
-    ZBulge = (ZBulge*MBulge +dt*MdotiPlusHalf[0]*ZDisk[1]+dt*dmdtCosInner(AccRate)*Z_IGM)/(MBulge + MIn);
+    ZBulge = (ZBulge*MBulge +dt*(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0])*ZDisk[1]+dt*MdotiPlusHalfStar[0]*spsActive[0]->spZ[1]+dt*dmdtCosInner(AccRate)*Z_IGM)/(MBulge + MIn);
+    if(ZBulge <= 0.0) {
+      errormsg(std::string("Nonphysical ZBulge- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulge)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDisk[1])+" "+str(dmdtCosInner(AccRate)));
+    }
     MBulge += MIn;
     CumulativeTorque+= tauvec[1][nx]*dt;
     for(unsigned int n=1; n<=nx; ++n) {
@@ -890,15 +898,21 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0, bool EnforceWhenQgrtQf)
     }
 }
 
-void DiskContents::ComputeMRItorque(double ** tauvec, const double alpha, 
-        const double IBC, const double OBC, const double ndecay)
+void DiskContents::ComputeMRItorque(double ** tauvecMRI, const double alpha) 
 {
-    std::vector<double> tauMRI(nx+1,0.0);
-    return;
+    for(unsigned int n=1; n<=nx; ++n) {
+        tauvecMRI[1][n] = -2.0*M_PI*x[n]*x[n]*col[n]*sigth*sigth*alpha;
+    }
+    tauvecMRI[1][0]=-2.0*M_PI*mesh.x((unsigned int) 0)*mesh.x((unsigned int) 0)*col[1]*sigth*sigth*alpha;
+    tauvecMRI[1][nx+1] = tauvecMRI[1][nx]; // Mdot = 0
+    // tauvecMRI[1][nx+1] = tauvecMRI[1][nx] + mesh.u1pbPlusHalf(nx)/mesh.u1pbPlusHalf(nx-1) * (mesh.x(nx+1)-x[nx])/(x[nx]-x[nx-1]) * (tauvecMRI[1][nx]-tauvecMRI[1][nx-1]); // dcoldt=0
 }
 
 // Should apply to both gas and stars
-void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const double OBC, std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF, std::vector<double>& MdotiPlusHalf)
+void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const double OBC,
+            std::vector<double>& UU, std::vector<double>& DD, 
+            std::vector<double>& LL, std::vector<double>& FF, 
+            std::vector<double>& MdotiPlusHalf)
 {  
     // Read in the given vectors to gsl_vectors suitable for tridiagonal-solving.
     for(unsigned int n=1; n<=nx; ++n) {
@@ -933,16 +947,22 @@ void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const dou
     }
 
     // Compute first derivatives and fluxes.
-    for(unsigned int n=1; n<=nx; ++n) {
-        tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
-        MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvec[1][n+1]-tauvec[1][n])/(mesh.x(n+1)-x[n]);
-    }
-    MdotiPlusHalf[0]=-1.0/mesh.u1pbPlusHalf(0) * (tauvec[1][1]-tauvec[1][0])/(x[1]-mesh.x((unsigned int) 0));
+    ComputeFluxes(tauvec,MdotiPlusHalf,mesh);
 
     // All set!.
 }
 
+void ComputeFluxes(double ** tauvec, std::vector<double>& MdotiPlusHalf, FixedMesh& mesh )
+{
+    for(unsigned int n=1; n<=mesh.nx(); ++n) {
+        tauvec[2][n] = (tauvec[1][n+1]-tauvec[1][n-1])/(mesh.x(n+1)-mesh.x(n-1));
+        MdotiPlusHalf[n] = -1.0/mesh.u1pbPlusHalf(n) * (tauvec[1][n+1]-tauvec[1][n])/(mesh.x(n+1)-mesh.x(n));
+    }
+    MdotiPlusHalf[0]=-1.0/mesh.u1pbPlusHalf(0) * (tauvec[1][1]-tauvec[1][0])/(mesh.x((unsigned int) 1)-mesh.x((unsigned int) 0));
 
+    if(MdotiPlusHalf[0] < 0.0)
+      errormsg("Negative MdotiPlusHalf:  "+str(mesh.u1pbPlusHalf(0))+" "+str(tauvec[1][1])+" "+str(tauvec[1][0])+" "+str(mesh.x((unsigned int) 1))+" "+str(mesh.x((unsigned int) 0)) );
+}
 
 void DiskContents::DiffuseMetals(double dt)
 {
@@ -1356,7 +1376,10 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
 
 }
 
-void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF,double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar)
+void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::vector<double>& DD,
+            std::vector<double>& LL, std::vector<double>& FF,
+            double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar, 
+            double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI)
 {
     double absc = 1.;
     RafikovQParams rqp;
@@ -1390,7 +1413,14 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
                 + spsActive[i]->dQdS[n] * dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol);
         }
 
+        FF[n] -= dQdS[n] * ((MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n]));
 
+        FF[n] -= dQds[n] * ( (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
+                - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]) 
+                +uu[n]*(beta[n]-1.)*tauvecMRI[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]) );
+
+        
+        
         //if(redshift <.1 && n>=20 && n<=40) {
         //    std::cout << "Components of torque eq: n, S,sR,sZ "<<n<<" "<<spsActive[i].dQdsR[n] * dSigStRdt(n,i,redshift,spsActive,tauvecStar)<<" "<<
         //}

@@ -141,4 +141,7 @@ PRO setct,which,n,colorRef
 
 ;	stop,which
 	TVLCT,r,g,b
+
+
+    !p.background=255
 END

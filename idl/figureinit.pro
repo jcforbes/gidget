@@ -29,6 +29,8 @@ PRO figureInit,nm,sv,nx,ny
 	!y.thick=2.5
 	!z.thick=2.5
 
+
+
 	IF(sv EQ 4) THEN BEGIN
 		set_plot,'z'
 		cgDisplay,1024*nx,1024*ny
@@ -43,4 +45,5 @@ PRO figureInit,nm,sv,nx,ny
 
 		
 	ENDIF
+    !p.background=255
 END

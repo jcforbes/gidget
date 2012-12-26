@@ -54,7 +54,10 @@ class DiskContents {
   void ComputePartials();
 
   void UpdateStTorqueCoeffs( std::vector<double>& UUst, std::vector<double>& DDst, std::vector<double>& LLst, std::vector<double>& FFst);
-  void UpdateCoeffs(double redshift,std::vector<double>& UU, std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF,double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar);
+  void UpdateCoeffs(double redshift,std::vector<double>& UU, std::vector<double>& DD,
+		    std::vector<double>& LL, std::vector<double>& FF,
+		    double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar,
+		    double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI);
 
   // Diffuse metals in such a way that the total mass in 
   // metals is conserved. This diffusion is not meant to 
@@ -70,7 +73,8 @@ class DiskContents {
   double activeSigStZ(unsigned int n);
   double ComputeQst(unsigned int n);
   // void TridiagonalWrapper(unsigned int,unsigned int);
-  void ComputeGItorque(double**,const double,const double,std::vector<double>& UU,std::vector<double>& DD, std::vector<double>& LL, std::vector<double>& FF, std::vector<double>& MdotiPlusHalf);
+  void ComputeGItorque(double**,const double,const double,std::vector<double>& UU,std::vector<double>& DD, 
+          std::vector<double>& LL, std::vector<double>& FF, std::vector<double>& MdotiPlusHalf);
 //  void TauPrimeFromTau(double**);
 
   // At a given cell, compute the fraction of gas which is 
@@ -103,7 +107,8 @@ class DiskContents {
   // and the purely time dependent properties to a different file
   void WriteOutStepFile(std::string filename,AccretionHistory & acc, 
                         double t, double z, double dt, 
-                        unsigned int step,double **tauvec,double **tauvecStar,std::vector<double>& MdotiPlusHalf);
+                        unsigned int step,double **tauvec,double **tauvecStar,
+                        std::vector<double>& MdotiPlusHalf);
 
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};
@@ -124,7 +129,8 @@ class DiskContents {
 
   // Compute the time derivatives of all state variables 
   // at all radii.
-  void ComputeDerivs(double **tauvec,std::vector<double>& MdotiPlusHalf);
+  void ComputeDerivs(double **tauvec,std::vector<double>& MdotiPlusHalf,
+                  double ** tauvecMRI,std::vector<double>& MdotiPlusHalfMRI);
 
   // Given the state variables and their derivatives, 
   // compute a time step such that no quantity is 
@@ -138,7 +144,8 @@ class DiskContents {
 		       const double redshift,double **tauvec,double AccRate,
                        double **tauvecStar,
 		       std::vector<double>& MdotiPlusHalf,
-		       std::vector<double>& MdotiPlusHalfStar);
+		       std::vector<double>& MdotiPlusHalfStar,
+		       std::vector<double>& MdotiPlusHalfMRI);
 
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
@@ -187,7 +194,7 @@ class DiskContents {
   // computed by ComputeTorques, replace tau and tau' with 
   // the values computed here. The idea is that if GI shuts down
   // and MRI still operates, let the gas be transported by MRI.
-  void ComputeMRItorque(double **tauvec, const double alphaMRI, const double IBC, const double OBC,const double ndecay);
+  void ComputeMRItorque(double **tauvec, const double alphaMRI);
 
   // Store enough information to initialize a simulation in 
   // the Initializer object in.
@@ -323,3 +330,7 @@ class DiskContents {
 
   const unsigned int NActive, NPassive;
 };
+
+  void ComputeFluxes(double ** tauvec,std::vector<double>& MdotiPlusHalf,FixedMesh & mesh);
+
+

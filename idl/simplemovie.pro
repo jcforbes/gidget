@@ -74,6 +74,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
   wf = n_elements(whichFrames)-1
 
+  SETCT,1,n_elements(styles),2
+
+
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   FOR k=1,n_elements(labels)-1 DO BEGIN    
     fn=name+"_"+labels[k]
@@ -81,7 +84,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     set_plot,'x'
     IF(sv EQ 3 || sv EQ 4) THEN set_plot,'z'
     IF(cg NE 1) THEN WINDOW,1,XSIZE=1024,YSIZE=1024,RETAIN=2
-    IF(sv EQ 3 || sv EQ 4 ) THEN cgDisplay,1024,1024
+    IF(sv EQ 3 || sv EQ 4 ) THEN cgDisplay,1024,1024,color=255
     IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([1024,1024],FILENAME=(fn+".mpg"))
     IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
       FILE_MKDIR,dn
@@ -90,9 +93,11 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     	IF (wf GT 6) THEN message,"You have requested an unreasonable number of frames for a single plot."
 	    ;cs = .3
         figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal*wf,1+(1-horizontal)*wf
-	    IF(wf NE 0) THEN multiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square
+	    IF(wf NE 0) THEN modmultiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square;,mxtitle=axisLabels[0],mytitle=axislabels[k],gap=.003,mxtitsize=cs,mytitsize=cs
 	    IF(wf NE 0) THEN !p.noerase=0
     ENDIF
+
+	setct,1,n_elements(styles),2
 
     symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
     IF(NIndVarBins GT 0) THEN symsize = symsize/3.0
@@ -107,7 +112,6 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(sv EQ 5 and tii NE 0 and wf NE 0) THEN !p.noerase=1
       ti = whichFrames[tii]
       count=count+1
-      SETCT,1,n_elements(styles),2
 
       ;; If this variable k is included in strt, draw a dashed line y=x.
       ;; Either way, this long statement draws the first plot for this frame.
@@ -143,7 +147,6 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
         ;; Set the color table.	
 ;        IF(n_elements(styles) GT 80) THEN IF(sv NE 3 AND sv NE 4) THEN setct,5,n_elements(styles),j ELSE setct,3,n_elements(styles),0
-	setct,1,n_elements(styles),j
         
         ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
         OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
@@ -176,7 +179,6 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 		              theCurves[indVarIndex, *, aColor] = percentiles((data[ti,0,k,subset])[thisIndBin],percentileList,wrtXlog[k])
 
                   ENDFOR ; end loop over independent variable bins.
-		  ;stop
                   FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2,PSYM=-2,SYMSIZE=symsize*3
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
@@ -193,7 +195,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
           FOR aColor=0, ncolors-1 DO BEGIN
               subset = WHERE(aColor EQ colors[ti,*], NInThisSubset)
 ;              binCenters = dblarr(NIndVarBins)
-              binCenters = data[0,*,0,0]
+              binCenters = data[0,*,0,MIN(subset)]
               IF(NInThisSubset GT 0) THEN BEGIN
                   FOR indVarIndex=0, n_elements(binCenters)-1 DO BEGIN
                       ;; the differences with the above IF block begin here. 
@@ -218,7 +220,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_'+string(count,FORMAT="(I4.4)") + '.png',TVRD(TRUE=1)
       IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count-1,FORMAT="(I4.4)")),/png,/true,/nodialog) 
       IF(sv EQ 0) THEN wait,.05
-      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN multiplot
+      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN modmultiplot
     ENDFOR ;; end loop over time indices
     IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
     IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
@@ -228,7 +230,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     IF(sv EQ 5) THEN BEGIN
     	figureClean,(fn+"_timeSeries"),svSinglePlot
         if(svSinglePlot EQ 2) THEN latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]],[.6,.6],height=8.89*(2-horizontal),width=8.89*(1+horizontal)
-        IF(wf NE 0) THEN multiplot,/default
+        IF(wf NE 0) THEN modmultiplot,/default
     ENDIF
     set_plot,'x'
   ENDFOR ;; end loop over dependent variables

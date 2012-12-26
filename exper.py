@@ -660,17 +660,19 @@ if __name__ == "__main__":
     [rs20[i].changeName("rs20"+letter(i)) for i in range(len(rs20))]
 
 
+    # do a study of different input angular momentum:
     scLengthMult=[1.0,4.0]
     rs30=[copy.deepcopy(rs02) for i in range(len(scLengthMult))]
     [rs30[i].changeName("rs30"+letter(i)) for i in range(len(rs30))]
     [rs30[i].multiply('accScaleLength',scLengthMult[i]) for i in range(len(rs30))]
 
+    # another ang mom study, but explicitly set torque to zero everywhere
     rs31=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
     [rs31[i].changeName("rs31"+letter(i)) for i in range(len(rs31))]
     [rs31[i].irregularVary('dbg',2**12) for i in range(len(rs31))]
 
     # a high-mass-only case and a low-mass-only case
-    Mh0s=[1.0e9,1.0e10,1.0e12,1.0e13]
+    Mh0s=[1.0e9,1.0e10,1.0e11,1.0e12,1.0e13]
     rs32=[experiment("rs32"+letter(i)) for i in range(len(Mh0s))]
     [rs32[i].irregularVary("R",40) for i in range(len(rs32))]
     [rs32[i].irregularVary("Mh0",Mh0s[i]) for i in range(len(rs32))]
@@ -702,7 +704,45 @@ if __name__ == "__main__":
     rs37.irregularVary("R",10)
     rs37.irregularVary('xmin',.005)
 
+    rs38=copy.deepcopy(rs37)
+    rs38.changeName('rs38')
+    rs38.irregularVary('b',2)
+
+    rs39=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs39[i].changeName("rs39"+letter(i)) for  i in range(len(rs39))]
+    [rs39[i].irregularVary('epsff',.005) for i in range(len(rs39))]
+
+    rs40=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs40[i].changeName("rs40"+letter(i)) for i in range(len(rs40))]
+    [rs40[i].irregularVary('eta',.5) for i in range(len(rs40))]
+
+    rs41=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs41[i].changeName("rs41"+letter(i)) for i in range(len(rs41))]
+    [rs41[i].irregularVary('vphiR',list(150.0*(np.array(Mh0s101)/1.0e12)**(1./3.)),3) for i in range(len(rs41))]
+
+    rs42=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs42[i].changeName("rs42"+letter(i)) for  i in range(len(rs42))]
+    [rs42[i].irregularVary('mu',list(.1*(np.array(Mh0s101)/1.0e12)**(-1./3.)),3) for i in range(len(rs42))]
+
+    rs43=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs43[i].changeName("rs43"+letter(i)) for i in range(len(rs43))]
+    [rs43[i].irregularVary("kappaMetals",1.0e-4) for i in range(len(rs43))]
+
+    rs44=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs44[i].changeName("rs44"+letter(i)) for i in range(len(rs44))]
+    [rs44[i].irregularVary("kappaMetals",1.0e-2) for i in range(len(rs44))]   
+    
+    rs45=[copy.deepcopy(rs32[i]) for i in range(len(rs32))]
+    [rs45[i].changeName("rs45"+letter(i)) for i in range(len(rs45))]
+    [rs45[i].irregularVary("accScaleLength",GetScaleLengths(1,Mh0=[Mh0s[i]],scatter=1.0e-10)[0]*4.0) for i in range(len(rs45))]
+
+    rs46=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs46[i].changeName("rs46"+letter(i)) for i in range(len(rs46))]
+    [rs46[i].irregularVary("alphaMRI",0.1) for i in range(len(rs46))]
+    
+    
     successTables=[]
+
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())
         # for each such key (aModel) check whether this inputString is contained in its name

@@ -91,7 +91,7 @@ PRO variability3,expNames,keys,N,sv
   wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk']
 ;  wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
 ;    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9],[1.0e8,1.0e10],[1.0e8,1.0e10],[.01,100]]
-  wrtXyl=[1,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,1] ;; log plot 18
+  wrtXyl=[1,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,0] ;; log plot 18
 
   IF(n_elements(keys) EQ 0) THEN keys=indgen(n_elements(wrtXyt)-1)+1
 
@@ -100,6 +100,8 @@ PRO variability3,expNames,keys,N,sv
 
   ;; only plot the variables present in 'keys'	
   tk = [[0],keys]
+  netk = n_elements(tk)
+  IF(netk GT n_elements(wrtXyt)) THEN tk=tk[0:n_elements(wrtXyt)-1]
   wrtXyt=wrtXyt[tk]
   wrtXyy=wrtXyy[tk]
   wrtXyp=wrtXyp[tk]
@@ -118,6 +120,7 @@ PRO variability3,expNames,keys,N,sv
 
   whichFrames = indgen(theNTS) ;; plot every output
   whichFrames = indgen((theNTS+2)/3)*3 ; plot every 3rd output.
+  whichFrames3 = [1,51,201] ;; roughly z=2,1,0
 
   time = model.evArray[1,*]  
   z = model.evArray[10-1,*]
@@ -263,15 +266,9 @@ PRO variability3,expNames,keys,N,sv
     FOR j=0,n_elements(theData[*,0,0,0])-1 DO BEGIN ;; loop over time
       FOR k=1,n_elements(wrtXyy)-1 DO BEGIN ;; loop over variables
         FOR xx=0,n_elements(theData[0,*,0,0])-1 DO BEGIN ;; loop over x-coord
-	  ;;; Sort the models, within each experiment
+    	  ;;; Sort the models, within each experiment
           intervals[j,xx,k,(expInd-1)*nper:(expInd)*nper-1] = percentiles(theData[j,xx,k,low:high],thePercentiles,wrtXyl[k])
-          ;stop
-
-;	  srtd = sort(theData[j,xx,k,low:high])
-;          sortdData[j,xx,k,low:high] = theData[j,xx,k,low+srtd]
-          IF(xx EQ 4 AND j EQ n_elements(theData[*,0,0,0])-1) THEN BEGIN
-          ENDIF
-	ENDFOR ;; end loop over x-coord 
+	    ENDFOR ;; end loop over x-coord 
       ENDFOR ;; end loop over variables
     ENDFOR ;; end loop over time
   ENDFOR ;; end loop over experiments
@@ -283,10 +280,6 @@ PRO variability3,expNames,keys,N,sv
   FOR expInd=1, n_elements(expNames) DO BEGIN
     low=modelcounter[expInd-1]
     high=modelcounter[expInd]-1
-;    delta = high-low
-;    intervals[*,*,*, (expInd-1)*3+0]=sortdData[*,*,*, fix(low+.025*delta)] ;; fix(low+.025*(high-low))
-;    intervals[*,*,*, (expInd-1)*3+1]=sortdData[*,*,*, fix(low+.5*delta)]
-;    intervals[*,*,*, (expInd-1)*3+2]=sortdData[*,*,*, fix(low+.975*delta)]
     colors[*,low:high] = expInd-1
   ENDFOR
 
@@ -322,8 +315,12 @@ PRO variability3,expNames,keys,N,sv
   expName2 = expName2 + '_' + strcompress(string(MIN([n_elements(nameList2),N*n_elements(expNames)])),/remove) ;; e.g. rk5_rk6_113
 
   unsRanges = simpleRanges(theData[2:n_elements(time)-1,*,*,*],wrtXyl)
-  unsRanges[0,[1,3]] = 1.0 ;; manually set minimum col and colst to 1 Msun/pc^2
-  unsRanges[0,7] =  1.0d-5 ;; manually set min SFR col density to 10^-5 Msun/yr/kpc^2
+  unsRanges[0,[1,3]] = 0.1 ;; manually set minimum col and colst to 1 Msun/pc^2
+  unsRanges[0,7] =  1.0d-6 ;; manually set min SFR col density to 10^-5 Msun/yr/kpc^2
+  unsRanges[1,[8,9,10]] = 50.0 ;; manually set max Q,Qgas,Qst
+  unsRanges[0,17] = -2.0
+  unsRanges[1,17] = 4.0
+  
   IF(n_elements(nameList2) GT 50) THEN BEGIN
       setct,1,0,0
       linestyles = intarr(n_elements(expNames)*3)+2
@@ -333,7 +330,7 @@ PRO variability3,expNames,keys,N,sv
       intervalsColors = intarr(n_elements(time),n_elements(intervalsColors0))
       FOR tt=0,n_elements(time)-1 DO intervalsColors[tt,*] = intervalsColors0 
       simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",sv,axislabels=wrtXyt,whichFrames=whichFrames,ranges=unsRanges
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",5,axislabels=wrtXyt,whichFrames=[n_elements(z)-1],ranges=unsRanges
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals",5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+3
   ENDIF
 
   setct,3,n_elements(theData[0,0,0,*]),0
@@ -342,7 +339,7 @@ PRO variability3,expNames,keys,N,sv
 
 ;  IF(n_elements(nameList2) LT 105) THEN BEGIN 	
     simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,axislabels=wrtXyt,whichFrames=whichFrames,ranges=unsRanges
-    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",5,axislabels=wrtXyt,whichFrames=[n_elements(z)-1],ranges=unsRanges
+    simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1
 ;  ENDIF
 	
 
@@ -461,13 +458,13 @@ PRO variability3,expNames,keys,N,sv
   ENDIF
 
 
-  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2,sv=4,nt0=2,thicknesses=thicknesses
+;  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2,sv=4,nt0=2,thicknesses=thicknesses
   ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2+"_log",sv=4,nt0=2,thicknesses=thicknesses,logarithms=vsMdotToLog
 
   ;; Now make some standalone plots.
   ; roughly redshifts 2,1.5,1,.5,0 are [1,20,51,104,201]
 ;  simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstar",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201]
-  IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarDist",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],NIndVarBins=5
+;  IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarDist",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],NIndVarBins=5
 ;  simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarH",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],horizontal=1
   IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarDistH",5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201],NIndVarBins=5,horizontal=1
   

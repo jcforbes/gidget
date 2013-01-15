@@ -15,10 +15,12 @@ FUNCTION simpleranges,data,wrtxlog
       IF(ct NE 0) THEN ranges[0,k] = MIN(flat[ind]) ELSE ranges[0,k]=.1
       IF(ct NE 0) THEN med = median(flat[ind]) ELSE med =1
       IF(ct EQ 0) THEN ranges[*,k] = [.1,1]
-      fac = 1.0e9
+      fac = 1.0e7
       ;; Set a maximum dynamic range so that a few bad apples don't spoil the readability of the plot
       IF(ranges[1,k] / ranges[0,k] GT fac) THEN BEGIN
-	  IF(med GT ranges[1,k]/fac) THEN ranges[0,k] = ranges[1,k]/fac ELSE ranges[1,k]=ranges[0,k]*fac
+          ; If we're going to limit ourselves to some dynamic range, we have to decide 
+          ; to anchor to the minimum or maximum. We try to anchor to the one containing the median value..
+    	  IF(med GT ranges[1,k]/fac) THEN ranges[0,k] = ranges[1,k]/fac ELSE IF(med LT ranges[0,k]*fac) THEN ranges[1,k]=ranges[0,k]*fac ELSE ranges[0:1,k] = [1.0/sqrt(fac), sqrt(fac)]
       ENDIF
     ENDIF
 

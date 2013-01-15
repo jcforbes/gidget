@@ -35,13 +35,7 @@
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
 
 PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSingePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges
-  chth=1
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
-  IF(sv EQ 1) THEN cs=1 ELSE cs=2.8
-  IF(sv EQ 4) THEN BEGIN 
-    cs=2.5
-    chth=2
-  ENDIF
 
   PRINT, "Starting to make the files of the form: ", name,"*"
 
@@ -69,8 +63,10 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(percentileList) EQ 0) THEN percentileList=[.17,.5,.83]
   IF(n_elements(svSinglePlot) EQ 0) THEN svSinglePlot = 4
   IF(n_elements(strt) EQ 0) THEN strt = intarr(n_elements(labels))
-  IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+1
-  IF(sv EQ 4) THEN thicknesses= 3*temporary(thicknesses)
+  IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+2
+  IF(sv EQ 4) THEN thicknesses= 3+temporary(thicknesses)
+  chth = thicknesses[0]
+  cs =0.8* thicknesses[0]
 
   wf = n_elements(whichFrames)-1
 

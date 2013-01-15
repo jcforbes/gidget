@@ -55,6 +55,11 @@ double GenerateLogNormal(double zstart,double zrelax, Cosmology& cos,
 				Cosmology& cos, std::string fn, 
 				bool writeOut,bool MhAtz0,double zquench);
 
+  double GenerateBursty( double zstart, 
+				Cosmology& cos, std::string fn, 
+				bool writeOut,bool MhAtz0,double zquench, double deltaz, double fscatter);
+
+
   // Generate an accretion history which is just constant with redshift
   double GenerateConstantAccretionHistory(double rate,double zstart,Cosmology& cos,
 				std::string fn,bool writeOut);

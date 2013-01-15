@@ -33,7 +33,7 @@ PRO figureInit,nm,sv,nx,ny
 
 	IF(sv EQ 4) THEN BEGIN
 		set_plot,'z'
-		cgDisplay,1024*nx,1024*ny
+		cgDisplay,4096*nx,4096*ny
 	ENDIF
 	
 

@@ -14,6 +14,8 @@
 #include "Debug.h"
 #include "FixedMesh.h"
 #include "Dimensions.h"
+#include "AccretionProfile.h"
+
 
 Simulation::Simulation(const double tm, const long int sm,
         const bool co,   const unsigned int nnx,
@@ -21,7 +23,8 @@ Simulation::Simulation(const double tm, const long int sm,
         const unsigned int na, const unsigned int np,
         const double amri,const double sth, 
         DiskContents& td,
-        AccretionHistory& ah, Debug& db, Dimensions& dm):
+        AccretionHistory& ah, Debug& db, Dimensions& dm,
+        AccretionProfile& ap):
     tmax(tm), stepmax(sm),
     cosmologyOn(co),nx(nnx),
     TOL(tl), zstart(zs),
@@ -29,6 +32,7 @@ Simulation::Simulation(const double tm, const long int sm,
     alphaMRI(amri),sigth(sth),
     theDisk(td),
     accr(ah),
+    accProf(ap),
     dbg(db),
     dim(dm)
 {
@@ -141,7 +145,7 @@ int Simulation::runToConvergence(const double fCondition,
             theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
             theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
 
-            theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
+            theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf,accProf.GetProfile());
 
             writeIndex++;
 
@@ -160,12 +164,11 @@ int Simulation::runToConvergence(const double fCondition,
             theDisk.AddNewStellarPop(z,dt,theDisk.passive(),false);
 
 
-        // Set the non-dimensional accretion rate at this redshift. Used to set
-        // the boundary conditions of the torque equation.
+        // Look up the non-dimensional accretion rate at this redshift. 
         if(cosmologyOn) AccRate = accr.AccOfZ(z);
         else AccRate = 1.;
-
-        theDisk.ComputedSdTCos(AccRate);
+        
+        accProf.UpdateProfile(accr.MhOfZ(z));
 
         // Given the user's freedom to specify the accretion history, make sure
         // the accretion rate remains non-negative.
@@ -180,29 +183,16 @@ int Simulation::runToConvergence(const double fCondition,
 
 
         // Update the coefficients of the torque equation
-        theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar,MdotiPlusHalfStar,tauvecMRI,MdotiPlusHalfMRI);
+        theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar,MdotiPlusHalfStar,tauvecMRI,MdotiPlusHalfMRI, accProf.GetProfile(), AccRate);
 
 
         // Solve the torque equation. The commented versions represent various choices
         // for the boundary conditions
         //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin/pow(xmin,1./(1.-nx)),-1.*AccRate);
         //    disk.ComputeTorques(tauvec,0.,-1.*AccRate);
-        double IBC = 2.0*M_PI*theDisk.GetX()[1]*theDisk.GetX()[1]*theDisk.GetCol()[1]*alphaMRI*sigth*theDisk.GetSig()[1]*(theDisk.GetBeta()[1]-1.0);
-        if(dbg.opt(17)) {
-            // IBC = -1.0*AccRate*theDisk.GetMesh().x(0.0); // b
-            IBC = -1.0*.01*theDisk.GetMesh().x(0.0); // c
-        }
-        if(dbg.opt(18)) {
-            IBC = -1.0*theDisk.GetMesh().x(0.0); // d
-        }
-        double OBC;
-        if(!dbg.opt(8))
-            OBC=-1.0*theDisk.dmdtCosOuter(AccRate);
-        else
-            OBC=-1.0*AccRate;
 
-	IBC=0.0;
-	OBC=0.0;
+        double IBC=0.0;
+        double OBC=0.0;
         theDisk.ComputeGItorque(tauvec,IBC,OBC,UU,DD,LL,FF,MdotiPlusHalf);
         //    disk.ComputeTorques(tauvec,-1.*AccRate*xmin,-1.*AccRate);
 
@@ -225,7 +215,9 @@ int Simulation::runToConvergence(const double fCondition,
 
         // Given the solution to the torque equation, compute time 
         // derivatives of the state variables
-        theDisk.ComputeDerivs(tauvec,MdotiPlusHalf,tauvecMRI,MdotiPlusHalfMRI);
+        theDisk.ComputeDerivs(tauvec,MdotiPlusHalf,
+                tauvecMRI,MdotiPlusHalfMRI,
+                accProf.GetProfile(),AccRate);
 
         // Given the derivatives, compute a time step over which none of the variables
         // change by too much. whichVar tells us which state variable is limiting the timestep
@@ -252,7 +244,7 @@ int Simulation::runToConvergence(const double fCondition,
 
 
         theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate,tauvecStar,
-				MdotiPlusHalf,MdotiPlusHalfStar,MdotiPlusHalfMRI); 
+				MdotiPlusHalf,MdotiPlusHalfStar,MdotiPlusHalfMRI,accProf.fInner()); 
 
 
         // update the independent variables.
@@ -302,7 +294,7 @@ int Simulation::runToConvergence(const double fCondition,
 
         theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
         theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-        theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf);
+        theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf,accProf.GetProfile());
 
         writeIndex++;
         std::cout << "Writing out file "<<writeIndex<<" at z= "<<z<<std::endl;

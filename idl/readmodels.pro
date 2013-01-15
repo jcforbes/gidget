@@ -60,7 +60,8 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "log col","log colst","log vrg","log vrst","gas J/area",$	   ;; 24..27
     "star J/area","cumulative outflow J/area",$			   ;; 28..30
     "average age at z=0","average present age",$		   ;; 31..32
-    "-tau","-tau'","depletion time","viscous time","tDep/tVisc"] ;; 33..34
+    "-tau","-tau'","depletion time","viscous time","tDep/tVisc", $ ;; 33..37
+    "tvisc^-1 (yr^-1)","Ratio w univ prof"] ;; 38..39
 
   FOR i=0, npassive DO BEGIN
     pop=strcompress(STRING(i),/remove)
@@ -119,6 +120,11 @@ END
 ;; Read in the output from one run, and do some post-processing.
 FUNCTION readOutput,name
   ncolconv=11 ;; number of columns in _convergence.dat file
+    speryear=31556926.0
+    kmperkpc=3.08568025d16
+    pcperkpc=1d3
+
+
 
   ;;; Read the comment file for this run. This contains all
   ;;; of the parameters that the user has the ability to provide.
@@ -177,12 +183,18 @@ FUNCTION readOutput,name
   fscatter = ExtractCmtFlt(lunCom)
   invMassRatio = ExtractCmtFlt(lunCom)
   fcool = ExtractCmtFlt(lunCom)
+  whichAccretionProfile = ExtractCmtFlt(lunCom)
+  alphaAccProf = ExtractCmtFlt(lunCom)
+  accWidth = ExtractCmtFlt(lunCom)
 
   ;; these next two are special: The user doesn't specify them; they are computed
   ;; at the beginning of a run based on whichAccretionHistory.
-  md0 = ExtractCmtFlt(lunCom)
-  ND08attempts = ExtractCmtL(lunCom)
-  
+  genOPEN,lunComAux,(name+"_aux.txt"),/get_lun
+  READF,lunComAux,dummy
+  READF,lunComAux,dummy
+  md0 = ExtractCmtFlt(lunComAux)
+  ND08attempts = ExtractCmtL(lunComAux)
+  FREE_LUN,luncomaux 
 
   ;; Now we need to rescale some values for mh0!=1e12
  ; MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
@@ -333,16 +345,19 @@ FUNCTION readOutput,name
     beta=b*b/(b*b+x*x)
 
     FOR i=0,NPassive DO BEGIN
-	shc[*,i,*,STVars-4] = shc[*,i,*,1]*dataCube[*,*,0]*Radius/u;; scale height
-	shc[*,i,*,STVars-3] = shc[*,i,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shc[*,i,*,0]) ;; Q_i
-	shc[*,i,*,STVars-2] = shc[*,i,*,2] - shc[*,i,*,3] ;; Z - sigma_Z
-	shc[*,i,*,STVars-1] = shc[*,i,*,2] + shc[*,i,*,3] ;; Z + sigma_Z
+	    shc[*,i,*,STVars-4] = shc[*,i,*,1]*dataCube[*,*,0]*Radius/u;; scale height
+    	shc[*,i,*,STVars-3] = shc[*,i,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shc[*,i,*,0]) ;; Q_i
+	    shc[*,i,*,STVars-2] = shc[*,i,*,2] - shc[*,i,*,3] ;; Z - sigma_Z
+    	shc[*,i,*,STVars-1] = shc[*,i,*,2] + shc[*,i,*,3] ;; Z + sigma_Z
+        shc[*,i,*,0] = shc[*,i,*,0]*md0*kmperkpc/(vphiR*Radius*speryear*1.0e6)
+        shc[*,i,*,1] = shc[*,i,*,1]*vphiR
+        shc[*,i,*,2] = shc[*,i,*,2]*vphiR
     ENDFOR
     FOR ii=0,NActive DO BEGIN
-	shcA[*,ii,*,STVars-4] = shcA[*,ii,*,1]*dataCube[*,*,0]*Radius/u;; scale height
-	shcA[*,ii,*,STVars-3] = shcA[*,ii,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shcA[*,ii,*,0]) ;; Q_i
-	shcA[*,ii,*,STVars-2] = shcA[*,ii,*,2] - shcA[*,ii,*,3] ;; Z - sigma_Z
-	shcA[*,ii,*,STVars-1] = shcA[*,ii,*,2] + shcA[*,ii,*,3] ;; Z + sigma_Z
+    	shcA[*,ii,*,STVars-4] = shcA[*,ii,*,1]*dataCube[*,*,0]*Radius/u;; scale height
+	    shcA[*,ii,*,STVars-3] = shcA[*,ii,*,1]*sqrt(2*(beta+1))*u/(!pi*chi*dataCube[*,*,0]*shcA[*,ii,*,0]) ;; Q_i
+    	shcA[*,ii,*,STVars-2] = shcA[*,ii,*,2] - shcA[*,ii,*,3] ;; Z - sigma_Z
+	    shcA[*,ii,*,STVars-1] = shcA[*,ii,*,2] + shcA[*,ii,*,3] ;; Z + sigma_Z
     ENDFOR
     starsHyperCube=(temporary(shc))[*,*,*,*]
     starsHyperCubeA=(temporary(shcA))[*,*,*,*]
@@ -438,9 +453,7 @@ FUNCTION readOutput,name
     ENDFOR
 
 
-    speryear=31556926.0
-    kmperkpc=3.08568025d16
-    pcperkpc=1d3
+
 
     tdc[*,*,ncolstep+33-1] = -tdc[*,*,1] ;; - tau ( for purposes of log plotting)
     tdc[*,*,ncolstep+34-1] = -tdc[*,*,2] ;; - tau'    '''
@@ -451,13 +464,22 @@ FUNCTION readOutput,name
     tdc[*,*,ncolstep+36-1] = tdc[*,*,ncolstep+9-1]*kmperkpc/((tdc[*,*,ncolstep+17-1]+.00001)*speryear);; viscous time = r / v_r --- kpc/(km/s)
     tdc[*,*,ncolstep+37-1] = tdc[*,*,ncolstep+35-1]/tdc[*,*,ncolstep+36-1];; depletion time / viscous time
     
+    tdc[*,*,ncolstep+38-1] = tdc[*,*,ncolstep+17-1]*speryear / (tdc[*,*,ncolstep+9-1]*kmperkpc) ; year^-1
+    FOR ti=0, n_elements(tdc[*,0,0])-1 DO BEGIN
+        wh = WHERE((tdc[ti,0:(nx-2),ncolstep+48-1]-0.5)*(tdc[ti,1:(nx-1),ncolstep+48-1]-0.5) LE 0.0, count)
+        IF(count LE 0) THEN colTrans = 10 ; shrug
+        IF(count GE 1) THEN colTrans = sqrt(tdc[ti,wh[count-1],ncolstep+10-1] * tdc[ti,wh[count-1]+1,ncolstep+10-1])
+        dummy = MIN(abs(tdc[ti,*,ncolstep+12-1] - 6.619),index)
+        x25 = tdc[ti,index,0]
+        ; dimensionless ratio of real value over predicted value by Bigiel & Blitz
+        tdc[ti,*,ncolstep+39-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25))
+    ENDFOR
 
     tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
-    tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr)
+    tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr) 
 
     dlnx=-alog(tdc[0,0,0])/float(n_elements(tdc[0,*,0])-1)
 
-;;;;;	tdc[*,*,40-1]=tdc[*,*,52-1] * 2*!pi*tdc[*,*,0]*tdc[*,*,0]*dlnx*md0*radius/vphiR * kmperkpc/speryear ;; cumulative star formation in a given cell - solar masses
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined
 	initialStellarMass = dblarr(nt,nx)
 	initialGasMass = dblarr(nt,nx)
@@ -465,29 +487,7 @@ FUNCTION readOutput,name
 		initialStellarMass[n,*] = tdc[0,*,ncolstep+11]
 		initialGasMass[n,*] = tdc[0,*,ncolstep+9]
 	ENDFOR
-;;;;;	tdc[*,*,41-1]=(tdc[*,*,ncolstep+11]-initialStellarMass)  * 2.0*!pi*tdc[*,*,ncolstep+8]*dlnx*tdc[*,*,ncolstep+8] * pcperkpc*pcperkpc
-;;;;;	tdc[*,*,42-1]=(tdc[*,*,ncolstep+9]-InitialGasMass) * 2.0*!pi*tdc[*,*,ncolstep+8]*dlnx*tdc[*,*,ncolstep+8] * pcperkpc*pcperkpc
 
-;;;;;	tdc[*,0:nx-2,45-1]=tdc[*,1:nx-1,38-1]
-;;;;;	tdc[*,0:nx-2,46-1]=tdc[*,1:nx-1,39-1]
-;;;;;	tdc[*,nx-1,45-1] = evArray[17-1,*]*0 ;; stars (no stars migrating through the boundary)
-;;;;;	tdc[*,nx-1,46-1] = evArray[17-1,*] ;; gas
-;;;;;	tdc[*,*,ncolstep+20-1] = tdc[*,*,46-1] - tdc[*,*,39-1] - (Rf+MLF)*tdc[*,*,40-1] ;gas
-;;;;;;	tdc[*,*,ncolstep+21-1] = tdc[*,*,45-1] - tdc[*,*,38-1] + Rf*tdc[*,*,40-1] ;star
-	
-;;;;;	fracErrGas=dblarr(nt,nx)
-;;;;;	fracErrSt =dblarr(nt,nx)
-;;;;;;	tdc[*,*,ncolstep+22-1] 
-;;;;;	fracErrGas = abs((tdc[*,*,ncolstep+20-1] - tdc[*,*,42-1])/(ABS(tdc[*,*,42-1])+.0000001))
-;;;;;;	tdc[*,*,ncolstep+23-1] 
-;;;;;	fracErrSt= abs((tdc[*,*,ncolstep+21-1] - tdc[*,*,41-1])/(ABS(tdc[*,*,41-1])+.0000001))
-
-;;;;;	largeErr = where(ABS(fracErrGas - .5) GE .5 ,ctr)
-;;;;;	IF(ctr NE 0 ) THEN fracErrGas[largeErr]=1
-;;;;;	tdc[*,*,ncolstep+22-1]=fracErrGas
-;;;;;	largeErr = where(ABS(fracErrSt - .5) GE .5,ctr)
-;;;;;	IF(ctr NE 0) THEN fracErrSt[largeErr]=1
-;;;;;	tdc[*,*,ncolstep+23-1]=fracErrSt
 
 	;;; 	tdc    index mapping (indexed from 1)
 	; 1- x,     2- tau,    3- tau',     4- S,        5- s,   6- S_*,    7- s_*
@@ -516,8 +516,9 @@ FUNCTION readOutput,name
 	;26- log vr_g, 27- log vr_*
 	;28- ang. mom of gas, 29- ang. mom of stars
 	;30- ang. mom of cumulative outflows
-        ;; 33,34 = -tau, -tau'
-        ;; 35,36,37: depletion time, viscous time, dep/visc
+     ;; 33,34 = -tau, -tau'
+     ;; 35,36,37: depletion time, viscous time, dep/visc
+     ;; 38,39 v_rg/r=1/tvisc, col_g/col_BB
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )

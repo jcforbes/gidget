@@ -47,7 +47,7 @@ DiskContents::DiskContents(double tH, double eta,
         double thk, bool migP,
         double Qinit, double km,
         unsigned int NA, unsigned int NP,
-        double minSigSt, double accSL,
+        double minSigSt,
         double rfrec, double zetarec) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
@@ -77,7 +77,6 @@ DiskContents::DiskContents(double tH, double eta,
     dZDiskdtPrev(std::vector<double>(m.nx()+1,0.)),
     dZDiskdt(std::vector<double>(m.nx()+1,0.)),
     colSFR(std::vector<double>(m.nx()+1,0.)),
-    dcoldtCos(std::vector<double>(m.nx()+1,0.)),
     keepTorqueOff(std::vector<int>(m.nx()+1,0)),
     diffused_dcoldt(std::vector<double>(m.nx()+1,0.)),
     //yy(std::vector<double>(m.nx()+1,0.)),
@@ -99,7 +98,6 @@ DiskContents::DiskContents(double tH, double eta,
     // MdotiPlusHalf(std::vector<double>(m.nx()+1,0.)),
     fixedQ(Qinit),CumulativeTorque(0.0),
     kappaMetals(km),
-    accScaleLength(accSL),
     minsigst(minSigSt),
     NActive(NA),
     NPassive(NP),
@@ -439,7 +437,8 @@ void DiskContents::Initialize(double tempRatio, double fg0)
 }
 
 void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlusHalf, 
-                                double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI)
+                                double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI,
+                                std::vector<double>& accProf, double AccRate)
 {
     //  for(unsigned int i=0; i<=nx-1; ++i) {
     //    MdotiPlusHalf[i] = (-1.0 /  mesh.u1pbPlusHalf(i)) * (tauvec[1][i+1] - tauvec[1][i]) / (x[i+1]-mesh.x(i));
@@ -474,11 +473,11 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
 
         dcoldtPrev[n] = dcoldt[n]; 
         dcoldt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n]- MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n])
-            -RfREC * colSFR[n] - dSdtOutflows(n) + dcoldtCos[n];
+            -RfREC * colSFR[n] - dSdtOutflows(n) + accProf[n]*AccRate;
 
         dsigdtPrev[n] = dsigdt[n];
-	double dsigdtMRI = (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvecMRI[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
-	double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvec[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+    	double dsigdtMRI = (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvecMRI[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	    double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvec[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
 	
         dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
             - 5.0*ddx(sig,n,x,true)*(tauvec[2][n]+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
@@ -497,7 +496,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
             * dlnZdx *tauvec[2][n] 
             + yREC*(1.0-RfREC)*zetaREC*colSFR[n]/(col[n])
-            + dcoldtCos[n] * (Z_IGM - ZDisk[n])/col[n];
+            + accProf[n]*AccRate * (Z_IGM - ZDisk[n])/col[n];
 
         // Check to make sure the results of this method are reasonable..
         if(dcoldt[n]!=dcoldt[n] || 
@@ -569,37 +568,43 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
 
         } // end loop over active stellar populations
 
-        unsigned int sp = spsPassive.size();
-        if(fabs(colSFR[n]/spsPassive[sp-1]->spcol[n])>dmax) { 
-            dmax=fabs(colSFR[n]/spsPassive[sp-1]->spcol[n]);
-            *whichCell=n;
-            *whichVar=9;
+
+
+
+        bool restrictOnPassive = false;
+        if(restrictOnPassive) {
+            unsigned int sp = spsPassive.size();
+            if(fabs(colSFR[n]/spsPassive[sp-1]->spcol[n])>dmax) { 
+                dmax=fabs(colSFR[n]/spsPassive[sp-1]->spcol[n]);
+                *whichCell=n;
+                *whichVar=9;
+            }
+
+            for(unsigned int j=0; j!=sp; ++j) {
+
+                if(fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j]->spcol)
+                            /spsPassive[j]->spcol[n]) > dmax) {
+                    dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j]->spcol)
+                            /spsPassive[j]->spcol[n]);
+                    *whichVar=10;
+                    *whichCell=n;
+                }
+                if(fabs(dSigStZdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
+                            /spsPassive[j]->spsigZ[n]) > dmax) {
+                    dmax=fabs(dSigStZdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
+                            /spsPassive[j]->spsigZ[n]);
+                    *whichVar=11;
+                    *whichCell=n;
+                }
+                if(fabs(dSigStRdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
+                            /spsPassive[j]->spsigR[n]) > dmax) {
+                    dmax=fabs(dSigStRdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
+                            /spsPassive[j]->spsigR[n]);
+                    *whichVar=12;
+                    *whichCell=n;
+                }
+            } // end loop over passive stellar populations
         }
-
-        for(unsigned int j=0; j!=sp; ++j) {
-
-            if(fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j]->spcol)
-                        /spsPassive[j]->spcol[n]) > dmax) {
-                dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsPassive[j]->spcol)
-                        /spsPassive[j]->spcol[n]);
-                *whichVar=10;
-                *whichCell=n;
-            }
-            if(fabs(dSigStZdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
-                        /spsPassive[j]->spsigZ[n]) > dmax) {
-                dmax=fabs(dSigStZdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
-                        /spsPassive[j]->spsigZ[n]);
-                *whichVar=11;
-                *whichCell=n;
-            }
-            if(fabs(dSigStRdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
-                        /spsPassive[j]->spsigR[n]) > dmax) {
-                dmax=fabs(dSigStRdt(n,j,spsPassive,tauvecStar,MdotiPlusHalfStar)
-                        /spsPassive[j]->spsigR[n]);
-                *whichVar=12;
-                *whichCell=n;
-            }
-        } // end loop over active stellar populations
 
 
 
@@ -655,7 +660,8 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 				   double ** tauvecStar, 
 				   std::vector<double>& MdotiPlusHalf,
 				   std::vector<double>& MdotiPlusHalfStar,
-				   std::vector<double>& MdotiPlusHalfMRI)
+				   std::vector<double>& MdotiPlusHalfMRI,
+                   double fracAccInner)
 {
     // some things for debugging purposes
     std::vector<double> dColStDtMeasured(nx+1,0);
@@ -722,11 +728,11 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 
 
 
-    double MIn = dt*MdotiPlusHalf[0]+dt*MdotiPlusHalfStar[0]+dt*MdotiPlusHalfMRI[0]+dt*dmdtCosInner(AccRate);
+    double MIn = dt*MdotiPlusHalf[0]+dt*MdotiPlusHalfStar[0]+dt*MdotiPlusHalfMRI[0]+dt*fracAccInner*AccRate;
     //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
-    ZBulge = (ZBulge*MBulge +dt*(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0])*ZDisk[1]+dt*MdotiPlusHalfStar[0]*spsActive[0]->spZ[1]+dt*dmdtCosInner(AccRate)*Z_IGM)/(MBulge + MIn);
+    ZBulge = (ZBulge*MBulge +dt*(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0])*ZDisk[1]+dt*MdotiPlusHalfStar[0]*spsActive[0]->spZ[1]+dt*fracAccInner*AccRate*Z_IGM)/(MBulge + MIn);
     if(ZBulge <= 0.0) {
-      errormsg(std::string("Nonphysical ZBulge- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulge)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDisk[1])+" "+str(dmdtCosInner(AccRate)));
+      errormsg(std::string("Nonphysical ZBulge- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulge)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDisk[1])+" "+str(fracAccInner*(AccRate)));
     }
     MBulge += MIn;
     CumulativeTorque+= tauvec[1][nx]*dt;
@@ -1146,9 +1152,13 @@ double DiskContents::ComputeH2Fraction(unsigned int n)
 
     // Krumholz & Dekel 2011
     double Z0 = ZDisk[n]/Z_Sol;
+    if(dbg.opt(13)) Z0 = pow(10.0, 0.3 - .05*x[n]*dim.Radius/cmperkpc);
+    double clumping = 5.0;
+    if(dbg.opt(6)) clumping = 5.0/3.0;
+    if(dbg.opt(8)) clumping = 15.0;
     double Sig0 = dim.col_cgs(col[n]);
     double ch = 3.1 * (1.0 + 3.1*pow(Z0,0.365))/4.1;
-    double tauc = 320.0 * 5.0 * Sig0 * Z0;
+    double tauc = 320.0 * clumping * Sig0 * Z0;
     double ss = log(1.0 + 0.6 * ch + .01*ch*ch)/(0.6*tauc);
     double val = 1.0 - 0.75 * ss/(1.0+0.25*ss);
 
@@ -1164,6 +1174,8 @@ double DiskContents::ComputeColSFR()
 {
     for(unsigned int n=1; n<=nx; ++n) {
         double fH2 = ComputeH2Fraction(n);
+        if(dbg.opt(9)) fH2=1.0;
+        if(dbg.opt(10)) fH2=.03;
         double valToomre = fH2 * 2.*M_PI*EPS_ff//*sqrt(
             //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
             * sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
@@ -1196,64 +1208,15 @@ double DiskContents::dSdtOutflows(unsigned int n)
     return colSFR[n]*MassLoadingFactor;
 }
 
-double DiskContents::ComputedSdTCos(double AccRate)
-{
-    double sum = 0.0;
-
-    for(unsigned int n=1; n<=nx; ++n) {
-        if(!dbg.opt(8)) {
-            double nD = ((double) n);
-            double xlo = mesh.x(nD -0.5);
-            double xhi = mesh.x(nD +0.5);
-
-            double xb = mesh.x(.5 + ((double) nx));
-            double fOuter =  (1.0 + xb/accScaleLength) * exp(-xb/accScaleLength);
-
-
-
-            dcoldtCos[n] = ( (  (accScaleLength+xlo)*exp(-xlo/accScaleLength) 
-                        -(accScaleLength+xhi)*exp(-xhi/accScaleLength))
-                    *  AccRate*2.0 / (accScaleLength*(xhi-xlo)*(xhi+xlo)))  *
-                1.0 / (1.0 - fOuter);
-
-            sum += dcoldtCos[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0); 
-
-            if(dbg.opt(0)) {
-                // This is for const. column density accretion.
-                // Note that the factor of 2pi difference vs. what you might expect (Mdot / pi r_d^2)
-                // comes from the factor of 2pi in defining the non-dimensional time as T=t * 2pi R/v_phi(R)
-                if(xhi < accScaleLength) 
-                    dcoldtCos[n] = 2.0 * AccRate / (accScaleLength*accScaleLength);
-                else if( xlo > accScaleLength  )
-                    dcoldtCos[n] = 0.0;
-                else
-                    dcoldtCos[n] = (2.0* AccRate / (accScaleLength*accScaleLength)) * 
-                        (accScaleLength*accScaleLength - xlo*xlo)/(xhi*xhi-xlo*xlo);
-
-            }
-        }
-        else dcoldtCos[n] = 0.0;
-    }
-
-    sum += dmdtCosOuter(AccRate) + dmdtCosInner(AccRate);
-    return AccRate; // shouldn't do anything..
-
-}
-double DiskContents::dmdtCosOuter(double AccRate)
-{
+//double DiskContents::dmdtCosOuter(double AccRate)
+//{
     // The output of this function only matters when dbg.opt(8) is set, i.e. exp accretion.
     // In that case, we would like no matter to appear at the outer edge of the disk.
-    return 0.0;
+//    return 0.0;
 
     //    double xb = mesh.x(.5 + ((double) nx));
     //    return AccRate *  (1.0 + xb/accScaleLength)*exp(-xb/accScaleLength);
-}
-double DiskContents::dmdtCosInner(double AccRate)
-{
-    if(dbg.opt(8)) return 0.0;
-    double xb = mesh.x(0.5);
-    return AccRate * (1 - exp(-xb/accScaleLength) * (1.0+xb/accScaleLength));
-}
+//}
 
 
 // The only place this function is used is in computing the coefficient for the torque equation which requires
@@ -1379,7 +1342,8 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
 void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::vector<double>& DD,
             std::vector<double>& LL, std::vector<double>& FF,
             double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar, 
-            double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI)
+            double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI,
+            std::vector<double> & accProf, double AccRate)
 {
     double absc = 1.;
     RafikovQParams rqp;
@@ -1389,7 +1353,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1)-mesh.x(n-1)));
         LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1)-mesh.x(n-1)));
         DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n];
-        FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*dcoldtCos[n];
+        FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n];
         if(sigth<=sig[n]) {
             double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
             FF[n] += dQds[n] * 2*M_PI*M_PI*(ETA*
@@ -1524,7 +1488,7 @@ double DiskContents::ComputeQst(unsigned int n)
 void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & accr,
         double t, double z, double dt, 
         unsigned int step,double **tauvec, double **tauvecStar,
-        std::vector<double>& MdotiPlusHalf)
+        std::vector<double>& MdotiPlusHalf,std::vector<double>& accProf)
 {
     std::ofstream file;
     if(step==0) {
@@ -1611,7 +1575,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
         wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
         wrt.push_back(Q_R);wrt.push_back(Q_WS);wrt.push_back(Q_RW);          // 25..27
-        wrt.push_back(verify);wrt.push_back(colSFR[n]);wrt.push_back(dcoldtCos[n]); // 28..30
+        wrt.push_back(verify);wrt.push_back(colSFR[n]);wrt.push_back(accProf[n]*accr.AccOfZ(z)); // 28..30
         wrt.push_back(dQdS[n]);wrt.push_back(dQds[n]);wrt.push_back(dQdSerr[n]); // 31..33
         wrt.push_back(dQdserr[n]);wrt.push_back(yy);wrt.push_back(torqueErr); // 34..36
         wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back(MdotiPlusHalf[n]*dim.MdotExt0*speryear/MSol); // 37..39

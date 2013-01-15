@@ -54,10 +54,11 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
             FOR aColor=lowestColor, highestColor DO BEGIN
                 wh = WHERE(colors[0,*] EQ aColor, count)
                 IF(count GT 0) THEN BEGIN
-                    laggingVar = vsMdot[nt0:(nt-1),0,k,j]/normalizations[nt0:(nt-1),k,aColor]
-                    IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar)
-                    mdot = vsMdot[nt0:(nt-1),0,0,j]/normalizations[nt0:(nt-1),0,aColor]
-                    IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot)
+                    laggingVar = vsMdot[nt0:(nt-1),0,k,j];/normalizations[nt0:(nt-1),k,aColor]
+		    ;;; Note that if normalize is false (0), then all values of normalizations[*,*,*] will be 1, in which case we're either subtracting zero or one from every variable, which will make no difference in the correlations.
+                    IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar) - alog10(normalizations[nt0:(nt-1),k,aColor]) ELSE laggingVar = laggingVar - normalizations[nt0:(nt-1),k,aColor]
+                    mdot = vsMdot[nt0:(nt-1),0,0,j];/normalizations[nt0:(nt-1),0,aColor]
+                    IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot) - alog10(normalizations[nt0:(nt-1),0,aColor]) ELSE mdot=mdot - normalizations[nt0:(nt-1),0,aColor]
                     crossCorrelations[0,*,k,j] = c_correlate(mdot,laggingVar,indgen(nt-1-nt0))
                     autoCorrelations[0,*,k,j] = c_correlate(laggingVar,laggingVar,indgen(nt-1-nt0))
                 ENDIF

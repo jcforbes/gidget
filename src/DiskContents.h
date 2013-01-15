@@ -15,20 +15,21 @@ class FixedMesh;
 class Debug;
 class AccretionHistory;
 
+
 // Main container for the physical quantities which make up the disk.
 // Basic structure is a set of arrays of nx elements (indexed from 1).
 class DiskContents {
  public:
   DiskContents(double tH,double eta,
                double sigth,double epsff,
-	       double ql,double tol,
+	           double ql,double tol,
                bool aq, double mlf,
                Cosmology&,Dimensions&,
                FixedMesh&,Debug&,
-	       double thk,bool migratePassive,
+    	       double thk,bool migratePassive,
                double Qinit, double km,
-	       unsigned int NA, unsigned int NP,
-	       double minSigSt, double accSL,
+	           unsigned int NA, unsigned int NP,
+	           double minSigSt, 
                double rfrec, double zetarec);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
@@ -57,7 +58,8 @@ class DiskContents {
   void UpdateCoeffs(double redshift,std::vector<double>& UU, std::vector<double>& DD,
 		    std::vector<double>& LL, std::vector<double>& FF,
 		    double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar,
-		    double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI);
+		    double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI,
+            std::vector<double>& accProf, double AccRate);
 
   // Diffuse metals in such a way that the total mass in 
   // metals is conserved. This diffusion is not meant to 
@@ -108,7 +110,7 @@ class DiskContents {
   void WriteOutStepFile(std::string filename,AccretionHistory & acc, 
                         double t, double z, double dt, 
                         unsigned int step,double **tauvec,double **tauvecStar,
-                        std::vector<double>& MdotiPlusHalf);
+                        std::vector<double>& MdotiPlusHalf,std::vector<double>& accProf);
 
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};
@@ -130,7 +132,8 @@ class DiskContents {
   // Compute the time derivatives of all state variables 
   // at all radii.
   void ComputeDerivs(double **tauvec,std::vector<double>& MdotiPlusHalf,
-                  double ** tauvecMRI,std::vector<double>& MdotiPlusHalfMRI);
+                  double ** tauvecMRI,std::vector<double>& MdotiPlusHalfMRI,
+                  std::vector<double>& accProf, double AccRate);
 
   // Given the state variables and their derivatives, 
   // compute a time step such that no quantity is 
@@ -145,7 +148,8 @@ class DiskContents {
                        double **tauvecStar,
 		       std::vector<double>& MdotiPlusHalf,
 		       std::vector<double>& MdotiPlusHalfStar,
-		       std::vector<double>& MdotiPlusHalfMRI);
+		       std::vector<double>& MdotiPlusHalfMRI,
+               double fracAccInner);
 
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
@@ -205,18 +209,12 @@ class DiskContents {
   void Initialize(Initializer& in, bool fixedPhi0);
 
 
-  double ComputedSdTCos(double AccRate);
-
-  double dmdtCosOuter(double AccRate);
-
-  double dmdtCosInner(double AccRate);
  private:
   std::vector<double> col,sig; // gas column density and velocity dispersion
   std::vector<double> dQdS,dQds; // partial derivatives dQ/dS and dQ/ds
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
   std::vector<double> dcoldtPrev,dsigdtPrev,dZDiskdtPrev; // time derivatives at the previous timestep.
-  std::vector<double> dcoldtCos;
 //  std::vector<double> MdotiPlusHalf;
 //  std::vector<double> MstarDotIPlusHalf;
 
@@ -313,8 +311,6 @@ class DiskContents {
   double CumulativeTorque; // integral of tau(x=1) dt.
 
   double kappaMetals;
-
-  double accScaleLength;
 
   double * colst_gsl;
   double * sigst_gsl;

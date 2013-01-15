@@ -63,11 +63,11 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0,.1]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlshaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -740,7 +740,108 @@ if __name__ == "__main__":
     [rs46[i].changeName("rs46"+letter(i)) for i in range(len(rs46))]
     [rs46[i].irregularVary("alphaMRI",0.1) for i in range(len(rs46))]
     
+    # repeate rs32 and rs35 but simulate to smaller radii
+    # High J
+    rs47=[copy.deepcopy(rs45[i]) for i in range(len(rs45))]
+    [rs47[i].changeName("rs47"+letter(i)) for i in range(len(rs47))]
+    [rs47[i].irregularVary("R",50.0*(Mh0s[i]/1.0e12)**(1.0/3.0)) for i in range(len(rs47))]
+    [rs47[i].irregularVary("xmin",.005) for i in range(len(rs47))]
+    [rs47[i].irregularVary("dbg",2**1) for i in range(len(rs47))]
     
+    # Low J
+    rs48=[copy.deepcopy(rs32[i]) for i in range(len(rs32))]
+    [rs48[i].changeName("rs48"+letter(i)) for i in range(len(rs48))]
+    [rs48[i].irregularVary("R",50.0*(Mh0s[i]/1.0e12)**(1.0/3.0)) for i in range(len(rs48))]
+    [rs48[i].irregularVary("xmin",.005) for i in range(len(rs48))]
+    [rs48[i].irregularVary("dbg",2**1) for i in range(len(rs48))]
+    
+    fscatters=[0.1,0.5,1.0]
+    # High J, vary fscatter
+    rs49=[copy.deepcopy(rs47[3]) for i in range(len(fscatters))]
+    [rs49[i].changeName("rs49"+letter(i)) for i in range(len(rs49))]
+    [rs49[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs49))]
+
+    # Low J, vary fscatter
+    rs50=[copy.deepcopy(rs48[3]) for i in range(len(fscatters))]
+    [rs50[i].changeName("rs50"+letter(i)) for i in range(len(rs50))]
+    [rs50[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs50))]
+
+    # High J, turnover radii
+    rs51=[copy.deepcopy(rs47[i]) for i in range(len(rs47))]
+    [rs51[i].changeName("rs51"+letter(i)) for i in range(len(rs51))]
+    [rs51[i].irregularVary("b",2.0) for i in range(len(rs51))]
+
+    # low J
+    rs52=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
+    [rs52[i].changeName("rs52"+letter(i)) for i in range(len(rs52))]
+    [rs52[i].irregularVary("b",2.0) for i in range(len(rs52))]
+
+
+    # High J, Qf
+    rs53=[copy.deepcopy(rs47[i]) for i in range(len(rs47))]
+    [rs53[i].changeName("rs53"+letter(i)) for i in range(len(rs53))]
+    [rs53[i].irregularVary("fixedQ",1.0) for i in range(len(rs53))]
+
+    # low J
+    rs54=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
+    [rs54[i].changeName("rs54"+letter(i)) for i in range(len(rs54))]
+    [rs54[i].irregularVary("fixedQ",1.0) for i in range(len(rs54))]
+
+    #High J Vary kappaMetals for MW-mass halos
+    kappaMetals = [1.0e-4,3.0e-4,1.0e-3,3.0e-3]
+    rs55=[copy.deepcopy(rs47[3]) for i in range(len(kappaMetals))]
+    [rs55[i].changeName("rs55"+letter(i)) for i in range(len(rs55))]
+    [rs55[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs55))]
+    [rs55[i].irregularVary("dbg",2**1) for i in range(len(rs55))]
+
+    # Low J
+    rs56=[copy.deepcopy(rs48[3]) for i in range(len(kappaMetals))]
+    [rs56[i].changeName("rs56"+letter(i)) for i in range(len(rs56))]
+    [rs56[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs56))]
+    [rs56[i].irregularVary("dbg",2**1) for i in range(len(rs56))]
+
+    #High J Vary kappaMetals for MW-mass halos, with time-varying kappa
+    rs57=[copy.deepcopy(rs47[3]) for i in range(len(kappaMetals))]
+    [rs57[i].changeName("rs57"+letter(i)) for i in range(len(rs57))]
+    [rs57[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs57))]
+    [rs57[i].irregularVary("dbg",2**15+2**1) for i in range(len(rs57))]
+
+    # Low J
+    rs58=[copy.deepcopy(rs48[3]) for i in range(len(kappaMetals))]
+    [rs58[i].changeName("rs58"+letter(i)) for i in range(len(rs58))]
+    [rs58[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs58))]
+    [rs58[i].irregularVary("dbg",2**15+2**1) for i in range(len(rs58))]
+
+    # High J, Full mass range for tau=0
+    rs59=[copy.deepcopy(rs47[i]) for i in range(len(rs47))]
+    [rs59[i].changeName("rs59"+letter(i)) for i in range(len(rs59))]
+    [rs59[i].irregularVary("dbg",2**12) for i in range(len(rs59))]
+
+    #Low J
+    rs60=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
+    [rs60[i].changeName("rs60"+letter(i)) for i in range(len(rs60))]
+    [rs60[i].irregularVary("dbg",2**12) for i in range(len(rs60))]
+
+    # A little experiment to try large zstarts
+    rs61=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
+    [rs61[i].changeName("rs61"+letter(i)) for i in range(len(rs61))]
+    [rs61[i].irregularVary("fg0",.999) for i in range(len(rs61))]
+    [rs61[i].irregularVary("zrelax",9) for i in range(len(rs61))]
+    [rs61[i].irregularVary("zstart",2) for i in range(len(rs61))]
+    [rs61[i].irregularVary("invMassRatio",2) for i in range(len(rs61))]
+
+    rs62=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs62[i].changeName("rs62"+letter(i)) for i in range(len(rs62))]
+    [rs62[i].irregularVary("fg0",.999) for i in range(len(rs62))]
+    [rs62[i].irregularVary("zrelax",9) for i in range(len(rs62))]
+    [rs62[i].irregularVary("zstart",2) for i in range(len(rs62))]
+    [rs62[i].irregularVary("invMassRatio",2) for i in range(len(rs62))]
+
+    # try turning NPassive>1 back on
+    rs63=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
+    [rs63[i].changeName("rs63"+letter(i)) for i in range(len(rs63))]
+    [rs63[i].irregularVary("NPassive",10) for i in range(len(rs63))]
+
     successTables=[]
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

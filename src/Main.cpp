@@ -7,6 +7,7 @@
 #include "Simulation.h"
 #include "DiskContents.h"
 #include "AccretionHistory.h"
+#include "AccretionProfile.h"
 #include "ArgumentSetter.h"
 #include "Cosmology.h"
 #include "Dimensions.h"
@@ -58,7 +59,7 @@ int main(int argc, char **argv) {
     // Set various parameters based on the command line arguments. If an argument is not
     // specified on the command line, set that parameter to the default value (first 
     // argument of as.Set())
-    ArgumentSetter as(argc,argv,filename);
+    ArgumentSetter as(argc,argv,filename+"_comment.txt");
     const unsigned int nx=           as.Set(500,"nx");
     const double eta=                as.Set(1.5,"eta");
     const double epsff=              as.Set(.01,"eps_ff");
@@ -116,12 +117,15 @@ int main(int argc, char **argv) {
     const double fscatter =          as.Set(1.0,"Artificial factor by which to multiply scatter in ND10");
     const double invMassRatio =      as.Set(.3,"Maximum change in halo mass across 1 step in domega");
     const double fcool =             as.Set(1.0,"Fraction of f_b M_h(zstart) that has cooled into a disk");
-//    const double MeanAccRate =       as.Set();
+    const double whichAccretionProfile=as.Set(0,"Accretion profile- 0,1,2, respectively exponential, flat, or gaussian");
+    const double alphaAccProf = as.Set(0.0,"Powerlaw scaling of accretion length with (Mh/Mh0)");
+    const double width = as.Set(0.1,"The width of a gaussian accretion profile in units of the accretionScaleLength (only valid for whichAccretionProfile==2)");
+    as.~ArgumentSetter();
 
     // Make an object to deal with basic cosmological quantities.9
     // Omega_Lambda = .734, H0 = 2.29e-18 s^-1
-    double OmegaLambda = 0.734;
-    double OmegaMatter = 1.0-OmegaLambda;
+    double OmegaMatter = .258; // WMAP5
+    double OmegaLambda = 1.0 - OmegaMatter;
     double H0 = 2.29e-18;
     Cosmology cos(OmegaMatter, OmegaLambda, H0 ,zrelax);
 
@@ -155,13 +159,39 @@ int main(int argc, char **argv) {
                 true,whichAccretionHistory,invMassRatio,zquench,&attempts,
                 deltaOmega, zrelax,fscatter)*MSol/speryear;
     }
+
+    ArgumentSetter as2(0,argv,filename+"_aux.txt");
     // Note that the following line does nothing but put a line in the comment file to
     // record MdotExt0 for this run.
-    as.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
-    as.Set(attempts,"Attempts to generate Neistein08");
+    as2.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
+    as2.Set(attempts,"Attempts to generate Neistein08");
+    // This is where we'll store a record of all the possiblities of dbg.opt
+    as2.Set(dbg.opt(0), "blank");
+    as2.Set(dbg.opt(1), "Z_OBC = Z_IGM");
+    as2.Set(dbg.opt(2), "Record IC generation (only relevant if dbg 5)");
+    as2.Set(dbg.opt(3), "Neistein & Dekel (2008)"); // check this
+    as2.Set(dbg.opt(4), "dQ/dt ~ exp(Delta Q)");
+    as2.Set(dbg.opt(5), "Old initialization (powerlaw), relaxation");
+    as2.Set(dbg.opt(6), "clumping = 5/3");
+    as2.Set(dbg.opt(7), "Toomre SFR");
+    as2.Set(dbg.opt(8), "clumping = 15");
+    as2.Set(dbg.opt(9), "pretend fH2=1 always");
+    as2.Set(dbg.opt(10),"pretend fH2=.03 always"); 
+    as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 
+    as2.Set(dbg.opt(12), "Artificially set GI torque=0 everywhere");
+    as2.Set(dbg.opt(13), "Artificially set fH2 as if [Z/Zsun] = 0.3-.05*(r/kpc)");
+    as2.Set(dbg.opt(14), "blank");
+    as2.Set(dbg.opt(15), "non-constant kappa_Z");
+    as2.Set(dbg.opt(16), "blank");
+    as2.Set(dbg.opt(17), "blank");
+    as2.Set(dbg.opt(18), "blank");
+    as2.Set(dbg.opt(19), "tdep=2Gyr");
+
 
     // Done reading in arguments. Write out a comment file containing all of the arguments.
-    as.~ArgumentSetter();
+    as2.~ArgumentSetter();
+
+
     // If we're recording the convergence of the initial conditions, copy the comment file we just wrote out.
     if(dbg.opt(2) && dbg.opt(5)) {
         std::ifstream  src((filename+"_comment.txt").c_str());
@@ -177,19 +207,21 @@ int main(int argc, char **argv) {
     FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
     double MhZs = accr.MhOfZ(zrelax)*Mh0; // this is in units of solar masses
 
+    AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength/(radius/cmperkpc),width);
+
     // don't relax the disk!
     if(!dbg.opt(5)) {
         DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-                minSigSt,accScaleLength/(radius/cmperkpc),RfREC,zetaREC);
+                minSigSt,RfREC,zetaREC);
         // double sig0 = 8.0/220.0; 
         double sig0 = sigth;
         disk.Initialize(.1*Z_Sol,fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
 
         Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
                 zstart,NActive,NPassive,alphaMRI,
-                sigth,disk,accr,dbg,dim);
+                sigth,disk,accr,dbg,dim,accProf);
         int result = sim.runToConvergence(1.0e10, true, filename,zrelax,Noutputs);
 
     }
@@ -199,7 +231,7 @@ int main(int argc, char **argv) {
         //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
         DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-                thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,accScaleLength/(radius/cmperkpc),
+                thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,
                 RfREC,zetaREC);
         if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
         else diskIC.Initialize(0.1*Z_Sol, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
@@ -211,7 +243,7 @@ int main(int argc, char **argv) {
                 false, nx,TOL,
                 zstart,NActive,NPassive,
                 alphaMRI,sigth,
-                diskIC,accr,dbg,dim);
+                diskIC,accr,dbg,dim,accProf);
         int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen",zstart,200); // set false-> true to debug initial condition generator
         if(result!=5) // The simulation converges when the time step reaches 1*TOL.
             errormsg("Initial Condition generator failed to converge, code "+str(result));
@@ -221,14 +253,13 @@ int main(int argc, char **argv) {
         DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-                minSigSt,accScaleLength/(radius/cmperkpc),
-                RfREC,zetaREC);
+                minSigSt, RfREC,zetaREC);
         disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
         Simulation sim(tmax,stepmax,
                 cosmologyOn,nx,TOL,
                 zstart,NActive,NPassive,
                 alphaMRI,sigth,
-                disk,accr,dbg,dim);
+                disk,accr,dbg,dim,accProf);
         result = sim.runToConvergence(1.0e10, true, filename,zstart,200);
     }
 

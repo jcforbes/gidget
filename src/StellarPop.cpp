@@ -147,7 +147,6 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     dcoldt[n] = f*(MdotiPlusHalf[n]-MdotiPlusHalf[n-1])/(x[n]*mesh.dx(n));
     double MdotCentered = (-tauvecStar[2][n]*f
 		          /(uu[n]*(1+beta[n]))); 
-    if(dbg.opt(10)) MdotCentered=(-tauvecStar[2][n]*f/mesh.u1pbPlusHalf(n));
     if(n<nx) {
       spsigZp1=spsigZ[n+1];
       spsigRp1=spsigR[n+1];
@@ -166,7 +165,7 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
 //       + spsigR[n]*spsigR[n]/spcol[n]* dColdr[n] //ddx(spcol,n,x,false)
 //       + (spsigR[n]*spsigR[n] - spsigZ[n]*spsigZ[n])/x[n]);
     //dsigRdt[n] = 1.0/(x[n]*spcol[n]*(spsigR[n]+spsigZ[n])) * ((beta[n]-1.)*uu[n]*tauvecStar[1][n]/(x[n]*x[n]) + (2.0*spsigR[n]*dSigRdr[n] - uu[n]*uu[n]*(1.+beta[n]))/x[n] * MdotCentered + spsigR[n]*spsigR[n]*(MdotiPlusHalf[n]-MdotiPlusHalf[n])/mesh.dx(n));
-    dsigRdt[n] =  1.0/(x[n]*spcol[n]*(spsigR[n]+spsigZ[n])) * ((beta[n]-1.)*uu[n]*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*spsigR[n]*dSigRdr[n] + 2.0*spsigZ[n]*dSigZdr[n]) *(-tauvecStar[2][n]*f/(uu[n]*(1.+beta[n]))) + spsigR[n]*spsigR[n]*(MdotiPlusHalf[n]-MdotiPlusHalf[n])/mesh.dx(n));
+    dsigRdt[n] =  1.0/(x[n]*spcol[n]*(spsigR[n]+spsigZ[n])) * ((beta[n]-1.)*uu[n]*f*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*spsigR[n]*dSigRdr[n] + 2.0*spsigZ[n]*dSigZdr[n]) *(-tauvecStar[2][n]*f/(uu[n]*(1.+beta[n]))) + spsigR[n]*spsigR[n]*f*(MdotiPlusHalf[n]-MdotiPlusHalf[n])/mesh.dx(n));
 
     dZdt[n] =  MdotCentered*ddx(spZ,n,x,true)/(x[n]*spcol[n]);
 

@@ -266,7 +266,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     std::ofstream file;
     if(writeOut) file.open(fn.c_str());
     double sigma8=0.82;
-    if(dbg.opt(3)) sigma8=.796;
+    if(!dbg.opt(3)) sigma8=.796; // WMAP5
     double OmegaM=cos.OmegaM();
     // double dom = 0.1;
     double dom = domega;
@@ -314,12 +314,12 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
         double z=zOfOmega(om); // avoids interpolation errors at the end of the simulation...
         zs.push_back(z);
         if(!first) zs.push_back(z+.000001); // z's cannot have identical values or the GSL interpreter chokes.
-        if(SS > 50.0) {
+        if(SS > 500.0) {
             return -1.0;
         } 
         // update our tabulated value of halo mass.
         double M=MofS(SS,sp.sigma8,sp.OmegaM)/cos.h();
-        if(M < 1.0e8)
+        if(M < 1.0e4)
             return -1.0;
         masses.push_back(M);
         if(!first)  masses.push_back(M); // solar masses
@@ -418,36 +418,77 @@ void AccretionHistory::SetEfficiencyParams(double norm, double a_z, double a_Mh,
 // IMPORTANT: Mh in units of 10^12 solar masses
 double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquench)
 {
-    if(dbg.opt(6)) { // CAFG+ (2012) - fit to hydro sim for z>2
-        // used to be 1.0
-        double val= .47*pow((1.0+z)/3.0,.38)*pow(Mh,-0.25);
-        if(val>1.0) val=1.0;
-        if(z < zquench) val = 0.0;
-        return val;
-    }
-    if(dbg.opt(9)) { // Bouche+ (2009) - simple guess
-        double fOfz;
-        if(z>=2.2)
-            fOfz=1.0;
-        else if(z<=1.0)
-            fOfz=0.5;
-        else {
-            fOfz = 1.0 - (cos.Tsim(z)-cos.Tsim(2.2))* 0.5 / (cos.Tsim(1.0) - cos.Tsim(2.2));
-        }
-        double eps;
-        if(Mh < 5.0 && z>zquench) 
-            eps = 0.7*fOfz;
-        else
-            eps = 0.0;
-        return eps;
-    }
-    // New default: try a reasonably general formula with user-controlled values.
+    // try a reasonably general formula with user-controlled values.
     // Use the same functional form as CAFG.
     double val = normalization * pow(1.0+z, alpha_z) * pow(Mh, alpha_Mh);
     if(val > ceiling) val=ceiling;
     if(z<zquench) val = 0.0;
     return val;
 }
+
+double AccretionHistory::GenerateBursty(
+        double zs, Cosmology& cos, 
+        std::string fn, bool writeOut, bool MhAtz0, 
+        double zquench, double deltaz,
+        double fscatter)
+{
+    double Mh012 = Mh0*1.0e-12;
+    std::ofstream file;
+    if(writeOut) file.open(fn.c_str());
+    zstart = zs;
+    unsigned int N=1000; 
+    double Mh=Mh012; // units of 10^12 solar masses
+    double z=zstart;
+    double fbp18 = 1.0; // baryon fraction / 0.18
+    double MdotExt0;
+    std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
+
+    // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
+    // Otherwise, loop over redshift from zstart to z=0.
+    for(unsigned int i=0; i<=N; ++i) {
+        if(!MhAtz0) // if Mh is given at z=zstart, start from high redshift and go to z=0 
+            z=((double) (N-i))/((double) N)*(zstart-0.0);
+        else // if Mh is given at z=0, start from low redshift and go to z=zstart.
+            z=((double) i)/((double) N) * (zstart - 0.0);
+
+        // Use the Bouche formula to tell us the dark matter accretion rate
+        double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // in 10^12 Msol/yr
+
+        // Use the analogous formula to tell us the baryonic accretion rate.
+        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
+
+        if((i==0 && !MhAtz0) || (i==N && MhAtz0)) // always set MdotExt0 to be MdotExt at z=2
+            MdotExt0= MdotExt;
+
+        haloMass.push_back(Mh); // solar masses
+
+        if(true) { //z>zquench) {
+            // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
+            if(!MhAtz0) // starting from high redshift..
+                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;
+            else // starting from low redshift..
+                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart-0.0))) / speryear;
+        }
+
+        // these small adjustments to z avoid interpolation errors without really affecting anything.
+        redshifts.push_back(z*1.001-.001); 
+
+        tabulatedAcc.push_back(MdotExt);
+        if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
+    }
+
+    // 
+    if(MhAtz0) { // then we need to reverse redshifts and tabulatedAcc
+        reverse(redshifts.begin(),redshifts.end());
+        reverse(tabulatedAcc.begin(), tabulatedAcc.end());
+        reverse(haloMass.begin(),haloMass.end());
+    }
+
+    file.close();
+    InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
+    return MdotExt0;
+}
+
 
 double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos, 
         std::string fn, bool writeOut, bool MhAtz0, 

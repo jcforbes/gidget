@@ -3,6 +3,8 @@ class DiskContents;
 class AccretionHistory;
 class Debug;
 class Dimensions;
+class AccretionProfile;
+
 #include <string.h>
 
 // A small container to store the state variables
@@ -21,7 +23,8 @@ class Simulation {
                 const double alphaMRI, const double sigth, 
                 DiskContents&,
                 AccretionHistory&,
-                Debug&, Dimensions&);
+                Debug&, Dimensions&,AccretionProfile&);
+
         int runToConvergence(const double fCondition,
                 const bool writeOut,
                 const std::string filename,
@@ -39,6 +42,7 @@ class Simulation {
         const double alphaMRI,sigth;
         DiskContents& theDisk;
         AccretionHistory& accr;
+        AccretionProfile& accProf;
         Debug& dbg;
         Dimensions& dim;
         Initializer ini;

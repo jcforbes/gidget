@@ -64,6 +64,7 @@ class StellarPop {
   std::vector<double> spsigR; // R-direction stellar velocity dispersion as a function of position.
   std::vector<double> spsigZ; // phi- (and z-) direction stellar velocity dispersion.
   double ageAtz0; // i.e. lookback time at creation of these stars, in seconds
+  double startingAge, endingAge; // lookback time in seconds when stars started (stopped) being added to this pop
   std::vector<double> spZ; // metallicity of the stars as a function of position.
   std::vector<double> spZV; // metallicity variance
   std::vector<double> dQdS; // The partial derivative of Q wrt this population's S_*

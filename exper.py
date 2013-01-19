@@ -428,7 +428,7 @@ def LocalRun(runBundle,nproc):
     print "Local run complete!"
 
 
-def GetScaleLengths(N,median=0.045,scatter=0.5,Mh0=1.0e12,sd=100,lower=0.0,upper=1.0e3):
+def GetScaleLengths(N,median=0.045,scatter=0.5,Mh0=1.0e12,sd=100,lower=0.0,upper=1.0e3,multiple=1.0):
     ''' Return a vector of scale lengths in kpc such that the haloes will have
         spin parameters of median, with a given scatter in dex. These 
         are also scaled by halo mass, since the Virial radius goes as M_h^(1/3).
@@ -445,8 +445,8 @@ def GetScaleLengths(N,median=0.045,scatter=0.5,Mh0=1.0e12,sd=100,lower=0.0,upper
                 Mh=1.0e12
         else:
             Mh=Mh0
-        #length =  (311.34 * (Mh/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5))
-        length = 2.5*(Mh/1.0e12)**(1./3.) * (spinParameter / .045) 
+        length = multiple * (311.34 * (Mh/1.0e12)**(1.0/3.0) * spinParameter/(2.0**.5))
+        #length = 2.5*(Mh/1.0e12)**(1./3.) * (spinParameter / .045) 
         if(length > lower and length < upper):
 	        scLengths.append(length)
     return scLengths
@@ -841,6 +841,98 @@ if __name__ == "__main__":
     rs63=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
     [rs63[i].changeName("rs63"+letter(i)) for i in range(len(rs63))]
     [rs63[i].irregularVary("NPassive",10) for i in range(len(rs63))]
+
+
+
+    # A series of experiments where we concentrate only on Mh0=10^12
+    rt01 = experiment("rt01")
+    rt01.irregularVary("R",40)
+    # Scale length for lambda = 0.045:
+    l045 = GetScaleLengths(1,Mh0=1.0e12,scatter=1.0e-10)[0]
+    rt01.irregularVary('accScaleLength',l045/3.0)
+    rt01.irregularVary('diskScaleLength',l045/3.0)
+    rt01.irregularVary('mu',1.0)
+    rt01.irregularVary('vphiR',220.0)
+    rt01.irregularVary('NPassive',10)
+    rt01.irregularVary('invMassRatio',1.0)
+    rt01.irregularVary('dbg',2**1)
+
+    # effect of realistic accretion history variations
+    rt02=copy.deepcopy(rt01)
+    rt02.changeName("rt02")
+    rt02.vary('whichAccretionHistory',1000,1100,101,0)
+
+    # different assumptions for accretion history variation
+    rt03=copy.deepcopy(rt01)
+    rt03.changeName("rt03")
+    rt03.vary('whichAccretionHistory',-1100,-1000,101,0)
+    rt03.irregularVary('NChanges',10) # by default, const. in redshift 
+    rt03.irregularVary("fscatter",.3) # half a dex of scatter
+
+    rt04=copy.deepcopy(rt01)
+    rt04.changeName("rt04")
+    rt04.irregularVary("whichAccretionProfile",0) # exponential. Vary scale length
+    rt04.irregularVary('accScaleLength',[l045*(i+1)/10.0 for i in range(10)])
+
+    rt05=copy.deepcopy(rt01)
+    rt05.changeName("rt05")
+    rt05.irregularVary('whichAccretionProfile',1) # const accretion profile
+    rt05.irregularVary('accScaleLength',[l045*(i+1)*3.0/10.0 for i in range(10)]) # same ang mom distr as rt04
+
+    rt06=copy.deepcopy(rt01)
+    rt06.changeName("rt06")
+    rt06.irregularVary('whichAccretionProfile',2) # normal distr.
+    rt06.irregularVary('accScaleLength',[l045*(i+1)/10.0 for i in range(10)]) # hopefully roughly the same ang mom as rt04? Still need to do that integral...
+
+    rt07=copy.deepcopy(rt02)
+    rt07.changeName("rt07")
+    rt07.irregularVary('deltaOmega',.4)
+
+    # vary clumping factor: 5/3 or 15
+    rt08=copy.deepcopy(rt01)
+    rt08.changeName('rt08')
+    rt08.irregularVary('dbg',[2+2**6,2+2**8])
+
+    # artificially set fH2=1 or .03
+    rt09=copy.deepcopy(rt01)
+    rt09.changeName('rt09')
+    rt09.irregularVary('dbg',[2+2**9,2+ 2**10])
+
+    rt10=copy.deepcopy(rt01)
+    rt10.changeName("rt10")
+    rt10.vary('kappaMetals',1.0e-5,1.0e-2,20,1)
+
+    rt11=copy.deepcopy(rt01)
+    rt11.changeName("rt11")
+    rt11.vary('fixedQ',1.0,3.0,20,0)
+
+    rt12=copy.deepcopy(rt01)
+    rt12.changeName("rt12")
+    rt12.vary('Qlim',2.0,4.0,20,0)
+
+    rt13=copy.deepcopy(rt11)
+    rt13.changeName("rt13")
+    rt13.irregularVary("dbg",2+2**4) # exp dQ/dt
+
+    rt14=copy.deepcopy(rt12)
+    rt14.changeName("rt14")
+    rt14.irregularVary("dbg",2+2**4) # exp dQ/dt
+
+    rt15=copy.deepcopy(rt01)
+    rt15.changeName("rt15")
+    rt15.vary('b',0.0,5.0,30,0)
+
+    rt16=copy.deepcopy(rt01)
+    rt16.changeName("rt16")
+    rt16.vary('alphaMRI',1.0e-4,0.1,20,1)
+
+    rt17=copy.deepcopy(rt01)
+    rt17.changeName("rt17")
+    rt17.vary("eta",.3,4.5,20,1)
+
+    rt18=copy.deepcopy(rt01)
+    rt18.changeName("rt18")
+    rt18.irregularVary('dbg',2+2**12)
 
     successTables=[]
 

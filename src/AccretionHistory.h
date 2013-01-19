@@ -30,9 +30,10 @@ class AccretionHistory {
 		     double zstart); // starting redshift
 
 double GenerateLogNormal(double zstart,double zrelax, Cosmology& cos,
-                    double mean, double scatter, double Nchanges,
+                    double scatter, double Nchanges,
                     bool writeOut, double zquench,
-                    double Mh0, unsigned int seed, std::string fn);
+                    double Mh0, unsigned int seed, std::string fn,
+                    bool constInTime);
 
   double GenerateNeistein08(double zstart, Cosmology & cos,
 			    std::string fn, bool writeOut, unsigned long int seed,
@@ -54,10 +55,6 @@ double GenerateLogNormal(double zstart,double zrelax, Cosmology& cos,
   double GenerateBoucheEtAl2009( double zstart, 
 				Cosmology& cos, std::string fn, 
 				bool writeOut,bool MhAtz0,double zquench);
-
-  double GenerateBursty( double zstart, 
-				Cosmology& cos, std::string fn, 
-				bool writeOut,bool MhAtz0,double zquench, double deltaz, double fscatter);
 
 
   // Generate an accretion history which is just constant with redshift

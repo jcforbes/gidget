@@ -620,8 +620,10 @@ void DiskContents::AddNewStellarPop(const double redshift,
         bool active)
 {
     unsigned int sz=sps.size();
+    sps[sz-1]->endingAge = cos.lbt(redshift);
     StellarPop * currentlyForming = new StellarPop(mesh);
     currentlyForming->ageAtz0 = cos.lbt(redshift);
+    currentlyForming->startingAge = cos.lbt(redshift);
     if(active) { // this is a huge kludge. Used to speed up 
         // runtimes in the case that NActive>1
         currentlyForming->extract(*(sps[sz-1]),.01);
@@ -1447,7 +1449,11 @@ void DiskContents::WriteOutStarsFile(std::string filename,
 
     for(unsigned int i=0; i!=sps.size(); ++i) {
         double yrs = sps[i]->ageAtz0/speryear;
+        double start = sps[i]->startingAge/speryear;
+        double end = sps[i]->endingAge/speryear;
         starsFile.write((char *) &yrs,sizeof(yrs));
+        starsFile.write((char *) &start,sizeof(start));
+        starsFile.write((char *) &end,sizeof(end));
         //    std::cerr << "i, step, Age in Ga (resp): "<<i<<" "<<step<<" "<<yrs*1.0e-9<<std::endl;
         for(unsigned int n=1; n<=nx; ++n) {
             starsFile.write((char *) &(sps[i]->spcol[n]),sizeof(sps[i]->spcol[n]));

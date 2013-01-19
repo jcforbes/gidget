@@ -11,6 +11,7 @@ FUNCTION GetIthBin, index, THELIST, NBINS, subset=SUBSET
   ll = fix(float(index)*float(nmodels)/float(NBins))
   hh = fix(float(index+1)*(float(nmodels)/(float(NBins))))-1
   IF(hh LT 0) THEN hh=0
+  IF(hh LT ll) THEN hh=ll
 
 
   RETURN,st[ll:hh]

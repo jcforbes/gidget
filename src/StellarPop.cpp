@@ -24,7 +24,7 @@ StellarPop::StellarPop(FixedMesh & m) :
   dQdsZ(std::vector<double>(m.nx()+1,0.)),
   dQdSerr(std::vector<double>(m.nx()+1,0.)),
   dQdserr(std::vector<double>(m.nx()+1,0.)),
-  ageAtz0(-1.0),
+  ageAtz0(-1.0),startingAge(-1.0),endingAge(-1.0),
   mesh(m)
 { }
 
@@ -40,13 +40,6 @@ void StellarPop::ComputeSpatialDerivs()
   }
 }
 
-
-
-//bool StellarPop::IsForming(Cosmology& cos, double redshift)
-//{
-//  double age = cos.lbt(redshift);
-//  return (age > youngest && age<=oldest);
-//}
 
 // Merge sp2 into sp1. sp2 should be unaffected by the procedure.
 void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)

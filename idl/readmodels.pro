@@ -61,7 +61,8 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "star J/area","cumulative outflow J/area",$			   ;; 28..30
     "average age at z=0","average present age",$		   ;; 31..32
     "-tau","-tau'","depletion time","viscous time","tDep/tVisc", $ ;; 33..37
-    "tvisc^-1 (yr^-1)","Ratio w univ prof"] ;; 38..39
+    "tvisc^-1 (yr^-1)","Ratio w univ prof","Ratio2 w univ prof", $ ;; 38..40
+    "Ratio3 w univ prof" ] ;; 41
 
   FOR i=0, npassive DO BEGIN
     pop=strcompress(STRING(i),/remove)
@@ -292,6 +293,8 @@ FUNCTION readOutput,name
       NABp1A=0L
       stsSize=0L
       stsSizeA=0L
+      startAge=double(0.)
+      endAge=double(0.)
       age=double(0.)
       nx2=0L
       nx2A=0L
@@ -304,7 +307,7 @@ FUNCTION readOutput,name
       READU,lunStarsA,x
       FOR i=0, stsSize-1 DO BEGIN
 ;;;	IF(EOF(lunSt) NE 1) THEN BEGIN
-		READU,lunStars,age
+		READU,lunStars,age,startAge,endAge
 		stellarAges[timeOutputs,i]=age
 		READU,lunStars,contOfAgeBin
 		starsHyperCube[timeOutputs,i,0:nx-1,0:(STVars-1)]=contOfAgeBin
@@ -312,7 +315,7 @@ FUNCTION readOutput,name
       ENDFOR
       FOR ii=0, stsSizeA-1 DO BEGIN
 ;;;	IF(EOF(lunStA) NE 1) THEN BEGIN
-		READU,lunStarsA,age
+		READU,lunStarsA,age,startAge,endAge
 		READU,lunStarsA,contOfAgeBinA
 		starsHyperCubeA[timeOutputs,ii,0:nx-1,0:(STVars-1)]=contOfAgeBinA
 ;;;	ENDIF
@@ -375,7 +378,7 @@ FUNCTION readOutput,name
 ;    errs[where(errs LT 1.e-21)] = 1.e-21
 ;    dataCube[*,*,60:63] = errs
 
-    NPostProcess= 37
+    NPostProcess= 42
     tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ZstNum = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
@@ -396,10 +399,10 @@ FUNCTION readOutput,name
     tdc[0,*,39-1] = tdc[1,*,39-1] ;; currently the initial value is zero.
     evArray[9-1,0] = evArray[9-1,1]
 
-    tdc[*,*,ncolStep]=  abs(tdc[*,*,3])/(abs(tdc[*,*,7]) + .00001)
-    tdc[*,*,ncolStep+1]=abs(tdc[*,*,4])/(abs(tdc[*,*,8]) + .00001)
-    tdc[*,*,ncolStep+2]=abs(tdc[*,*,5])/(abs(tdc[*,*,9]) + .00001)
-    tdc[*,*,ncolStep+3]=abs(tdc[*,*,6])/(abs(tdc[*,*,10]) + .00001)
+    tdc[*,*,ncolStep]=  abs(tdc[*,*,3])/(abs(tdc[*,*,7]) ) * 2*!pi*Radius*kmperkpc/(vphiR*speryear)
+    tdc[*,*,ncolStep+1]=abs(tdc[*,*,4])/(abs(tdc[*,*,8]) ) * 2*!pi*Radius*kmperkpc/(vphiR*speryear)
+    tdc[*,*,ncolStep+2]=abs(tdc[*,*,5])/(abs(tdc[*,*,9]) ) * 2*!pi*Radius*kmperkpc/(vphiR*speryear)
+    tdc[*,*,ncolStep+3]=abs(tdc[*,*,6])/(abs(tdc[*,*,10]) )* 2*!pi*Radius*kmperkpc/(vphiR*speryear)
     tdc[*,*,ncolStep+4]=abs(tdc[*,*,4])/(abs(tdc[*,*,6])) ;; gas / stellar temp
     ;; scale heights: 
     tdc[*,*,ncolStep+5]=tdc[*,*,6]*(tdc[*,*,6]/(tdc[*,*,5]+tdc[*,*,3]))*Radius/(chi*!pi) ;; stellar scale height
@@ -465,15 +468,34 @@ FUNCTION readOutput,name
     tdc[*,*,ncolstep+37-1] = tdc[*,*,ncolstep+35-1]/tdc[*,*,ncolstep+36-1];; depletion time / viscous time
     
     tdc[*,*,ncolstep+38-1] = tdc[*,*,ncolstep+17-1]*speryear / (tdc[*,*,ncolstep+9-1]*kmperkpc) ; year^-1
+    x25s = dblarr(n_elements(tdc[*,0,0]))
+    x25s_2 = x25s[*]
+    x25s_3 = x25s[*]
+    colTranses = x25s[*]
     FOR ti=0, n_elements(tdc[*,0,0])-1 DO BEGIN
-        wh = WHERE((tdc[ti,0:(nx-2),ncolstep+48-1]-0.5)*(tdc[ti,1:(nx-1),ncolstep+48-1]-0.5) LE 0.0, count)
+        wh = WHERE((tdc[ti,0:(nx-2),48-1]-0.5)*(tdc[ti,1:(nx-1),48-1]-0.5) LE 0.0, count)
         IF(count LE 0) THEN colTrans = 10 ; shrug
         IF(count GE 1) THEN colTrans = sqrt(tdc[ti,wh[count-1],ncolstep+10-1] * tdc[ti,wh[count-1]+1,ncolstep+10-1])
+        colTranses[ti] = colTrans
         dummy = MIN(abs(tdc[ti,*,ncolstep+12-1] - 6.619),index)
-        x25 = tdc[ti,index,0]
+        x25 = tdc[ti,index,0] ; location of 6.619 solar masses /pc^2 in stellar mass
+        dummy = MIN(abs(tdc[ti,*,ncolstep+14-1] - 6.74d-4),index)
+        x25_2= tdc[ti,index,0]  ; -19.5
+        dummy = MIN(abs(tdc[ti,*,ncolstep+14-1] - 1.19d-3),index)
+        x25_3 = tdc[ti,index,0] ; -18.9
         ; dimensionless ratio of real value over predicted value by Bigiel & Blitz
         tdc[ti,*,ncolstep+39-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25))
+        tdc[ti,*,ncolstep+40-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_2))
+        tdc[ti,*,ncolstep+41-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_3))
+        
+        x25s[ti] = x25
+        x25s_2[ti] = x25_2
+        x25s_3[ti] = x25_3
     ENDFOR
+
+    tdc[*,*,ncolstep+42-1] = tdc[*,*,30-1] * md0 / (!pi * Radius*Radius * 1.0d6) ; Msun/yr/pc^2
+    tdc[*,*,ncolstep+43-1] = tdc[*,*,ncolstep+10-1]/tdc[*,*,ncolstep+42-1] ;; yr
+
 
     tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
     tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*u*(1+beta)) ; mdot (msol/yr) 
@@ -519,6 +541,8 @@ FUNCTION readOutput,name
      ;; 33,34 = -tau, -tau'
      ;; 35,36,37: depletion time, viscous time, dep/visc
      ;; 38,39 v_rg/r=1/tvisc, col_g/col_BB
+     ;; 40,41 BB2, BB3
+     ;; 42- Accretion col dens 43- accretion timescale
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )
@@ -549,8 +573,6 @@ FUNCTION readOutput,name
 	IF(ct NE 0) THEN convHCube[c] = -2
 	starsHyperCube[*,*,*,6:7]=convHCube
 
-;	success=(file_lines(name+"_stde.txt") EQ 0)
-
 	model = {name:name,nx:nx,tmax:tmax,maxstep:nstepmax, $
 		radius:Radius,vphiR:vphiR,eta:ETA,epsff:EPS_ff,fg0:FG0, $
 		tauHeat:tauHeat,cosmology:CosmologyOn,analyticQ:analyticQ, $
@@ -562,7 +584,9 @@ FUNCTION readOutput,name
 		fixedQ:fixedQ,diskScaleLength:scaleLength,Qlim:Qlim,dlnx:dlnx,$
 		mh0:mh0, minStsig:minStsig,zquench:zquench,xmin:xmin,$
 		zrelax:zrelax, zetaREC:zetaREC, deltaOmega:deltaOmega, $
-                NoutputsNominal:NoutputsNominal,  ND08attempts:ND08attempts }
+        NoutputsNominal:NoutputsNominal,  ND08attempts:ND08attempts, $
+        x25s_2:x25s_2, x25s_3:x25s_3, x25s:x25s, $
+        colTranses:colTranses }
 	
 	RETURN,model ;; end of the readOutput function
 END

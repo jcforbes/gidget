@@ -149,9 +149,9 @@ int main(int argc, char **argv) {
     else if(whichAccretionHistory==1)
         mdot0 = accr.GenerateConstantAccretionHistory(12.3368,zstart,cos,filename+"_ConstAccHistory2.dat",true)*MSol/speryear;
     else if(whichAccretionHistory<0 ) {
+        bool constInTime = dbg.opt(14);
         mdot0=MSol/speryear * accr.GenerateLogNormal(zstart, zrelax, cos, 
-                7.0*pow(Mh0*1.0e-12,1.1)*pow(1.+zstart,2.2)*accr.epsin(zstart,Mh0*1.0e-12,cos,zquench),
-                fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,"_LogNormal.dat");
+              fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,filename+"_LogNormal.dat",constInTime);
         //      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,0.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
     }
     else {
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 
     as2.Set(dbg.opt(12), "Artificially set GI torque=0 everywhere");
     as2.Set(dbg.opt(13), "Artificially set fH2 as if [Z/Zsun] = 0.3-.05*(r/kpc)");
-    as2.Set(dbg.opt(14), "blank");
+    as2.Set(dbg.opt(14), "For lognormal acc history, bursts uniform in time (otherwise uniform in z)");
     as2.Set(dbg.opt(15), "non-constant kappa_Z");
     as2.Set(dbg.opt(16), "blank");
     as2.Set(dbg.opt(17), "blank");

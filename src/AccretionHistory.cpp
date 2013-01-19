@@ -149,14 +149,15 @@ double npow(double x,double ex)
         return pow(x,ex);
 }
 
-double AccretionHistory::GenerateLogNormal(double zstart,double zrelax, Cosmology& cos,
-                    double mean, double scatter, double Nchanges,
+double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& cos,
+                    double scatter, double Nchanges,
                     bool writeOut, double zquench,
-                    double Mh0, unsigned int seed, std::string fn)
+                    double Mh0, unsigned int seed, std::string fn, bool constInTime)
 {
     gsl_rng * r = gsl_rng_alloc(gsl_rng_taus);
     gsl_rng_set(r,seed);
 
+    zstart = zst;
     double Mh012 = Mh0*1.0e-12;
     linear = true;
     std::ofstream file;
@@ -171,11 +172,12 @@ double AccretionHistory::GenerateLogNormal(double zstart,double zrelax, Cosmolog
     double DeltaT = duration/Nchanges; // seconds
     double currentAccretionRate;
     double z,dz;
+    double x=0.0;
 
     // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
     // Otherwise, loop over redshift from zstart to z=0.
     for(unsigned int i=0; i<=N; ++i) {
-        z=((double) i)/((double) N) * (zrelax*1.1 - 0.0) -.05*zrelax;
+        z=((double) i)/((double) N) * (zrelax*1.1 - 0.0) -.005*zrelax;
         dz = 1.0/((double) N) * (zrelax*1.1 - 0.0);
 
         // Use the Bouche formula to tell us the dark matter accretion rate
@@ -185,26 +187,24 @@ double AccretionHistory::GenerateLogNormal(double zstart,double zrelax, Cosmolog
 //        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
         double present = cos.lbt(z); // lookback time (in seconds) of the current redshift.
         double next = cos.lbt(z+dz); // this will be a larger number, i.e. a number further back in time.
-        bool drawNewNumber = floor(Nchanges * present/duration) < floor(Nchanges * next/duration) && z<zstart|| i==0;
+        bool drawNewNumber = floor(Nchanges * present/duration) < floor(Nchanges * next/duration) && z<zstart && constInTime || floor(Nchanges * z/zstart) < floor(Nchanges * (z+dz)/zstart) && z<zstart && !constInTime || (z-zstart)*(z+dz-zstart) <= 0.0;
         if(drawNewNumber) {
-            double x = gsl_ran_gaussian(r,1.0);
-            currentAccretionRate = exp(log(mean)-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter)*epsin(z,Mh,cos,zquench);
+            x = gsl_ran_gaussian(r,1.0);
         }
-        if(z>zstart) currentAccretionRate = mean;
-        MdotExt = currentAccretionRate;
+        currentAccretionRate = exp(log(dMh*1.0e12)-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
+        
+        if(z>zstart) currentAccretionRate = dMh*1.0e12;
+        MdotExt = currentAccretionRate * epsin(z,Mh,cos,zquench)*.18;
 
         if((z-zstart)*(z+dz-zstart)<=0.0)// always set MdotExt0 to be MdotExt at z=2
             MdotExt0= MdotExt;
 
         haloMass.push_back(Mh); // solar masses
 
-//        if(true) { //z>zquench) {
-//            // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
-//            if(!MhAtz0) // starting from high redshift..
-//                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;
-//            else // starting from low redshift..
-//                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart-0.0))) / speryear;
-//        }
+        if(true) { //z>zquench) {
+            // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
+            Mh+= currentAccretionRate*1.0e-12 * -1.0*( cos.Tsim(z) - cos.Tsim(z+dz)) / speryear;
+        }
 
         // these small adjustments to z avoid interpolation errors without really affecting anything.
         redshifts.push_back(z); 
@@ -424,69 +424,6 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
     if(val > ceiling) val=ceiling;
     if(z<zquench) val = 0.0;
     return val;
-}
-
-double AccretionHistory::GenerateBursty(
-        double zs, Cosmology& cos, 
-        std::string fn, bool writeOut, bool MhAtz0, 
-        double zquench, double deltaz,
-        double fscatter)
-{
-    double Mh012 = Mh0*1.0e-12;
-    std::ofstream file;
-    if(writeOut) file.open(fn.c_str());
-    zstart = zs;
-    unsigned int N=1000; 
-    double Mh=Mh012; // units of 10^12 solar masses
-    double z=zstart;
-    double fbp18 = 1.0; // baryon fraction / 0.18
-    double MdotExt0;
-    std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
-
-    // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
-    // Otherwise, loop over redshift from zstart to z=0.
-    for(unsigned int i=0; i<=N; ++i) {
-        if(!MhAtz0) // if Mh is given at z=zstart, start from high redshift and go to z=0 
-            z=((double) (N-i))/((double) N)*(zstart-0.0);
-        else // if Mh is given at z=0, start from low redshift and go to z=zstart.
-            z=((double) i)/((double) N) * (zstart - 0.0);
-
-        // Use the Bouche formula to tell us the dark matter accretion rate
-        double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // in 10^12 Msol/yr
-
-        // Use the analogous formula to tell us the baryonic accretion rate.
-        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
-
-        if((i==0 && !MhAtz0) || (i==N && MhAtz0)) // always set MdotExt0 to be MdotExt at z=2
-            MdotExt0= MdotExt;
-
-        haloMass.push_back(Mh); // solar masses
-
-        if(true) { //z>zquench) {
-            // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
-            if(!MhAtz0) // starting from high redshift..
-                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;
-            else // starting from low redshift..
-                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart-0.0))) / speryear;
-        }
-
-        // these small adjustments to z avoid interpolation errors without really affecting anything.
-        redshifts.push_back(z*1.001-.001); 
-
-        tabulatedAcc.push_back(MdotExt);
-        if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
-    }
-
-    // 
-    if(MhAtz0) { // then we need to reverse redshifts and tabulatedAcc
-        reverse(redshifts.begin(),redshifts.end());
-        reverse(tabulatedAcc.begin(), tabulatedAcc.end());
-        reverse(haloMass.begin(),haloMass.end());
-    }
-
-    file.close();
-    InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
-    return MdotExt0;
 }
 
 

@@ -175,7 +175,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 		              theCurves[indVarIndex, *, aColor] = percentiles((data[ti,0,k,subset])[thisIndBin],percentileList,wrtXlog[k])
 
                   ENDFOR ; end loop over independent variable bins.
-                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=2,PSYM=-2,SYMSIZE=symsize*3
+                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=thicknesses[0],PSYM=-2,SYMSIZE=symsize*3
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
           

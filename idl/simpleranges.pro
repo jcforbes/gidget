@@ -22,6 +22,12 @@ FUNCTION simpleranges,data,wrtxlog
           ; to anchor to the minimum or maximum. We try to anchor to the one containing the median value..
     	  IF(med GT ranges[1,k]/fac) THEN ranges[0,k] = ranges[1,k]/fac ELSE IF(med LT ranges[0,k]*fac) THEN ranges[1,k]=ranges[0,k]*fac ELSE ranges[0:1,k] = [1.0/sqrt(fac), sqrt(fac)]
       ENDIF
+
+      minDynRange = 40.0
+      IF(ranges[1,k] / ranges[0,k] LT minDynRange) THEN BEGIN
+            IF(med GT sqrt(ranges[1,k]*ranges[0,k])) THEN ranges[1,k] = ranges[0,k]*minDynRange ELSE ranges[0,k]=ranges[1,k]/minDynRange
+      ENDIF
+
     ENDIF
 
     ;; Give us a little breathing room: add 10% in each direction for each axis.
@@ -29,6 +35,7 @@ FUNCTION simpleranges,data,wrtxlog
       dexRange = alog10(ranges[1,k]/ranges[0,k])
       ranges[1,k] = ranges[1,k]*(10.0 ^ (dexRange/10.0))
       ranges[0,k] = ranges[0,k]/(10.0 ^ (dexRange/10.0))
+
     ENDIF
     IF(wrtXlog[k] EQ 0) THEN BEGIN
       linRange = ranges[1,k]-ranges[0,k]

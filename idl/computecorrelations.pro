@@ -33,7 +33,7 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
             listOfColors[aColor-lowestColor] = count
             IF(count NE 0) THEN BEGIN
                 FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
-                    IF(normalize EQ 1) THEN normalizations[ti,k,acolor] = median(vsMdot[ti,0,k,wh]) ELSE medians[ti,k,wh]=1.0
+                    IF(normalize EQ 1) THEN normalizations[ti,k,acolor-lowestColor] = median(vsMdot[ti,0,k,wh]) ELSE medians[ti,k,wh]=1.0
                 ENDFOR
             ENDIF
         ENDFOR
@@ -56,9 +56,9 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
                 IF(count GT 0) THEN BEGIN
                     laggingVar = vsMdot[nt0:(nt-1),0,k,j];/normalizations[nt0:(nt-1),k,aColor]
 		    ;;; Note that if normalize is false (0), then all values of normalizations[*,*,*] will be 1, in which case we're either subtracting zero or one from every variable, which will make no difference in the correlations.
-                    IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar) - alog10(normalizations[nt0:(nt-1),k,aColor]) ELSE laggingVar = laggingVar - normalizations[nt0:(nt-1),k,aColor]
+                    IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar) - alog10(normalizations[nt0:(nt-1),k,aColor-lowestColor]) ELSE laggingVar = laggingVar - normalizations[nt0:(nt-1),k,aColor-lowestColor]
                     mdot = vsMdot[nt0:(nt-1),0,0,j];/normalizations[nt0:(nt-1),0,aColor]
-                    IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot) - alog10(normalizations[nt0:(nt-1),0,aColor]) ELSE mdot=mdot - normalizations[nt0:(nt-1),0,aColor]
+                    IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot) - alog10(normalizations[nt0:(nt-1),0,aColor-lowestColor]) ELSE mdot=mdot - normalizations[nt0:(nt-1),0,aColor-lowestColor]
                     crossCorrelations[0,*,k,j] = c_correlate(mdot,laggingVar,indgen(nt-1-nt0))
                     autoCorrelations[0,*,k,j] = c_correlate(laggingVar,laggingVar,indgen(nt-1-nt0))
                 ENDIF

@@ -471,22 +471,22 @@ PRO variability3,expNames,N,sv,keys=keys
 
    ;;;;; STANDALONE PNG's ;;;;;
    ;vs radius. First two are log radius, second two are identical with linear radius
-  simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervals_logR", $
+  simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogR", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12
-  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted_logR", $
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogR", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses
   simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervals", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12
   simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsorted", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses
 
-  simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,vsTimeStyles,vsTimeToLog,expName2+"_vstime", $
-      5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20,thicknesses=unsThicknesses
   simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,vsTimeStyles,vsTimeToLog,expName2+"_vstimeDist", $
+      5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20,thicknesses=unsThicknesses
+  simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,vsTimeStyles,vsTimeToLog,expName2+"_vstime", $
       5,axisLabels=vsTimeLabels,whichFrames=[0],thicknesses=unsThicknesses
 ;  simpleMovie, avgdVsMdot,z,vsAvgMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsavgmdot", $
 ;      5,PSYM=1,axisLabels=vsAvgMdotLabels,horizontal=1,whichFrames=whichFrames3,thicknesses=unsThicknesses
-  simpleMovie, byAge,ages,byAgeNames,colors,colors*0,byAgeToLog,expName2+"_byAge_logR", $
+  simpleMovie, byAge,ages,byAgeNames,colors,colors*0,byAgeToLog,expName2+"_byAgeLogR", $
       5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses
   simpleMovie, byAge,ages,byAgeNames,colors,colors*0,[0,byAgeToLog[1:n_elements(byAgeToLog)-1]],expName2+"_byAge", $
       5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses

@@ -76,7 +76,7 @@ FUNCTION mpfitprofile,r,prof,chi2,single=single,colfit=colfit,fake=fake
     IF(length GT maxlength) THEN length=maxlength
     IF(length LT minlength) THEN length=maxlength ;; not a typo. If the guess for length is negative, then the best we can do is guess a flat profile, i.e. we want a large length, not a small one.
     ; guess:
-    IF(single NE 0) THEN p = [prof[0],length] ELSE p = [.7*prof[0],.3*prof[0],length,1.0,length]
+    IF(single NE 0) THEN p = [prof[0],length] ELSE p = [.7*prof[0],.3*prof[0],length,length,1.0]
 
     ; fit
     funcName='gfunct'

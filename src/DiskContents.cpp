@@ -629,22 +629,7 @@ void DiskContents::AddNewStellarPop(const double redshift,
         currentlyForming->extract(*(sps[sz-1]),.01);
     }
     else {
-        for(unsigned int n=1; n<=nx; ++n) {
-            currentlyForming->spcol[n] = RfREC*colSFR[n]*dt;
-            if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) currentlyForming->spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth);
-            else currentlyForming->spsigR[n] = minsigst;
-            currentlyForming->spsigZ[n] = currentlyForming->spsigR[n];
-            currentlyForming->spZ[n]   = ZDisk[n];
-            currentlyForming->spZV[n]  = 0.0;
-
-            if( currentlyForming->spcol[n] <0.0 || currentlyForming->spsigR[n]<0.0 
-                    || currentlyForming->spZ[n]<0.0    || currentlyForming->spZV[n] <0.0
-                    || currentlyForming->spcol[n]!=currentlyForming->spcol[n]
-                    || currentlyForming->spsigR[n]!=currentlyForming->spsigR[n]
-                    || currentlyForming->spZ[n]!=currentlyForming->spZ[n]
-                    || currentlyForming->spZV[n]!=currentlyForming->spZV[n])
-                errormsg("Error forming new stellar population: "+str(currentlyForming->spcol[n])+" "+str(colSFR[n])+" "+str(dt));
-        }
+        FormNewStars(*currentlyForming, dt, redshift);
     }
     currentlyForming->ComputeSpatialDerivs();
     sps.push_back(currentlyForming);
@@ -654,6 +639,30 @@ void DiskContents::AddNewStellarPop(const double redshift,
     else {
         std::cout << "Creating spsPassive["<<sz<<"]"<<std::endl;
     }
+}
+
+void DiskContents::FormNewStars(StellarPop & currentlyForming, double dt, double redshift)
+{
+    for(unsigned int n=1; n<=nx; ++n) {
+        currentlyForming.spcol[n] = RfREC * colSFR[n] * dt;
+        currentlyForming.spZ[n] = ZDisk[n];
+        currentlyForming.spZV[n] = 0.0;
+        if(!dbg.opt(16)) {
+            if(sigth*sigth+minsigst*minsigst<=sig[n]*sig[n])
+                currentlyForming.spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the turbulent velocity dispersion of the gas
+            else
+                currentlyForming.spsigR[n] = minsigst;
+        }
+        else {
+            currentlyForming.spsigR[n] = sig[n];
+        }
+        currentlyForming.spsigZ[n] = currentlyForming.spsigR[n];
+
+        if(currentlyForming.spcol[n] < 0. || currentlyForming.spsigR[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsigR[n]!=currentlyForming.spsigR[n])
+            errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsigR[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
+    }
+    currentlyForming.ageAtz0 = cos.lbt(redshift);
+
 }
 
 void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
@@ -682,36 +691,10 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 
     }
 
-
-
     unsigned int szA = spsActive.size();
     unsigned int szP = spsPassive.size();
     StellarPop currentlyForming(mesh);
-    for(unsigned int n=1; n<=nx; ++n) {
-        //    spsActive[0]->spcol[n] += dt * dColStDtNominal[n];
-        //    spsActive[0]->spsigR[n] += dt*dSigStRDtNominal[n];
-        //    spsActive[0]->spsigZ[n] += dt*dSigStZDtNominal[n];
-
-
-
-        // The stars being formed this time step have..
-        currentlyForming.spcol[n] = RfREC* colSFR[n] * dt; // col. density of SF*dt 
-        currentlyForming.spZ[n]=ZDisk[n];             // the metallicity of the gas
-        currentlyForming.spZV[n]=0.0;
-        if(sigth*sigth+minsigst*minsigst<=sig[n]*sig[n])
-            currentlyForming.spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the velocity dispersion of the gas
-        else
-            currentlyForming.spsigR[n] = minsigst;
-
-        currentlyForming.spsigZ[n] = currentlyForming.spsigR[n];
-
-        if(currentlyForming.spcol[n] < 0. || currentlyForming.spsigR[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsigR[n]!=currentlyForming.spsigR[n])
-            errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsigR[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
-    }
-    currentlyForming.ageAtz0 = cos.lbt(redshift);
-
-
-
+    FormNewStars(currentlyForming,dt,redshift);
 
     spsActive[szA-1]->MergeStellarPops(currentlyForming,(*this));
     spsPassive[szP-1]->MergeStellarPops(currentlyForming,(*this));
@@ -726,8 +709,6 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
         spsActive[i]->MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
         spsActive[i]->ComputeSpatialDerivs();
     }
-
-
 
 
     double MIn = dt*MdotiPlusHalf[0]+dt*MdotiPlusHalfStar[0]+dt*MdotiPlusHalfMRI[0]+dt*fracAccInner*AccRate;
@@ -1164,7 +1145,8 @@ double DiskContents::ComputeH2Fraction(unsigned int n)
     double ss = log(1.0 + 0.6 * ch + .01*ch*ch)/(0.6*tauc);
     double val = 1.0 - 0.75 * ss/(1.0+0.25*ss);
 
-    if(val<0.03) val = 0.03;
+    if(val<0.03 && !dbg.opt(17)) val = 0.03;
+    if(dbg.opt(17) && val<0.0) val=0.0;
     if(val<0. || val>1.0 || val!=val)
         errormsg("Nonphysical H2 Fraction :" + str(val) + 
                 ", n,ch,tauc,ss,ZDisk,ZBulge,col= " +str(n)+
@@ -1243,13 +1225,26 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,std::vector<Stell
 
 
     if(sps.size()-1==sp) { // i.e. this population is having stars added presently.
-        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
-            val += (sig[n]*sig[n] - sigth*sigth - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
-                /(2.0*col_st[n]*sig_stR[n]);
+        if(!dbg.opt(16)) {
+            if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
+                val += (sig[n]*sig[n] - sigth*sigth - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
+                    /(2.0*col_st[n]*sig_stR[n]);
+            }
+            else { // in this case, the new stellar population will have velocity dispersion = minsigst
+                val += (minsigst*minsigst - sig_stR[n]*sig_stR[n] ) *RfREC * colSFR[n]
+                    /(2.0*col_st[n]*sig_stR[n]);
+            }
         }
-        else { // in this case, the new stellar population will have velocity dispersion = minsigst
-            val += (minsigst*minsigst - sig_stR[n]*sig_stR[n] ) *RfREC * colSFR[n]
-                /(2.0*col_st[n]*sig_stR[n]);
+        else {
+            if(minsigst*minsigst <= sig[n]*sig[n]) {
+                val += (sig[n]*sig[n] - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
+                    /(2.0*col_st[n]*sig_stR[n]);
+            }
+            else {
+                val += (minsigst*minsigst - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
+                    /(2.0*col_st[n]*sig_stR[n]);
+            }
+    
         }
     }
     return val;
@@ -1277,13 +1272,25 @@ double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,std::vector<Stell
 
 
     if(sps.size()-1==sp) { // i.e. this population is forming stars
-        if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
-            val += (sig[n]*sig[n] - sigth*sigth - sig_stZ[n]*sig_stZ[n])*RfREC*colSFR[n]
-                /(2.0*col_st[n]*sig_stZ[n]);
+        if(!dbg.opt(16)) {
+            if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
+                val += (sig[n]*sig[n] - sigth*sigth - sig_stZ[n]*sig_stZ[n])*RfREC*colSFR[n]
+                    /(2.0*col_st[n]*sig_stZ[n]);
+            }
+            else { // in this case, the new stellar population will have velocity dispersion = minsigst
+                val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfREC * colSFR[n]
+                    /(2.0*col_st[n]*sig_stZ[n]);
+            }
         }
-        else { // in this case, the new stellar population will have velocity dispersion = minsigst
-            val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfREC * colSFR[n]
-                /(2.0*col_st[n]*sig_stZ[n]);
+        else {
+            if(minsigst*minsigst <= sig[n]*sig[n]) {
+                val += (sig[n]*sig[n] - sig_stZ[n]*sig_stZ[n])*RfREC*colSFR[n]
+                    /(2.0*col_st[n]*sig_stZ[n]);
+            }
+            else {
+                val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfREC*colSFR[n]
+                    /(2.0*col_st[n]*sig_stZ[n]);
+            }
         }
     }
     return val;

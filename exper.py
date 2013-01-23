@@ -844,11 +844,95 @@ if __name__ == "__main__":
 
 
 
+    l045 = GetScaleLengths(1,Mh0=1.0e12,scatter=1.0e-10)[0]
+
+    lengthFactors=[ 0.3, 0.7, 1.1 ]
+    ru01=[experiment("ru01"+letter(i)) for i in range(3)]
+    [ru01[i].irregularVary("R",40) for i in range(len(ru01))]
+    [ru01[i].irregularVary('diskScaleLength',l045/3.0) for i in range(len(ru01))]
+    [ru01[i].irregularVary('accScaleLength',l045*lengthFactors[i]) for i in range(len(ru01))]
+    [ru01[i].irregularVary('mu',1.0) for i in range(len(ru01))]
+    [ru01[i].irregularVary('vphiR',220.0) for i in range(len(ru01))]
+    [ru01[i].irregularVary('NPassive',10) for i in range(len(ru01))]
+    [ru01[i].irregularVary('invMassRatio',1.0) for i in range(len(ru01))]
+    [ru01[i].irregularVary('dbg',2**1) for i in range(len(ru01))]
+    [ru01[i].irregularVary('xmin',.01) for i in range(len(ru01))]
+
+    ru02=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
+    [ru02[i].changeName('ru02'+letter(i)) for i in range(len(ru02))]
+    [ru02[i].vary('whichAccretionHistory',1000,1100,101,0) for i in range(len(ru02))]
+
+    ru03=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
+    [ru03[i].changeName("ru03"+letter(i)) for i in range(len(ru03))]
+    [ru03[i].vary('whichAccretionHistory',-1100,-1000,101,0) for i in range(len(ru03))]
+    [ru03[i].irregularVary('NChanges',10) for i in range(len(ru03))]
+    [ru03[i].irregularVary('fscatter',.3) for i in range(len(ru03))]
+
+    ru04=[copy.deepcopy(ru03[i]) for i in range(len(ru03))]
+    [ru04[i].changeName("ru04"+letter(i)) for i in range(len(ru04))]
+    [ru04[i].irregularVary('NChanges',5) for i in range(len(ru04))]
+
+    ru05=[copy.deepcopy(ru03[i]) for i in range(len(ru03))]
+    [ru05[i].changeName("ru05"+letter(i)) for i in range(len(ru05))]
+    [ru05[i].irregularVary('NChanges',100) for i in range(len(ru05))]
+
+    # Artificial alterations in the SF law:
+    # c=5/3, c=15, fH2=1, fH2=.03, Zgrad, fH2->0, sig*=sig
+    sfAlter = [2+2**6, 2+2**8, 2+2**9, 2+2**10, 2+2**13, 2+2**17, 2+2**16]
+    ru06=[copy.deepcopy(ru01[1]) for i in range(len(sfAlter))]
+    [ru06[i].changeName("ru06"+letter(i)) for i in range(len(sfAlter))]
+    [ru06[i].irregularVary('dbg',sfAlter[i]) for i in range(len(ru06))] # clumping = 5/3
+
+    # low-high extermes:
+    ru07=[copy.deepcopy(ru01[1]) for i in range(2)]
+    [ru07[i].changeName("ru07"+letter(i)) for i in range(len(ru07))]
+    [ru07[i].irregularVary("fixedQ",1.0+2*i) for i in range(len(ru07))]
+
+    ru08=[copy.deepcopy(ru07[i]) for i in range(len(ru07))]
+    [ru08[i].changeName("ru08"+letter(i)) for i in range(len(ru08))]
+    [ru08[i].irregularVary("dbg",2+2**4) for i in range(len(ru08))]
+
+    ru09=[copy.deepcopy(ru01[1]) for i in range(2)]
+    [ru09[i].changeName("ru09"+letter(i)) for i in range(len(ru09))]
+    [ru09[i].irregularVary('vphiR',180.0+70*i) for i in range(len(ru09))]
+
+    ru10=[copy.deepcopy(ru01[1]) for i in range(2)]
+    [ru10[i].changeName("ru10"+letter(i)) for i in range(len(ru10))]
+    [ru10[i].irregularVary("mu",0.1+1.9*i) for i in range(len(ru10))]
+
+    ru11=[copy.deepcopy(ru01[1]) for i in range(2)]
+    [ru11[i].changeName("ru11"+letter(i)) for i in range(len(ru11))]
+    [ru11[i].irregularVary('b',1.0+4.0*i) for i in range(len(ru11))]
+
+    ru12=[copy.deepcopy(ru01[1]) for i in range(2)]
+    [ru12[i].changeName("ru12"+letter(i)) for i in range(len(ru12))]
+    [ru12[i].irregularVary("eta",.3+4.7*i) for i in range(len(ru12))]
+
+    ru13=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
+    [ru13[i].changeName("ru13"+letter(i)) for i in range(len(ru13))]
+    [ru13[i].irregularVary("alphaMRI",0.1) for i in range(len(ru13))]
+
+    ru14=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
+    [ru14[i].changeName("ru14"+letter(i)) for i in range(len(ru14))]
+    [ru14[i].irregularVary("dbg",2+2**12) for i in range(len(ru14))]
+
+    ru15=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
+    [ru15[i].changeName("ru15"+letter(i)) for i in range(len(ru15))]
+    [ru15[i].vary('kappaMetals',1.0e-5,1.0e-2,20,1) for i in range(len(ru15))]
+    
+    ru16=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
+    [ru16[i].changeName("ru16"+letter(i)) for i in range(len(ru16))]
+    [ru16[i].vary('fixedQ',1.0,3.0,20,0) for i in range(len(ru16))]
+
+
+
+    
+
+
     # A series of experiments where we concentrate only on Mh0=10^12
     rt01 = experiment("rt01")
     rt01.irregularVary("R",40)
     # Scale length for lambda = 0.045:
-    l045 = GetScaleLengths(1,Mh0=1.0e12,scatter=1.0e-10)[0]
     rt01.irregularVary('accScaleLength',l045/3.0)
     rt01.irregularVary('diskScaleLength',l045/3.0)
     rt01.irregularVary('mu',1.0)

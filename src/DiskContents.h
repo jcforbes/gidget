@@ -184,6 +184,8 @@ class DiskContents {
 			std::vector<StellarPop *>&,
 			bool active);
 
+    void FormNewStars(StellarPop & currentlyForming, double dt, double redshift);
+
   // Fill tauvec with the torque and its first derivative, i.e. 
   // solve the torque equation given an inner and outer boundary 
   // condition. These are such that tau(x=xmin)=IBC and tau'(x=1)=OBC

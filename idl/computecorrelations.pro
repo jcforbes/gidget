@@ -39,6 +39,7 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
         ENDFOR
     ENDFOR
 
+    ;stop,"Normalizations produced"
 
     ;; Construct some cross-correlations
     nt = n_elements(vsMdot[*,0,0,0])
@@ -52,20 +53,24 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
         ;; loop over variables
         FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
             FOR aColor=lowestColor, highestColor DO BEGIN
-                wh = WHERE(colors[0,*] EQ aColor, count)
-                IF(count GT 0) THEN BEGIN
+;                wh = WHERE(colors[0,*] EQ aColor, count)
+;                IF(count GT 0) THEN BEGIN
+                IF(colors[0,j] EQ aColor) THEN BEGIN
                     laggingVar = vsMdot[nt0:(nt-1),0,k,j];/normalizations[nt0:(nt-1),k,aColor]
 		    ;;; Note that if normalize is false (0), then all values of normalizations[*,*,*] will be 1, in which case we're either subtracting zero or one from every variable, which will make no difference in the correlations.
-                    IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar) - alog10(normalizations[nt0:(nt-1),k,aColor-lowestColor]) ELSE laggingVar = laggingVar - normalizations[nt0:(nt-1),k,aColor-lowestColor]
+                    IF(logarithms[k] EQ 1) THEN laggingVar = alog10(laggingVar/normalizations[nt0:(nt-1),k,aColor-lowestColor]) ELSE laggingVar = laggingVar - normalizations[nt0:(nt-1),k,aColor-lowestColor]
                     mdot = vsMdot[nt0:(nt-1),0,0,j];/normalizations[nt0:(nt-1),0,aColor]
-                    IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot) - alog10(normalizations[nt0:(nt-1),0,aColor-lowestColor]) ELSE mdot=mdot - normalizations[nt0:(nt-1),0,aColor-lowestColor]
+                    IF(logarithms[0] EQ 1) THEN mdot = alog10(mdot/normalizations[nt0:(nt-1),0,aColor-lowestColor]) ELSE mdot=mdot - normalizations[nt0:(nt-1),0,aColor-lowestColor]
                     crossCorrelations[0,*,k,j] = c_correlate(mdot,laggingVar,indgen(nt-1-nt0))
                     autoCorrelations[0,*,k,j] = c_correlate(laggingVar,laggingVar,indgen(nt-1-nt0))
+                    ;IF(j EQ 1) THEN STOP, "in the loop"
                 ENDIF
             ENDFOR
         ENDFOR
 
     ENDFOR
+
+    stop,"correlations produced"
 
     wh = where(crossCorrelations NE crossCorrelations, ct)
     crossCorrelations[wh] = -1.1
@@ -86,50 +91,11 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
 ;    simpleMovie, crossCorrelations[0,1:nt-2-nt0,*,*], [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xcc", 5, axisLabels="x-corr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
 ;    simpleMovie, autoCorrelations[0,1:nt-2-nt0,*,*],  [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xac", 5, axisLabels="autocorr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
 
+    stop,"ready to plot"
 
     simpleMovie, ccVsTime[0,1:nt-2-nt0,*,*], [0.0], ['time',names], colors, intarr(nmodels)+ls, [1,intarr(nvars)], name+"_cc", 5, axisLabels=['lag time',"x-corr "+qualifier+labelsIn], whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
     simpleMovie, acVsTime[0,1:nt-2-nt0,*,*], [0.0], ['time',names], colors, intarr(nmodels)+ls, [1,intarr(nvars)], name+"_ac", 5, axisLabels=['lag time',"autocorr "+qualifier+labelsIn], whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
 
-    ;; loop over variables to make plots
-;   FOR k=0,n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
-;       ;; for each lag time, compute the percentiles
-;       FOR tt=0,n_elements(crossCorrelations[*,0,0])-1 DO BEGIN
-;           ccPercentiles[tt,k,*] = percentiles(crossCorrelations[tt,k,*], percentileList, 0)
-;           acPercentiles[tt,k,*] = percentiles( autoCorrelations[tt,k,*], percentileList, 0)
-;       ENDFOR
-;       setct,1,0,2
-;       FIGUREINIT,(name+"_cc_"+names[k]),sv,2,2
-;       PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="Lag Time (Ga)",YTITLE="x-corr: "+labels[0]+" with "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
-;       FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO $
-;           OPLOT, time[1:(nt-1-nt0)],crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
-;       FOR j=0, n_elements(percentileList)-1 DO $
-;           OPLOT, time[1:(nt-1-nt0)],ccPercentiles[*,k,j],COLOR=colors[0,
-;       
-;       FIGURECLEAN,(name+"_cc_"+names[k]),sv
-;
-;       FIGUREINIT,(name+"_ac_"+names[k]),sv,2,2
-;       PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[.8*MIN(time[2:nt-2]),MAX(time)],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="Lag Time (Ga)",YTITLE="autocorr: "+labels[k],XLOG=1,CHARSIZE=cs,CHARTHICK=ct
-;       FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-;            OPLOT, time[1:(nt-1-nt0)],autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
-;       ENDFOR
-;       FIGURECLEAN,(name+"_ac_"+names[k]),sv
-;
-;       FIGUREINIT,(name+"_xcc_"+names[k]),sv,2,2
-;       PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[-1.0,1.0],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="mdot autocorrelation",YTITLE="x-corr: "+labels[0]+" with "+labels[k],CHARSIZE=cs,CHARTHICK=ct
-;       FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-;           OPLOT, crossCorrelations[*,0,j] , crossCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
-;       ENDFOR
-;       FIGURECLEAN,(name+"_xcc_"+names[k]),sv
-;
-;       FIGUREINIT,(name+"_xac_"+names[k]),sv,2,2
-;       PLOT,[0],[0], COLOR=0,BACKGROUND=255, XRANGE=[-1.0,1.0],YRANGE=[-1.0,1.0],XSTYLE=1,YSTYLE=1,THICK=1,XTITLE="mdot autocorrelation",YTITLE="autocorr: "+labels[k],CHARSIZE=cs,CHARTHICK=ct
-;       FOR j=0, n_elements(vsMdot[0,0,0,*])-1 DO BEGIN
-;           OPLOT, crossCorrelations[*,0,j] , autoCorrelations[*,k,j],COLOR=colors[0,j],THICK=thicknesses[j],LINESTYLE=ls
-;       ENDFOR
-;       FIGURECLEAN,(name+"_xac_"+names[k]),sv
-;
-;
-;   ENDFOR
     IF(sv EQ 4) THEN thicknesses = temporary(thicknesses)/3.0
 END
 

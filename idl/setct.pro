@@ -52,14 +52,14 @@ PRO setct,which,n,colorRef
 
 
 		r[11:255] = byte( FIX(256*randomu(color,256-11)))
-                g[11:255] = byte( FIX(256*randomu(color+1,256-11)))
+        g[11:255] = byte( FIX(256*randomu(color+1,256-11)))
 		b[11:255] = byte( FIX(256*randomu(color+2,256-11)))
 
-                limit = fix(r) + fix(g) + fix(b)
-                problematic = where(limit GT 500) 
-                r[problematic] = byte(fix(r[problematic]/2))
-                g[problematic] = byte(fix(g[problematic]/2))
-                b[problematic] = byte(fix(b[problematic]/2))
+        limit = fix(r) + fix(g) + fix(b)
+        problematic = where(limit GT 500) 
+        r[problematic] = byte(fix(r[problematic]/2))
+        g[problematic] = byte(fix(g[problematic]/2))
+        b[problematic] = byte(fix(b[problematic]/2))
 
 	
 	ENDIF
@@ -68,11 +68,11 @@ PRO setct,which,n,colorRef
 		r=BYTE(RANDOMU(color,256)*256)
 		g=BYTE(RANDOMU(color+1,256)*256)
 		b=BYTE(RANDOMU(color+2,256)*256)
-                limit = int(r) + int(g) + int(b)
-                problematic = where(limit GT 500) 
-                r[problematic] = byte(r[problematic]/2)
-                g[problematic] = byte(g[problematic]/2)
-                b[problematic] = byte(b[problematic]/2)
+        limit = int(r) + int(g) + int(b)
+        problematic = where(limit GT 500) 
+        r[problematic] = byte(r[problematic]/2)
+        g[problematic] = byte(g[problematic]/2)
+        b[problematic] = byte(b[problematic]/2)
 
 	ENDIF
 

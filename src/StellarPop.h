@@ -39,6 +39,8 @@ class StellarPop {
   // potentially very small
   void extract(StellarPop& sp2, double f);
 
+  void ComputeRecycling(DiskContents& , double z, double RfREC);
+
   void ComputeSpatialDerivs();
 
   std::vector<double> GetSpCol() const { return spcol; };
@@ -63,6 +65,7 @@ class StellarPop {
   std::vector<double> spcol; // column density as a function of position.
   std::vector<double> spsigR; // R-direction stellar velocity dispersion as a function of position.
   std::vector<double> spsigZ; // phi- (and z-) direction stellar velocity dispersion.
+  std::vector<double> dcoldtREC;
   double ageAtz0; // i.e. lookback time at creation of these stars, in seconds
   double startingAge, endingAge; // lookback time in seconds when stars started (stopped) being added to this pop
   std::vector<double> spZ; // metallicity of the stars as a function of position.

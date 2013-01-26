@@ -384,7 +384,7 @@ FUNCTION readOutput,name
 ;    errs[where(errs LT 1.e-21)] = 1.e-21
 ;    dataCube[*,*,60:63] = errs
 
-    NPostProcess= 42
+    NPostProcess= 44
     tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ; ZstNum and ZstDen:  ( time steps ) x 1 x ( nx ) x 1
@@ -469,18 +469,27 @@ FUNCTION readOutput,name
     tdc[0,*,ncolstep+14-1] = tdc[1,*,ncolstep+14-1] ;; replace the 0th time step (all zeroes) with the first.
     fac = 1.0;; fac = MLF+Rf
     tdc[*,*,ncolstep+35-1] = tdc[*,*,ncolstep+10-1]*pcperkpc*pcperkpc/(fac*tdc[*,*,ncolstep+14-1]);; depletion time = col/coldtSF --- Msol/pc^2 / (Msol/kpc^2/yr) * (1000 pc/kpc)^2
-    tdc[*,*,ncolstep+36-1] = tdc[*,*,ncolstep+9-1]*kmperkpc/((tdc[*,*,ncolstep+17-1]+.00001)*speryear);; viscous time = r / v_r --- kpc/(km/s)
-    tdc[*,*,ncolstep+37-1] = tdc[*,*,ncolstep+35-1]/tdc[*,*,ncolstep+36-1];; depletion time / viscous time
+    tdc[*,*,ncolstep+36-1] = tdc[*,*,ncolstep+9-1]*kmperkpc/((tdc[*,*,ncolstep+17-1]+.0000001)*speryear);; viscous time = r / v_r --- kpc/(km/s)
+    tdc[*,*,ncolstep+37-1] = tdc[*,*,ncolstep+35-1]*tdc[*,*,ncolstep+17-1]*speryear/(tdc[*,*,ncolstep+9-1]*kmperkpc);; depletion time / viscous time
     
     tdc[*,*,ncolstep+38-1] = tdc[*,*,ncolstep+17-1]*speryear / (tdc[*,*,ncolstep+9-1]*kmperkpc) ; year^-1
     x25s = dblarr(n_elements(tdc[*,0,0]))
     x25s_2 = x25s[*]
     x25s_3 = x25s[*]
+    x25s_4 = x25s[*]
     colTranses = x25s[*]
     FOR ti=0, n_elements(tdc[*,0,0])-1 DO BEGIN
+        ; Locations where fH2 cross 0.5, i.e. (fH2(x_i)-.5)*(fH2(x_{i+1})-.5)<=0
         wh = WHERE((tdc[ti,0:(nx-2),48-1]-0.5)*(tdc[ti,1:(nx-1),48-1]-0.5) LE 0.0, count)
-        IF(count LE 0) THEN colTrans = 10 ; shrug
-        IF(count GE 1) THEN colTrans = sqrt(tdc[ti,wh[count-1],ncolstep+10-1] * tdc[ti,wh[count-1]+1,ncolstep+10-1])
+        ;; If no such locations exist, just take a guess
+        IF(count LE 0) THEN BEGIN 
+            colTrans = 6.75558 ; KMT value for Zsun
+            x25_4 = 1.0
+        ENDIF
+        IF(count GE 1) THEN BEGIN
+            colTrans = sqrt(tdc[ti,wh[count-1],ncolstep+10-1] * tdc[ti,wh[count-1]+1,ncolstep+10-1])
+            x25_4 = sqrt(tdc[ti,wh[count-1],0]*tdc[ti,wh[count-1]+1,0]) * 1.0/0.449659
+        ENDIF
         colTranses[ti] = colTrans
         dummy = MIN(abs(tdc[ti,*,ncolstep+12-1] - 6.619),index)
         x25 = tdc[ti,index,0] ; location of 6.619 solar masses /pc^2 in stellar mass
@@ -492,10 +501,12 @@ FUNCTION readOutput,name
         tdc[ti,*,ncolstep+39-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25))
         tdc[ti,*,ncolstep+40-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_2))
         tdc[ti,*,ncolstep+41-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_3))
+        tdc[ti,*,ncolstep+44-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_4))
         
         x25s[ti] = x25
         x25s_2[ti] = x25_2
         x25s_3[ti] = x25_3
+        x25s_4[ti] = x25_4
     ENDFOR
 
     tdc[*,*,ncolstep+42-1] = tdc[*,*,30-1] * md0 / (!pi * Radius*Radius * 1.0d6) ; Msun/yr/pc^2
@@ -547,7 +558,7 @@ FUNCTION readOutput,name
      ;; 35,36,37: depletion time, viscous time, dep/visc
      ;; 38,39 v_rg/r=1/tvisc, col_g/col_BB
      ;; 40,41 BB2, BB3
-     ;; 42- Accretion col dens 43- accretion timescale
+     ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )
@@ -594,7 +605,7 @@ FUNCTION readOutput,name
 		mh0:mh0, minStsig:minStsig,zquench:zquench,xmin:xmin,$
 		zrelax:zrelax, zetaREC:zetaREC, deltaOmega:deltaOmega, $
         NoutputsNominal:NoutputsNominal,  ND08attempts:ND08attempts, $
-        x25s_2:x25s_2, x25s_3:x25s_3, x25s:x25s, $
+        x25s_2:x25s_2, x25s_3:x25s_3, x25s:x25s, x25s_4:x25s_4, $
         colTranses:colTranses }
 	
 	RETURN,model ;; end of the readOutput function

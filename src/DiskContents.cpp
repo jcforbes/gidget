@@ -436,6 +436,8 @@ void DiskContents::Initialize(double tempRatio, double fg0)
         (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
 }
 
+
+
 void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlusHalf, 
                                 double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI,
                                 std::vector<double>& accProf, double AccRate)
@@ -497,6 +499,15 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             * dlnZdx *tauvec[2][n] 
             + yREC*(1.0-RfREC)*zetaREC*colSFR[n]/(col[n])
             + accProf[n]*AccRate * (Z_IGM - ZDisk[n])/col[n];
+
+        // Terms for non-instantaneous-recycling
+        for(unsigned int i=0; i!=spsPassive.size(); ++i) {
+            dZDiskdt[n] +=0;
+            dcoldt[n] +=0;
+        }
+
+
+
 
         // Check to make sure the results of this method are reasonable..
         if(dcoldt[n]!=dcoldt[n] || 
@@ -1137,8 +1148,6 @@ double DiskContents::ComputeH2Fraction(unsigned int n)
     double Z0 = ZDisk[n]/Z_Sol;
     if(dbg.opt(13)) Z0 = pow(10.0, 0.3 - .05*x[n]*dim.Radius/cmperkpc);
     double clumping = 5.0;
-    if(dbg.opt(6)) clumping = 5.0/3.0;
-    if(dbg.opt(8)) clumping = 15.0;
     double Sig0 = dim.col_cgs(col[n]);
     double ch = 3.1 * (1.0 + 3.1*pow(Z0,0.365))/4.1;
     double tauc = 320.0 * clumping * Sig0 * Z0;
@@ -1362,36 +1371,55 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1)-mesh.x(n-1)));
         LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1)-mesh.x(n-1)));
         DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n];
-        FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n];
-        if(sigth<=sig[n]) {
-            double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
-            FF[n] += dQds[n] * 2*M_PI*M_PI*(ETA*
-                    pow(1.- sigth*sigth/(sig[n]*sig[n]),1.5)
-                    )*col[n]*dim.chi()*(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))/(3.);
-        }
-        else {
-            // do nothing - this term is zero, even though pow(<neg>,1.5) is nan.
-        }
-
-        // Add the contributions to H from the stellar components. Here we see 
-        // the difference between an active and a passive stellar population- 
-        // only the active populations contribute to H:
-        unsigned int sa = spsActive.size();
-        for(unsigned int i=0; i!=sa; ++i) {
-            if(sa-1 == i) { // i.e. population i is forming stars
-                FF[n] -= spsActive[i]->dQdS[n] * RfREC * colSFR[n];
+        // That was the easy stuff. Now we need to compute the forcing term.
+        // We start with terms related to obvious source terms, i.e. the terms which 
+        // appear in the continuity equation unrelated to transport through the disk.
+        if(!dbg.opt(4)) {
+            FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n];
+            // Now we add the contribution from the changing velocity dispersion
+            if(sigth<=sig[n]) {
+                double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
+                FF[n] += dQds[n] * 2*M_PI*M_PI*(ETA*
+                        pow(1.- sigth*sigth/(sig[n]*sig[n]),1.5)
+                        )*col[n]*dim.chi()*(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))/(3.);
             }
-            FF[n] -= spsActive[i]->dQdsR[n] * dSigStRdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar) 
-                + spsActive[i]->dQdsZ[n] *dSigStZdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
-                + spsActive[i]->dQdS[n] * dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol);
+            else {
+                // do nothing - this term is zero, even though pow(<neg>,1.5) is nan.
+            }
+    
+            // Add the contributions to FF from the stellar components. Here we see 
+            // the difference between an active and a passive stellar population- 
+            // only the active populations affect the gravitational stability of the disk.
+            unsigned int sa = spsActive.size();
+            for(unsigned int i=0; i!=sa; ++i) {
+                if(sa-1 == i) { // i.e. population i is forming stars
+                    FF[n] -= spsActive[i]->dQdS[n] * RfREC * colSFR[n];
+                }
+                FF[n] -= spsActive[i]->dQdsR[n] * dSigStRdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar) 
+                    + spsActive[i]->dQdsZ[n] *dSigStZdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
+                    + spsActive[i]->dQdS[n] * dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol);
+            }
+    
+            // add the contribution from the MRI torques.
+            FF[n] -= dQdS[n] * ((MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n]));
+    
+            FF[n] -= dQds[n] * ( (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
+                    - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]) 
+                    +uu[n]*(beta[n]-1.)*tauvecMRI[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]) );
+
+            // and finally add in the contribution from non-instantaneously-recycled stellar winds:
+            unsigned int sp = spsPassive.size();
+            if(spsActive.size()==1) {
+                for(unsigned int i=0; i!=sp; ++i) {
+                    FF[n] += spsPassive[i]->dcoldtREC[n] * (-dQdS[n] + spsActive[0]->dQdS[n]);
+                }
+            }
+            else {
+                for(unsigned int i=0; i!=sa; ++i) {
+                    FF[n] += spsActive[i]->dcoldtREC[n] * (-dQdS[n] + spsActive[0]->dQdS[n]);
+                }
+            }
         }
-
-        FF[n] -= dQdS[n] * ((MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n]));
-
-        FF[n] -= dQds[n] * ( (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
-                - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]) 
-                +uu[n]*(beta[n]-1.)*tauvecMRI[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]) );
-
         
         
         //if(redshift <.1 && n>=20 && n<=40) {
@@ -1399,8 +1427,10 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         //}
         double QQ = Q(&rqp,&absc);
 
+        // Forget all of the contributions to forcing we just computed, and
+        // set it to an exponential.
         if(dbg.opt(4)) {
-            FF[n] = exp((fixedQ-QQ)*uu[n] / (x[n]*(tauHeat/3.0)));
+            FF[n] = exp((fixedQ-QQ)*uu[n] / x[n]);
 
         }
 

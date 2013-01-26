@@ -59,7 +59,7 @@ FUNCTION diskStats,model,z=z
     ;       xin=min(x[where(fH2 GT .1)])
     inr=where(Q GT model.fixedQ*2.5,ct)
     IF(ct GT 0) THEN xin=max(x[inr]) ELSE xin=0.0
-    outr=where(fH2 GT .1,ct)
+    outr=where(fH2 GT .5,ct)
     IF(ct GT 0) THEN xout=max(x[outr]) ELSE xout=0.0
     tmp=max(col,xpeakInd)
     xpeak=x[xpeakInd]

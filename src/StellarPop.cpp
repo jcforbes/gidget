@@ -24,6 +24,7 @@ StellarPop::StellarPop(FixedMesh & m) :
   dQdsZ(std::vector<double>(m.nx()+1,0.)),
   dQdSerr(std::vector<double>(m.nx()+1,0.)),
   dQdserr(std::vector<double>(m.nx()+1,0.)),
+  dcoldtREC(std::vector<double>(m.nx()+1,0.)),
   ageAtz0(-1.0),startingAge(-1.0),endingAge(-1.0),
   mesh(m)
 { }
@@ -105,6 +106,20 @@ void StellarPop::extract(StellarPop& sp2, double frac)
   ageAtz0 = sp2.ageAtz0;
 
 }
+
+void StellarPop::ComputeRecycling(DiskContents& disk, double z, double RfREC)
+{
+    unsigned int nx=spcol.size()-1;
+    double C0 = 0.046;
+    double lambda = 1.0e5 * speryear;
+    // At this time step, frac will be ~constant over the whole disk.
+    double frac = C0/((ageAtz0 - disk.GetCos().lbt(z) + lambda)*disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));
+    if(C0 * log(1.0 + (ageAtz0 - disk.GetCos().lbt(z))/lambda) < 1.0 - RfREC) frac=0.0;
+    for(unsigned int n=1; n<=nx; ++n) {
+        dcoldtREC[n] = spcol[n] * frac;
+    }
+}
+
 
 void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents& disk, std::vector<double>& MdotiPlusHalf)
 {

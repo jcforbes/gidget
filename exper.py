@@ -349,8 +349,8 @@ class experiment:
             with open(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt','w') as stdo:
                 with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','w') as stde:
                     print "Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core."
-                    print "Parameters: "
-                    print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
+                    #print "Parameters: "
+                    #print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
                     os.chdir(expDir)
                     procs.append(subprocess.Popen([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]],stdout=stdo,stderr=stde))
                     allProcs.append(procs[-1])
@@ -484,6 +484,18 @@ def PrintSuccessTables(successTables):
 
 def letter(i):
     return chr(ord("a")+i)
+
+def NewSetOfExperiments(copyFrom, name, N=1):
+    if(type(copyFrom)==[1]):
+#        if(N!=len(copyFrom)):
+#            print "WARNING: you asked for ",N,"experiments copied from ",\
+#                    name," containing ",len(copyFrom),"experiments. Ignoring ",N,"."
+        theList = [copy.deepcopy(copyFrom[i]) for i in range(len(copyFrom))]
+    else:
+        theList=[copy.deepcopy(copyFrom[i]) for i in range(N)]
+
+    [theList[i].changeName(name+letter(i)) for i in range(len(theList))]
+    return theList
 
 if __name__ == "__main__":
 
@@ -1017,6 +1029,94 @@ if __name__ == "__main__":
     rt18=copy.deepcopy(rt01)
     rt18.changeName("rt18")
     rt18.irregularVary('dbg',2+2**12)
+
+
+
+
+    l045 = GetScaleLengths(1,Mh0=1.0e12,scatter=1.0e-10)[0]
+    rv01=experiment("rv01")
+    rv01.irregularVary("R",40)
+    rv01.irregularVary('diskScaleLength',l045*.7)
+    rv01.irregularVary('accScaleLength',l045*.7)
+    rv01.irregularVary('mu',.5)
+    rv01.irregularVary('vphiR',220.0)
+    rv01.irregularVary('NPassive',10)
+    rv01.irregularVary('invMassRatio',1.0)
+    rv01.irregularVary('dbg',2)
+    rv01.irregularVary('xmin',.004)
+    rv01.irregularVary('alphaMRI',.01)
+
+    rv02=[copy.deepcopy(rv01) for i in range(2)]
+    [rv02[i].changeName("rv02"+letter(i)) for i in range(len(rv02))]
+    rv02[0].vary('diskScaleLength',l045*.30,l045*.69,10,3)
+    rv02[1].vary('diskScaleLength',l045*.71,l045*1.1,10,3)
+    rv02[0].vary('accScaleLength',l045*.30,l045*.69,10,3)
+    rv02[1].vary('accScaleLength',l045*.71,l045*1.1,10,3)
+
+    rv03=[copy.deepcopy(rv01) for i in range(2)]
+    [rv03[i].changeName('rv03'+letter(i)) for i in range(len(rv03))]
+    rv03[0].vary('kappaMetals',1.0e-4,9.5e-4,10,1)
+    rv03[1].vary('kappaMetals',1.1e-3,3.0e-3,5,1)
+
+    rv04=[copy.deepcopy(rv03) for i in range(len(rv03))]
+    [rv04[i].changeName('rv04'+letter(i)) for i in range(len(rv04))]
+    [rv04[i].irregularVary('dbg',2+2**15) for i in range(len(rv04))]
+
+    rv05=[copy.deepcopy(rv01) for i in range(len(rv01))]
+    [rv05[i].changeName('rv05'+letter(i)) for i in range(len(rv05))]
+    rv05[0].vary('fixedQ',1.3,1.9,7,0)
+    rv05[1].vary('fixedQ',2.1,3.0,10,0)
+
+    rv06=NewSetOfExperiments(rv05,"rv06")
+    [rv06[i].irregularVary('dbg',2+2**4) for i in range(len(rv06))]
+
+    rv07=NewSetOfExperiments(rv01,"rv07",N=2)
+    rv07[0].vary('alphaMRI',0,.009,10,0)
+    rv07[1].vary('alphaMRI',.02,.1,9,0)
+
+    rv08=NewSetOfExperiments(rv01,"rv08",N=2)
+    rv08[0].vary('mu',.1,.4,4)
+    rv08[1].vary('mu',.6,2.0,15)
+
+    rv09=NewSetOfExperiments(rv01,"rv09",N=2)
+    rv09[0].vary('eta',.5,1.5,10,1)
+    rv09[1].vary('eta',1.5,4.5,10,1)
+
+    rv10=NewSetOfExperiments(rv01,"rv10",N=2)
+    rv10[0].vary('b',1,10,10,0)
+    rv10[1].vary('b',1,10,10,0)
+    rv10[1].irregularVary('innerPowerLaw',1.0)
+
+    rv11=NewSetOfExperiments(rv01,"rv11",N=2)
+    rv11[0].vary('fg0',0.1,.45,8,0)
+    rv11[1].vary('fg0',.55,.99,10,0)
+
+    rv12=NewSetOfExperiments(rv01,"rv12",N=2)
+    rv12[0].vary('vphiR',160,215,12,0)
+    rv12[1].vary('vphiR',225,250, 6,0)
+
+    rv13=NewSetOfExperiments(rv02,"rv13")
+    [rv13[i].irregularVary('whichAccretionProfile',2) for i in range(len(rv13))]
+
+    rv14=NewSetOfExperiments(rv01,"rv14",N=2)
+    rv14[0].vary('epsff',.0031,.01,10,1)
+    rv14[1].vary('epsff',.01,.031,10,1)
+
+    rv15=NewSetOfExperiments(rv01,"rv15",N=2)
+    rv15[0].vary('zetaREC',.5,1,10,1)
+    rv15[1].vary('zetaREC',1,2,10,1)
+
+    rv16=NewSetOfExperiments(rv01,"rv16",N=2)
+    rv16[0].vary('accAlphaZ',.1,.38,4,0)
+    rv16[1].vary('accAlphaZ',.4,.8,5,0)
+
+    rv17=NewSetOfExperiments(rv13,"rv17")
+    [rv17[i].irregularVary('widthAccretionProfile',0.4) for i in range(len(rv17))]
+
+    rv18=NewSetOfExperiments(rv01,"rv18")
+    
+
+
 
     successTables=[]
 

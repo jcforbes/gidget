@@ -1,14 +1,20 @@
 ;; Very simple.
 ;; Return the values of theArray at the given percentiles.
 ;; In particular, theArray is a 1d vector of data.
-;; percentileArray is the list of percentiles we'd like to compute, e.g. .025, .975 for "2-sigma"
-;; and finally log tells us whether this data naturally "prefers" a logarithmic spacing- this will make our sorting more accurate.
+;; percentileArray is the list of percentiles we'd like to compute,
+;;    e.g. .025, .975 for "2-sigma"
+;; and finally log tells us whether this data naturally "prefers" a 
+;;    logarithmic spacing- this will make our sorting more accurate.
 ;; WARNING: using w/ the log option will significantly alter the given matrix!
-;; If you need it back unaltered, use a copy when calling the function.
+;;    If you need it back unaltered, use a copy when calling the function.
 FUNCTION percentiles, theArray, percentileArray, log
     theResults = dblarr(n_elements(percentileArray))
 
     theTotal = n_elements(theArray)
+
+    wh = where(theArray GT 1.0e30, count)
+    IF(count GT 0) THEN theArray[wh] = 1.0e30
+
 
     IF(log EQ 1) THEN BEGIN
         wh = where(theArray GT 0.0, count, complement=comp)
@@ -25,8 +31,10 @@ FUNCTION percentiles, theArray, percentileArray, log
     cumulativeLinear = TOTAL(theLinearHist, /CUMULATIVE)
 
     FOR i=0, n_elements(theResults)-1 DO BEGIN
-	wh = WHERE(cumulativeLinear GE theTotal*percentileArray[i],count)
-        IF(count GT 0) THEN theResults[i] = wh[0]*spacing+theMin+spacing/2.0 ELSE stop,"Problem in percentiles.pro"
+    	wh = WHERE(cumulativeLinear GE theTotal*percentileArray[i],count)
+
+        IF(count GT 0) THEN theResults[i] = wh[0]*spacing+theMin+spacing/2.0 $
+            ELSE stop,"Problem in percentiles.pro"
         
     ENDFOR
     

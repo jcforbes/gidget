@@ -33,7 +33,7 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
             listOfColors[aColor-lowestColor] = count
             IF(count NE 0) THEN BEGIN
                 FOR k=0, n_elements(vsMdot[0,0,*,0])-1 DO BEGIN
-                    IF(normalize EQ 1) THEN normalizations[ti,k,acolor-lowestColor] = median(vsMdot[ti,0,k,wh]) ELSE medians[ti,k,wh]=1.0
+                    IF(normalize EQ 1) THEN normalizations[ti,k,acolor-lowestColor] = median(vsMdot[ti,0,k,wh]) ELSE normalizations[ti,k,wh]=1.0
                 ENDFOR
             ENDIF
         ENDFOR
@@ -70,7 +70,6 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
 
     ENDFOR
 
-    stop,"correlations produced"
 
     wh = where(crossCorrelations NE crossCorrelations, ct)
     crossCorrelations[wh] = -1.1
@@ -91,7 +90,6 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
 ;    simpleMovie, crossCorrelations[0,1:nt-2-nt0,*,*], [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xcc", 5, axisLabels="x-corr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
 ;    simpleMovie, autoCorrelations[0,1:nt-2-nt0,*,*],  [0.0], names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xac", 5, axisLabels="autocorr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
 
-    stop,"ready to plot"
 
     simpleMovie, ccVsTime[0,1:nt-2-nt0,*,*], [0.0], ['time',names], colors, intarr(nmodels)+ls, [1,intarr(nvars)], name+"_cc", 5, axisLabels=['lag time',"x-corr "+qualifier+labelsIn], whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
     simpleMovie, acVsTime[0,1:nt-2-nt0,*,*], [0.0], ['time',names], colors, intarr(nmodels)+ls, [1,intarr(nvars)], name+"_ac", 5, axisLabels=['lag time',"autocorr "+qualifier+labelsIn], whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses

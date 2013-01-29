@@ -502,8 +502,8 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
 
         // Terms for non-instantaneous-recycling
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-            dZDiskdt[n] +=0;
-            dcoldt[n] +=0;
+            dZDiskdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n]/col[n];
+            dcoldt[n] += spsPassive[i]->dcoldtREC[n];
         }
 
 
@@ -779,13 +779,14 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
             ZDisk[n] += dZDiskdt[n] * dt; // -- Euler step
         CumulativeSF[n] += colSFR[n] * dt;
 
-
-        // Why did this line even exist in the first place?
-        //double Q_RW = Qsimple(n,*this);
-
-        if(keepTorqueOff[n]==1) {
-            double dummy=0.0;
+        double totalLost=0.0;
+        for(unsigned int i=0; i!=spsPassive.size(); ++i) {
+            double lostFromThisPop = spsPassive[i]->dcoldtREC[n]*dt;
+            totalLost += lostFromThisPop;
+            spsPassive[i]->spcol[n] -= lostFromThisPop;
         }
+        spsActive[0]->spcol[n] -= totalLost;
+
 
         // Check that this method hasn't made the state variables non-physical
         if(col[n]<0. || sig[n]<0. || ZDisk[n]<0. || 

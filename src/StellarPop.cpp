@@ -107,13 +107,28 @@ void StellarPop::extract(StellarPop& sp2, double frac)
 
 }
 
-void StellarPop::ComputeRecycling(DiskContents& disk, double z, double RfREC)
+void StellarPop::ComputeRecycling(DiskContents& disk, double z)
 {
     unsigned int nx=spcol.size()-1;
     double C0 = 0.046;
-    double lambda = 1.0e5 * speryear;
+    double lambda = 2.76e5 * speryear;
+    double RfREC = disk.GetRfREC();
     // At this time step, frac will be ~constant over the whole disk.
     double frac = C0/((ageAtz0 - disk.GetCos().lbt(z) + lambda)*disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));
+    // RfREC is an input parameter, namely the remnant fraction.
+    // For an instantaneous recycling approximation, this should equal 1 - return fraction,
+    // where return fraction is the fraction of mass returned after some specified time.
+    // If we set that time to be very large, e.g. a Hubble time, return fraction = .497
+    // using the formula in Leitner11, for a Chabrier IMF.
+    // What we want to do here is require that the user-specified return fraction = 1-RfREC
+    // is returned immediately, and anything after that is returned slowly.
+    // If this stellar pop has not yet reached an age where the returned fraction is greater than this 
+    // instantaneous amount, then return nothing, i.e. set frac=0
+    // As an example, if the user sets RfREC=0.9, only 10% of star-forming gas is immediately returned
+    // and the remaining .397 is returned according to the rate specified by frac above.
+    // Whereas if the user specifies a low remnant fraction, an artificially large fraction of the gas
+    // is immediately returned, which is similar to just artificially slowing the star formation rate 
+    // at fixed gas column density.
     if(C0 * log(1.0 + (ageAtz0 - disk.GetCos().lbt(z))/lambda) < 1.0 - RfREC) frac=0.0;
     for(unsigned int n=1; n<=nx; ++n) {
         dcoldtREC[n] = spcol[n] * frac;

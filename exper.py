@@ -67,7 +67,7 @@ class experiment:
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlshaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -486,13 +486,13 @@ def letter(i):
     return chr(ord("a")+i)
 
 def NewSetOfExperiments(copyFrom, name, N=1):
-    if(type(copyFrom)==[1]):
+    if(type(copyFrom)==type([1])):
 #        if(N!=len(copyFrom)):
 #            print "WARNING: you asked for ",N,"experiments copied from ",\
 #                    name," containing ",len(copyFrom),"experiments. Ignoring ",N,"."
         theList = [copy.deepcopy(copyFrom[i]) for i in range(len(copyFrom))]
     else:
-        theList=[copy.deepcopy(copyFrom[i]) for i in range(N)]
+        theList=[copy.deepcopy(copyFrom) for i in range(N)]
 
     [theList[i].changeName(name+letter(i)) for i in range(len(theList))]
     return theList
@@ -1048,22 +1048,21 @@ if __name__ == "__main__":
 
     rv02=[copy.deepcopy(rv01) for i in range(2)]
     [rv02[i].changeName("rv02"+letter(i)) for i in range(len(rv02))]
-    rv02[0].vary('diskScaleLength',l045*.30,l045*.69,10,3)
-    rv02[1].vary('diskScaleLength',l045*.71,l045*1.1,10,3)
-    rv02[0].vary('accScaleLength',l045*.30,l045*.69,10,3)
-    rv02[1].vary('accScaleLength',l045*.71,l045*1.1,10,3)
+    rv02[0].vary('diskScaleLength',l045*.30,l045*.69,10,0,3)
+    rv02[1].vary('diskScaleLength',l045*.71,l045*1.1,10,0,3)
+    rv02[0].vary('accScaleLength',l045*.30,l045*.69,10,0,3)
+    rv02[1].vary('accScaleLength',l045*.71,l045*1.1,10,0,3)
 
     rv03=[copy.deepcopy(rv01) for i in range(2)]
     [rv03[i].changeName('rv03'+letter(i)) for i in range(len(rv03))]
     rv03[0].vary('kappaMetals',1.0e-4,9.5e-4,10,1)
     rv03[1].vary('kappaMetals',1.1e-3,3.0e-3,5,1)
 
-    rv04=[copy.deepcopy(rv03) for i in range(len(rv03))]
+    rv04=[copy.deepcopy(rv03[i]) for i in range(len(rv03))]
     [rv04[i].changeName('rv04'+letter(i)) for i in range(len(rv04))]
     [rv04[i].irregularVary('dbg',2+2**15) for i in range(len(rv04))]
 
-    rv05=[copy.deepcopy(rv01) for i in range(len(rv01))]
-    [rv05[i].changeName('rv05'+letter(i)) for i in range(len(rv05))]
+    rv05=NewSetOfExperiments(rv01,"rv05",N=2)
     rv05[0].vary('fixedQ',1.3,1.9,7,0)
     rv05[1].vary('fixedQ',2.1,3.0,10,0)
 
@@ -1075,8 +1074,8 @@ if __name__ == "__main__":
     rv07[1].vary('alphaMRI',.02,.1,9,0)
 
     rv08=NewSetOfExperiments(rv01,"rv08",N=2)
-    rv08[0].vary('mu',.1,.4,4)
-    rv08[1].vary('mu',.6,2.0,15)
+    rv08[0].vary('mu',.1,.4,4,0)
+    rv08[1].vary('mu',.6,2.0,15,0)
 
     rv09=NewSetOfExperiments(rv01,"rv09",N=2)
     rv09[0].vary('eta',.5,1.5,10,1)
@@ -1113,8 +1112,30 @@ if __name__ == "__main__":
     rv17=NewSetOfExperiments(rv13,"rv17")
     [rv17[i].irregularVary('widthAccretionProfile',0.4) for i in range(len(rv17))]
 
-    rv18=NewSetOfExperiments(rv01,"rv18")
-    
+    rv18=NewSetOfExperiments(rv01,"rv18",N=2)
+    rv18[0].vary("RfREC",.22,.45,10,0)
+    rv18[1].vary("RfREC",.47,.7,10,0)
+
+    rv19=NewSetOfExperiments(rv18,"rv19")
+    [rv19[i].irregularVary('dbg',2+2**6) for i in range(len(rv19))]
+
+    rv20=NewSetOfExperiments(rv01,"rv20",N=3)
+    [rv20[i].vary('whichAccretionHistory',1000,1400,401,0) for i in range(len(rv20))]
+    rv20[0].irregularVary('deltaOmega',.3)
+    rv20[1].irregularVary('deltaOmega',.5)
+    rv20[2].irregularVary('deltaOmega',.8)
+
+    rv21=NewSetOfExperiments(rv01,"rv21",N=2)
+    [rv21[i].vary('whichAccretionHistory',-1010,-1000,11,0) for i in range(len(rv21))]
+    [rv21[i].irregularVary("fscatter",0.3) for i in range(len(rv21))]
+    rv21[0].irregularVary("NChanges",5)
+    rv21[1].irregularVary("NChanges",30)
+
+    rv22=NewSetOfExperiments(rv01,"rv22",N=2)
+    [rv22[i].vary("whichAccretionHistory",-1010,-1000,11,0) for i in range(len(rv22))]
+    [rv22[i].irregularVary("NChanges",10) for i in range(len(rv22))]
+    rv22[0].irregularVary("fscatter",0.1)
+    rv22[1].irregularVary("fscatter",0.5)
 
 
 

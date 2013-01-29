@@ -115,6 +115,7 @@ class DiskContents {
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};
   double GetMinSigSt() { return minsigst; };
+  double GetRfREC() {return RfREC; };
   std::vector<double>& GetX() {return x;};
   std::vector<double>& GetUu() { return uu;};
   std::vector<double>& GetBeta() {return beta;};

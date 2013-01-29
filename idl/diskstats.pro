@@ -190,6 +190,9 @@ FUNCTION diskStats,model,z=z
     gasZdelta = MAX(metallicity)-MIN(metallicity)
     stAge = TOTAL(model.evArray[11-1,0:zj]*(model.evArray[1,zj] - model.evArray[1,0:zj]))/TOTAL(model.evArray[11-1,0:zj]) ;; age(z) = Cumulative (SFR(z') * (lbt(z') - lbt(z))) / Cumulative(SFR) ---- on second thought, this is only an OK approximation because it assumes SFR is const. between outputs. Even worse, does not account for initial stars!
     deltaCol = alog10(col[xpeakind]/col[0])
+    ;; Rather than comparing col @ peak to col@0, compare col@peak to col averaged over 10 innermost cells.
+    ;; As usual, the two factors of x are the result of using a logarithmic grid.
+    deltaColAvg = alog10(col[xpeakind] / (TOTAL(col[0:9] * x[0:9] * x[0:9])/TOTAL(x[0:9]*x[0:9])) )
 
     xnuc=x[0:xinInd]
     xsf=x[xinInd:xoutInd]
@@ -222,7 +225,8 @@ FUNCTION diskStats,model,z=z
         tdepAvg, gasScaleLength,starScaleLengthMeas,starSersic,starBTMeas, $ ; 28,29,30,31,32
         gChiSq,stChiSq, sfrHalfRadius, gasHalfRadius, stHalfRadius, $ ; 33,34,35,36,37
         centralDensity,sStJ,sGasJ,sOutJ, $ ; 38,39,40,41
-        gasZdelta,stZdelta,molfg,tdepAllGas,stZ,stAge,deltaCol] ; 42,43,44,45,46,47,48
+        gasZdelta,stZdelta,molfg,tdepAllGas,stZ,stAge,deltaCol, $ ; 42,43,44,45,46,47,48
+        deltaColAvg] ; 49
     ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
         ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

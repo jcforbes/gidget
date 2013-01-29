@@ -154,6 +154,12 @@ int Simulation::runToConvergence(const double fCondition,
 
         theDisk.ComputeColSFR();
 
+        if(dbg.opt(6)) {
+            for(unsigned int i=0; i!=theDisk.passive().size(); ++i) {
+                theDisk.passive()[i]->ComputeRecycling(theDisk,z);
+            }
+        }
+
 
         // Make sure that stars formed this time step have a stellar 
         // population to which they belong. If they don't, create

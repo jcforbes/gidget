@@ -39,7 +39,7 @@ class StellarPop {
   // potentially very small
   void extract(StellarPop& sp2, double f);
 
-  void ComputeRecycling(DiskContents& , double z, double RfREC);
+  void ComputeRecycling(DiskContents& , double z);
 
   void ComputeSpatialDerivs();
 

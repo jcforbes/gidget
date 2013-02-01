@@ -156,8 +156,8 @@ FUNCTION readOutput,name
   TOL=ExtractCmtFlt(lunCom)
   MLF=ExtractCmtFlt(lunCom)
   b=ExtractCmtFlt(lunCom)
-  innerPowerLaw=ExtractCmtFlt(lunCom)
-  softening=ExtractCmtFlt(lunCom)
+  beta0=ExtractCmtFlt(lunCom)
+  nRotCurve=ExtractCmtFlt(lunCom)
 ;  md0=ExtractCmtFlt(lunCom)
   scaleLength=ExtractCmtFlt(lunCom)
   whichAccHistory = ExtractCmtL(lunCom)
@@ -345,8 +345,8 @@ FUNCTION readOutput,name
     shcA[*,*,*,0:(STVars-stvpp-1)] = (temporary(starsHyperCubeA))[0:(timeOutputs-1),0:(NABp1A-1),0:(nx-1),0:(STVars-stvpp-1)]
 
     x=dataCube[*,*,0]
-    uu = x^innerPowerLaw /  ( x^(innerPowerLaw*softening) + b/Radius)^(1.0/softening)
-    bbeta = (b/Radius)*innerPowerLaw / ((b/Radius) + x^(innerPowerLaw*softening))
+    uu = dataCube[*,*,16-1]
+    bbeta =  beta0 - beta0/(1.0+(b/x)^(beta0*nRotCurve));
 
     FOR i=0,NPassive DO BEGIN
 	    shc[*,i,*,STVars-4] = shc[*,i,*,2]*dataCube[*,*,0]*Radius/(uu*vphiR);; scale height = sigma_r / Omega

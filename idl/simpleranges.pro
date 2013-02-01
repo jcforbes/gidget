@@ -20,7 +20,7 @@ FUNCTION simpleranges,data,wrtxlog
       IF(ranges[1,k] / ranges[0,k] GT fac) THEN BEGIN
           ; If we're going to limit ourselves to some dynamic range, we have to decide 
           ; to anchor to the minimum or maximum. We try to anchor to the one containing the median value..
-    	  IF(med GT ranges[1,k]/fac) THEN ranges[0,k] = ranges[1,k]/fac ELSE IF(med LT ranges[0,k]*fac) THEN ranges[1,k]=ranges[0,k]*fac ELSE ranges[0:1,k] = [1.0/sqrt(fac), sqrt(fac)]
+    	  IF(med GT ranges[1,k]/fac) THEN ranges[0,k] = ranges[1,k]/fac ELSE IF(med LT ranges[0,k]*fac) THEN ranges[1,k]=ranges[0,k]*fac ELSE ranges[0:1,k] = [med/sqrt(fac), med*sqrt(fac)]
       ENDIF
 
       minDynRange = 40.0

@@ -1614,7 +1614,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(col[n]);wrt.push_back(sig[n]);wrt.push_back(col_st[n]);         // 4..6
         wrt.push_back(sig_stR[n]);wrt.push_back(dcoldt[n]);wrt.push_back(dsigdt[n]);   // 7..9
         wrt.push_back(dcol_stdt);wrt.push_back(dsig_stdt);wrt.push_back(currentQ);    // 10..12
-        wrt.push_back(0);wrt.push_back(0);wrt.push_back(0);   // 13..15
+        wrt.push_back(0);wrt.push_back(0);wrt.push_back(beta[n]);   // 13..15
         wrt.push_back(uu[n]);wrt.push_back(col[n]/(col[n]+col_st[n]));wrt.push_back(temp2); // 16..18
         wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
         wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24

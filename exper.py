@@ -63,7 +63,7 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0,.1]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -109,7 +109,7 @@ class experiment:
             self.p[self.keys[name]]=[mmin + (mmax-mmin)*type(self.p_orig[self.keys[name]])(i)/type(self.p_orig[self.keys[name]])(n-1) for i in range(n)]
         elif(n>1 and log==1 and mmin!=0 and mmin!=0.0):
             rat = (float(mmax)/float(mmin))
-            typ = type(self.p[self.keys[name]])
+            typ = type(self.p_orig[self.keys[name]])
             self.p[self.keys[name]]=[typ(float(mmin) * (rat)**(float(i)/float(n-1))) for i in range(n)]
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
@@ -1033,6 +1033,7 @@ if __name__ == "__main__":
 
 
 
+    # Guess for a reasonable model.
     l045 = GetScaleLengths(1,Mh0=1.0e12,scatter=1.0e-10)[0]
     rv01=experiment("rv01")
     rv01.irregularVary("R",40)
@@ -1046,98 +1047,132 @@ if __name__ == "__main__":
     rv01.irregularVary('xmin',.004)
     rv01.irregularVary('alphaMRI',.01)
 
+    # Vary the exponential scale length of the IC and accretion together.
     rv02=[copy.deepcopy(rv01) for i in range(2)]
     [rv02[i].changeName("rv02"+letter(i)) for i in range(len(rv02))]
-    rv02[0].vary('diskScaleLength',l045*.30,l045*.69,10,0,3)
-    rv02[1].vary('diskScaleLength',l045*.71,l045*1.1,10,0,3)
-    rv02[0].vary('accScaleLength',l045*.30,l045*.69,10,0,3)
-    rv02[1].vary('accScaleLength',l045*.71,l045*1.1,10,0,3)
+    rv02[0].vary('diskScaleLength',l045*.10,l045*.67,10,0,3)
+    rv02[1].vary('diskScaleLength',l045*.73,l045*2.1,20,0,3)
+    rv02[0].vary('accScaleLength',l045*.10,l045*.67,10,0,3)
+    rv02[1].vary('accScaleLength',l045*.73,l045*2.1,20,0,3)
 
+    # Vary the metal diffusion constant 
     rv03=[copy.deepcopy(rv01) for i in range(2)]
     [rv03[i].changeName('rv03'+letter(i)) for i in range(len(rv03))]
     rv03[0].vary('kappaMetals',1.0e-4,9.5e-4,10,1)
     rv03[1].vary('kappaMetals',1.1e-3,3.0e-3,5,1)
 
+    # Vary the metal diffusion constant normalization, but this time let it vary in proportion to the sigma H
     rv04=[copy.deepcopy(rv03[i]) for i in range(len(rv03))]
     [rv04[i].changeName('rv04'+letter(i)) for i in range(len(rv04))]
     [rv04[i].irregularVary('dbg',2+2**15) for i in range(len(rv04))]
 
+    # Vary the Q below which the disk will be unstable
     rv05=NewSetOfExperiments(rv01,"rv05",N=2)
     rv05[0].vary('fixedQ',1.3,1.9,7,0)
     rv05[1].vary('fixedQ',2.1,3.0,10,0)
 
+    # Vary the Q below which the disk will be unstable, but relax the timescale on which turbulence will stabilize the disk
     rv06=NewSetOfExperiments(rv05,"rv06")
     [rv06[i].irregularVary('dbg',2+2**4) for i in range(len(rv06))]
 
+    # Vary MRI torques
     rv07=NewSetOfExperiments(rv01,"rv07",N=2)
-    rv07[0].vary('alphaMRI',0,.009,10,0)
-    rv07[1].vary('alphaMRI',.02,.1,9,0)
+    rv07[0].vary('alphaMRI',0.0,.009, 5,0)
+    rv07[1].vary('alphaMRI',.02, 1.0,15,1)
 
+    # Vary mass loading factor
     rv08=NewSetOfExperiments(rv01,"rv08",N=2)
     rv08[0].vary('mu',.1,.4,4,0)
     rv08[1].vary('mu',.6,2.0,15,0)
 
+    # Vary dissipation rate
     rv09=NewSetOfExperiments(rv01,"rv09",N=2)
     rv09[0].vary('eta',.5,1.5,10,1)
     rv09[1].vary('eta',1.5,4.5,10,1)
 
+    # Vary turnover radius of rot. curve with an inner power law of 0.5 and 1
     rv10=NewSetOfExperiments(rv01,"rv10",N=2)
     rv10[0].vary('b',1,10,10,0)
     rv10[1].vary('b',1,10,10,0)
     rv10[1].irregularVary('innerPowerLaw',1.0)
 
+    # Vary initial gas fraction
     rv11=NewSetOfExperiments(rv01,"rv11",N=2)
     rv11[0].vary('fg0',0.1,.45,8,0)
     rv11[1].vary('fg0',.55,.99,10,0)
 
+    # Vary circular velocity
     rv12=NewSetOfExperiments(rv01,"rv12",N=2)
     rv12[0].vary('vphiR',160,215,12,0)
     rv12[1].vary('vphiR',225,250, 6,0)
 
+    # Vary accretion scale, but this time use a narrow gaussian profile
     rv13=NewSetOfExperiments(rv02,"rv13")
     [rv13[i].irregularVary('whichAccretionProfile',2) for i in range(len(rv13))]
 
+    # Vary star formation efficiency
     rv14=NewSetOfExperiments(rv01,"rv14",N=2)
     rv14[0].vary('epsff',.0031,.01,10,1)
     rv14[1].vary('epsff',.01,.031,10,1)
 
+    # Vary metal loading factor
     rv15=NewSetOfExperiments(rv01,"rv15",N=2)
     rv15[0].vary('zetaREC',.5,1,10,1)
     rv15[1].vary('zetaREC',1,2,10,1)
 
+    # Vary efficiency of accretion at high redshift
     rv16=NewSetOfExperiments(rv01,"rv16",N=2)
     rv16[0].vary('accAlphaZ',.1,.38,4,0)
     rv16[1].vary('accAlphaZ',.4,.8,5,0)
 
+    # Vary accretion scale, this time with a wide gaussian profile
     rv17=NewSetOfExperiments(rv13,"rv17")
     [rv17[i].irregularVary('widthAccretionProfile',0.4) for i in range(len(rv17))]
 
+    # Vary recycling fraction
     rv18=NewSetOfExperiments(rv01,"rv18",N=2)
     rv18[0].vary("RfREC",.22,.45,10,0)
     rv18[1].vary("RfREC",.47,.7,10,0)
 
+    # Vary recycling fraction, with large RfREC leading to non-instantaneous recycling
     rv19=NewSetOfExperiments(rv18,"rv19")
     [rv19[i].irregularVary('dbg',2+2**6) for i in range(len(rv19))]
 
+    # Vary delta omega
     rv20=NewSetOfExperiments(rv01,"rv20",N=3)
     [rv20[i].vary('whichAccretionHistory',1000,1400,401,0) for i in range(len(rv20))]
     rv20[0].irregularVary('deltaOmega',.3)
     rv20[1].irregularVary('deltaOmega',.5)
     rv20[2].irregularVary('deltaOmega',.8)
 
+    # Lognormal acc history variation, with different coherence redshift intervals
     rv21=NewSetOfExperiments(rv01,"rv21",N=2)
     [rv21[i].vary('whichAccretionHistory',-1010,-1000,11,0) for i in range(len(rv21))]
     [rv21[i].irregularVary("fscatter",0.3) for i in range(len(rv21))]
     rv21[0].irregularVary("NChanges",5)
     rv21[1].irregularVary("NChanges",30)
 
+    # Lognormal acc history variation, with different scatter amplitude
     rv22=NewSetOfExperiments(rv01,"rv22",N=2)
     [rv22[i].vary("whichAccretionHistory",-1010,-1000,11,0) for i in range(len(rv22))]
     [rv22[i].irregularVary("NChanges",10) for i in range(len(rv22))]
     rv22[0].irregularVary("fscatter",0.1)
     rv22[1].irregularVary("fscatter",0.5)
 
+    # Gaussian profile with non-inst. recycling. Can we fill those holes?
+    rv23=NewSetOfExperiments(rv17,"rv23")
+    [rv23[i].irregularVary("RfREC",0.8) for i in range(len(rv23))]
+    [rv23[i].irregularVary('dbg',2+2**6) for i in range(len(rv23))]
 
+    # Gaussian again with delayed recycling, but this time have an evolving radius.
+    rv24=NewSetOfExperiments(rv23,"rv24")
+    [rv24[i].irregularVary('alphaAccretionProfile',0.5) for i in range(len(rv24))]
+
+    # Build on the previous model, but significantly reduce the z=0 acc rate
+    # tuned so that efficiency is the same as before at z=2, but evolution goes as (1+z)^2
+    rv25=NewSetOfExperiments(rv24, "rv25")
+    [rv25[i].irregularVary("accAlphaZ",2) for i in range(len(rv25))]
+    [rv25[i].irregularVary("accNorm",.0522216) for i in range(len(rv25))]
 
     successTables=[]
 

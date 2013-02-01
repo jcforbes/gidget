@@ -82,8 +82,8 @@ int main(int argc, char **argv) {
     const double TOL =               as.Set(.0001,"TOL (outer orbits)");
     const double MassLoadingFactor=  as.Set(1,"Mass Loading Factor");
     const double BulgeRadius      =  as.Set(0,"Velocity Curve Turnover Radius (kpc)");
-    const double innerPowerLaw    =  as.Set(.5,"Index of the inner power law part of the rot curve");
-    const double softening        =  as.Set(2.0,"Softening of transition from flat to inner powerlaw rot curve");
+    const double beta0            =  as.Set(.5,"Index of the inner power law part of the rot curve");
+    const double nRotCurve        =  as.Set(2.0,"Sharpness of transition from flat to inner powerlaw rot curve");
     const double stScaleLength    =  as.Set(-1,"Initial Stellar Disk Scale Length (kpc)");
     const int whichAccretionHistory= as.Set(0,"Which Accretion History- 0-Bouche, 1-High, 2-Low");
     const double alphaMRI         =  as.Set(0,"alpha viscosity for the MRI");
@@ -92,6 +92,7 @@ int main(int argc, char **argv) {
     const double Qinit =             as.Set(2.0,"The fixed Q");
     const double kappaMetals =       as.Set(.001,"Kappa Metals");
     const double Mh0 =  		   as.Set(1.0e12,"Halo Mass");
+
 
 
     // Scale the things which scale with halo mass.
@@ -204,7 +205,7 @@ int main(int argc, char **argv) {
 
     // Set the dimensional quantities. 
     Dimensions dim(radius,vphiR,mdot0);
-    FixedMesh mesh(innerPowerLaw,BulgeRadius/dim.d(1.0),softening,xmin,minSigSt,nx);
+    FixedMesh mesh(beta0,BulgeRadius/dim.d(1.0),nRotCurve,xmin,minSigSt,nx);
     double MhZs = accr.MhOfZ(zrelax)*Mh0; // this is in units of solar masses
 
     AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength/(radius/cmperkpc),width);

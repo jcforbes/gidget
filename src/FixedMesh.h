@@ -35,11 +35,11 @@ class FixedMesh {
   std::vector<double> xiPlusHalf;
   std::vector<double> dxi;
   std::vector<double> u1pbiPlusHalf;
-  const double ip, // power law index of vphi(R)
-                b, // turnover radius.
-             soft, // degree to which we soften the turnover.
-            dlnxc,
-            xminc;
+  const double beta0, // power law index of vphi(R)
+                   b, // turnover radius.
+           nRotCurve, // sharpness of turnover
+               dlnxc,
+               xminc;
   double * x_gsl;
   double * x_HR_GSL;
   double * psi_HR_GSL;

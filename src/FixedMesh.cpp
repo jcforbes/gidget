@@ -16,8 +16,8 @@ double psiIntegrand(double xp, void * params)
 }
 
 
-FixedMesh::FixedMesh(double innerPowerlaw, double turnoverRadius, double sft, double xm, double mst, unsigned int nnx):
-    ip(innerPowerlaw), b(turnoverRadius),nxc(nnx), soft(sft), dlnxc(-log(xm)/(((double) nnx)-1.)), 
+FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, double mst, unsigned int nnx):
+    beta0(bet0), b(turnoverRadius),nxc(nnx), nRotCurve(nRC), dlnxc(-log(xm)/(((double) nnx)-1.)), 
     minsigst(mst), xminc(xm), xv(std::vector<double>(nnx+1,0.)),
     betav(std::vector<double>(nnx+1,0.)), betapv(std::vector<double>(nnx+1,0.)),
     xiPlusHalf(std::vector<double>(nnx+1,0.)),dxi(std::vector<double>(nnx+1,0.)),
@@ -25,13 +25,10 @@ FixedMesh::FixedMesh(double innerPowerlaw, double turnoverRadius, double sft, do
     uuv(std::vector<double>(nnx+1,0.)),// psiv(std::vector<double>(nnx+1,0.)),
     stored(false),PsiInitialized(false)
 {
-  bsf = pow(b,sft);
-  bmsf = 1.0/bsf;
-  //  if(b!=0.0)   psi1=  (1.0 / (2.0*ip)) * (pow(1.0+bmsf, 2.0/sft)*pow(1.0+bsf, -2.0/sft)*
-  //                  gsl_sf_hyperg_2F1(2./sft,2./sft,(2.+sft)/sft,-bmsf));
-  //  else 
   psi1 = 0.0;
- 
+  bsf=0;
+  bmsf=0;
+
   x_gsl = new double[nxc];
  
   xiPlusHalf[0] = x(0.5);
@@ -63,6 +60,7 @@ double FixedMesh::dx(unsigned int n)
 
 bool FixedMesh::InitializePsi()
 {
+    errormsg("FixedMesh::InitializePsi");
 //  unsigned int NN = necessaryN();
   unsigned int NN = 1000; // this is a guess...
   double dn = 1.0/(((double) NN)*((double) nxc));
@@ -141,6 +139,7 @@ double FixedMesh::x(double n)
 
 double FixedMesh::psi(double x)
 {
+    errormsg("FixedMesh::psi deprecated");
   if(!PsiInitialized) 
     InitializePsi();
   return gsl_spline_eval(spline_psi, x, accel_psi);
@@ -148,32 +147,37 @@ double FixedMesh::psi(double x)
 
   // never get here
   
-  double xipsf = pow(x,ip*soft);
-  double xip = pow(x,ip);
-  if(b!=0.0)
-      return psi1 - 1.0/(2.0*ip) * xip*xip * pow(bsf + xipsf,-2.0/soft) * pow(1.0+bmsf*xipsf,2.0/soft)
-          *gsl_sf_hyperg_2F1(2./soft,2./soft,(2.+soft)/soft,-bmsf*xipsf);
-  else
+  double xipsf = 0;//pow(x,ip*soft);
+  double xip = 0; //pow(x,ip);
+//  if(b!=0.0)
+//      return psi1 - 1.0/(2.0*ip) * xip*xip * pow(bsf + xipsf,-2.0/soft) * pow(1.0+bmsf*xipsf,2.0/soft)
+//          *gsl_sf_hyperg_2F1(2./soft,2./soft,(2.+soft)/soft,-bmsf*xipsf);
+//  else
      return log(x);
 }
 
 double FixedMesh::uu(double x)
 {
-  return pow(x,ip) / pow(pow(x,ip*soft)+bsf,1./soft);
+    return 1.0/pow(pow(b/x,nRotCurve*beta0)+1.0,1.0/nRotCurve);
+//  return pow(x,ip) / pow(pow(x,ip*soft)+bsf,1./soft);
 }
 
 double FixedMesh::beta(double x)
 {
-  return bsf*ip/(bsf+pow(x,ip*soft));
+  return beta0 - beta0/(1.0+pow(b/x,beta0*nRotCurve));
+    
+//  return bsf*ip/(bsf+pow(x,ip*soft));
 }
 
 double FixedMesh::betap(double x)
 {
-  return -bsf*ip*ip*soft*pow(x,-1.+ip*soft) / ((bsf+pow(x,ip*soft))*(bsf+pow(x,ip*soft)));
+    return - beta0*beta0*nRotCurve*pow(b/x, beta0*nRotCurve) / (x*pow(1.0+pow(b/x,beta0*nRotCurve),2.0));
+//  return -bsf*ip*ip*soft*pow(x,-1.+ip*soft) / ((bsf+pow(x,ip*soft))*(bsf+pow(x,ip*soft)));
 }
 
 unsigned int FixedMesh::necessaryN()
 {
+  errormsg("FixedMesh::necessaryN deprecated");
   if(stored) return necesN;
 
   double psi0 = psi(xminc);

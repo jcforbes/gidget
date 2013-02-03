@@ -1061,10 +1061,14 @@ if __name__ == "__main__":
     rv03[0].vary('kappaMetals',1.0e-4,9.5e-4,10,1)
     rv03[1].vary('kappaMetals',1.1e-3,3.0e-3,5,1)
 
-    # Vary the metal diffusion constant normalization, but this time let it vary in proportion to the sigma H
+    # Vary the metal diffusion constant normalization, but this time let it vary in proportion to ~ sigma * sigma^2/pi G Sigma
     rv04=[copy.deepcopy(rv03[i]) for i in range(len(rv03))]
     [rv04[i].changeName('rv04'+letter(i)) for i in range(len(rv04))]
     [rv04[i].irregularVary('dbg',2+2**15) for i in range(len(rv04))]
+
+    # Vary the metal diffusion constant normalization, with scaling proportional to sigma H
+    rv26=NewSetOfExperiments(rv03,"rv26")
+    [rv26[i].irregularVary('dbg',2+2**8) for i in range(len(rv26))]
 
     # Vary the Q below which the disk will be unstable
     rv05=NewSetOfExperiments(rv01,"rv05",N=2)

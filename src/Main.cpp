@@ -173,9 +173,9 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(3), "Neistein & Dekel (2008)"); // check this
     as2.Set(dbg.opt(4), "dQ/dt ~ exp(Delta Q)");
     as2.Set(dbg.opt(5), "Old initialization (powerlaw), relaxation");
-    as2.Set(dbg.opt(6), "blank");
+    as2.Set(dbg.opt(6), "Stellar recycling");
     as2.Set(dbg.opt(7), "Toomre SFR");
-    as2.Set(dbg.opt(8), "blank");
+    as2.Set(dbg.opt(8), "Varying kappaM with correct scaleheight dependence");
     as2.Set(dbg.opt(9), "pretend fH2=1 always");
     as2.Set(dbg.opt(10),"pretend fH2=.03 always"); 
     as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 

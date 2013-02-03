@@ -983,6 +983,7 @@ void DiskContents::DiffuseMetals(double dt)
     for(unsigned int n=1; n<=nx; ++n) {
         double KM;
         if(dbg.opt(15)) KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
+        else if(dbg.opt(8)) KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(M_PI*col[n]*dim.chi() * (1.0 +  sig[n]*activeColSt(n)/(activeSigStZ(n)*col[n]))); 
         else KM = kappaMetals;
         double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
         double colnp1 = col[nx];

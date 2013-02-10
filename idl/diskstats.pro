@@ -78,13 +78,15 @@ FUNCTION diskStats,model,z=z
 
     optInd = nearest("position",1,model,stHalfRadius*2/model.Radius)
 
+    fake = 1
+
     ;; fit the stellar & gas column density profiles to sersic+exp profile.
     ; for the gas, let's only fit inside a disk defined by where vrg becomes outwards
     vrglt0 = WHERE(vrg LT 0,gCtr)
     IF(gCtr GT 0) THEN fitGas = lindgen(MAX([MIN(vrglt0),10])) ELSE fitGas = lindgen(n_elements(x))
 ;    fitGas = lindgen(n_elements(x))
     fitGas = GenerateLinearish(x,2.0*gasHalfRadius/model.Radius)
-    pg=mpfitprofile(x[fitGas]*model.Radius,col[fitGas],gchisq,single=1,fake=0)
+    pg=mpfitprofile(x[fitGas]*model.Radius,col[fitGas],gchisq,single=1,fake=fake)
     gasScaleLength = pg[1] ; in kpc
     ;gchisq=2
     ;stchisq=2
@@ -96,7 +98,7 @@ FUNCTION diskStats,model,z=z
     colstfit = dblarr(n_elements(fitStars))
 ;    fitStars = lindgen(n_elements(x))
     fitStars = GenerateLinearish(x,2.0*stHalfRadius/model.Radius)
-    pst=mpfitprofile(x[fitStars]*model.Radius,colst[fitStars],stchisq,colfit=colstfit,fake=0)
+    pst=mpfitprofile(x[fitStars]*model.Radius,colst[fitStars],stchisq,colfit=colstfit,fake=fake)
     starScaleLengthMeas = pst[2]
     starSersic = pst[4]
     starBTMeas = TOTAL(x[fitStars]*(pst[1]*exp(-(x[fitStars]*model.Radius/pst[3])^(1.0/pst[4]))))/TOTAL(x[fitStars]*colstFit)

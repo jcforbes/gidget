@@ -1532,8 +1532,9 @@ double DiskContents::ComputeQst(unsigned int n)
 }
 void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & accr,
         double t, double z, double dt, 
-        unsigned int step,double **tauvec, double **tauvecStar,
-        std::vector<double>& MdotiPlusHalf,std::vector<double>& accProf)
+        unsigned int step,double **tauvec, double **tauvecStar, double ** tauvecMRI,
+        std::vector<double>& MdotiPlusHalf, std::vector<double>& MdotiPlusHalfMRI,
+        std::vector<double>& accProf)
 {
     std::ofstream file;
     if(step==0) {
@@ -1595,7 +1596,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         //      /(2.*col_st[n]*sig_st[n]);
         //dcol_stdt = -2.*M_PI*(col_st[n]*ddx(yy,n,x) + ddx(col_st,n,x)*yy[n] 
         //  + col_st[n]*yy[n]/x[n]) + RfREC*colSFR[n];
-        vrg = tauvec[2][n] / (2.*M_PI*x[n]*uu[n]*col[n]*(1.+beta[n]));
+        vrg = (tauvec[2][n]+tauvecMRI[2][n]) / (2.*M_PI*x[n]*uu[n]*col[n]*(1.+beta[n]));
         fh2 = ComputeH2Fraction(n);
         //    taupp = (H[n] - h1[n]*tauvec[2][n] - h0[n]*tauvec[1][n])/h2[n];
         taupp = d2taudx2[n];
@@ -1615,7 +1616,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(col[n]);wrt.push_back(sig[n]);wrt.push_back(col_st[n]);         // 4..6
         wrt.push_back(sig_stR[n]);wrt.push_back(dcoldt[n]);wrt.push_back(dsigdt[n]);   // 7..9
         wrt.push_back(dcol_stdt);wrt.push_back(dsig_stdt);wrt.push_back(currentQ);    // 10..12
-        wrt.push_back(0);wrt.push_back(0);wrt.push_back(beta[n]);   // 13..15
+        wrt.push_back(0);wrt.push_back(MdotiPlusHalfMRI[n]*dim.MdotExt0*speryear/MSol);wrt.push_back(beta[n]);   // 13..15
         wrt.push_back(uu[n]);wrt.push_back(col[n]/(col[n]+col_st[n]));wrt.push_back(temp2); // 16..18
         wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
         wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
@@ -1623,7 +1624,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(verify);wrt.push_back(colSFR[n]);wrt.push_back(accProf[n]*accr.AccOfZ(z)); // 28..30
         wrt.push_back(dQdS[n]);wrt.push_back(dQds[n]);wrt.push_back(dQdSerr[n]); // 31..33
         wrt.push_back(dQdserr[n]);wrt.push_back(yy);wrt.push_back(torqueErr); // 34..36
-        wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back(MdotiPlusHalf[n]*dim.MdotExt0*speryear/MSol); // 37..39
+        wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back((MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*dim.MdotExt0*speryear/MSol); // 37..39
         wrt.push_back(0.0);wrt.push_back(0);wrt.push_back(0);//40..42
         wrt.push_back(ddx(tauvec[2],n,x,false));wrt.push_back(ddx(sig,n,x,true));wrt.push_back(0); // 43..45
         wrt.push_back(0);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48

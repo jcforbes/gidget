@@ -1,3 +1,6 @@
+;;;; Modified by JF Feb 5, 2013 - added tempname option so 
+;;;; that multiple instances of latexify can be run at the
+;;;; same time.
 ;+
 ;PURPOSE
 ;	to use PSfrag to do latex syntax correctly
@@ -29,7 +32,7 @@
 ;Written by R. da Silva, UCSC, 1-4-11	
 ;-
 pro latexify, filename, tag, tex, scale, outname=outname, example=example,$
-    	height=height, width=width, full=full
+    	height=height, width=width, full=full, tempname=tempname
 
 if keyword_set(example) then begin
        SET_PLOT, 'PS'
@@ -53,16 +56,16 @@ ysi=coord[3]-coord[1]
 
 if ~keyword_set(width) then width=11.9
 if ~keyword_set(height) then height=width*float(ysi)/xsi
-
+if ~keyword_set(tempname) then tempname='x144temp'
 
 if ~keyword_set(scale) then scale=replicate(1, n_elements(tag))
 scale=rstring(scale)
 
 if keyword_set(outname) EQ 0 then begin
-	 outname='x144temp2.eps'
+	 outname=tempname+'2.eps'
 	noname=1
 endif
-openw, lun, 'x144temp.tex', /get_lun
+openw, lun, tempname+'.tex', /get_lun
 printf, lun, '\documentclass{article}'
 printf, lun, '\usepackage{geometry, graphicx, psfrag}'
 printf, lun,'\pagestyle{empty}'
@@ -78,8 +81,8 @@ printf, lun,'\end{document}'
 close, lun
 free_lun, lun
 
-spawn, 'latex x144temp.tex', ls0
-spawn, 'dvips -o '+outname+' x144temp.dvi', ls1
+spawn, 'latex '+tempname+'.tex', ls0
+spawn, 'dvips -o '+outname+' '+tempname+'.dvi', ls1
 ;spawn, 'dvips -o x144temp.ps x144temp.dvi', ls1
 ;spawn, 'ps2epsi x144temp.ps x144temp.epsi, ls2
 ;spawn, "perl -ne 'print unless /^%%BeginPreview/../^%%EndPreview/' <"+$
@@ -87,10 +90,20 @@ spawn, 'dvips -o '+outname+' x144temp.dvi', ls1
 
 ;garbage cleanup
 if keyword_set(noname) then begin
-	spawn, 'mv x144temp2.eps '+filename
+	spawn, 'mv '+tempname+'2.eps '+filename
 	outname=filename
 endif
-spawn, 'rm -f x144temp*'
+;; This line seems like it could go very wrong, so I'll 
+; manually specify the files to be removed- JF
+;spawn, 'rm -f '+tempname+'*'
+spawn, 'rm -f '+tempname+'.eps'
+spawn, 'rm -f '+tempname+'.aux'
+spawn, 'rm -f '+tempname+'.dvi'
+spawn, 'rm -f '+tempname+'.blg'
+spawn, 'rm -f '+tempname+'.log'
+spawn, 'rm -f '+tempname+'.out'
+spawn, 'rm -f '+tempname+'.bbl'
+
 
 ps_mod, outname, /skip
 

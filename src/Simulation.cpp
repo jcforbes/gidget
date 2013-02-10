@@ -144,8 +144,8 @@ int Simulation::runToConvergence(const double fCondition,
             // Separate files for the active & passive stellar populations..
             theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
             theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-
-            theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf,accProf.GetProfile());
+            theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,tauvecMRI,
+                    MdotiPlusHalf,MdotiPlusHalfMRI,accProf.GetProfile());
 
             writeIndex++;
 
@@ -300,7 +300,8 @@ int Simulation::runToConvergence(const double fCondition,
 
         theDisk.WriteOutStarsFile(filename+"_act",theDisk.active(),NActive,step);
         theDisk.WriteOutStarsFile(filename,theDisk.passive(),NPassive,step);
-        theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,MdotiPlusHalf,accProf.GetProfile());
+        theDisk.WriteOutStepFile(filename,accr,t-tzs,z,dt,step,tauvec,tauvecStar,tauvecMRI,
+                MdotiPlusHalf,MdotiPlusHalfMRI,accProf.GetProfile());
 
         writeIndex++;
         std::cout << "Writing out file "<<writeIndex<<" at z= "<<z<<std::endl;

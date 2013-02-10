@@ -341,7 +341,9 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
         // The accretion rate is the difference in DM halo masses between the two time steps 
         // times the cosmic baryon fraction, divided by the time between redshift steps 
         // This is in units of solar masses per year
-        double accr = (.18*epsin(zs[i],masses[i]*1.0e-12,cos,zquench)*(masses[i]-masses[i+1])/
+        // NOTE that this equation DOES NOT INCLUDE the efficiency factor. It will be added in
+        // momentarily in the loop over intermediate redshifts.
+        double accr = (.18*(masses[i]-masses[i+1])/
                 (fabs(cos.Tsim(zs[i+1]) - cos.Tsim(zs[i]))
                  /speryear)
                 );
@@ -377,17 +379,19 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     // At this point zs is going from high redshift to low.
     for(unsigned int i=0; i!=zs.size()-1; ++i) {
         zs2.push_back(zs[i]);
-        accs2.push_back(accs[i]);
+        accs2.push_back(accs[i] * epsin(zs[i],masses[i]*1.0e-12,cos,zquench));
         masses2.push_back(masses[i]);
         unsigned int NExpand = 100;
         for(unsigned int j=1; j!=NExpand; ++j ) {
+            // Generate a value of z, equally spaced between the two known z's.
             double z = zs[i] - ((double) j)/((double) NExpand) * (zs[i]-zs[i+1]);
-            // These are the easy ones..
             zs2.push_back(z);
-            accs2.push_back(accs[i]);
             // Now let's make Mh(z) linear in time not redshift!
             double Mhz = masses[i] + (masses[i+1]-masses[i]) * (cos.Tsim(z) - cos.Tsim(zs[i]))/(cos.Tsim(zs[i+1])-cos.Tsim(zs[i]));
             masses2.push_back(Mhz);
+            // and finally multiply the accretion rate by some efficiency which changes with redshfit and halo mass.
+            accs2.push_back(accs[i]*epsin(z,Mhz*1.0e-12,cos,zquench));
+
         }
     }
 

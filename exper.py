@@ -520,517 +520,7 @@ if __name__ == "__main__":
     for modelName in args.models:
         modelList.append(modelName)
 
-    
-
     # Begin defining experiments!
-
-
-    # A vanilla setup: 11 models equally spaced in log Mh0.
-    rs01=experiment("rs01")
-    Mh0s = rs01.vary("Mh0",1.0e10,1.0e12,11,1,3)
-    Mh0s11 = Mh0s
-    rs01.irregularVary('R',40)
-    rs01.irregularVary('accScaleLength',GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10),3)
-    rs01.irregularVary('diskScaleLength',GetScaleLengths(11,Mh0=Mh0s,scatter=1.0e-10),3)
-    rs01.irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1./3.)),3)
-    rs01.irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1./3.)),3)
-    rs01.irregularVary('NPassive',1)
-
-    # Another vanilla setup: 101 models equally spaced in log Mh0 with varying accr. histories.
-    # I'm hoping this will be a minimal set of models which can test the functionality of variability3.
-    rs02=experiment("rs02")
-    Mh0s = rs02.vary("Mh0",1.0e10,1.0e12,101,1,3)
-    Mh0s101 = Mh0s
-    rs02.irregularVary("R",40)
-    rs02.irregularVary('accScaleLength',GetScaleLengths(101,Mh0=Mh0s,scatter=1.0e-10),3)
-    rs02.irregularVary('diskScaleLength',GetScaleLengths(101,Mh0=Mh0s,scatter=1.0e-10),3)
-    rs02.vary('whichAccretionHistory',1000,1100,101,0,3)
-    rs02.irregularVary('mu',list(1.0*(np.array(Mh0s)/1.0e12)**(-1./3.)),3)
-    rs02.irregularVary('vphiR',list(220.0*(np.array(Mh0s)/1.0e12)**(1./3.)),3)
-    rs02.irregularVary('NPassive',1)
-
-
-    # What I'd like to do here is compare Bouche+ to Neistein+ w/ fscatter = 0
-    rs03=[copy.deepcopy(rs01) for i in range(4)]
-    [rs03[i].changeName("rs03"+letter(i)) for i in range(len(rs03))]
-    # no scatter - should be the median case
-    rs03[1].irregularVary('fscatter',0.0)
-    rs03[1].vary('whichAccretionHistory',1000,1010,11,0,3)
-    # small scatter
-    rs03[2].irregularVary('fscatter',.03)
-    rs03[2].vary('whichAccretionHistory',1000,1010,11,0,3)
-    # no scatter again, but with smaller Delta omega.
-    rs03[3].irregularVary('fscatter',0.0)
-    rs03[3].vary('whichAccretionHistory',1000,1010,11,0,3)
-    rs03[3].irregularVary('deltaOmega',.01)
-
-    # A simple comparison between low and high angular momentum systems w/ realistic accr scatter
-    rs04=[copy.deepcopy(rs02) for i in range(2)]
-    values=[0.5, 5.0]
-    [rs04[i].changeName("rs04"+letter(i)) for i in range(len(rs04))]
-    for i in range(len(values)):
-        rs04[i].irregularVary('accScaleLength', \
-	  list(np.array(GetScaleLengths(101,Mh0=Mh0s101,scatter=1.0e-10))*values[i]),3)
-
-    # some runs in rs04b were crashing because the gas added per time step at very large radii
-    # was very large compared to the initial column density there. rs05 implements a fix wherein
-    # the simulation executes the first 2 time steps without altering dt.
-    rs05=[copy.deepcopy(rs04[i]) for i in range(len(rs04))]
-    [rs05[i].changeName("rs05"+letter(i)) for i in range(len(rs05))]
-
-    # see what happens when we take our default model and artificially alter fscatter.
-    fscatters = [0.2,1.0,1.5]
-    rs06=[copy.deepcopy(rs02) for i in range(len(fscatters))]
-    [rs06[i].changeName("rs06"+letter(i)) for i in range(len(rs06))]
-    [rs06[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs06))]
-
-    # With a smooth accretion history, see what effect we get from Q-dep forcing terms.
-    rs07=[copy.deepcopy(rs01) for i in range(2)]
-    [rs07[i].changeName("rs07"+letter(i)) for i in range(len(rs07))]
-    rs07[1].irregularVary("dbg",2**4)
-
-    # Look at a different scaling of mu with halo mass
-    rs08 = copy.deepcopy(rs02)
-    rs08.changeName("rs08")
-    rs08.irregularVary('mu',1.0)
-
-    # vary kappa.
-    kappa = [3.0e-4, 3.0e-3]
-    dbgs = [0, 2**15]
-    rs09 = [copy.deepcopy(rs02) for i in range(len(kappa)*len(dbgs))]
-    [rs09[i].changeName("rs09"+letter(i)) for i in range(len(rs09))]
-    [rs09[i].irregularVary('kappaMetals',kappa[i/2]) for i in range(len(rs09))]
-    [rs09[i].irregularVary('dbg',dbgs[1]) for i in [1,3]]
-
-    # vary metal loading efficiency yields
-    rs10 = copy.deepcopy(rs02)
-    rs10.changeName("rs10")
-    rs10.irregularVary('zetaREC',2.0)
-
-    # vary kappa, assuming high angular momentum inflows
-    kappas=[1.0e-5,1.0e-4,1.0e-3,3.0e-3]
-    rs11 = [copy.deepcopy(rs04[1]) for i in range(len(kappas))]
-    [rs11[i].changeName("rs11"+letter(i)) for i in range(len(rs11))]
-    [rs11[i].irregularVary("kappaMetals",kappas[i]) for i in range(len(rs11))]
-
-    # just decay based on the initial conditions!
-    rs12 = [copy.deepcopy(rs04[i]) for i in range(len(rs04))]
-    [rs12[i].changeName("rs12"+letter(i)) for i in range(len(rs12))]
-    [rs12[i].irregularVary("zrelax",2.01) for i in range(len(rs12))]
-    [rs12[i].irregularVary("zquench",1.8) for i in range(len(rs12))]
-
-    # try another round of varying fscatter. This time do not restrict the mass ratio so much, and try smaller values.
-    fscatters = [0.1,0.3,0.6,1.0]
-    rs13 = [copy.deepcopy(rs02) for i in range(len(fscatters))]
-    [rs13[i].changeName("rs13"+letter(i)) for i in range(len(rs13))]
-    [rs13[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs13))]
-    [rs13[i].irregularVary('invMassRatio',1.0) for i in range(len(rs13))]
-
-    # Try lognormal variation
-    rs14= [copy.deepcopy(rs02) for i in range(len(fscatters))]
-    [rs14[i].changeName("rs14"+letter(i)) for i in range(len(rs14))]
-    [rs14[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs14))]
-    [rs14[i].irregularVary('NChanges',33) for i in range(len(rs14))]
-    [rs14[i].irregularVary('accNorm',1.0e4) for i in range(len(rs14))]
-    [rs14[i].vary('whichAccretionHistory',-1100,-1000,101,0,3) for i in range(len(rs14))]
-
-    rs15=[copy.deepcopy(rs14[i]) for i in range(len(rs14))]
-    [rs15[i].changeName("rs15"+letter(i)) for i in range(len(rs15))]
-    [rs15[i].irregularVary('NChanges',5) for i in range(len(rs15))]
-
-    rs16=[copy.deepcopy(rs15[i]) for i in range(len(rs15))]
-    [rs16[i].changeName("rs16"+letter(i)) for i in range(len(rs16))]
-    [rs16[i].irregularVary('NChanges',100) for i in range(len(rs16))]
-    
-    # The next few are analogous to the previous few, with much reduced accretion efficiencies.
-    rs17=[copy.deepcopy(rs14[i]) for i in range(len(rs14))]
-    [rs17[i].changeName("rs17"+letter(i)) for i in range(len(rs17))]
-    [rs17[i].irregularVary("accCeiling",.05) for i in range(len(rs17))]
-
-    rs18=[copy.deepcopy(rs15[i]) for i in range(len(rs15))]
-    [rs18[i].changeName("rs18"+letter(i)) for i in range(len(rs18))]
-    [rs18[i].irregularVary("accCeiling",.05) for i in range(len(rs18))]
-
-    rs19=[copy.deepcopy(rs16[i]) for i in range(len(rs16))]
-    [rs19[i].changeName("rs19"+letter(i)) for i in range(len(rs19))]
-    [rs19[i].irregularVary("accCeiling",.05) for i in range(len(rs19))]
-
-    rs21=copy.deepcopy(rs14[2])
-    rs21.changeName("rs21")
-
-    # try exp thing, didn't work
-    rs22=copy.deepcopy(rs21)
-    rs22.changeName("rs22")
-    rs22.irregularVary('dbg',2**4)
-
-    rs23=copy.deepcopy(rs21)
-    rs23.changeName("rs23")
-    rs23.irregularVary("tauHeat",.5)
-
-    ### OK, we've fixed some bugs. Let's rerun some things.
-    rs20 = [copy.deepcopy(rs05[i]) for i in range(len(rs05))]
-    [rs20[i].changeName("rs20"+letter(i)) for i in range(len(rs20))]
-
-
-    # do a study of different input angular momentum:
-    scLengthMult=[1.0,4.0]
-    rs30=[copy.deepcopy(rs02) for i in range(len(scLengthMult))]
-    [rs30[i].changeName("rs30"+letter(i)) for i in range(len(rs30))]
-    [rs30[i].multiply('accScaleLength',scLengthMult[i]) for i in range(len(rs30))]
-
-    # another ang mom study, but explicitly set torque to zero everywhere
-    rs31=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs31[i].changeName("rs31"+letter(i)) for i in range(len(rs31))]
-    [rs31[i].irregularVary('dbg',2**12) for i in range(len(rs31))]
-
-    # a high-mass-only case and a low-mass-only case
-    Mh0s=[1.0e9,1.0e10,1.0e11,1.0e12,1.0e13]
-    rs32=[experiment("rs32"+letter(i)) for i in range(len(Mh0s))]
-    [rs32[i].irregularVary("R",40) for i in range(len(rs32))]
-    [rs32[i].irregularVary("Mh0",Mh0s[i]) for i in range(len(rs32))]
-    [rs32[i].irregularVary("accScaleLength",GetScaleLengths(1,Mh0=[Mh0s[i]],scatter=1.0e-10)) for i in range(len(rs32))]
-    [rs32[i].irregularVary('diskScaleLength',GetScaleLengths(1,Mh0=[Mh0s[i]],scatter=1.0e-10)) for i in range(len(rs32))]
-    [rs32[i].vary('whichAccretionHistory',1000,1100,101,0) for i in range(len(rs32))]
-    [rs32[i].irregularVary('mu',(Mh0s[i]/1.0e12)**(-1./3.)) for i in range(len(rs32))]
-    [rs32[i].irregularVary('vphiR',220.0*(Mh0s[i]/1.0e12)**(1./3.)) for i in range(len(rs32))]
-    [rs32[i].irregularVary("NPassive",1) for i in range(len(rs32))]
-
-    rs33=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs33[i].changeName("rs33"+letter(i)) for i in range(len(rs33))]
-    [rs33[i].irregularVary('fscatter',.5) for i in range(len(rs33))]
-
-    rs34=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs34[i].changeName("rs34"+letter(i)) for i in range(len(rs34))]
-    [rs34[i].irregularVary('fscatter',.1) for i in range(len(rs34))]
-
-    rs35=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs35[i].changeName("rs35"+letter(i)) for i in range(len(rs35))]
-    [rs35[i].irregularVary('deltaOmega',.05) for i in range(len(rs35))]
-
-    rs36=copy.deepcopy(rs32[1])
-    rs36.changeName('rs36')
-    rs36.irregularVary('b',2)
-
-    rs37=copy.deepcopy(rs32[1])
-    rs37.changeName('rs37')
-    rs37.irregularVary("R",10)
-    rs37.irregularVary('xmin',.005)
-
-    rs38=copy.deepcopy(rs37)
-    rs38.changeName('rs38')
-    rs38.irregularVary('b',2)
-
-    rs39=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs39[i].changeName("rs39"+letter(i)) for  i in range(len(rs39))]
-    [rs39[i].irregularVary('epsff',.005) for i in range(len(rs39))]
-
-    rs40=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs40[i].changeName("rs40"+letter(i)) for i in range(len(rs40))]
-    [rs40[i].irregularVary('eta',.5) for i in range(len(rs40))]
-
-    rs41=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs41[i].changeName("rs41"+letter(i)) for i in range(len(rs41))]
-    [rs41[i].irregularVary('vphiR',list(150.0*(np.array(Mh0s101)/1.0e12)**(1./3.)),3) for i in range(len(rs41))]
-
-    rs42=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs42[i].changeName("rs42"+letter(i)) for  i in range(len(rs42))]
-    [rs42[i].irregularVary('mu',list(.1*(np.array(Mh0s101)/1.0e12)**(-1./3.)),3) for i in range(len(rs42))]
-
-    rs43=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs43[i].changeName("rs43"+letter(i)) for i in range(len(rs43))]
-    [rs43[i].irregularVary("kappaMetals",1.0e-4) for i in range(len(rs43))]
-
-    rs44=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs44[i].changeName("rs44"+letter(i)) for i in range(len(rs44))]
-    [rs44[i].irregularVary("kappaMetals",1.0e-2) for i in range(len(rs44))]   
-    
-    rs45=[copy.deepcopy(rs32[i]) for i in range(len(rs32))]
-    [rs45[i].changeName("rs45"+letter(i)) for i in range(len(rs45))]
-    [rs45[i].irregularVary("accScaleLength",GetScaleLengths(1,Mh0=[Mh0s[i]],scatter=1.0e-10)[0]*4.0) for i in range(len(rs45))]
-
-    rs46=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs46[i].changeName("rs46"+letter(i)) for i in range(len(rs46))]
-    [rs46[i].irregularVary("alphaMRI",0.1) for i in range(len(rs46))]
-    
-    # repeate rs32 and rs35 but simulate to smaller radii
-    # High J
-    rs47=[copy.deepcopy(rs45[i]) for i in range(len(rs45))]
-    [rs47[i].changeName("rs47"+letter(i)) for i in range(len(rs47))]
-    [rs47[i].irregularVary("R",50.0*(Mh0s[i]/1.0e12)**(1.0/3.0)) for i in range(len(rs47))]
-    [rs47[i].irregularVary("xmin",.005) for i in range(len(rs47))]
-    [rs47[i].irregularVary("dbg",2**1) for i in range(len(rs47))]
-    
-    # Low J
-    rs48=[copy.deepcopy(rs32[i]) for i in range(len(rs32))]
-    [rs48[i].changeName("rs48"+letter(i)) for i in range(len(rs48))]
-    [rs48[i].irregularVary("R",50.0*(Mh0s[i]/1.0e12)**(1.0/3.0)) for i in range(len(rs48))]
-    [rs48[i].irregularVary("xmin",.005) for i in range(len(rs48))]
-    [rs48[i].irregularVary("dbg",2**1) for i in range(len(rs48))]
-    
-    fscatters=[0.1,0.5,1.0]
-    # High J, vary fscatter
-    rs49=[copy.deepcopy(rs47[3]) for i in range(len(fscatters))]
-    [rs49[i].changeName("rs49"+letter(i)) for i in range(len(rs49))]
-    [rs49[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs49))]
-
-    # Low J, vary fscatter
-    rs50=[copy.deepcopy(rs48[3]) for i in range(len(fscatters))]
-    [rs50[i].changeName("rs50"+letter(i)) for i in range(len(rs50))]
-    [rs50[i].irregularVary('fscatter',fscatters[i]) for i in range(len(rs50))]
-
-    # High J, turnover radii
-    rs51=[copy.deepcopy(rs47[i]) for i in range(len(rs47))]
-    [rs51[i].changeName("rs51"+letter(i)) for i in range(len(rs51))]
-    [rs51[i].irregularVary("b",2.0) for i in range(len(rs51))]
-
-    # low J
-    rs52=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
-    [rs52[i].changeName("rs52"+letter(i)) for i in range(len(rs52))]
-    [rs52[i].irregularVary("b",2.0) for i in range(len(rs52))]
-
-
-    # High J, Qf
-    rs53=[copy.deepcopy(rs47[i]) for i in range(len(rs47))]
-    [rs53[i].changeName("rs53"+letter(i)) for i in range(len(rs53))]
-    [rs53[i].irregularVary("fixedQ",1.0) for i in range(len(rs53))]
-
-    # low J
-    rs54=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
-    [rs54[i].changeName("rs54"+letter(i)) for i in range(len(rs54))]
-    [rs54[i].irregularVary("fixedQ",1.0) for i in range(len(rs54))]
-
-    #High J Vary kappaMetals for MW-mass halos
-    kappaMetals = [1.0e-4,3.0e-4,1.0e-3,3.0e-3]
-    rs55=[copy.deepcopy(rs47[3]) for i in range(len(kappaMetals))]
-    [rs55[i].changeName("rs55"+letter(i)) for i in range(len(rs55))]
-    [rs55[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs55))]
-    [rs55[i].irregularVary("dbg",2**1) for i in range(len(rs55))]
-
-    # Low J
-    rs56=[copy.deepcopy(rs48[3]) for i in range(len(kappaMetals))]
-    [rs56[i].changeName("rs56"+letter(i)) for i in range(len(rs56))]
-    [rs56[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs56))]
-    [rs56[i].irregularVary("dbg",2**1) for i in range(len(rs56))]
-
-    #High J Vary kappaMetals for MW-mass halos, with time-varying kappa
-    rs57=[copy.deepcopy(rs47[3]) for i in range(len(kappaMetals))]
-    [rs57[i].changeName("rs57"+letter(i)) for i in range(len(rs57))]
-    [rs57[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs57))]
-    [rs57[i].irregularVary("dbg",2**15+2**1) for i in range(len(rs57))]
-
-    # Low J
-    rs58=[copy.deepcopy(rs48[3]) for i in range(len(kappaMetals))]
-    [rs58[i].changeName("rs58"+letter(i)) for i in range(len(rs58))]
-    [rs58[i].irregularVary("kappaMetals",kappaMetals[i]) for i in range(len(rs58))]
-    [rs58[i].irregularVary("dbg",2**15+2**1) for i in range(len(rs58))]
-
-    # High J, Full mass range for tau=0
-    rs59=[copy.deepcopy(rs47[i]) for i in range(len(rs47))]
-    [rs59[i].changeName("rs59"+letter(i)) for i in range(len(rs59))]
-    [rs59[i].irregularVary("dbg",2**12) for i in range(len(rs59))]
-
-    #Low J
-    rs60=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
-    [rs60[i].changeName("rs60"+letter(i)) for i in range(len(rs60))]
-    [rs60[i].irregularVary("dbg",2**12) for i in range(len(rs60))]
-
-    # A little experiment to try large zstarts
-    rs61=[copy.deepcopy(rs48[i]) for i in range(len(rs48))]
-    [rs61[i].changeName("rs61"+letter(i)) for i in range(len(rs61))]
-    [rs61[i].irregularVary("fg0",.999) for i in range(len(rs61))]
-    [rs61[i].irregularVary("zrelax",9) for i in range(len(rs61))]
-    [rs61[i].irregularVary("zstart",2) for i in range(len(rs61))]
-    [rs61[i].irregularVary("invMassRatio",2) for i in range(len(rs61))]
-
-    rs62=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs62[i].changeName("rs62"+letter(i)) for i in range(len(rs62))]
-    [rs62[i].irregularVary("fg0",.999) for i in range(len(rs62))]
-    [rs62[i].irregularVary("zrelax",9) for i in range(len(rs62))]
-    [rs62[i].irregularVary("zstart",2) for i in range(len(rs62))]
-    [rs62[i].irregularVary("invMassRatio",2) for i in range(len(rs62))]
-
-    # try turning NPassive>1 back on
-    rs63=[copy.deepcopy(rs30[i]) for i in range(len(rs30))]
-    [rs63[i].changeName("rs63"+letter(i)) for i in range(len(rs63))]
-    [rs63[i].irregularVary("NPassive",10) for i in range(len(rs63))]
-
-
-
-    l045 = GetScaleLengths(1,Mh0=1.0e12,scatter=1.0e-10)[0]
-
-    lengthFactors=[ 0.3, 0.7, 1.1 ]
-    ru01=[experiment("ru01"+letter(i)) for i in range(3)]
-    [ru01[i].irregularVary("R",40) for i in range(len(ru01))]
-    [ru01[i].irregularVary('diskScaleLength',l045/3.0) for i in range(len(ru01))]
-    [ru01[i].irregularVary('accScaleLength',l045*lengthFactors[i]) for i in range(len(ru01))]
-    [ru01[i].irregularVary('mu',1.0) for i in range(len(ru01))]
-    [ru01[i].irregularVary('vphiR',220.0) for i in range(len(ru01))]
-    [ru01[i].irregularVary('NPassive',10) for i in range(len(ru01))]
-    [ru01[i].irregularVary('invMassRatio',1.0) for i in range(len(ru01))]
-    [ru01[i].irregularVary('dbg',2**1) for i in range(len(ru01))]
-    [ru01[i].irregularVary('xmin',.01) for i in range(len(ru01))]
-
-    ru02=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
-    [ru02[i].changeName('ru02'+letter(i)) for i in range(len(ru02))]
-    [ru02[i].vary('whichAccretionHistory',1000,1100,101,0) for i in range(len(ru02))]
-
-    ru03=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
-    [ru03[i].changeName("ru03"+letter(i)) for i in range(len(ru03))]
-    [ru03[i].vary('whichAccretionHistory',-1100,-1000,101,0) for i in range(len(ru03))]
-    [ru03[i].irregularVary('NChanges',10) for i in range(len(ru03))]
-    [ru03[i].irregularVary('fscatter',.3) for i in range(len(ru03))]
-
-    ru04=[copy.deepcopy(ru03[i]) for i in range(len(ru03))]
-    [ru04[i].changeName("ru04"+letter(i)) for i in range(len(ru04))]
-    [ru04[i].irregularVary('NChanges',5) for i in range(len(ru04))]
-
-    ru05=[copy.deepcopy(ru03[i]) for i in range(len(ru03))]
-    [ru05[i].changeName("ru05"+letter(i)) for i in range(len(ru05))]
-    [ru05[i].irregularVary('NChanges',100) for i in range(len(ru05))]
-
-    # Artificial alterations in the SF law:
-    # c=5/3, c=15, fH2=1, fH2=.03, Zgrad, fH2->0, sig*=sig
-    sfAlter = [2+2**6, 2+2**8, 2+2**9, 2+2**10, 2+2**13, 2+2**17, 2+2**16]
-    ru06=[copy.deepcopy(ru01[1]) for i in range(len(sfAlter))]
-    [ru06[i].changeName("ru06"+letter(i)) for i in range(len(sfAlter))]
-    [ru06[i].irregularVary('dbg',sfAlter[i]) for i in range(len(ru06))] # clumping = 5/3
-
-    # low-high extermes:
-    ru07=[copy.deepcopy(ru01[1]) for i in range(2)]
-    [ru07[i].changeName("ru07"+letter(i)) for i in range(len(ru07))]
-    [ru07[i].irregularVary("fixedQ",1.0+2*i) for i in range(len(ru07))]
-
-    ru08=[copy.deepcopy(ru07[i]) for i in range(len(ru07))]
-    [ru08[i].changeName("ru08"+letter(i)) for i in range(len(ru08))]
-    [ru08[i].irregularVary("dbg",2+2**4) for i in range(len(ru08))]
-
-    ru09=[copy.deepcopy(ru01[1]) for i in range(2)]
-    [ru09[i].changeName("ru09"+letter(i)) for i in range(len(ru09))]
-    [ru09[i].irregularVary('vphiR',180.0+70*i) for i in range(len(ru09))]
-
-    ru10=[copy.deepcopy(ru01[1]) for i in range(2)]
-    [ru10[i].changeName("ru10"+letter(i)) for i in range(len(ru10))]
-    [ru10[i].irregularVary("mu",0.1+1.9*i) for i in range(len(ru10))]
-
-    ru11=[copy.deepcopy(ru01[1]) for i in range(2)]
-    [ru11[i].changeName("ru11"+letter(i)) for i in range(len(ru11))]
-    [ru11[i].irregularVary('b',1.0+4.0*i) for i in range(len(ru11))]
-
-    ru12=[copy.deepcopy(ru01[1]) for i in range(2)]
-    [ru12[i].changeName("ru12"+letter(i)) for i in range(len(ru12))]
-    [ru12[i].irregularVary("eta",.3+4.7*i) for i in range(len(ru12))]
-
-    ru13=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
-    [ru13[i].changeName("ru13"+letter(i)) for i in range(len(ru13))]
-    [ru13[i].irregularVary("alphaMRI",0.1) for i in range(len(ru13))]
-
-    ru14=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
-    [ru14[i].changeName("ru14"+letter(i)) for i in range(len(ru14))]
-    [ru14[i].irregularVary("dbg",2+2**12) for i in range(len(ru14))]
-
-    ru15=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
-    [ru15[i].changeName("ru15"+letter(i)) for i in range(len(ru15))]
-    [ru15[i].vary('kappaMetals',1.0e-5,1.0e-2,20,1) for i in range(len(ru15))]
-    
-    ru16=[copy.deepcopy(ru01[i]) for i in range(len(ru01))]
-    [ru16[i].changeName("ru16"+letter(i)) for i in range(len(ru16))]
-    [ru16[i].vary('fixedQ',1.0,3.0,20,0) for i in range(len(ru16))]
-
-
-
-    
-
-
-    # A series of experiments where we concentrate only on Mh0=10^12
-    rt01 = experiment("rt01")
-    rt01.irregularVary("R",40)
-    # Scale length for lambda = 0.045:
-    rt01.irregularVary('accScaleLength',l045/3.0)
-    rt01.irregularVary('diskScaleLength',l045/3.0)
-    rt01.irregularVary('mu',1.0)
-    rt01.irregularVary('vphiR',220.0)
-    rt01.irregularVary('NPassive',10)
-    rt01.irregularVary('invMassRatio',1.0)
-    rt01.irregularVary('dbg',2**1)
-
-    # effect of realistic accretion history variations
-    rt02=copy.deepcopy(rt01)
-    rt02.changeName("rt02")
-    rt02.vary('whichAccretionHistory',1000,1100,101,0)
-
-    # different assumptions for accretion history variation
-    rt03=copy.deepcopy(rt01)
-    rt03.changeName("rt03")
-    rt03.vary('whichAccretionHistory',-1100,-1000,101,0)
-    rt03.irregularVary('NChanges',10) # by default, const. in redshift 
-    rt03.irregularVary("fscatter",.3) # half a dex of scatter
-
-    rt04=copy.deepcopy(rt01)
-    rt04.changeName("rt04")
-    rt04.irregularVary("whichAccretionProfile",0) # exponential. Vary scale length
-    rt04.irregularVary('accScaleLength',[l045*(i+1)/10.0 for i in range(10)])
-
-    rt05=copy.deepcopy(rt01)
-    rt05.changeName("rt05")
-    rt05.irregularVary('whichAccretionProfile',1) # const accretion profile
-    rt05.irregularVary('accScaleLength',[l045*(i+1)*3.0/10.0 for i in range(10)]) # same ang mom distr as rt04
-
-    rt06=copy.deepcopy(rt01)
-    rt06.changeName("rt06")
-    rt06.irregularVary('whichAccretionProfile',2) # normal distr.
-    rt06.irregularVary('accScaleLength',[l045*(i+1)/10.0 for i in range(10)]) # hopefully roughly the same ang mom as rt04? Still need to do that integral...
-
-    rt07=copy.deepcopy(rt02)
-    rt07.changeName("rt07")
-    rt07.irregularVary('deltaOmega',.4)
-
-    # vary clumping factor: 5/3 or 15
-    rt08=copy.deepcopy(rt01)
-    rt08.changeName('rt08')
-    rt08.irregularVary('dbg',[2+2**6,2+2**8])
-
-    # artificially set fH2=1 or .03
-    rt09=copy.deepcopy(rt01)
-    rt09.changeName('rt09')
-    rt09.irregularVary('dbg',[2+2**9,2+ 2**10])
-
-    rt10=copy.deepcopy(rt01)
-    rt10.changeName("rt10")
-    rt10.vary('kappaMetals',1.0e-5,1.0e-2,20,1)
-
-    rt11=copy.deepcopy(rt01)
-    rt11.changeName("rt11")
-    rt11.vary('fixedQ',1.0,3.0,20,0)
-
-    rt12=copy.deepcopy(rt01)
-    rt12.changeName("rt12")
-    rt12.vary('Qlim',2.0,4.0,20,0)
-
-    rt13=copy.deepcopy(rt11)
-    rt13.changeName("rt13")
-    rt13.irregularVary("dbg",2+2**4) # exp dQ/dt
-
-    rt14=copy.deepcopy(rt12)
-    rt14.changeName("rt14")
-    rt14.irregularVary("dbg",2+2**4) # exp dQ/dt
-
-    rt15=copy.deepcopy(rt01)
-    rt15.changeName("rt15")
-    rt15.vary('b',0.0,5.0,30,0)
-
-    rt16=copy.deepcopy(rt01)
-    rt16.changeName("rt16")
-    rt16.vary('alphaMRI',1.0e-4,0.1,20,1)
-
-    rt17=copy.deepcopy(rt01)
-    rt17.changeName("rt17")
-    rt17.vary("eta",.3,4.5,20,1)
-
-    rt18=copy.deepcopy(rt01)
-    rt18.changeName("rt18")
-    rt18.irregularVary('dbg',2+2**12)
-
-
 
 
     # Guess for a reasonable model.
@@ -1047,23 +537,21 @@ if __name__ == "__main__":
     rv01.irregularVary('xmin',.004)
     rv01.irregularVary('alphaMRI',.01)
 
+
     # Vary the exponential scale length of the IC and accretion together.
-    rv02=[copy.deepcopy(rv01) for i in range(2)]
-    [rv02[i].changeName("rv02"+letter(i)) for i in range(len(rv02))]
+    rv02=NewSetOfExperiments(rv01,"rv02",N=2)
     rv02[0].vary('diskScaleLength',l045*.10,l045*.67,10,0,3)
     rv02[1].vary('diskScaleLength',l045*.73,l045*2.1,20,0,3)
     rv02[0].vary('accScaleLength',l045*.10,l045*.67,10,0,3)
     rv02[1].vary('accScaleLength',l045*.73,l045*2.1,20,0,3)
 
     # Vary the metal diffusion constant 
-    rv03=[copy.deepcopy(rv01) for i in range(2)]
-    [rv03[i].changeName('rv03'+letter(i)) for i in range(len(rv03))]
+    rv03=NewSetOfExperiments(rv01,"rv03",N=2)
     rv03[0].vary('kappaMetals',1.0e-4,9.5e-4,10,1)
     rv03[1].vary('kappaMetals',1.1e-3,3.0e-3,5,1)
 
     # Vary the metal diffusion constant normalization, but this time let it vary in proportion to ~ sigma * sigma^2/pi G Sigma
-    rv04=[copy.deepcopy(rv03[i]) for i in range(len(rv03))]
-    [rv04[i].changeName('rv04'+letter(i)) for i in range(len(rv04))]
+    rv04=NewSetOfExperiments(rv03,"rv04")
     [rv04[i].irregularVary('dbg',2+2**15) for i in range(len(rv04))]
 
     # Vary the metal diffusion constant normalization, with scaling proportional to sigma H
@@ -1177,6 +665,29 @@ if __name__ == "__main__":
     rv25=NewSetOfExperiments(rv24, "rv25")
     [rv25[i].irregularVary("accAlphaZ",2) for i in range(len(rv25))]
     [rv25[i].irregularVary("accNorm",.0522216) for i in range(len(rv25))]
+
+    # Sanity check. Very strong efficiency evolution
+    rv27=NewSetOfExperiments(rv01,"rv27",N=2)
+    eps0Low = [.30959 * 1.0e-5 * 10.0**(5.0*i/15.0) for i in range(15)]
+    eps0High= [.30959 + .05 *i for i in range(15)]
+    eps2 = .30959 * 3.0**0.38
+    rv27[0].irregularVary('accNorm',eps0Low,3)
+    rv27[0].irregularVary('accAlphaZ',[math.log(eps2/eps0Low[i])/math.log(3.0) for i in range(len(eps0Low))],3)
+    rv27[1].irregularVary('accNorm',eps0High,3)
+    rv27[1].irregularVary('accAlphaZ',[math.log(eps2/eps0High[i])/math.log(3.0) for i in range(len(eps0High))],3)
+
+    rv28=NewSetOfExperiments(rv27,"rv28")
+    [rv28[i].irregularVary('dbg',2+2**6) for i in range(len(rv28))]
+    [rv28[i].irregularVary('RfREC',.8) for i in range(len(rv28))]
+
+    # Another sanity check. Let's use a single random variable accretion history.
+    rv29=NewSetOfExperiments(rv27,"rv29")
+    [rv29[i].irregularVary('whichAccretionHistory',1234) for i in range(len(rv29))]
+    [rv29[i].irregularVary('deltaOmega',0.5) for i in range(len(rv29))]
+
+    rv30=NewSetOfExperiments(rv20,"rv30")
+    [rv30[i].irregularVary('whichAccretionProfile',2) for i in range(len(rv30))]
+
 
     successTables=[]
 

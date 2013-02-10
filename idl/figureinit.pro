@@ -40,7 +40,7 @@ PRO figureInit,nm,sv,nx,ny
 	IF(sv EQ 2) THEN BEGIN
 		Set_Plot,'ps'
 		!p.font = 0
-		DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xsize=8.89*nx,ysize=8.89*ny,xoffset=.10,yoffset=.10
+		DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xsize=8.89*nx,ysize=8.89*ny
 		;DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xoffset=1.0,yoffset=1.0
 
 		

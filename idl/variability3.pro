@@ -57,8 +57,8 @@ END
 ;;; keys is an array which lets you specify which variable to plot from the 
 ;;;   list in wrtXyt. This is useful for very large experiments, where even 
 ;;;   storing the modest-size arrays here which take a limited amount of
-;;;   data for each run can become cumbersome. If you input an empty array,
-;;;   by default the code will analyze all the variables
+;;;   data for each run can become cumbersome. By default the code will
+;;;   analyze all the variables
 ;;; N controls how many runs in the experiment to analyze. For large number 
 ;;;   runs, sometimes it's useful to just look at a few runs. If N is larger 
 ;;;   than the number of runs in the experiment, all the runs are analyzed.
@@ -85,13 +85,14 @@ PRO variability3,expNames,N,sv,keys=keys
   ctr=0
 
   ;; variables to plot- title, column index, log plot, name, y-range
-  wrtXyt=['R (kpc)','Gas Column Density (Msun/pc^2)','Velocity Dispersion (km/s)','Stellar Column Density (Msun/pc^2)','Stellar Velocity Dispersion (km/s)','Gas Fraction','[Z/Zsun]','SFR Column Density (Msun/yr/kpc^2)','Q','Gas Q','Stellar Q','Molecular Fraction','Age At z=0 (Ga)','Age (Ga)','Depletion Time (Ga)','Viscous Time (Ga)','Depletion/Viscous Time','Mass Flux Through Disk (Msun/yr)',"Gas v_r (km/s)","Star v_r (km/s)","Inv Viscous Time (yr^-1)","Ratio with Universal Prof","Ratio with Universal Prof 2","Ratio with Universal Prof 3","col timescale (yr)","Accr (Msun/pc^2/yr)","Accretion timescale","Ratio with Universal Prof 4"]
-  wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32,35,36,37,39,17,16,38,39,40,41, 1,42,43,44] ;; index
-  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] ;; offset? 
-  wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk','vrg','vst','tviscinv','BB','BB2','BB3','tcol','accr','taccr','BB4']
+  wrtXyt=['R (kpc)','Gas Column Density (Msun/pc^2)','Velocity Dispersion (km/s)','Stellar Column Density (Msun/pc^2)','Stellar Velocity Dispersion (km/s)','Gas Fraction','[Z/Zsun]','SFR Column Density (Msun/yr/kpc^2)','Q','Gas Q','Stellar Q','Molecular Fraction','Age At z=0 (Ga)','Age (Ga)','Depletion Time (yr)','Viscous Time (Ga)','Depletion/Viscous Time','Mass Flux Through Disk (Msun/yr)',"Gas v_r (km/s)","Star v_r (km/s)","Inv Viscous Time (yr^-1)","tdepH2","Sigma/SigmaEQ","(mu+Rf)*colSFR/colAccr","col timescale (yr)","Accr (Msun/pc^2/yr)","Accretion timescale","Ratio with Universal Prof 4","beta","v/vcirc","Sinks within r/Mdot(r)","Sinks within r/(Mdot(r)+accr within r)"]
+  wrtXytex=['R (kpc)','$\Sigma\ (M_\odot/pc^2)$','$\sigma$ (km/s)','$\Sigma_*\ (M_\odot/pc^2)$','$\sigma_{*,r}$ (km/s)','$f_g$','$[Z/Z_\odot]$','$\dot{\Sigma}_*^{SF}\ (M_\odot/yr/kpc^2)$','$Q$','$Q_g$','$Q_*$','$f_{H_2}$','Age At $z=0$ (Ga)','Age (Ga)','$t_{dep}$ (yr)','$t_{visc}$ (yr)','$t_{dep}/t_{visc}$','$\dot{M}_{GI}+\dot{M}_{MRI}\ (M_\odot/yr)$',"$v_r$ (km/s)","$v_{r,*}$ (km/s)","$t_{visc}^{-1}\ (yr^{-1})$","$t_{dep,H_2}$ (yr)","$\Sigma/\Sigma_{eq}$","$(\mu+f_R)\dot{\Sigma}^{SF}/\dot{\Sigma}_{cos}$","$\Sigma/\dot{\Sigma}$ (yr)","$\dot{\Sigma}_{cos}\ (M_\odot/pc^2/yr)$","$\Sigma/\dot{\Sigma}_{cos}$","$\Sigma/\Sigma_{UP,4}$","$\beta$","$v/v_{circ}$","$\int_{r_0}^r(\mu+f_R)2\pi r \dot{\Sigma}^{SF} dr/\dot{M}(r)$","$\int_{r_0}^r(\mu+f_R)2\pi r \dot{\Sigma}^{SF} dr/(\dot{M}(r) + \int_{r_0}^r \dot{\Sigma}_{cos} 2\pi r dr)$"]
+  wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32,35,36,37,39,17,16,38,39,40,41, 1,42,43,44,15,16,45,46] ;; index
+  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1] ;; offset? 
+  wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk','vrg','vst','tviscinv','tdepH2','ratcoleq','sfrPerAccr','tcol','accr','taccr','BB4','beta','uu','viscSupply','totSupply']
 ;  wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
 ;    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9],[1.0e8,1.0e10],[1.0e8,1.0e10],[.01,100]]
-  wrtXyl=[1,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1] ;; log plot 28
+  wrtXyl=[1,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,0,0,1,1] ;; log plot 28
 
   IF(n_elements(keys) EQ 0) THEN keys=indgen(n_elements(wrtXyt))+1
   dummy = where( keys EQ 28, n1)
@@ -143,6 +144,7 @@ PRO variability3,expNames,N,sv,keys=keys
 ;  FOR i=0,n_elements(nameList2)-1 DO BEGIN ;; loop over every valid model
   ctr=0
   modelcounter2 = modelcounter*0
+
   FOR expInd=1, n_elements(expNames) DO BEGIN
     low = modelcounter[expInd-1]
     high= modelcounter[expInd]-1
@@ -162,6 +164,7 @@ PRO variability3,expNames,N,sv,keys=keys
          z = model.evArray[10-1,*]
        ENDIF
        x = model.dataCube[0,*,0]
+       r = x[*]*model.Radius
 
        ;; if this model has the appropriate number of time steps..
        ;;PRINT,"Number of time steps",n_elements(model.dataCube[*,0,0]),n_elements(theData[*,0,0,0])
@@ -173,6 +176,11 @@ PRO variability3,expNames,N,sv,keys=keys
          positionIndices=[nearest("position",1,model,1.0/model.Radius), $
             nearest("position",1,model,8.0/model.Radius), $
             nearest("position",1,model,15.0/model.Radius)]
+;         IF(model.npassive GT n_elements(byAge[*,0,0,0])) THEN BEGIN
+;            byAgeT=temporary(byAge)[*,*,*,*]
+;            byAge=dblarr(model.npassive+1,n_elements(model.dataCube[0,*,0]),5+1,n_elements(namelist2))
+;            byAge[0:n_elements(byAgeT[*,0,0,0])-1,*,*,*] = temporary(byAgeT)[*,*,*,*]
+;         ENDIF
          FOR popI=0, model.npassive DO BEGIN
             byAge[popI, *, 0, ctr] = model.dataCube[0,*,0]*model.Radius
             byAge[popI, *, 1:5, ctr] = model.stellarData[theNTS-1, popI, *, 0:4]
@@ -262,7 +270,7 @@ PRO variability3,expNames,N,sv,keys=keys
   vsMdotToLog = [1,1,1,1,0,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,0,0,1,1,1,0,0,1,1,1,1,1,1,0] 
 
   byAgeLabels=["Radius (kpc)","Column Density","r Vel Dis","z Vel Dis","Z","var Z"]
-  byAgeTexLabels=["Radius (kpc)","Column Density","r Vel Dis","z Vel Dis","Z","var Z"]
+  byAgeTexLabels=["Radius (kpc)","$\Sigma_{*,i}$","$\sigma_{*,r}$","$\sigma_{*,z}$","Z","var Z"]
   byAgeNames=["r","stCol","sigr","sigz","stZ","stVZ"]
   byAgeToLog=[1,1,1,1,0,0]
 
@@ -285,7 +293,7 @@ PRO variability3,expNames,N,sv,keys=keys
   byAge = (temporary(byAge))[*,*,*,0:ctr-1]
   vsAge = (temporary(vsAge))[*,*,*,0:ctr-1]
 
-  thePercentiles = [.17,.5,.83]
+  thePercentiles = [0.025,.16,.5,.84,.975]
   nper = n_elements(thePercentiles)
   intervals = dblarr(n_elements(theData[*,0,0,0]),  n_elements(theData[0,*,0,0]), n_elements(theData[0,0,*,0]), nper*n_elements(expNames))  
   ;; having accumulated theData, let's do some analysis!
@@ -361,10 +369,10 @@ PRO variability3,expNames,N,sv,keys=keys
   unsRangesLin[0,0] = -2.0
   unsRangesLin[1,0] = 42.0
 
-      linestyles = intarr(n_elements(expNames)*3)+2
-      midpoints = where(indgen(n_elements(expNames)*3) MOD 3 EQ 1)
+      linestyles = intarr(n_elements(expNames)*nper)+2;nper-1
+      midpoints = where(indgen(n_elements(expNames)*nper) MOD nper EQ nper/2)
       linestyles[midpoints] = 0
-      intervalsColors0 = indgen(n_elements(expNames)*3)/3
+      intervalsColors0 = indgen(n_elements(expNames)*nper)/nper
       intervalsColors = intarr(n_elements(time),n_elements(intervalsColors0))
       FOR tt=0,n_elements(time)-1 DO intervalsColors[tt,*] = intervalsColors0 
 
@@ -449,12 +457,13 @@ PRO variability3,expNames,N,sv,keys=keys
 
   vsTimeStyles=colors*0
   vsTimeColors=colors[*,*]
-  IF(n_elements(vsTime[0,0,0,*]) GT 50) THEN vsTimeStyles=temporary(vsTimeStyles)+2
+  IF(n_elements(vsTime[0,0,0,*]) GT 50) THEN vsTimeStyles=temporary(vsTimeStyles)+1
 
+  svSinglePlot=2 ;; 2=eps, 4=png
 
   setct,3,n_elements(vsMdot[0,0,0,*]),0
 ;  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2,sv=4,nt0=2,thicknesses=thicknesses
-  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2+"_log",sv=4,nt0=2,thicknesses=thicknesses,logarithms=vsMdotToLog,normalize=(n_elements(expNames) NE n_elements(vsMdot[0,0,0,*]))
+  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2+"_log",sv=svSinglePlot,nt0=2,thicknesses=thicknesses,logarithms=vsMdotToLog,normalize=(n_elements(expNames) NE n_elements(vsMdot[0,0,0,*]))
 
 
 
@@ -474,34 +483,82 @@ PRO variability3,expNames,N,sv,keys=keys
    ;vs radius. First two are log radius, second two are identical with linear radius
   TheNumberOfModels = n_elements(vsMstar[0,0,0,*])
 
-  IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogR", $
-          5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12
-  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogR", $
-      5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses
-  IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervals", $
-          5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12
-  simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsorted", $
-      5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses
+  whichFramesz0 = [n_elements(z)-1]
+  whichFramesz2 = [1]
+	
+  setct,1,n_elements(linestyles),2
 
   IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,vsTimeStyles,vsTimeToLog,expName2+"_vstimeDist", $
-          5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20,thicknesses=unsThicknesses
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogR", $
+          5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
+          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogR", $
+      5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  IF(TheNumberOfModels GT 10) THEN $
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervals", $
+          5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12, $
+          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsorted", $
+      5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=wrtXytex
+
+
+  IF(TheNumberOfModels GT 10) THEN $
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogRz0", $
+          5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
+          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogRz0", $
+      5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  IF(TheNumberOfModels GT 10) THEN $
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsz0", $
+          5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12, $
+          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedz0", $
+      5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=wrtXytex
+
+    IF(TheNumberOfModels GT 10) THEN $
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogRz2", $
+          5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
+          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogRz2", $
+      5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  IF(TheNumberOfModels GT 10) THEN $
+      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsz2", $
+          5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12, $
+          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedz2", $
+      5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=wrtXytex
+
+
+
+
+
+  IF(TheNumberOfModels GT 10) THEN $
+      simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,linestyles,vsTimeToLog,expName2+"_vstimeDist", $
+          5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20,thicknesses=unsThicknesses,$
+          svSinglePlot=svSinglePlot,texLabels=vsTimeTexLabels,percentileList=[.025,.16,.5,.84,.975]
   simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,vsTimeStyles,vsTimeToLog,expName2+"_vstime", $
-      5,axisLabels=vsTimeLabels,whichFrames=[0],thicknesses=unsThicknesses
+      5,axisLabels=vsTimeLabels,whichFrames=[0],thicknesses=unsThicknesses,svSinglePlot=svSinglePlot,texLabels=vsTimeTexLabels
 ;  simpleMovie, avgdVsMdot,z,vsAvgMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsavgmdot", $
 ;      5,PSYM=1,axisLabels=vsAvgMdotLabels,horizontal=1,whichFrames=whichFrames3,thicknesses=unsThicknesses
-  simpleMovie, byAge,ages,byAgeNames,colors,colors*0,byAgeToLog,expName2+"_byAgeLogR", $
-      5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses
-  simpleMovie, byAge,ages,byAgeNames,colors,colors*0,[0,byAgeToLog[1:n_elements(byAgeToLog)-1]],expName2+"_byAge", $
-      5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses
-  simpleMovie, vsAge,positionIndices,vsAgeNames,colors,colors*0,vsAgeToLog,expName2+"_vsAge", $
-      5,axisLabels=vsAgeLabels,whichFrames=[0,1,2],horizontal=1,thicknesses=unsThicknesses
+  simpleMovie, byAge,ages/1.0d9,byAgeNames,colors,colors*0,byAgeToLog,expName2+"_byAgeLogR", $
+      5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=byAgeTexLabels,timeText="age = "
+  simpleMovie, byAge,ages/1.0d9,byAgeNames,colors,colors*0,[0,byAgeToLog[1:n_elements(byAgeToLog)-1]],expName2+"_byAge", $
+      5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=byAgeTexLabels,timeText="age = "
+  simpleMovie, vsAge,r[positionIndices],vsAgeNames,colors,colors*0,vsAgeToLog,expName2+"_vsAge", $
+      5,axisLabels=vsAgeLabels,whichFrames=[0,1,2],horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=vsAgeTexLabels,timeText="r = "
   IF(TheNumberOfModels GT 10) THEN $
       simpleMovie, vsMstar, z, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarDistH", $
           5,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels,whichFrames=[1,51,201], $
-          NIndVarBins=5,horizontal=1,thicknesses=unsThicknesses
+          NIndVarBins=5,horizontal=1,thicknesses=unsThicknesses,svSinglePlot=svSinglePlot
     
 
   ;; Now make some standalone plots.

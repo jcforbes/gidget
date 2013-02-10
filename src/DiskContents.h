@@ -109,8 +109,9 @@ class DiskContents {
   // and the purely time dependent properties to a different file
   void WriteOutStepFile(std::string filename,AccretionHistory & acc, 
                         double t, double z, double dt, 
-                        unsigned int step,double **tauvec,double **tauvecStar,
-                        std::vector<double>& MdotiPlusHalf,std::vector<double>& accProf);
+                        unsigned int step,double **tauvec,double **tauvecStar,double ** tauvecMRI,
+                        std::vector<double>& MdotiPlusHalf,std::vector<double>& MdotiPlusHalfMRI,
+                        std::vector<double>& accProf);
 
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};

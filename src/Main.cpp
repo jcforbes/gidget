@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
     // Scale the things which scale with halo mass.
     //  const double MassLoadingFactor = MassLoadingFactorAtMh12 * pow((Mh0/1.0e12) , -1./3.);
     //  const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./3.);
-    const double sigth = sqrt(Tgas *kB/mH)/vphiR;
+    const double sigth = sqrt(Tgas *kB/(mH))/vphiR;
 
     const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
     const double NChanges =          as.Set(6,"The number of times the lognormal accretion history should draw a new value.");

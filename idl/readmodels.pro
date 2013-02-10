@@ -188,6 +188,17 @@ FUNCTION readOutput,name
   alphaAccProf = ExtractCmtFlt(lunCom)
   accWidth = ExtractCmtFlt(lunCom)
 
+  ;; Some useful constants
+  MSol = 1.98892d33 ;; solar masses in grams
+  G=6.673d-8 ;; newton's constant in cgs
+  speryear = 31556926d
+  cmperkpc = 3.08568025d21	
+  cmperpc =  3.08568025d18
+  mH = 1.6733d-24 ;; grams
+  kB = 1.3806503d-16 ;; erg/K
+  cm2perpc2perMsol = cmperpc*cmperpc / MSol
+  cmperkpcpers2peryear2 = cmperkpc/(speryear*speryear)
+
   ;; these next two are special: The user doesn't specify them; they are computed
   ;; at the beginning of a run based on whichAccretionHistory.
   genOPEN,lunComAux,(name+"_aux.txt"),/get_lun
@@ -201,7 +212,7 @@ FUNCTION readOutput,name
  ; MLF = MLF * (Mh0/1.0e12) ^ (-1.0/3.0);
  ; vphiR = vphiR * (Mh0/1.0e12)^  (1.0/3.0)
 	
-
+  sigmath = sqrt(kB * GasTemp/mH) * 1.0e-5 ;; km/s
   b=b/Radius ;; b is read in in kpc (as is Radius). Now set b to its dimensionless value (incidentally, b is the turnover radius of the rotation curve)
   FREE_LUN,luncom
 
@@ -245,12 +256,6 @@ FUNCTION readOutput,name
   dataCube=dblarr(currentStep,nx,1) 
 	;; this should be the exact size necessary except for the 3rd dimension
 
-  ;; Some useful constants
-  MSol = 1.98892d33 ;; solar masses in grams
-  G=6.673d-8 ;; newton's constant in cgs
-  speryear = 31556926d
-  cmperkpc = 3.08568025d21	
-  cmperpc =  3.08568025d18
 
   mdotext0=md0* MSol/speryear ;; in grams/s
   chi = G*mdotext0/(vphiR*vphiR*vphiR*1d15)
@@ -384,7 +389,7 @@ FUNCTION readOutput,name
 ;    errs[where(errs LT 1.e-21)] = 1.e-21
 ;    dataCube[*,*,60:63] = errs
 
-    NPostProcess= 44
+    NPostProcess= 46
     tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ; ZstNum and ZstDen:  ( time steps ) x 1 x ( nx ) x 1
@@ -469,9 +474,9 @@ FUNCTION readOutput,name
     tdc[0,*,ncolstep+14-1] = tdc[1,*,ncolstep+14-1] ;; replace the 0th time step (all zeroes) with the first.
     fac = 1.0;; fac = MLF+Rf
     tdc[*,*,ncolstep+35-1] = tdc[*,*,ncolstep+10-1]*pcperkpc*pcperkpc/(fac*tdc[*,*,ncolstep+14-1]);; depletion time = col/coldtSF --- Msol/pc^2 / (Msol/kpc^2/yr) * (1000 pc/kpc)^2
-    tdc[*,*,ncolstep+36-1] = tdc[*,*,ncolstep+9-1]*kmperkpc/((tdc[*,*,ncolstep+17-1]+.0000001)*speryear);; viscous time = r / v_r --- kpc/(km/s)
+    tdc[*,*,ncolstep+36-1] = tdc[*,*,ncolstep+9-1]*kmperkpc/((tdc[*,*,ncolstep+17-1])*speryear);; viscous time = r / v_r --- kpc/(km/s)
     tdc[*,*,ncolstep+37-1] = tdc[*,*,ncolstep+35-1]*tdc[*,*,ncolstep+17-1]*speryear/(tdc[*,*,ncolstep+9-1]*kmperkpc);; depletion time / viscous time
-    
+    ; 1/t_visc
     tdc[*,*,ncolstep+38-1] = tdc[*,*,ncolstep+17-1]*speryear / (tdc[*,*,ncolstep+9-1]*kmperkpc) ; year^-1
     x25s = dblarr(n_elements(tdc[*,0,0]))
     x25s_2 = x25s[*]
@@ -498,9 +503,9 @@ FUNCTION readOutput,name
         dummy = MIN(abs(tdc[ti,*,ncolstep+14-1] - 1.19d-3),index)
         x25_3 = tdc[ti,index,0] ; -18.9
         ; dimensionless ratio of real value over predicted value by Bigiel & Blitz
-        tdc[ti,*,ncolstep+39-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25))
-        tdc[ti,*,ncolstep+40-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_2))
-        tdc[ti,*,ncolstep+41-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_3))
+        ;tdc[ti,*,ncolstep+39-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25))
+        ;tdc[ti,*,ncolstep+40-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_2))
+        ;tdc[ti,*,ncolstep+41-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_3))
         tdc[ti,*,ncolstep+44-1] = tdc[ti,*,ncolstep+10-1]/(2.1*colTrans*exp(-1.65*tdc[ti,*,0]/x25_4))
         
         x25s[ti] = x25
@@ -509,14 +514,35 @@ FUNCTION readOutput,name
         x25s_4[ti] = x25_4
     ENDFOR
 
+    ; accretion rate & timescale
     tdc[*,*,ncolstep+42-1] = tdc[*,*,30-1] * md0 / (!pi * Radius*Radius * 1.0d6) ; Msun/yr/pc^2
     tdc[*,*,ncolstep+43-1] = tdc[*,*,ncolstep+10-1]/tdc[*,*,ncolstep+42-1] ;; yr
 
+    ; H2 depletion timescale = fH2 * depletion time
+    tdc[*,*,ncolstep+39-1] = tdc[*,*,48-1]*tdc[*,*,ncolstep+35-1]
 
-    tdc[*,*,ncolStep+17] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
-    tdc[*,*,ncolStep+18] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*uu*(1+bbeta)) ; mdot (msol/yr) 
+
+    ;; This one I think will be slightly more useful: just (mu+f_R)*colSF / colAccr
+    tdc[*,*,ncolstep+41-1] = (mlf+Rf)*tdc[*,*,ncolstep+14-1] *1.0e-6 / tdc[*,*,ncolstep+42-1]
+
+
+    tdc[*,*,ncolStep+18-1] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
+    tdc[*,*,ncolStep+19-1] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*uu*(1+bbeta)) ; mdot (msol/yr) 
 
     dlnx=-alog(tdc[0,0,0])/float(n_elements(tdc[0,*,0])-1)
+
+    ; one more interesting quantity: the ratio of the SF interior to some radius to the arriving Mdot.
+    tdc[*,*,ncolStep+45-1] = TOTAL((mlf+Rf)*tdc[*,*,ncolstep+14-1]*2*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative)/tdc[*,*,ncolstep+18]
+    ;; Onnnnee more: the ratio of the SF interior to some radius to the total inst. supply (mdot+accr)
+    tdc[*,*,ncolstep+46-1] = tdc[*,*,ncolstep+44-1]*tdc[*,*,ncolstep+18]/(tdc[*,*,ncolstep+18] + TOTAL(tdc[*,*,ncolstep+42-1]*2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative))
+
+    ; ratio of Sigma to Sigma_eq (low column density)
+    ; Msun/pc^2   / (3 pi colAccr(Msun/pc^2/yr)^2 * Qlim * sigmath*10^5(cm/s) * radius*cmperkpc (cm) / (32 epsff^2 * fH2^2 * vphi*10^5(cm/s) * sqrt(2(b+1)) * G*gperMsun (cm^3/s^2 Msun) *(fR+mlf)^2))^(1/3)
+    tdc[*,*,ncolstep+40-1] = tdc[*,*,ncolstep+10-1]/((3.0*!pi*tdc[*,*,ncolstep+42-1]^2*Qlim*sigmath * tdc[*,*,ncolstep+9-1]*cmperkpcpers2peryear2*cm2perpc2perMsol / (32.0*eps_ff^2 * tdc[*,*,48-1] * tdc[*,*,48-1] * tdc[*,*,16-1]*vphiR * sqrt(2.0*(bbeta+1)) * G*(Rf+mlf)^2))^(1./3.)) 
+
+    ; viscous timescale = 
+    tdc[*,*,ncolstep+47-1] = 2.0*!pi 
+
 
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined
 	initialStellarMass = dblarr(nt,nx)
@@ -556,9 +582,11 @@ FUNCTION readOutput,name
 	;30- ang. mom of cumulative outflows
      ;; 33,34 = -tau, -tau'
      ;; 35,36,37: depletion time, viscous time, dep/visc
-     ;; 38,39 v_rg/r=1/tvisc, col_g/col_BB
-     ;; 40,41 BB2, BB3
+     ;; 38,39 v_rg/r=1/tvisc, tdepH2
+     ;; 40,41 Sigma/SigmaEQ, (mu+Rf)*colSFR/colAccr
      ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
+     ;; 45- TOTAL(SF)*(mu+Rf) within r/Mdot(r),  
+     ;; 46- TOTAL(SF)*(mu+Rf) within r/ (Mdot(r) + colAccr within r)
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )

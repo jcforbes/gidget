@@ -34,7 +34,7 @@
 ;; svSinglePlot - the value of sv to use if we're producing a single plot. See figureinit.pro; typically 4 is a good choice
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
 
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSingePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSinglePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
 
   PRINT, "Starting to make the files of the form: ", name,"*"
@@ -57,18 +57,29 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(taillength) EQ 0) THEN taillength=2
   IF(n_elements(saveFrames) EQ 0) THEN saveFrames=0
   IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(n_elements(time))
-  IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels
+  IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels[*]
   IF(n_elements(timeText) EQ 0) THEN timeText="z = "
   IF(n_elements(NIndVarBins) EQ 0) THEN NIndVarBins=0
-  IF(n_elements(percentileList) EQ 0) THEN percentileList=[.17,.5,.83]
+  IF(n_elements(percentileList) EQ 0) THEN percentileList=[.16,.5,.84]
   IF(n_elements(svSinglePlot) EQ 0) THEN svSinglePlot = 4
   IF(n_elements(strt) EQ 0) THEN strt = intarr(n_elements(labels))
   IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+2
   IF(sv EQ 4) THEN thicknesses= 3+temporary(thicknesses)
   chth = thicknesses[0]
   cs =0.8* thicknesses[0]
+  ;; We're making EPS plots in this case. That means that charthick and charsize need to be much smaller
+  wf = n_elements(whichFrames)-1  
+  IF(sv EQ 5 AND svSinglePlot EQ 2) THEN BEGIN
+    chth=.5
+    cs = .5
+    ;thicknesses = [thicknesses[0]/1.7, thicknesses[1:n_elements(thicknesses)-1]/10.0]
+    thicknesses=[3,thicknesses[1:n_elements(thicknesses)-1]*0+1]
+    IF(wf EQ 0) THEN BEGIN
+        chth=.3
+        cs=.3
+    ENDIF
+  ENDIF
 
-  wf = n_elements(whichFrames)-1
 
   SETCT,1,n_elements(styles),2
 
@@ -89,11 +100,12 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     	IF (wf GT 6) THEN message,"You have requested an unreasonable number of frames for a single plot."
 	    ;cs = .3
         figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal*wf,1+(1-horizontal)*wf
-	    IF(wf NE 0) THEN modmultiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square;,mxtitle=axisLabels[0],mytitle=axislabels[k],gap=.003,mxtitsize=cs,mytitsize=cs
-	    IF(wf NE 0) THEN !p.noerase=0
-    ENDIF
+;	    IF(wf NE 0) THEN 
+        modmultiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square;,mxtitle=axisLabels[0],mytitle=axislabels[k],gap=.003,mxtitsize=cs,mytitsize=cs
+;	    IF(wf NE 0) THEN 
+        !p.noerase=0
 
-	setct,1,n_elements(styles),2
+    ENDIF
 
     symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
     IF(NIndVarBins GT 0) THEN symsize = symsize/3.0
@@ -120,36 +132,45 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(strt[k] EQ 0) THEN $
         PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
          YTITLE=yt, XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
-         xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=thicknesses[0],XTHICK=thicknesses[0],YTHICK=thicknesses[0] $
+         xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=thicknesses[0], $
+         XTHICK=thicknesses[0],YTHICK=thicknesses[0],/nodata $
        ELSE $
         PLOT,findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
 	 findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
          COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
          YTITLE=yt,XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
-         xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth,THICK=thicknesses[0],XTHICK=thicknesses[0],YTHICK=thicknesses[0]
+         xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth, $
+         THICK=thicknesses[0],XTHICK=thicknesses[0],YTHICK=thicknesses[0]
       ;; that was all one line! It's now over, and our plotting space is set up.
 
       ;; Print the time in the upper left of the screen
       
-      theTimeText = timeText+string(time[ti],Format='(D0.3)')
+      theTimeText = timeText+string(abs(time[ti]),Format='(D0.2)')
 
       ; Having set up the plotting space, loop over models and plot each one.
-      IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth ; $
-;      ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-;      ELSE XYOUTS,.1+float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
 
-      ;; loop over models (4th column of data)
-      FOR j=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
+      IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
+        IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
+          ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+          ELSE IF(wf EQ 2) THEN XYOUTS,.35+.36*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+          ELSE IF(wf EQ 3) THEN xyouts,.30+.37*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+      ENDIF
 
-        ;; Set the color table.	
-;        IF(n_elements(styles) GT 80) THEN IF(sv NE 3 AND sv NE 4) THEN setct,5,n_elements(styles),j ELSE setct,3,n_elements(styles),0
-        
-        ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
-        OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
-        IF(prev EQ 1) THEN BEGIN
-          OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=styles[j],THICK=thicknesses[j]
-        ENDIF
-      ENDFOR ;; end loop over models
+      IF(not (NIndVarBins GT 0 and n_elements(data[0,*,0,0]) ne 1)) THEN BEGIN
+          ;; loop over models (4th column of data)
+          FOR jj=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
+            j=n_elements(data[0,0,0,*])-1-jj ;; reverse order!
+            ;; Set the color table.	
+    ;        IF(n_elements(styles) GT 80) THEN IF(sv NE 3 AND sv NE 4) THEN setct,5,n_elements(styles),j ELSE setct,3,n_elements(styles),0
+            
+            ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
+            OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
+            IF(prev EQ 1) THEN BEGIN
+              OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=styles[j],THICK=thicknesses[j]
+            ENDIF
+          ENDFOR ;; end loop over models
+      ENDIF
+
 
       ;; All of the models have been plotted. Now if the user has requested it, we would like to 
       ;; bin the data by its independent variable, and then its dependent variable!
@@ -188,7 +209,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
           ncolors = MAX(colors)+1
           theCurves = dblarr(n_elements(data[0,*,0,0]), n_elements(percentileList), ncolors)
           ;; each color gets its own percentile curves
-          FOR aColor=0, ncolors-1 DO BEGIN
+          FOR aColorRev=0, ncolors-1 DO BEGIN
+              aColor = ncolors-1-aColorRev ; reverse order! This is so the default model is plotted last.
               subset = WHERE(aColor EQ colors[ti,*], NInThisSubset)
 ;              binCenters = dblarr(NIndVarBins)
               binCenters = data[0,*,0,MIN(subset)]
@@ -206,7 +228,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop
-                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=max(thicknesses)*1.2,PSYM=-2,SYMSIZE=symsize*3
+                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=max(thicknesses)*1.2,linestyle=styles[percentileIndex]
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
       ENDIF
@@ -216,7 +238,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_'+string(count,FORMAT="(I4.4)") + '.png',TVRD(TRUE=1)
       IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count-1,FORMAT="(I4.4)")),/png,/true,/nodialog) 
       IF(sv EQ 0) THEN wait,.05
-      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN modmultiplot
+;      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN 
+      IF(sv EQ 5 and tii NE wf) THEN modmultiplot
     ENDFOR ;; end loop over time indices
     IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
     IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
@@ -225,8 +248,11 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
     IF(sv EQ 5) THEN BEGIN
     	figureClean,(fn+"_timeSeries"),svSinglePlot
-        if(svSinglePlot EQ 2) THEN latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]],[.6,.6],height=8.89*(2-horizontal),width=8.89*(1+horizontal)
-        IF(wf NE 0) THEN modmultiplot,/default
+        if(svSinglePlot EQ 2) THEN latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]],1.5*[cs,cs],height=8.89*(1+(1-horizontal)*wf),width=8.89*(1+horizontal*wf),tempname=("TMP_"+fn+"_timeSeries")
+        ;IF(wf NE 0) THEN 
+        modmultiplot,/default
+        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"ps2pdf -dEPSCrop "+fn+"_timeSeries.eps"         
+;        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"epstopdf "+fn+"_timeSeries.eps"
     ENDIF
     set_plot,'x'
   ENDFOR ;; end loop over dependent variables

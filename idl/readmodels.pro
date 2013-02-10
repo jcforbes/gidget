@@ -389,7 +389,7 @@ FUNCTION readOutput,name
 ;    errs[where(errs LT 1.e-21)] = 1.e-21
 ;    dataCube[*,*,60:63] = errs
 
-    NPostProcess= 46
+    NPostProcess= 48
     tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ; ZstNum and ZstDen:  ( time steps ) x 1 x ( nx ) x 1
@@ -441,6 +441,8 @@ FUNCTION readOutput,name
     tdc[*,*,ncolStep+11] = tdc[*,*,5]*mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) ;; Sigma_* --  solar masses / pc^2
     tdc[*,*,ncolStep+25-1]=alog10(tdc[*,*,ncolStep+11])
     tdc[*,*,ncolStep+12] = tdc[*,*,6]*vphiR ;; sigma_*
+    ;; g/s cm/pc cm/pc pc/kpc pc/kpc cm/s s/yr / (km/s kpc cm/kpc cm/km g/Msun cm)
+    ;; Msun /kpc^2/yr
     tdc[*,*,ncolStep+13] = tdc[*,*,28] * mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) *1d6 *(vphiR*1d5*speryear)/(2*!pi*Radius*cmperkpc) ;; col SFR-  solar masses/kpc^2/yr
     tdc[*,*,ncolStep+14] = tdc[*,*,51] * mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) ;; cumulative SF
     tdc[*,*,ncolStep+15] = -1.0*tdc[*,*,34] * vphiR ;; vr_*
@@ -515,7 +517,8 @@ FUNCTION readOutput,name
     ENDFOR
 
     ; accretion rate & timescale
-    tdc[*,*,ncolstep+42-1] = tdc[*,*,30-1] * md0 / (!pi * Radius*Radius * 1.0d6) ; Msun/yr/pc^2
+    ;; md0/(vphiR Radius) / (2piR/vphiR) = md0/(2pi R^2)
+    tdc[*,*,ncolstep+42-1] = tdc[*,*,30-1] * md0 / (2.*!pi * Radius*Radius * 1.0d6) ; Msun/yr/pc^2
     tdc[*,*,ncolstep+43-1] = tdc[*,*,ncolstep+10-1]/tdc[*,*,ncolstep+42-1] ;; yr
 
     ; H2 depletion timescale = fH2 * depletion time
@@ -527,21 +530,24 @@ FUNCTION readOutput,name
 
 
     tdc[*,*,ncolStep+18-1] = ZstNum[*,0,*,0]/ZstDen[*,0,*,0];; Z_*
-    tdc[*,*,ncolStep+19-1] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*uu*(1+bbeta)) ; mdot (msol/yr) 
+    tdc[*,*,ncolStep+19-1] = -1.0*tdc[*,*,2]*mdotext0*speryear /(MSol*uu*(1+bbeta)) ; mdot (msol/yr) - centered, GI only. tdc[*,*,39-1] is mdot (MSun/yr) incl MRI
 
     dlnx=-alog(tdc[0,0,0])/float(n_elements(tdc[0,*,0])-1)
 
-    ; one more interesting quantity: the ratio of the SF interior to some radius to the arriving Mdot.
-    tdc[*,*,ncolStep+45-1] = TOTAL((mlf+Rf)*tdc[*,*,ncolstep+14-1]*2*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative)/tdc[*,*,ncolstep+18]
+    ; one more interesting quantity: the ratio of the SF interior to some radius to the arriving Mdot. 
+    tdc[*,*,ncolStep+45-1] = TOTAL((mlf+Rf)*tdc[*,*,ncolstep+14-1]*2*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative)/tdc[*,*,39-1]
     ;; Onnnnee more: the ratio of the SF interior to some radius to the total inst. supply (mdot+accr)
-    tdc[*,*,ncolstep+46-1] = tdc[*,*,ncolstep+44-1]*tdc[*,*,ncolstep+18]/(tdc[*,*,ncolstep+18] + TOTAL(tdc[*,*,ncolstep+42-1]*2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative))
+    tdc[*,*,ncolstep+46-1] = TOTAL((mlf+Rf)*tdc[*,*,ncolstep+14-1]*2*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative)/(tdc[*,*,39-1] + TOTAL(tdc[*,*,ncolstep+42-1]*2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative))
 
     ; ratio of Sigma to Sigma_eq (low column density)
     ; Msun/pc^2   / (3 pi colAccr(Msun/pc^2/yr)^2 * Qlim * sigmath*10^5(cm/s) * radius*cmperkpc (cm) / (32 epsff^2 * fH2^2 * vphi*10^5(cm/s) * sqrt(2(b+1)) * G*gperMsun (cm^3/s^2 Msun) *(fR+mlf)^2))^(1/3)
     tdc[*,*,ncolstep+40-1] = tdc[*,*,ncolstep+10-1]/((3.0*!pi*tdc[*,*,ncolstep+42-1]^2*Qlim*sigmath * tdc[*,*,ncolstep+9-1]*cmperkpcpers2peryear2*cm2perpc2perMsol / (32.0*eps_ff^2 * tdc[*,*,48-1] * tdc[*,*,48-1] * tdc[*,*,16-1]*vphiR * sqrt(2.0*(bbeta+1)) * G*(Rf+mlf)^2))^(1./3.)) 
 
-    ; viscous timescale = 
-    tdc[*,*,ncolstep+47-1] = 2.0*!pi 
+    ; viscous timescale = integral (gas mass interior to r) / mdot(r)
+    tdc[*,*,ncolstep+47-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d-6,2,/cumulative)/tdc[*,*,39-1]
+
+    ; SF timescale = integral (gas mass interior to r) / integral(SF interior to r)
+    tdc[*,*,ncolstep+48-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d-6,2,/cumulative)/TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+14-1],2,/cumulative)
 
 
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined
@@ -552,18 +558,17 @@ FUNCTION readOutput,name
 		initialGasMass[n,*] = tdc[0,*,ncolstep+9]
 	ENDFOR
 
-
 	;;; 	tdc    index mapping (indexed from 1)
 	; 1- x,     2- tau,    3- tau',     4- S,        5- s,   6- S_*,    7- s_*
-	; 8- dS/dT, 9- ds/dT, 10- dS_*/dT, 11- ds_*/dT, 12- Q,  13- h0,    14- h1
-	;15- h2,   16- uu,    17- f_g,     18- q        19- Toomre Length, 20- Toomre Mass
+	; 8- dS/dT, 9- ds/dT, 10- dS_*/dT, 11- ds_*/dT, 12- Q,  13- 0,    14- MdotMRI(Msun/yr)
+	;15- beta,   16- uu,    17- f_g,     18- q        19- Toomre Length, 20- Toomre Mass
 	;21- dZ/dt,22- Z,     23- Q_*      24- Q_g      25- Q_Raf 26- Q_WS,27- Q_RW, 
-	;28- Q(q) ,29- dS/dT_SF, 30- tau''(torqueEq)    31- dQ/dS 32- dQ/ds 33- dQ/dS_err 
+	;28- Q(q) ,29- dS/dT_SF, 30- colAccr   31- dQ/dS 32- dQ/ds 33- dQ/dS_err 
 	;34- dQ/ds_err 35- y, 36- torqueErr 37- vrg, 38- Cumulative Stars Out, 
-	;39- Cumulative Gas Out, 40- dimensional Cumulative SF, 
-	;41- dimensional change in st mass in a cell, 
-	;42- dimensional change in gas mass in a cell, 43- ddx(tau'), 44- s', 
-	;45- Cumulative Stars In, 46- Cumulative Gas in, 47- alpha, 
+	;39- dimensional Mdot, 40- 0
+	;41- 0
+	;42- 0 , 43- ddx(tau'), 44- s', 
+	;45- 0, 46- 0, 47- alpha, 
 	;48- f_H2, 49- cuTorqueErr, 50- cuTorqueErr2,
 	;51- tau''(meas),52- cuSF
 
@@ -587,6 +592,8 @@ FUNCTION readOutput,name
      ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
      ;; 45- TOTAL(SF)*(mu+Rf) within r/Mdot(r),  
      ;; 46- TOTAL(SF)*(mu+Rf) within r/ (Mdot(r) + colAccr within r)
+     ;; 47 - integrated t_visc
+     ;; 48 - t_SF within r
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )

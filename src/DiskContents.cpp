@@ -1606,8 +1606,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         Mt = lambdaT*lambdaT*col[n];
         Mts.push_back(Mt);
         double yy = tauvecStar[2][n]/(2.0*M_PI*x[n]*col_st[n]*uu[n]*(1+beta[n]));
-
-
+  
         // actually this might not be the correct definition:
         //alpha = (-tauvec[2][nx])* dim.chi()/(3. * sig[n]*sig[n]*sig[n]);
         alpha = (-tauvec[1][n]) / (2.0*M_PI*x[n]*x[n]*sig[n]*sig[n]*col[n]);

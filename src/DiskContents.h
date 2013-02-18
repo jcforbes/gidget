@@ -30,7 +30,8 @@ class DiskContents {
                double Qinit, double km,
 	           unsigned int NA, unsigned int NP,
 	           double minSigSt, 
-               double rfrec, double zetarec);
+               double rfrec, double zetarec,
+	       double fh2min, double tdeph2sc);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -284,6 +285,9 @@ class DiskContents {
     // ratio of rate at which mass is ejected from a given cell 
     // to the star formation rate in that cell
     MassLoadingFactor,
+
+    tDepH2SC,
+    fH2Min,
 
     // the value of Q which we fix at the beginning of the simulation.
     // Reasonable values are between 1 and 2 or so, depending on the

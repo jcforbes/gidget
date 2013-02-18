@@ -48,7 +48,8 @@ DiskContents::DiskContents(double tH, double eta,
         double Qinit, double km,
         unsigned int NA, unsigned int NP,
         double minSigSt,
-        double rfrec, double zetarec) :
+			   double rfrec, double zetarec,
+			   double fh2min, double tdeph2sc) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
     dim(d), mesh(m), dbg(ddbg),
@@ -63,6 +64,8 @@ DiskContents::DiskContents(double tH, double eta,
     dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
     yREC(.054),RfREC(rfrec),zetaREC(zetarec), 
     analyticQ(aq),
+    tDepH2SC(tdeph2sc),
+    fH2Min(fh2min),
     thickness(thk), migratePassive(migP),
     col(std::vector<double>(m.nx()+1,0.)),
     sig(std::vector<double>(m.nx()+1,0.)),  
@@ -1156,8 +1159,7 @@ double DiskContents::ComputeH2Fraction(unsigned int n)
     double ss = log(1.0 + 0.6 * ch + .01*ch*ch)/(0.6*tauc);
     double val = 1.0 - 0.75 * ss/(1.0+0.25*ss);
 
-    if(val<0.03 && !dbg.opt(17)) val = 0.03;
-    if(dbg.opt(17) && val<0.0) val=0.0;
+    if(val<fH2Min && !dbg.opt(17)) val = fH2Min;
     if(val<0. || val>1.0 || val!=val)
         errormsg("Nonphysical H2 Fraction :" + str(val) + 
                 ", n,ch,tauc,ss,ZDisk,ZBulge,col= " +str(n)+
@@ -1169,7 +1171,6 @@ double DiskContents::ComputeColSFR()
 {
     for(unsigned int n=1; n<=nx; ++n) {
         double fH2 = ComputeH2Fraction(n);
-        if(dbg.opt(9)) fH2=1.0;
         if(dbg.opt(10)) fH2=.03;
         double valToomre = fH2 * 2.*M_PI*EPS_ff//*sqrt(
             //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
@@ -1178,7 +1179,7 @@ double DiskContents::ComputeColSFR()
             * sqrt(32.0 / (3.0*M_PI));
 
         // constant SF depletion time.
-        double tdepConst = 2.0; // in Ga
+        double tdepConst = tDepH2SC; // in Ga
         double valConst = fH2 * col[n] / (tdepConst * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
 
 

@@ -673,7 +673,7 @@ void DiskContents::FormNewStars(StellarPop & currentlyForming, double dt, double
         currentlyForming.spsigZ[n] = currentlyForming.spsigR[n];
 
         if(currentlyForming.spcol[n] < 0. || currentlyForming.spsigR[n]<0.0 || currentlyForming.spcol[n]!=currentlyForming.spcol[n] || currentlyForming.spsigR[n]!=currentlyForming.spsigR[n])
-            errormsg("UpdateStateVars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsigR[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
+            errormsg("FormNewStars: newly formed stars are problematic: n, spcol, spsig, colSFR, dt, sigth:  "+str(n)+", "+str(currentlyForming.spcol[n])+", "+str(currentlyForming.spsigR[n])+", "+str(colSFR[n]) +", "+str(dt)+";  sig, sigth: "+str(sig[n])+", "+str(sigth));
     }
     currentlyForming.ageAtz0 = cos.lbt(redshift);
 

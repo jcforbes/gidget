@@ -62,7 +62,7 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "average age at z=0","average present age",$		   ;; 31..32
     "-tau","-tau'","depletion time","viscous time","tDep/tVisc", $ ;; 33..37
     "tvisc^-1 (yr^-1)","Ratio w univ prof","Ratio2 w univ prof", $ ;; 38..40
-    "Ratio3 w univ prof" ] ;; 41
+    "Ratio3 w univ prof","","","","","","","" ] ;; 41-48
 
   FOR i=0, npassive DO BEGIN
     pop=strcompress(STRING(i),/remove)
@@ -544,10 +544,10 @@ FUNCTION readOutput,name
     tdc[*,*,ncolstep+40-1] = tdc[*,*,ncolstep+10-1]/((3.0*!pi*tdc[*,*,ncolstep+42-1]^2*Qlim*sigmath * tdc[*,*,ncolstep+9-1]*cmperkpcpers2peryear2*cm2perpc2perMsol / (32.0*eps_ff^2 * tdc[*,*,48-1] * tdc[*,*,48-1] * tdc[*,*,16-1]*vphiR * sqrt(2.0*(bbeta+1)) * G*(Rf+mlf)^2))^(1./3.)) 
 
     ; viscous timescale = integral (gas mass interior to r) / mdot(r)
-    tdc[*,*,ncolstep+47-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d-6,2,/cumulative)/tdc[*,*,39-1]
+    tdc[*,*,ncolstep+47-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d6,2,/cumulative)/tdc[*,*,39-1]
 
     ; SF timescale = integral (gas mass interior to r) / integral(SF interior to r)
-    tdc[*,*,ncolstep+48-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d-6,2,/cumulative)/TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+14-1],2,/cumulative)
+    tdc[*,*,ncolstep+48-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d6,2,/cumulative)/TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+14-1],2,/cumulative)
 
 
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined

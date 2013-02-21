@@ -23,9 +23,10 @@ FUNCTION simpleranges,data,wrtxlog
     	  IF(med GT ranges[1,k]/fac) THEN ranges[0,k] = ranges[1,k]/fac ELSE IF(med LT ranges[0,k]*fac) THEN ranges[1,k]=ranges[0,k]*fac ELSE ranges[0:1,k] = [med/sqrt(fac), med*sqrt(fac)]
       ENDIF
 
-      minDynRange = 40.0
+      minDynRange = 20.0
       IF(ranges[1,k] / ranges[0,k] LT minDynRange) THEN BEGIN
-            IF(med GT sqrt(ranges[1,k]*ranges[0,k])) THEN ranges[1,k] = ranges[0,k]*minDynRange ELSE ranges[0,k]=ranges[1,k]/minDynRange
+        ranges[*,k] = [ ranges[0,k]/sqrt(minDynRange),  ranges[1,k]*sqrt(minDynRange)]
+;            IF(med GT sqrt(ranges[1,k]*ranges[0,k])) THEN ranges[1,k] = ranges[0,k]*minDynRange ELSE ranges[0,k]=ranges[1,k]/minDynRange
       ENDIF
 
     ENDIF

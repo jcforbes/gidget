@@ -780,6 +780,7 @@ if __name__ == "__main__":
     rw10[0].vary('b',0,2.5,6,0)
     rw10[1].vary('b',3.5,10,14,0)
 
+    # problem @ beta0=.95
     rw26=NewSetOfExperiments(rw01,"rw26",N=2)
     rw26[0].vary('innerPowerLaw',0.0,.45,10,0)
     rw26[1].vary('innerPowerLaw',.55,.95, 9,0)
@@ -795,6 +796,7 @@ if __name__ == "__main__":
     rw12[1].vary('vphiR',225,250, 6,0)
 
     # Vary accretion scale, but this time use a narrow gaussian profile
+    ## problems migrating stars for rw13b*
     rw13=NewSetOfExperiments(rw02,"rw13")
     [rw13[i].irregularVary('whichAccretionProfile',2) for i in range(len(rw13))]
 
@@ -813,8 +815,8 @@ if __name__ == "__main__":
     rw16[0].vary("Qlim",1.8,2.4,7,0)
     rw16[1].vary("Qlim",2.6,3.0,5,0)
 
-
     # Vary accretion scale, this time with a wide gaussian profile
+    # similar problems as rw13.
     rw17=NewSetOfExperiments(rw13,"rw17")
     [rw17[i].irregularVary('widthAccretionProfile',0.4) for i in range(len(rw17))]
 
@@ -849,6 +851,7 @@ if __name__ == "__main__":
     rw22[1].irregularVary("fscatter",0.5)
 
     # Gaussian profile with non-inst. recycling. Can we fill those holes?
+    # similar problems as w/ rw13 rw17
     rw23=NewSetOfExperiments(rw17,"rw23")
     [rw23[i].irregularVary("RfREC",0.8) for i in range(len(rw23))]
     [rw23[i].irregularVary('dbg',2+2**6) for i in range(len(rw23))]
@@ -893,8 +896,19 @@ if __name__ == "__main__":
     [rw32[i].irregularVary('invMassRatio',0.3) for i in range(len(rw32))]
 
     rw33=NewSetOfExperiments(rw01,"rw33",N=2)
-    rw33[0].vary("tDepH2",1.0,1.9,8,1)
-    rw33[1].vary('tDepH2',2.1,4.0,8,1)
+    rw33[0].vary("tDepH2SC",1.0,1.9,8,1)
+    rw33[1].vary('tDepH2SC',2.1,4.0,8,1)
+
+    # Vary only the r_IC.
+    rw34=NewSetOfExperiments(rw02,"rw34")
+    [rw34[i].irregularVary('accScaleLength',0.7*l045) for i in range(len(rw34))]
+
+    rw35=NewSetOfExperiments(rw01,"rw35",N=2)
+    [rw35[i].irregularVary('dbg',2+2**12) for i in range(len(rw35))]
+    rw35[1].irregularVary('Qlim',0)
+
+    # A series of experiments designed to explore the effect on halo mass.
+
 
     successTables=[]
 

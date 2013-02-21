@@ -84,7 +84,7 @@ PRO MakeComparisonMovie,modelList,Xind,ind,npx,npy,fname,xranges,ranges,sv,cmt,l
   IF(sv EQ 1) THEN MPEG_CLOSE, mpeg_id
   IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm "+ fn+".mpg")
   IF(sv EQ 2 || sv EQ 3) THEN spawn,("ffmpeg -loglevel quiet -f image2 -sameq -i "+dn+"/frame_%04d.png " + fn + ".mpg")
-  IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm -rf " + dn)
+  ;IF(sv EQ 2 || sv EQ 3) THEN spawn,("rm -rf " + dn)
   
 
   !p.multi=[0,1,1] ; clean up

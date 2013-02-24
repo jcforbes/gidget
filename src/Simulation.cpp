@@ -114,7 +114,10 @@ int Simulation::runToConvergence(const double fCondition,
     const double t0 = theDisk.GetCos().lbt(zrelax) - theDisk.GetCos().lbt(zstart); // seconds
     const double tzs = t0*dim.vphiR/(2.0*M_PI*dim.Radius);
     const double duration = theDisk.GetCos().lbt(zstart); //in seconds
-
+    std::vector<std::vector<int> > flagList(0);
+    for(unsigned int n=0; n<=nx; ++n ) {
+        flagList.push_back(std::vector<int>(3));
+    }
 
     // Loop over time steps until...
     while(t<tmax &&           // the simulation has run for too many orbits
@@ -188,8 +191,10 @@ int Simulation::runToConvergence(const double fCondition,
         theDisk.ComputePartials();
 
 
+       ComputeFlagList(MdotiPlusHalf,MdotiPlusHalfMRI,flagList); 
+
         // Update the coefficients of the torque equation
-        theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar,MdotiPlusHalfStar,tauvecMRI,MdotiPlusHalfMRI, accProf.GetProfile(), AccRate);
+        theDisk.UpdateCoeffs(z,UU,DD,LL,FF,tauvecStar,MdotiPlusHalfStar,tauvecMRI,MdotiPlusHalfMRI, accProf.GetProfile(), AccRate, flagList);
 
 
         // Solve the torque equation. The commented versions represent various choices
@@ -223,7 +228,8 @@ int Simulation::runToConvergence(const double fCondition,
         // derivatives of the state variables
         theDisk.ComputeDerivs(tauvec,MdotiPlusHalf,
                 tauvecMRI,MdotiPlusHalfMRI,
-                accProf.GetProfile(),AccRate);
+                accProf.GetProfile(),AccRate,
+                flagList);
 
         // Given the derivatives, compute a time step over which none of the variables
         // change by too much. whichVar tells us which state variable is limiting the timestep

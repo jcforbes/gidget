@@ -60,7 +60,8 @@ class DiskContents {
 		    std::vector<double>& LL, std::vector<double>& FF,
 		    double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar,
 		    double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI,
-            std::vector<double>& accProf, double AccRate);
+            std::vector<double>& accProf, double AccRate,
+            std::vector<std::vector<int> >& flagList);
 
   // Diffuse metals in such a way that the total mass in 
   // metals is conserved. This diffusion is not meant to 
@@ -136,7 +137,8 @@ class DiskContents {
   // at all radii.
   void ComputeDerivs(double **tauvec,std::vector<double>& MdotiPlusHalf,
                   double ** tauvecMRI,std::vector<double>& MdotiPlusHalfMRI,
-                  std::vector<double>& accProf, double AccRate);
+                  std::vector<double>& accProf, double AccRate,
+                  std::vector<std::vector<int> >& flagList);
 
   // Given the state variables and their derivatives, 
   // compute a time step such that no quantity is 
@@ -336,5 +338,10 @@ class DiskContents {
 };
 
   void ComputeFluxes(double ** tauvec,std::vector<double>& MdotiPlusHalf,FixedMesh & mesh);
+
+    
+  double ddxUpstream(std::vector<double>& vec, std::vector<double>& x, std::vector<int>& flags, unsigned int n);
+  void ComputeUpstreamFlags(std::vector<int>& flags, std::vector<double>& mdot1, std::vector<double>& mdot2, unsigned int n);
+  void ComputeFlagList(std::vector<double>& mdot1, std::vector<double>& mdot2, std::vector<std::vector<int> >& flagList);
 
 

@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(14), "For lognormal acc history, bursts uniform in time (otherwise uniform in z)");
     as2.Set(dbg.opt(15), "non-constant kappa_Z");
     as2.Set(dbg.opt(16), "Newly formed stars have full gas velocity dispersion instead of turbulent component only");
-    as2.Set(dbg.opt(17), "blank");
+    as2.Set(dbg.opt(17), "upstream");
     as2.Set(dbg.opt(18), "blank");
     as2.Set(dbg.opt(19), "tdep=2Gyr");
 

@@ -579,11 +579,11 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
         FOR ii=0,n_elements(whichFrames3)-1 DO BEGIN
 	        fractionsPanePerModel[j, *, ii, 1] = abs(theData[whichFrames3[ii], *, 31 ,j]) ; trPerAll
         	fractionsPanePerModel[j, *, ii, 2] = fractionsPanePerModel[j,*,ii,1] + theData[whichFrames3[ii], *, 36, j ]; tr+sf perAll
-        	fractionsPanePerModel[j, *, ii, 3] = fractionsPanePerModel[j,*,ii,2] + theData[whichFrames3[ii], *, indexOfAnotherThing, j]
+        	fractionsPanePerModel[j, *, ii, 3] = fractionsPanePerModel[j,*,ii,2] + theData[whichFrames3[ii], *, 35, j]
 
     		fractionsPanePerZ[ii,*,j,1]=fractionsPanePerModel[j,*,ii,1]
 	    	fractionsPanePerZ[ii,*,j,2]=fractionsPanePerModel[j,*,ii,2]
-		    fractionsPanePerZ[ii,I,j,3]=fractionsPanePerModel[j,*,ii,3]
+		    fractionsPanePerZ[ii,*,j,3]=fractionsPanePerModel[j,*,ii,3]
     	ENDFOR
     ENDFOR
   ENDIF

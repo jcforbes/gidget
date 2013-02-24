@@ -21,14 +21,58 @@
 #include <iostream>
 #include <fstream>
 
-double ddxUpstream(std::vector<double>& vec, std::vector<double>& x, std::vector<double>& mdot1, std::vector<double>& mdot2,unsigned int n)
+double ddxUpstream(std::vector<double>& vec, std::vector<double>& x, std::vector<int>& flags, unsigned int n)
 {
-  if(mdot1[n]+mdot2[n] > 0.0)
-      return (vec[n+1]-vec[n]) / (x[n]-x[n-1]);
-  else
-      return (vec[n]-vec[n-1])/(x[n]-x[n-1]);
+    if(n>1 && n<x.size()-1) {
+        return (flags[0]*vec[n-1] + flags[1]*vec[n] + flags[2]*vec[n+1]) / (flags[0]*x[n-1] + flags[1]*x[n] + flags[2]*x[n+1]);
+    }
+
+    if(n==1) {
+        if(flags[0]==0) // unambiguous what to do:
+            return (vec[n+1]-vec[n])/(x[n+1]-x[n]);
+        else
+            return 0; // shrug
+    }
+    if(n==x.size()-1) {
+        if(flags[2]==0) // unambiguous:
+            return (vec[n]-vec[n-1])/(x[n]-x[n-1]);
+        else
+            return 0;
+    }
+
 }
 
+void ComputeUpstreamFlags(std::vector<int>& flags, std::vector<double>& mdot1, std::vector<double>& mdot2, unsigned int n)
+{
+    double mdotL = mdot1[n-1] + mdot2[n-1];
+    double mdotR = mdot1[n] + mdot2[n];
+
+    double theMdot;
+    if(fabs(mdotL) > fabs(mdotR)) // the left-hand flux is dominant
+        theMdot=mdotL;
+    else
+        theMdot=mdotR;
+
+
+    if(theMdot < 0) {// going towards +r
+        flags[2]=0;
+        flags[1]=1;
+        flags[0]=-1;
+    }
+    else { // going towards -r
+        flags[0]=0;
+        flags[1]=-1;
+        flags[2]=1;
+    }
+
+}
+
+void ComputeFlagList(std::vector<double>& mdot1, std::vector<double>& mdot2, std::vector<std::vector<int> >& flagList)
+{
+    for(unsigned int n=1; n<=mdot2.size()-1; ++n) {
+        ComputeUpstreamFlags(flagList[n],mdot1,mdot2,n);
+    }
+}
 
 // Fill an initializer object with the current state of this disk
 void DiskContents::store(Initializer& in)
@@ -452,7 +496,8 @@ void DiskContents::Initialize(double tempRatio, double fg0)
 
 void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlusHalf, 
                                 double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI,
-                                std::vector<double>& accProf, double AccRate)
+                                std::vector<double>& accProf, double AccRate,
+                                std::vector<std::vector<int> >& flagList)
 {
     //  for(unsigned int i=0; i<=nx-1; ++i) {
     //    MdotiPlusHalf[i] = (-1.0 /  mesh.u1pbPlusHalf(i)) * (tauvec[1][i+1] - tauvec[1][i]) / (x[i+1]-mesh.x(i));
@@ -491,11 +536,17 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
 
         dsigdtPrev[n] = dsigdt[n];
         double ddxSig = ddx(sig,n,x,true,!dbg.opt(9));
+        double tauvec2 = tauvec[2][n];
+        std::vector<int>& flag = flagList[n];
+        if(dbg.opt(17)) {
+            ddxSig = ddxUpstream(sig,x,flagList[n],n);
+            tauvec2 = (flag[0]*tauvec[1][n-1]+flag[1]*tauvec[1][n]+flag[2]*tauvec[1][n+1])/(flag[0]*mesh.x(n-1)+flag[1]*x[n]+flag[2]*mesh.x(n+1));
+        }
     	double dsigdtMRI = (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddxSig*tauvecMRI[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvecMRI[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
-	    double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddxSig*tauvec[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	    double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddxSig*tauvec2/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
 	
         dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
-            - 5.0*ddxSig*(tauvec[2][n]+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
+            - 5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
             +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
         if(sig[n] >= sigth) {
             dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
@@ -1169,7 +1220,7 @@ double DiskContents::ComputeH2Fraction(unsigned int n)
     double ss = log(1.0 + 0.6 * ch + .01*ch*ch)/(0.6*tauc);
     double val = 1.0 - 0.75 * ss/(1.0+0.25*ss);
 
-    if(val<fH2Min && !dbg.opt(17)) val = fH2Min;
+    if(val<fH2Min ) val = fH2Min;
     if(val<0. || val>1.0 || val!=val)
         errormsg("Nonphysical H2 Fraction :" + str(val) + 
                 ", n,ch,tauc,ss,ZDisk,ZBulge,col= " +str(n)+
@@ -1374,7 +1425,8 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
             std::vector<double>& LL, std::vector<double>& FF,
             double ** tauvecStar,std::vector<double>& MdotiPlusHalfStar, 
             double ** tauvecMRI, std::vector<double>& MdotiPlusHalfMRI,
-            std::vector<double> & accProf, double AccRate)
+            std::vector<double> & accProf, double AccRate,
+            std::vector<std::vector<int> >& flagList)
 {
     double absc = 1.;
     RafikovQParams rqp;
@@ -1382,10 +1434,21 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
     for(unsigned int n=1; n<=nx; ++n) {
         ComputeRafikovQParams(&rqp,n);
         double ddxSig = ddx(sig,n,x,true,!dbg.opt(9));
-//        if(dbg.opt(17)) ddxSig = ddxUpstream();
-        UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddxSig/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1)-mesh.x(n-1)));
-        LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddxSig/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1)-mesh.x(n-1)));
-        DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n];
+        std::vector<int> & flags = flagList[n];
+        double baseDdxTerm = dQds[n] * (-5.0/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]));
+        double UUddx = baseDdxTerm * ddxSig * 1.0/(mesh.x(n+1)-mesh.x(n-1));
+        double LLddx = baseDdxTerm * ddxSig *-1.0/(mesh.x(n+1)-mesh.x(n-1));
+        double DDddx = 0.0;
+        if(dbg.opt(17)) {
+            ddxSig = ddxUpstream(sig, x, flags, n);
+            double denom = (flags[2]*mesh.x(n+1) +flags[1]*x[n] +flags[0]*mesh.x(n-1));
+            UUddx = baseDdxTerm * ddxSig * flags[2]/denom;
+            LLddx = baseDdxTerm * ddxSig * flags[0]/denom;
+            DDddx = baseDdxTerm * ddxSig * flags[1]/denom;
+        }
+        UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + UUddx;
+        LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + LLddx ;
+        DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n] + DDddx;
         // That was the easy stuff. Now we need to compute the forcing term.
         // We start with terms related to obvious source terms, i.e. the terms which 
         // appear in the continuity equation unrelated to transport through the disk.

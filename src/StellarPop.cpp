@@ -35,9 +35,9 @@ void StellarPop::ComputeSpatialDerivs()
   std::vector<double> & x = mesh.x();
   unsigned int nx = mesh.nx(); 
   for(unsigned int n=1; n<=nx; ++n) {
-    dSigRdr[n] = ddx(spsigR,n,x,false);
-    dSigZdr[n] = ddx(spsigZ,n,x,false);
-    dColdr[n] = ddx(spcol,n,x,false);
+    dSigRdr[n] = ddx(spsigR,n,x,false,true);
+    dSigZdr[n] = ddx(spsigZ,n,x,false,true);
+    dColdr[n] = ddx(spcol,n,x,false,true);
   }
 }
 
@@ -193,7 +193,7 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     if(spcol[n] > 0.0) {
         dsigRdt[n] =  1.0/(x[n]*spcol[n]*(spsigR[n]+spsigZ[n])) * ((beta[n]-1.)*uu[n]*f*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*spsigR[n]*dSigRdr[n] + 2.0*spsigZ[n]*dSigZdr[n]) *(-tauvecStar[2][n]*f/(uu[n]*(1.+beta[n]))) + spsigR[n]*spsigR[n]*f*(MdotiPlusHalf[n]-MdotiPlusHalf[n])/mesh.dx(n));
 
-        dZdt[n] =  MdotCentered*ddx(spZ,n,x,true)/(x[n]*spcol[n]);
+        dZdt[n] =  MdotCentered*ddx(spZ,n,x,true,true)/(x[n]*spcol[n]);
     }
     else { 
         dsigRdt[n] = 0.0;

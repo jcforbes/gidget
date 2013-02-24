@@ -62,7 +62,7 @@ FUNCTION GetLabel,ind,ncolstep,npostprocess,npassive,stvars ;; ind to be indexed
     "average age at z=0","average present age",$		   ;; 31..32
     "-tau","-tau'","depletion time","viscous time","tDep/tVisc", $ ;; 33..37
     "tvisc^-1 (yr^-1)","Ratio w univ prof","Ratio2 w univ prof", $ ;; 38..40
-    "Ratio3 w univ prof","","","","","","","" ] ;; 41-48
+    "Ratio3 w univ prof","","","","","","","","","" ] ;; 41-50
 
   FOR i=0, npassive DO BEGIN
     pop=strcompress(STRING(i),/remove)
@@ -389,7 +389,7 @@ FUNCTION readOutput,name
 ;    errs[where(errs LT 1.e-21)] = 1.e-21
 ;    dataCube[*,*,60:63] = errs
 
-    NPostProcess= 48
+    NPostProcess= 50
     tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ; ZstNum and ZstDen:  ( time steps ) x 1 x ( nx ) x 1
@@ -534,10 +534,10 @@ FUNCTION readOutput,name
 
     dlnx=-alog(tdc[0,0,0])/float(n_elements(tdc[0,*,0])-1)
 
-    ; one more interesting quantity: the ratio of the SF interior to some radius to the arriving Mdot. 
-    tdc[*,*,ncolStep+45-1] = TOTAL((mlf+Rf)*tdc[*,*,ncolstep+14-1]*2*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative)/tdc[*,*,39-1]
-    ;; Onnnnee more: the ratio of the SF interior to some radius to the total inst. supply (mdot+accr)
-    tdc[*,*,ncolstep+46-1] = TOTAL((mlf+Rf)*tdc[*,*,ncolstep+14-1]*2*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative)/(tdc[*,*,39-1] + TOTAL(tdc[*,*,ncolstep+42-1]*2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0),2,/cumulative))
+    ; dcoldt_transport / col_accr
+    tdc[*,*,ncolStep+45-1] = (tdc[*,*,8-1]*(md0/(Radius*2.0*!pi*Radius*1.0d6)) - tdc[*,*,ncolstep+42-1]) / tdc[*,*,ncolstep+42-1] + tdc[*,*,ncolstep+41-1]
+    ;; dcoldt_tr / (|dcoldt_tr| + |dcoldt_accr| + |dcoldt_SF| )
+    tdc[*,*,ncolstep+46-1] = tdc[*,*,ncolstep+45-1]/((abs(tdc[*,*,ncolstep+45-1])+1+tdc[*,*,ncolstep+41-1]) )
 
     ; ratio of Sigma to Sigma_eq (low column density)
     ; Msun/pc^2   / (3 pi colAccr(Msun/pc^2/yr)^2 * Qlim * sigmath*10^5(cm/s) * radius*cmperkpc (cm) / (32 epsff^2 * fH2^2 * vphi*10^5(cm/s) * sqrt(2(b+1)) * G*gperMsun (cm^3/s^2 Msun) *(fR+mlf)^2))^(1/3)
@@ -548,6 +548,12 @@ FUNCTION readOutput,name
 
     ; SF timescale = integral (gas mass interior to r) / integral(SF interior to r)
     tdc[*,*,ncolstep+48-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d6,2,/cumulative)/TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+14-1],2,/cumulative)
+
+    ;; dcoldt_accr / all
+    tdc[*,*,ncolstep+49-1] = tdc[*,*,ncolstep+46-1]/tdc[*,*,ncolstep+45-1]
+
+    ;; dcoldt_SF / all
+    tdc[*,*,ncolstep+50-1] = tdc[*,*,ncolstep+49-1] *tdc[*,*,ncolstep+41-1]
 
 
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined
@@ -590,8 +596,8 @@ FUNCTION readOutput,name
      ;; 38,39 v_rg/r=1/tvisc, tdepH2
      ;; 40,41 Sigma/SigmaEQ, (mu+Rf)*colSFR/colAccr
      ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
-     ;; 45- TOTAL(SF)*(mu+Rf) within r/Mdot(r),  
-     ;; 46- TOTAL(SF)*(mu+Rf) within r/ (Mdot(r) + colAccr within r)
+     ;; 45- dcoldt_transport/ dcoldt_accr
+     ;; 46- (dcoldt_transport+dcoldt_SF)/dcoldt_accr
      ;; 47 - integrated t_visc
      ;; 48 - t_SF within r
 

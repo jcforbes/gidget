@@ -907,6 +907,9 @@ if __name__ == "__main__":
     [rw35[i].irregularVary('dbg',2+2**12) for i in range(len(rw35))]
     rw35[1].irregularVary('Qlim',0)
 
+    rw36=NewSetOfExperiments(rw01,"rw36",N=1)
+    rw36[0].irregularVary('dbg',2+2**4)
+
     # A series of experiments designed to explore the effect on halo mass.
 
 

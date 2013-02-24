@@ -20,8 +20,9 @@ PRO figureClean,nm,sv
 END
 
 
-PRO figureInit,nm,sv,nx,ny
+PRO figureInit,nm,sv,nx,ny,sm=sm
         ; PRINT, "Initializng figure ",nm,"with sv,nx,ny: ",sv,nx,ny
+    IF(n_elements(sm) EQ 0) THEN sm=0
 	IF(sv EQ 1 || sv EQ 0) THEN newWindow,nx,ny
 	
   	!p.thick=2.5
@@ -38,11 +39,13 @@ PRO figureInit,nm,sv,nx,ny
 	
 
 	IF(sv EQ 2) THEN BEGIN
-        pageInfo = PSWINDOW(aspectratio=float(ny)/nx,margin=.2,yfudge=.25)
+        pageInfo = PSWINDOW(aspectratio=float(ny)/nx,margin=.15,yfudge=.25)
 		Set_Plot,'ps'
+        IF(sm EQ 0) THEN $
         DEVICE, _Extra=pageInfo,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps'
 		!p.font = 0
-;		DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xsize=8.89*nx,ysize=8.89*ny
+        IF(sm EQ 1) THEN $
+		DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xsize=8.89*nx,ysize=8.89*ny
 		;DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xoffset=1.0,yoffset=1.0
 
 		

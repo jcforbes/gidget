@@ -34,7 +34,7 @@
 ;; svSinglePlot - the value of sv to use if we're producing a single plot. See figureinit.pro; typically 4 is a good choice
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
 
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSinglePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSinglePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges,replacementText=replacementText,fill=fill
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
 
   PRINT, "Starting to make the files of the form: ", name,"*"
@@ -64,6 +64,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(svSinglePlot) EQ 0) THEN svSinglePlot = 4
   IF(n_elements(strt) EQ 0) THEN strt = intarr(n_elements(labels))
   IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+2
+  IF(n_elements(fill) EQ 0) THEN fill=0
   IF(sv EQ 4) THEN thicknesses= 3+temporary(thicknesses)
   chth = thicknesses[0]
   cs =0.8* thicknesses[0]
@@ -99,9 +100,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     IF(sv EQ 5 ) THEN BEGIN
     	IF (wf GT 6) THEN message,"You have requested an unreasonable number of frames for a single plot."
 	    ;cs = .3
-        figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal*wf,1+(1-horizontal)*wf
+        figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal*wf,1+(1-horizontal)*wf,sm=1
 ;	    IF(wf NE 0) THEN 
-        modmultiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square;,mxtitle=axisLabels[0],mytitle=axislabels[k],gap=.003,mxtitsize=cs,mytitsize=cs
+        modmultiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square,additionalMargin=0.2;,mxtitle=axisLabels[0],mytitle=axislabels[k],gap=.003,mxtitsize=cs,mytitsize=cs
 ;	    IF(wf NE 0) THEN 
         !p.noerase=0
 
@@ -145,7 +146,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
       ;; Print the time in the upper left of the screen
       
-      theTimeText = timeText+string(abs(time[ti]),Format='(D0.2)')
+      IF(N_ELEMENTS(replacementText) EQ 0) THEN theTimeText = timeText+string(abs(time[ti]),Format='(D0.2)')
+      IF(N_ELEMENTS(replacementText) NE 0) THEN theTimeText = replacementText[ti]
 
       ; Having set up the plotting space, loop over models and plot each one.
 
@@ -153,7 +155,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
         IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
           ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
           ELSE IF(wf EQ 2) THEN XYOUTS,.35+.36*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-          ELSE IF(wf EQ 3) THEN xyouts,.30+.37*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+          ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
       ENDIF
 
       IF(not (NIndVarBins GT 0 and n_elements(data[0,*,0,0]) ne 1)) THEN BEGIN
@@ -213,8 +215,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
               aColor = ncolors-1-aColorRev ; reverse order! This is so the default model is plotted last.
               subset = WHERE(aColor EQ colors[ti,*], NInThisSubset)
 ;              binCenters = dblarr(NIndVarBins)
-              binCenters = data[0,*,0,MIN(subset)]
               IF(NInThisSubset GT 0) THEN BEGIN
+                  binCenters = data[0,*,0,MIN(subset)]
                   FOR indVarIndex=0, n_elements(binCenters)-1 DO BEGIN
                       ;; the differences with the above IF block begin here. 
                       ;thisIndBin = GetIthBin(indVarIndex, data[ti,*,0,0], NIndVarBins, subset=subset)
@@ -228,7 +230,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop
-                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=max(thicknesses)*1.2,linestyle=styles[percentileIndex]
+                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=max(thicknesses)*1.2,linestyle=styles[0]
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
       ENDIF

@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(6), "Stellar recycling");
     as2.Set(dbg.opt(7), "Toomre SFR");
     as2.Set(dbg.opt(8), "Varying kappaM with correct scaleheight dependence");
-    as2.Set(dbg.opt(9), "blank");
+    as2.Set(dbg.opt(9), "not minmod in ddx(sig)");
     as2.Set(dbg.opt(10),"pretend fH2=.03 always"); 
     as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 
     as2.Set(dbg.opt(12), "Artificially set GI torque=0 everywhere");

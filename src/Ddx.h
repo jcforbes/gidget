@@ -1,6 +1,10 @@
 #include <math.h>
 #include <vector>
 
+inline double ddxAvg(double left, double right)
+{
+  return (left+right)/2.0;
+}
 
 inline double ddx(double left, double right)
 {
@@ -12,32 +16,33 @@ inline double ddx(double left, double right)
 };
 
 template <class T>
-double ddx(T & arr, unsigned int n, std::vector<double>& x, bool zeroSecondDerivIn)
+double ddx(T & arr, unsigned int n, std::vector<double>& x, bool zeroSecondDerivIn, bool minmod)
 {
   bool zeroSecondDeriv = zeroSecondDerivIn;// true;
   unsigned int nx=x.size()-1;
   if(n<nx && n>1) {
     double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
     double left = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
-    return ddx(left,right);
+    if(minmod) return ddx(left,right);
+    else return ddxAvg(left,right);
   }
   if(n==nx) {
     double right = (arr[n]-arr[n-1])/(x[n]-x[n-1]);
     double left = (arr[n-1]-arr[n-2])/(x[n-1]-x[n-2]);
     double center = (arr[n]-arr[n-2])/(x[n]-x[n-2]);
-//    return ddx(center,right); <= rk36
-    return ddx(left,right); // <= rn22
-//    return right; // rn23
+    if(minmod) return ddx(left,right); 
+    else return ddxAvg(left,right);
   }
   if(n==1) {
     double left = (arr[n+1]-arr[n])/(x[n+1]-x[n]);
     double right = (arr[n+2]-arr[n+1])/(x[n+2]-x[n+1]);
     double center = (arr[n+2]-arr[n])/(x[n+2]-x[n]);
-//    return ddx(left,center); <=rk36
-    if(zeroSecondDeriv)
-      return ddx(left,right); // <= rn22
+    if(zeroSecondDeriv) {
+      if(minmod) return ddx(left,right); 
+      else return ddxAvg(left,right);
+    }
     else
-      return left; // rn23
+      return left; 
   }
 };
 

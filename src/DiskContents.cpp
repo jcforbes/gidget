@@ -21,6 +21,15 @@
 #include <iostream>
 #include <fstream>
 
+double ddxUpstream(std::vector<double>& vec, std::vector<double>& x, std::vector<double>& mdot1, std::vector<double>& mdot2,unsigned int n)
+{
+  if(mdot1[n]+mdot2[n] > 0.0)
+      return (vec[n+1]-vec[n]) / (x[n]-x[n-1]);
+  else
+      return (vec[n]-vec[n-1])/(x[n]-x[n-1]);
+}
+
+
 // Fill an initializer object with the current state of this disk
 void DiskContents::store(Initializer& in)
 {
@@ -481,11 +490,12 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             -RfREC * colSFR[n] - dSdtOutflows(n) + accProf[n]*AccRate;
 
         dsigdtPrev[n] = dsigdt[n];
-    	double dsigdtMRI = (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvecMRI[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
-	    double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddx(sig,n,x,true)*tauvec[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+        double ddxSig = ddx(sig,n,x,true,!dbg.opt(9));
+    	double dsigdtMRI = (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddxSig*tauvecMRI[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvecMRI[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	    double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddxSig*tauvec[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
 	
         dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
-            - 5.0*ddx(sig,n,x,true)*(tauvec[2][n]+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
+            - 5.0*ddxSig*(tauvec[2][n]+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
             +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
         if(sig[n] >= sigth) {
             dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
@@ -1371,8 +1381,10 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
     //  std::vector<double> LL(nx+1,0.), DD(nx+1,0.0), UU(nx+1,0.0), FF(nx+1,0.0);
     for(unsigned int n=1; n<=nx; ++n) {
         ComputeRafikovQParams(&rqp,n);
-        UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1)-mesh.x(n-1)));
-        LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddx(sig,n,x,true)/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1)-mesh.x(n-1)));
+        double ddxSig = ddx(sig,n,x,true,!dbg.opt(9));
+//        if(dbg.opt(17)) ddxSig = ddxUpstream();
+        UU[n] = (1.0/(x[n]*mesh.dx(n))) *(-1.0/mesh.u1pbPlusHalf(n))*(1.0/(mesh.x(n+1)-mesh.x(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n] * (-5.0*ddxSig/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(1.0/(mesh.x(n+1)-mesh.x(n-1)));
+        LL[n] = (1.0/(x[n]*mesh.dx(n))) * (-1.0/mesh.u1pbPlusHalf(n-1))*(1.0/(mesh.x(n)-mesh.x(n-1))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + dQds[n]*(-5.0*ddxSig/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]))*(-1.0/(mesh.x(n+1)-mesh.x(n-1)));
         DD[n] = ( 1.0/(mesh.u1pbPlusHalf(n)*(mesh.x(n+1)-x[n])) + 1.0/(mesh.u1pbPlusHalf(n-1)*(x[n]-mesh.x(n-1)))) * (1.0/(x[n]*mesh.dx(n))) * (dQdS[n] + dQds[n]*sig[n]/(3.0*col[n])) + (uu[n]*(beta[n]-1.0)/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n])) * dQds[n];
         // That was the easy stuff. Now we need to compute the forcing term.
         // We start with terms related to obvious source terms, i.e. the terms which 
@@ -1407,7 +1419,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
             FF[n] -= dQdS[n] * ((MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n]));
     
             FF[n] -= dQds[n] * ( (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
-                    - 5.0*ddx(sig,n,x,true)*tauvecMRI[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]) 
+                    - 5.0*ddxSig*tauvecMRI[2][n] / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]) 
                     +uu[n]*(beta[n]-1.)*tauvecMRI[1][n] / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]) );
 
             // and finally add in the contribution from non-instantaneously-recycled stellar winds:
@@ -1433,7 +1445,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         // Forget all of the contributions to forcing we just computed, and
         // set it to an exponential.
         if(dbg.opt(4)) {
-            FF[n] = exp((fixedQ-QQ)*uu[n] / x[n]);
+	  FF[n] = exp((fixedQ-QQ)*uu[n] / (x[n]));
 
         }
 
@@ -1626,7 +1638,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(dQdserr[n]);wrt.push_back(yy);wrt.push_back(torqueErr); // 34..36
         wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back((MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*dim.MdotExt0*speryear/MSol); // 37..39
         wrt.push_back(0.0);wrt.push_back(0);wrt.push_back(0);//40..42
-        wrt.push_back(ddx(tauvec[2],n,x,false));wrt.push_back(ddx(sig,n,x,true));wrt.push_back(0); // 43..45
+        wrt.push_back(ddx(tauvec[2],n,x,false,true));wrt.push_back(ddx(sig,n,x,true,!dbg.opt(9)));wrt.push_back(0); // 43..45
         wrt.push_back(0);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
         wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
         wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52

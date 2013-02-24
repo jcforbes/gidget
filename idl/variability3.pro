@@ -65,9 +65,11 @@ END
 ;;; sv- behaves like other instances of sv; 0 to just show the plots on the 
 ;;;   screen, 2 to save them as png's and subsequently movies. 4 saves 
 ;;;   movies in a format conducive to showing on a low-resolution projector.
-PRO variability3,expNames,N=N,sv=sv,keys=keys
+PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
   IF(n_elements(N) EQ 0) THEN N=1000000
   IF(n_elements(sv) EQ 0) THEN sv=3
+  IF(n_elements(notations) EQ 0) THEN notations=expNames[*]
+
   compile_opt idl2
   set_plot,'x'
   DEVICE,DECOMPOSED=0
@@ -86,30 +88,17 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys
 
   ctr=0
 
-  ;; variables to plot- title, column index, log plot, name, y-range
-  wrtXyt=['R (kpc)','Gas Column Density (Msun/pc^2)','Velocity Dispersion (km/s)','Stellar Column Density (Msun/pc^2)','Stellar Velocity Dispersion (km/s)','Gas Fraction','[Z/Zsun]','SFR Column Density (Msun/yr/kpc^2)','Q','Gas Q','Stellar Q','Molecular Fraction','Age At z=0 (Ga)','Age (Ga)','Depletion Time (yr)','Viscous Time (Ga)','Depletion/Viscous Time','Mass Flux Through Disk (Msun/yr)',"Gas v_r (km/s)","Star v_r (km/s)","Inv Viscous Time (yr^-1)","tdepH2","Sigma/SigmaEQ","(mu+Rf)*colSFR/colAccr","col timescale (yr)","Accr (Msun/pc^2/yr)","Accretion timescale","Ratio with Universal Prof 4","beta","v/vcirc","Sinks within r/Mdot(r)","Sinks within r/(Mdot(r)+accr within r)","IntegralTVisc","tSF","Positive Mdot (Msun/yr)"]
-  wrtXytex=['R (kpc)','$\Sigma\ (M_\odot/pc^2)$','$\sigma$ (km/s)','$\Sigma_*\ (M_\odot/pc^2)$','$\sigma_{*,r}$ (km/s)','$f_g$','$[Z/Z_\odot]$','$\dot{\Sigma}_*^{SF}\ (M_\odot/yr/kpc^2)$','$Q$','$Q_g$','$Q_*$','$f_{H_2}$','Age At $z=0$ (Ga)','Age (Ga)','$t_{dep}$ (yr)','$t_{visc}$ (yr)','$t_{dep}/t_{visc}$','$\dot{M}_{GI}+\dot{M}_{MRI}\ (M_\odot/yr)$',"$v_r$ (km/s)","$v_{r,*}$ (km/s)","$t_{visc}^{-1}\ (yr^{-1})$","$t_{dep,H_2}$ (yr)","$\Sigma/\Sigma_{eq}$","$(\mu+f_R)\dot{\Sigma}^{SF}/\dot{\Sigma}_{cos}$","$\Sigma/\dot{\Sigma}$ (yr)","$\dot{\Sigma}_{cos}\ (M_\odot/pc^2/yr)$","$\Sigma/\dot{\Sigma}_{cos}$","$\Sigma/\Sigma_{UP,4}$","$\beta$","$v/v_{circ}$","$\int^rSFR/\dot{M}$","$\int^rSFR/(\dot{M}(r)+\int^r Acc)$","Integrated $t_{visc}$","$\int^r M_g/\int^r SFR$","$\dot{M}>0 (M_\odot/yr)$"]
-  wrtXyy=[9,10,11,12,13,17,22,14,12,24,23,48,31,32,35,36,37,39,17,16,38,39,40,41, 1,42,43,44,15,16,45,46,47,48,39] ;; index
-  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0] ;; offset? 
-  wrtXyn=['r', 'col','sig','colst','sigst','fg','Z','colsfr','Q','Qg','Qst','fH2','ageAtz0','age','tdep','tvisc','tdepOverTvisc','mdotDisk','vrg','vst','tviscinv','tdepH2','ratcoleq','sfrPerAccr','tcol','accr','taccr','BB4','beta','uu','viscSupply','totSupply','intTVisc','tSF','mdotGtr0']
-;  wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
-;    [1d-6,10],[1.5,5.0],[.5,50],[.5,50],[0,1],[1d9,14d9],[1d5,14d9],[1.0e8,1.0e10],[1.0e8,1.0e10],[.01,100]]
-  wrtXyl=[1,1,1,1,1,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1] ;; log plot 28
+  IF(n_elements(keys) EQ 0) THEN keys=indgen(100)+1
+  tk=[0,keys[*]]
 
-  IF(n_elements(keys) EQ 0) THEN keys=indgen(n_elements(wrtXyt))+1
+  ;; variables to plot- title, column index, log plot, name, y-range
+  dummy = GetLabels(keys=tk,tex=wrtXytex, labels=wrtXyt, names=wrtXyn, log=wrtXyl, base=wrtXyy, offset=wrtXyp)
+
   dummy = where( keys EQ 28, n1)
   IF(n1 EQ 2) THEN n1=1
 
-  ;; only plot the variables present in 'keys'	
-  tk = [[0],keys]
-  netk = n_elements(tk)
-  IF(netk GT n_elements(wrtXyt)) THEN tk=tk[0:n_elements(wrtXyt)-1]
-  wrtXyt=wrtXyt[tk]
-  wrtXyy=wrtXyy[tk]
-  wrtXyp=wrtXyp[tk]
-  wrtXyn=wrtXyn[tk]
-  ;wrtXyr=wrtXyr[*,tk]
-  wrtXyl=wrtXyl[tk]  
+
+
 
   ;; now loop over every model in the list - 
   ;; all we're doing here is reading in each model then freeing 
@@ -487,7 +476,8 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys
 
   whichFramesz0 = [n_elements(z)-1]
   whichFramesz2 = [1]
-	
+  whichFrames5 = [1,20,51,105,201]; a guess for z=2,1.5,1,.5,0
+
   setct,1,n_elements(linestyles),2
 
   IF(TheNumberOfModels GT 10) THEN $
@@ -537,9 +527,6 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys
       svSinglePlot=svSinglePlot,texLabels=wrtXytex
 
 
-
-
-
   IF(TheNumberOfModels GT 10) THEN $
       simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,linestyles,vsTimeToLog,expName2+"_vstimeDist", $
           5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20,thicknesses=unsThicknesses,$
@@ -564,7 +551,65 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys
     
 
 
-  ;; We've made some 
+  ;; We've made some plots where each panel is a specific time and each line is a specific model. Maybe we can do the converse.
+  ;; Right now unsorted ~ intervals ~ (time) (pos) (variable) (model).
+  ;; The thing simpleMovie really does is ~ (pane) (pos) (plot) (line)
+  IF(TheNumberOfModels LE 3) THEN BEGIN
+    singlePane = dblarr(TheNumberOfModels,n_elements(theData[0,*,0,0]),n_elements(theData[0,0,*,0]),5)
+    FOR j=0,TheNumberOfModels-1 DO BEGIN
+      FOR ii=0,5-1 DO BEGIN
+	    singlePane[j,*,*,ii] = theData[whichFrames5[ii],*,*,j]
+      ENDFOR
+    ENDFOR
+    spColors= indgen(5)
+    FOR j=1,TheNumberOfModels-1 DO spColors=[[spColors],[indgen(5)]]
+    simpleMovie,singlePane,intarr(thenumberofmodels),wrtXyn,transpose(spcolors), $
+        transpose(spcolors)*0,wrtXyl,expName2+"_unsortedSPlogR", $
+    	5,axisLabels=wrtXyt,whichFrames=indgen(TheNumberOfModels),ranges=unsRanges, $
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations
+    simpleMovie,singlePane,intarr(thenumberofmodels),wrtXyn,transpose(spcolors), $
+        transpose(spcolors)*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedSP", $
+     	5,axisLabels=wrtXyt,whichFrames=indgen(TheNumberOfModels),ranges=unsRanges2, $
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations
+
+    ; each pane is a model, separate plots for z.
+    fractionsPanePerModel = dblarr(TheNumberOfModels, n_elements(theData[0,*,0,0]),  n_elements(whichFrames3), 4)
+    fractionsPanePerZ = dblarr(n_elements(whichFrames3), n_elements(theData[0,*,0,0]), TheNumberOfModels, 4) ; more like the standard thing
+    FOR j=0,ThenumberOfModels-1 DO BEGIN
+        FOR ii=0,n_elements(whichFrames3)-1 DO BEGIN
+	        fractionsPanePerModel[j, *, ii, 1] = abs(theData[whichFrames3[ii], *, 31 ,j]) ; trPerAll
+        	fractionsPanePerModel[j, *, ii, 2] = fractionsPanePerModel[j,*,ii,1] + theData[whichFrames3[ii], *, 36, j ]; tr+sf perAll
+        	fractionsPanePerModel[j, *, ii, 3] = fractionsPanePerModel[j,*,ii,2] + theData[whichFrames3[ii], *, indexOfAnotherThing, j]
+
+    		fractionsPanePerZ[ii,*,j,1]=fractionsPanePerModel[j,*,ii,1]
+	    	fractionsPanePerZ[ii,*,j,2]=fractionsPanePerModel[j,*,ii,2]
+		    fractionsPanePerZ[ii,I,j,3]=fractionsPanePerModel[j,*,ii,3]
+    	ENDFOR
+    ENDFOR
+  ENDIF
+
+
+
+ IF(TheNumberOfModels GT 10) THEN BEGIN
+    singlePane = dblarr(n_elements(expNames),n_elements(theData[0,*,0,0]),n_elements(theData[0,0,*,0]),5)
+    FOR j=0,n_elements(expNames)-1 DO BEGIN
+      FOR ii=0,5-1 DO BEGIN
+	    singlePane[j,*,*,ii] = intervals[whichFrames5[ii],*,*,j*nper+nper/2]
+      ENDFOR
+    ENDFOR
+    spColors= indgen(5)
+    FOR j=1,n_elements(expNames)-1 DO spColors=[[spColors],[indgen(5)]]
+    simpleMovie,singlePane,intarr(n_elements(expNames)),wrtXyn,transpose(spColors), $
+        transpose(spColors)*0,wrtXyl,expName2+"_intervalsSPlogR", $
+    	5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRanges, $
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations
+    simpleMovie,singlePane,intarr(n_elements(expNames)),wrtXyn,transpose(spColors), $
+        transpose(spColors)*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsSP", $
+	    5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRanges2,$
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations
+
+  ENDIF
+
 
   ;; Now make some standalone plots.
   ; roughly redshifts 2,1.5,1,.5,0 are [1,20,51,104,201]

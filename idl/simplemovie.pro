@@ -151,13 +151,19 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
       ; Having set up the plotting space, loop over models and plot each one.
 
-      IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
-        IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
-          ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-          ELSE IF(wf EQ 2) THEN XYOUTS,.35+.36*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-          ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+
+
+      IF(fill EQ 1) THEN BEGIN
+	  aa = data[ti,*,k,*]
+	  FOR xx=0,n_elements(data[ti,*,k,0])-1 DO aa[0,xx,0,*] = aa[0,xx,0,SORT(aa[0,xx,0,*])]
+          FOR jj=1,n_elements(data[0,0,0,*])-1 DO BEGIN
+              POLYFILL, [[data[ti,*,0,jj-1]], [REVERSE(data[ti,*,0,jj],2)]], [[aa[0,*,0,jj-1]], [REVERSE(aa[0,*,0,jj],2)]], COLOR=colors[ti,jj];,line_fill=1
+	      
+          ENDFOR
       ENDIF
 
+
+      ; if not ( binning and x-dependence)
       IF(not (NIndVarBins GT 0 and n_elements(data[0,*,0,0]) ne 1)) THEN BEGIN
           ;; loop over models (4th column of data)
           FOR jj=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
@@ -172,7 +178,6 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
             ENDIF
           ENDFOR ;; end loop over models
       ENDIF
-
 
       ;; All of the models have been plotted. Now if the user has requested it, we would like to 
       ;; bin the data by its independent variable, and then its dependent variable!
@@ -234,6 +239,14 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
       ENDIF
+
+      IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
+        IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
+          ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+          ELSE IF(wf EQ 2) THEN XYOUTS,.35+.36*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+          ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+      ENDIF
+
 
       ;; We've created a single frame. What do we do with it?
       IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER

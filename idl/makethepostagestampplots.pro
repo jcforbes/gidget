@@ -4,11 +4,6 @@ PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th,labels,stampL
 
     ;; now that we have the data, let's make the plots.
     ; loop over variables
-    ranges=dblarr(2,n_elements(vars))
-    ranges[*,0]=[-5,45]
-    ranges[*,1]=[.5,140]
-    ranges[*,2]=[-1.1,.7]
-    ranges[*,3]=[4.0,50.0]
     FOR j=0,n_elements(whichRedshifts)-1 DO BEGIN
         FOR i=1,n_elements(vars)-1 DO BEGIN
             filename = "stamps_z"+zs[j]+"_"+names[i]

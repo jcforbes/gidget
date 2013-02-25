@@ -573,19 +573,47 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
         horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations
 
     ; each pane is a model, separate plots for z.
-    fractionsPanePerModel = dblarr(TheNumberOfModels, n_elements(theData[0,*,0,0]),  n_elements(whichFrames3), 4)
-    fractionsPanePerZ = dblarr(n_elements(whichFrames3), n_elements(theData[0,*,0,0]), TheNumberOfModels, 4) ; more like the standard thing
+    fractionsPanePerModel = dblarr(TheNumberOfModels, n_elements(theData[0,*,0,0]),  n_elements(whichFrames3)+1, 4)
+    balancePanePerModel = fractionsPanePerModel[*,*,*,*]
+    fractionsPanePerZ = dblarr(n_elements(whichFrames3), n_elements(theData[0,*,0,0]), TheNumberOfModels+1, 4) ; more like the standard thing
+    balancePanePerZ = fractionsPanePerZ[*,*,*,*]
     FOR j=0,ThenumberOfModels-1 DO BEGIN
+        FOR q=0,4-1 DO fractionsPanePerModel[j, *, 0, q] =theData[0, *, 0, j]
+	FOR q=0,4-1 DO balancePanePerModel[j,*,0,q]=theData[0,*,0,j]
         FOR ii=0,n_elements(whichFrames3)-1 DO BEGIN
-	        fractionsPanePerModel[j, *, ii, 1] = abs(theData[whichFrames3[ii], *, 31 ,j]) ; trPerAll
-        	fractionsPanePerModel[j, *, ii, 2] = fractionsPanePerModel[j,*,ii,1] + theData[whichFrames3[ii], *, 36, j ]; tr+sf perAll
-        	fractionsPanePerModel[j, *, ii, 3] = fractionsPanePerModel[j,*,ii,2] + theData[whichFrames3[ii], *, 35, j]
+	        
+            fractionsPanePerModel[j, *, ii+1, 1] = abs(theData[whichFrames3[ii], *, 31 ,j]) ; trPerAll
+            fractionsPanePerModel[j, *, ii+1, 2] = fractionsPanePerModel[j,*,ii+1,1] + theData[whichFrames3[ii], *, 36, j ]; tr+sf perAll
+            fractionsPanePerModel[j, *, ii+1, 3] = fractionsPanePerModel[j,*,ii+1,2] + theData[whichFrames3[ii], *, 35, j]
+	    balancePanePerModel[j,*,ii+1, 1] = theData[whichFrames3[ii],*,31,j]
+	    balancePanePerModel[j,*,ii+1, 2] = -theData[whichFrames3[ii],*,36,j] + (theData[whichFrames3[ii],*,31,j] - abs(theData[whichFrames3[ii],*,31,j]))/2.0
+	    balancePanePerModel[j,*,ii+1, 3] = theData[whichFrames3[ii],*,35,j] + (theData[whichFrames3[ii],*,31,j] + abs(theData[whichFrames3[ii],*,31,j]))/2.0
 
-    		fractionsPanePerZ[ii,*,j,1]=fractionsPanePerModel[j,*,ii,1]
-	    	fractionsPanePerZ[ii,*,j,2]=fractionsPanePerModel[j,*,ii,2]
-		    fractionsPanePerZ[ii,*,j,3]=fractionsPanePerModel[j,*,ii,3]
+    	    fractionsPanePerZ[ii,*,j+1,1]=fractionsPanePerModel[j,*,ii+1,1]
+	    fractionsPanePerZ[ii,*,j+1,2]=fractionsPanePerModel[j,*,ii+1,2]
+	    fractionsPanePerZ[ii,*,j+1,3]=fractionsPanePerModel[j,*,ii+1,3]
+	    balancePanePerZ[ii,*,j+1,1]=balancePanePerModel[j,*,ii+1,1]
+	    balancePanePerZ[ii,*,j+1,2]=balancePanePerModel[j,*,ii+1,2]
+	    balancePanePerZ[ii,*,j+1,3]=balancePanePerModel[j,*,ii+1,3]
     	ENDFOR
     ENDFOR
+    FOR ii=0,n_elements(whichFrames3)-1 DO FOR q=0,4-1 DO fractionsPanePerZ[ii,*,0,q] = theData[whichFrames3[ii],*,0,0]
+    FOR ii=0,n_elements(whichFrames3)-1 DO FOR q=0,4-1 DO balancePanePerZ[ii,*,0,q] = theData[whichFrames3[ii],*,0,0]
+
+    fractionColors=intarr(n_elements(whichFrames3), 4)
+    fractionColors[*,0]=0
+    fractionColors[*,1]=1
+    fractionColors[*,2]=2
+    fractionColors[*,3]=3
+    simpleMovie, fractionsPanePerModel, intarr(TheNumberOfModels), ["r","z2","z1","z0"], fractionColors, intarr(4)+1, intarr(n_elements(whichFrames3)+1), $
+        expName2+"_fracPanePerModel",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
+    simpleMovie, fractionsPanePerZ, z[whichFrames3], ["r",expNames], fractionColors, intarr(4)+1, intarr(TheNumberOfModels+1), $
+        expName2+"_fracPanePerZ",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
+
+    simpleMovie, balancePanePerModel, intarr(TheNumberOfModels), ["r","z2","z1","z0"], fractionColors, intarr(4)+1, intarr(n_elements(whichFrames3)+1), $
+        expName2+"_balPanePerModel",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
+    simpleMovie, balancePanePerZ, z[whichFrames3], ["r",expNames], fractionColors, intarr(4)+1, intarr(TheNumberOfModels+1), $
+        expName2+"_balPanePerZ",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
   ENDIF
 
 

@@ -555,6 +555,9 @@ FUNCTION readOutput,name
     ;; dcoldt_SF / all
     tdc[*,*,ncolstep+50-1] = tdc[*,*,ncolstep+49-1] *tdc[*,*,ncolstep+41-1]
 
+;    thetotal = tdc[*,*,ncolstep+50-1] + tdc[*,*,ncolstep+49-1] + abs(tdc[*,*,ncolstep+46-1])
+	;also = tdc[*,*,ncolstep+46-1]*((tdc[*,*,ncolstep+41-1]+1)/tdc[*,*,ncolstep+45-1] + 1)
+	;stop
 
 	nt = n_elements(tdc[*,0,0]) ;; nx already defined
 	initialStellarMass = dblarr(nt,nx)

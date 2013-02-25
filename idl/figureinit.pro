@@ -42,7 +42,7 @@ PRO figureInit,nm,sv,nx,ny,sm=sm
         pageInfo = PSWINDOW(aspectratio=float(ny)/nx,margin=.15,yfudge=.25)
 		Set_Plot,'ps'
         IF(sm EQ 0) THEN $
-        DEVICE, _Extra=pageInfo,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps'
+        DEVICE, _Extra=pageInfo,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',language_level=2
 		!p.font = 0
         IF(sm EQ 1) THEN $
 		DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xsize=8.89*nx,ysize=8.89*ny

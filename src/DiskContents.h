@@ -31,7 +31,8 @@ class DiskContents {
 	           unsigned int NA, unsigned int NP,
 	           double minSigSt, 
                double rfrec, double zetarec,
-	       double fh2min, double tdeph2sc);
+    	       double fh2min, double tdeph2sc,
+               double Z_IGM);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -165,11 +166,11 @@ class DiskContents {
 
   // Similar to the above, except put in an exponential scale 
   // length and constant velocity dispersion for the stars
-  void Initialize(double Z_Init, double fcool, double fg0,
+  void Initialize(double fcool, double fg0,
 		  double sigst0, double Mh0, double MhZs,
 		  double stScaleLength);
 
-  void Initialize(double Z_Init, double fcool, double fg0,
+  void Initialize(double fcool, double fg0,
                   double sig0, double tempRatio, double Mh0,
                   double MhZs, double stScaleLength);
 
@@ -221,9 +222,13 @@ class DiskContents {
   std::vector<double> dQdS,dQds; // partial derivatives dQ/dS and dQ/ds
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
+  std::vector<double> dZDiskdtDiff, dZDiskdtAdv; // components of the metallicity time derivative
+  std::vector<double> dcoldtIncoming, dcoldtOutgoing; // mass balances in a single cell (dimensionless!)
   std::vector<double> dcoldtPrev,dsigdtPrev,dZDiskdtPrev; // time derivatives at the previous timestep.
 //  std::vector<double> MdotiPlusHalf;
 //  std::vector<double> MstarDotIPlusHalf;
+
+  std::vector<double> dsigdtTrans, dsigdtDdx, dsigdtHeat, dsigdtCool;
 
   // store the cells where we have turned off forcing in the
   // torque equation.
@@ -306,6 +311,8 @@ class DiskContents {
 
   // parameters controlling the instantaneous recycling approx.
   double yREC, RfREC, zetaREC; 
+  
+  double Z_IGM; // absolute units
 
   bool analyticQ;  // use analytic (Romeo-Wiegert 2011) or numerical (Rafikov 2001) Q
   std::vector<double> CumulativeSF; // Total number of cells ever formed in each cell

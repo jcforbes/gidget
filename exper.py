@@ -63,11 +63,11 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','zetaREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC','ZIGM']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -719,24 +719,25 @@ if __name__ == "__main__":
     print "l045 = ",l045," kpc"
     rw01=experiment("rw01")
     rw01.irregularVary("R",40)
-    rw01.irregularVary('diskScaleLength',l045*.7)
+    rw01.irregularVary('diskScaleLength',l045*.35)
     rw01.irregularVary('accScaleLength',l045*.7)
     rw01.irregularVary('mu',.5)
     rw01.irregularVary('vphiR',220.0)
     rw01.irregularVary('NPassive',20)
     rw01.irregularVary('invMassRatio',1.0)
     rw01.irregularVary('dbg',2)
-    rw01.irregularVary('xmin',.004)
+    rw01.irregularVary('xmin',.002)
     rw01.irregularVary('alphaMRI',.01)
     rw01.irregularVary('fcool',0.6)
     rw01.irregularVary('innerPowerLaw',0.5)
     rw01.irregularVary('b',3.0)
+    rw01.irregularVary('nx',200)
 
 
     # Vary the exponential scale length of the IC and accretion together.
     rw02=NewSetOfExperiments(rw01,"rw02",N=2)
-    rw02[0].vary('diskScaleLength',l045*.10,l045*.67,5,0,3)
-    rw02[1].vary('diskScaleLength',l045*.73,l045*2.1,10,0,3)
+#    rw02[0].vary('diskScaleLength',l045*.10,l045*.67,5,0,3)
+#    rw02[1].vary('diskScaleLength',l045*.73,l045*2.1,10,0,3)
     rw02[0].vary('accScaleLength',l045*.10,l045*.67,5,0,3)
     rw02[1].vary('accScaleLength',l045*.73,l045*2.1,10,0,3)
 
@@ -782,7 +783,7 @@ if __name__ == "__main__":
 
     # problem @ beta0=.95
     rw26=NewSetOfExperiments(rw01,"rw26",N=2)
-    rw26[0].vary('innerPowerLaw',0.0,.45,10,0)
+    rw26[0].vary('innerPowerLaw',-0.5,.45,20,0)
     rw26[1].vary('innerPowerLaw',.55,.95, 9,0)
 
     # Vary initial gas fraction
@@ -818,7 +819,7 @@ if __name__ == "__main__":
     # Vary accretion scale, this time with a wide gaussian profile
     # similar problems as rw13.
     rw17=NewSetOfExperiments(rw13,"rw17")
-    [rw17[i].irregularVary('widthAccretionProfile',0.4) for i in range(len(rw17))]
+    [rw17[i].irregularVary('widthAccretionProfile',0.75) for i in range(len(rw17))]
 
     # Vary recycling fraction
     rw18=NewSetOfExperiments(rw01,"rw18",N=2)
@@ -830,11 +831,11 @@ if __name__ == "__main__":
     [rw19[i].irregularVary('dbg',2+2**6) for i in range(len(rw19))]
 
     # Vary delta omega
-    rw20=NewSetOfExperiments(rw01,"rw20",N=3)
-    [rw20[i].vary('whichAccretionHistory',1000,1400,401,0) for i in range(len(rw20))]
-    rw20[0].irregularVary('deltaOmega',.3)
+    rw20=NewSetOfExperiments(rw01,"rw20",N=2)
+    [rw20[i].vary('whichAccretionHistory',1001,1400,400,0) for i in range(len(rw20))]
+    rw20[0].irregularVary('deltaOmega',.2)
     rw20[1].irregularVary('deltaOmega',.5)
-    rw20[2].irregularVary('deltaOmega',.8)
+#    rw20[2].irregularVary('deltaOmega',.8)
 
     # Lognormal acc history variation, with different coherence redshift interwals
     rw21=NewSetOfExperiments(rw01,"rw21",N=2)
@@ -870,7 +871,7 @@ if __name__ == "__main__":
 
     # Sanity check. Very strong efficiency evolution
     rw27=NewSetOfExperiments(rw01,"rw27",N=2)
-    eps0Low = [.30959 * 1.0e-4 * 10.0**(5.0*i/10.0) for i in range(10)]
+    eps0Low = [.30959 * 1.0e-2 * 10.0**(2.0*i/10.0) for i in range(10)]
     eps0High= [.30959 + .05 *i for i in range(3)]
     eps2 = .30959 * 3.0**0.38
     rw27[0].irregularVary('accNorm',eps0Low,3)
@@ -900,16 +901,33 @@ if __name__ == "__main__":
     rw33[1].vary('tDepH2SC',2.1,4.0,8,1)
 
     # Vary only the r_IC.
-    rw34=NewSetOfExperiments(rw02,"rw34")
-    [rw34[i].irregularVary('accScaleLength',0.7*l045) for i in range(len(rw34))]
+    rw34=NewSetOfExperiments(rw01,"rw34",N=2)
+#    [rw34[i].irregularVary('accScaleLength',0.7*l045) for i in range(len(rw34))]
+    rw34[0].vary('diskScaleLength',l045*.10,l045*.32,3,0,3)
+    rw34[1].vary('diskScaleLength',l045*.38,l045*2.1,13,0,3)
 
-    rw35=NewSetOfExperiments(rw01,"rw35",N=2)
+
+    rw35=NewSetOfExperiments(rw01,"rw35",N=3)
     [rw35[i].irregularVary('dbg',2+2**12) for i in range(len(rw35))]
     rw35[1].irregularVary('Qlim',0)
+    rw35[2].irregularVary('kappaMetals',1.0e-6)
 
-    rw36=NewSetOfExperiments(rw01,"rw36",N=2)
-    rw36[0].irregularVary('dbg',2+2**4)
-    rw36[1].irregularVary('dbg',2+2**17)
+
+    rw36=NewSetOfExperiments(rw01,"rw36",N=6)
+    rw36[0].irregularVary('dbg',2+2**4) # exp Delta Q
+    rw36[1].irregularVary('dbg',2+2**17) # upstream
+    rw36[2].irregularVary('dbg',2+2**18) # overshoot
+    # no star formation!
+    rw36[3].irregularVary('epsff',0)
+    rw36[3].irregularVary('tDepH2SC',1000000000.0)
+#    rw36[3].irregularVary('ZIGM',10**-10)
+    rw36[3].irregularVary('fH2Min',0.03)
+    rw36[4].irregularVary('dbg',2+2**12) # no GI
+    rw36[5].irregularVary('dbg',2+1) # tau=0 when F<0
+    rw36[5].irregularVary('kappaMetals',1.0e-7)
+    rw36[5].irregularVary('zetaREC',.1)
+
+
 
     # A series of experiments designed to explore the effect on halo mass.
 

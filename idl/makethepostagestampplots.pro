@@ -1,4 +1,7 @@
-PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th,labels,stampLabels,texLabels,texStampLabels,names,columns,rows,svSinglePlot,cs,chth,logs,ranges
+PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th, $
+    labels,stampLabels,texLabels,texStampLabels, $
+    lowRange, hiRange, $
+    names,columns,rows,svSinglePlot,cs,chth,logs,ranges
 
     cs=0.53
 
@@ -24,16 +27,18 @@ PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th,labels,stampL
                     IF(exper NE 0) THEN tthh=1.0
                     IF(exper NE 0) THEN offsetModel = TOTAL(numberOfModels[0:exper-1])
                     FOR m=0,numberOfModels[exper]-1 DO OPLOT, theData[j,*,0,m+offsetModel],theData[j,*,i,m+offsetModel],COLOR=exper,THICK=tthh
-                    gap =0.15; 0.2
-                    xoff = .075+gap + (1.0-2.8*gap) * (.9/double(columns) + double((k MOD columns))/double(columns))
-                    yoff = 1.0 - 1.05*gap - (1.0-2.05*gap)* double(k/columns)/double(rows)
-                    XYOUTS,xoff,yoff,stampLabels[k],/normal,color=0,charsize=cs,charthick=chth
-                ENDFOR
 
+                ENDFOR
+                gap =0.15; 0.2
+                xoff = gap + (1.0-2.3*gap) * (.8/double(columns) + double((k MOD columns))/double(columns))
+                yoff = 1.0 - 1.05*gap - (1.0-2.05*gap)* double(k/columns)/double(rows)
+                XYOUTS,xoff,yoff,stampLabels[k],/normal,color=0,charsize=cs*.9,charthick=chth
+                XYOUTS,xoff,yoff-.01,lowRange[k],/normal,color=1,charsize=cs*.8,charthick=chth*.8
+                XYOUTS,xoff,yoff-.02,hiRange[k],/normal,color=2,charsize=cs*.8,charthick=chth*.8
                 modmultiplot
             ENDFOR
             FigureClean,filename,svSinglePlot
-            latexify,(filename+".eps"),[labels,stampLabels],[texLabels,texStampLabels],[replicate(1.4,n_elements(labels)),replicate(.9,n_elements(stampLabels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
+            latexify,(filename+".eps"),[labels,stampLabels],[texLabels,texStampLabels],[replicate(1.2,n_elements(labels)),replicate(.6,n_elements(stampLabels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
             modmultiplot,/default
             spawn,"ps2pdf -dEPSCrop "+filename+".eps"
         ENDFOR

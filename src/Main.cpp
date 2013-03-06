@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
     as2.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
     as2.Set(attempts,"Attempts to generate Neistein08");
     // This is where we'll store a record of all the possiblities of dbg.opt
-    as2.Set(dbg.opt(0), "blank");
+    as2.Set(dbg.opt(0), "Preemptively set torque = 0 when F<0");
     as2.Set(dbg.opt(1), "Z_OBC = Z_IGM");
     as2.Set(dbg.opt(2), "Record IC generation (only relevant if dbg 5)");
     as2.Set(dbg.opt(3), "Neistein & Dekel (2008)"); // check this
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(15), "non-constant kappa_Z");
     as2.Set(dbg.opt(16), "Newly formed stars have full gas velocity dispersion instead of turbulent component only");
     as2.Set(dbg.opt(17), "upstream");
-    as2.Set(dbg.opt(18), "blank");
+    as2.Set(dbg.opt(18), "overshoot");
     as2.Set(dbg.opt(19), "tdep=2Gyr");
 
 
@@ -219,10 +219,10 @@ int main(int argc, char **argv) {
         DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-			  minSigSt,RfREC,zetaREC,fH2Min,tDepH2SC);
+			  minSigSt,RfREC,zetaREC,fH2Min,tDepH2SC,ZIGM);
         // double sig0 = 8.0/220.0; 
         double sig0 = sigth;
-        disk.Initialize(ZIGM,fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
+        disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
 
         Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
                 zstart,NActive,NPassive,alphaMRI,
@@ -237,9 +237,9 @@ int main(int argc, char **argv) {
         DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,
-			    RfREC,zetaREC,fH2Min,tDepH2SC);
+			    RfREC,zetaREC,fH2Min,tDepH2SC,ZIGM);
         if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
-        else diskIC.Initialize(ZIGM, .6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
+        else diskIC.Initialize(.6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
 
 
 
@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
         DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-			  minSigSt, RfREC,zetaREC,fH2Min,tDepH2SC);
+			  minSigSt, RfREC,zetaREC,fH2Min,tDepH2SC,ZIGM);
         disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
         Simulation sim(tmax,stepmax,
                 cosmologyOn,nx,TOL,

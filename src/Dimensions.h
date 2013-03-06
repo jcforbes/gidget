@@ -5,7 +5,7 @@
 const double speryear = 31556926.0;
 const double cmperkpc = 3.08568025e21;
 const double Z_Sol = .02;
-const double Z_IGM = .1*Z_Sol;
+//const double Z_IGM = .1*Z_Sol; // this is now a user-specified parameter @ runtime
 const double Z_BBN = 2.0e-5;
 const double MSol = 1.98892e33; // grams
 const double G=6.673e-8; // cm^3 s^-2 g^-1

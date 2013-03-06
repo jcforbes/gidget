@@ -46,9 +46,9 @@ PRO setct,which,n,colorRef
 		b[0:nn-1]=byte((indgen(nn)+1)*fix(250.0/float(nn+1))*wb)
 	ENDIF
 	IF(which EQ 1) THEN BEGIN
-		r[0:10]=byte([  0,255,  0,255,175,  6,116,  0,  7,255,255]) ; black,red,blue,orange,purple,cyan,maroon,dark green,yellow,magenta
-		g[0:10]=byte([  0,  0,  0,125,  2,192,  5,255,112,255,  9])
-		b[0:10]=byte([  0,  0,255,  0,175,175,  5,  0,  7,  0,178])
+		r[0:11]=byte([  0,255,  0,255,175,  6,116,  0,  7,255,255,100]) ; black,red,blue,orange,purple,cyan,maroon,dark green,yellow,magenta,other purple?,gray
+		g[0:11]=byte([  0,  0,  0,125,  2,172,  5,255,112,255,  9,100])
+		b[0:11]=byte([  0,  0,255,  0,175,195,  5,  0,  7,  0,178,100])
 
 
 		r[11:255] = byte( FIX(256*randomu(color,256-11)))

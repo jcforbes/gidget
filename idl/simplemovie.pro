@@ -34,7 +34,7 @@
 ;; svSinglePlot - the value of sv to use if we're producing a single plot. See figureinit.pro; typically 4 is a good choice
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
 
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSinglePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges,replacementText=replacementText,fill=fill
+PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSinglePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges,replacementText=replacementText,fill=fill,includeRandom=includeRandom
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
 
   PRINT, "Starting to make the files of the form: ", name,"*"
@@ -65,6 +65,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(strt) EQ 0) THEN strt = intarr(n_elements(labels))
   IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+2
   IF(n_elements(fill) EQ 0) THEN fill=0
+  IF(n_elements(includeRandom) EQ 0) THEN includeRandom = 0
   IF(sv EQ 4) THEN thicknesses= 3+temporary(thicknesses)
   chth = thicknesses[0]
   cs =0.8* thicknesses[0]
@@ -116,7 +117,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     ; length of a tail to put on each point which represents a galaxy when prev=1
     ; tailLength = fix(3.0/(float(n_elements(styles))/928.0)^(.25)) 
 
-    ;; loop over time: each iteration of this loop will save a frame in a movie
+    ;; loop over time: each iteration of this loop will save a frame in a movie 
+    ;; or a panel in a multipanel plot
     FOR tii=0,n_elements(whichFrames)-1 DO BEGIN  
       IF(sv EQ 5 and tii NE 0 and wf NE 0) THEN !p.noerase=1
       ti = whichFrames[tii]
@@ -130,6 +132,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       yt = axisLabels[k]
       IF(sv EQ 5 AND tii NE 0 AND horizontal EQ 1 and wf NE 0) THEN yt=""
       ;IF(sv EQ 5) THEN yt=yt+" at z="+str(time)
+
+
+      ;;; SET UP THE PLOTTING SPACE
       IF(strt[k] EQ 0) THEN $
         PLOT,[0],[0],COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
          YTITLE=yt, XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
@@ -153,6 +158,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
 
 
+      ;; FILL IN REGIONS BETWEEN LINES - most plots don't do this, and typically the input
+      ;; lines need to be set up very carefully to show the appropriate regions in the same colors
+      ;; In practice I tend to do this separately using balanceplots and makethebalanceplots. 
       IF(fill EQ 1) THEN BEGIN
 	  aa = data[ti,*,k,*]
 	  FOR xx=0,n_elements(data[ti,*,k,0])-1 DO aa[0,xx,0,*] = aa[0,xx,0,SORT(aa[0,xx,0,*])]
@@ -164,10 +172,20 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
 
       ; if not ( binning and x-dependence)
-      IF(not (NIndVarBins GT 0 and n_elements(data[0,*,0,0]) ne 1)) THEN BEGIN
+      ; i.e. if not binning or if no x-dependence 
+      ;;; PLOT INDIVIDUAL MODELS, either as functions of the x-coordinate or a single (x,y) point.
+      nmodels = n_elements(data[0,0,0,*])
+      nr=1
+      IF(n_elements(data[0,*,0,0]) EQ 1) $
+          THEN nr = MIN([nmodels,100]) $
+          ELSE nr = MIN([nmodels,5])
+      IF(nr NE nmodels) THEN randomSet = cgRandomIndices(nmodels,nr) ELSE randomSet=indgen(nmodels)
+      IF(includeRandom EQ 1 or NIndVarBins EQ 0 or n_elements(data[0,*,0,0]) EQ 1) THEN BEGIN
           ;; loop over models (4th column of data)
-          FOR jj=0,n_elements(data[0,0,0,*])-1 DO BEGIN 
-            j=n_elements(data[0,0,0,*])-1-jj ;; reverse order!
+          FOR jj=0,nmodels-1 DO BEGIN 
+            IF(includeRandom NE 1) THEN j=nmodels-1-jj $ ;; reverse order!
+                ELSE j=randomSet[jj]
+            
             ;; Set the color table.	
     ;        IF(n_elements(styles) GT 80) THEN IF(sv NE 3 AND sv NE 4) THEN setct,5,n_elements(styles),j ELSE setct,3,n_elements(styles),0
             
@@ -211,10 +229,11 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
       ; FOR THE CASE THAT THERE /IS/ X-DEPENDENCE WHICH IS THE SAME FROM MODEL TO MODEL
       ; For now, we ignore the actual value of NIndVarBins and just find the percentiles for every single "x" value.
+      nper = n_elements(percentileList)
       IF(NIndVarBins GT 0 and n_elements(data[0,*,0,0]) NE 1) THEN BEGIN
           ;;;; ASSUMING that there are some galaxies in each color bin,
           ncolors = MAX(colors)+1
-          theCurves = dblarr(n_elements(data[0,*,0,0]), n_elements(percentileList), ncolors)
+          theCurves = dblarr(n_elements(data[0,*,0,0]), nper, ncolors)
           ;; each color gets its own percentile curves
           FOR aColorRev=0, ncolors-1 DO BEGIN
               aColor = ncolors-1-aColorRev ; reverse order! This is so the default model is plotted last.
@@ -235,11 +254,18 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop
-                  FOR percentileIndex=0,n_elements(percentileList)-1 DO OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor,THICK=max(thicknesses)*1.2,linestyle=styles[0]
+                  FOR percentileIndex=0,nper-1 DO BEGIN
+                      theDist = ABS(nper-nper/2)
+                      OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor, $
+                        THICK=max(thicknesses)*1.2/(theDist+1),linestyle=styles[0]
+                  ENDFOR
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
       ENDIF
 
+
+
+      ;;; PRINT TEXT ON THE PLOTS
       IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
         IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
           ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
@@ -267,6 +293,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
         ;IF(wf NE 0) THEN 
         modmultiplot,/default
         IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"ps2pdf -dEPSCrop "+fn+"_timeSeries.eps"         
+        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"rm TMP_"+fn+"_timeSeries.eps"
 ;        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"epstopdf "+fn+"_timeSeries.eps"
     ENDIF
     set_plot,'x'

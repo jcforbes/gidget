@@ -65,11 +65,14 @@ END
 ;;; sv- behaves like other instances of sv; 0 to just show the plots on the 
 ;;;   screen, 2 to save them as png's and subsequently movies. 4 saves 
 ;;;   movies in a format conducive to showing on a low-resolution projector.
-PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
+PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integratedQuantities=integratedQuantities
   IF(n_elements(N) EQ 0) THEN N=1000000
   IF(n_elements(sv) EQ 0) THEN sv=3
-  IF(n_elements(notations) EQ 0) THEN notations=expNames[*]
+  IF(n_elements(annotations) EQ 0) THEN annotations=expNames[*]
+  IF(n_elements(annotations) NE n_elements(expNames)) THEN $
+      message,"expNames and annotations should have the same number of elements"
 
+  notations=annotations
   compile_opt idl2
   set_plot,'x'
   DEVICE,DECOMPOSED=0
@@ -88,15 +91,15 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
 
   ctr=0
 
-  IF(n_elements(keys) EQ 0) THEN keys=indgen(100)+1
+  IF(n_elements(keys) EQ 0) THEN keys=[[indgen(38)+1],47,48,49]
   tk=[0,keys[*]]
 
   ;; variables to plot- title, column index, log plot, name, y-range
-  dummy = GetLabels(keys=tk,tex=wrtXytex, labels=wrtXyt, names=wrtXyn, log=wrtXyl, base=wrtXyy, offset=wrtXyp)
+  dummy = GetLabels(keys=tk,tex=wrtXytex, labels=wrtXyt, names=wrtXyn,$
+      log=wrtXyl, base=wrtXyy, offset=wrtXyp)
 
-  dummy = where( keys EQ 28, n1)
-  IF(n1 EQ 2) THEN n1=1
-
+  IF(n_elements(IntegratedQuantities) EQ 0) THEN IntegratedQuantities=1
+  n1 = IntegratedQuantities
 
 
 
@@ -480,10 +483,10 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
 
   setct,1,n_elements(linestyles),2
 
-  IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogR", $
-          5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
-          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  ;IF(TheNumberOfModels GT 10) THEN $
+  ;    simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogR", $
+  ;        5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
+  ;        svSinglePlot=svSinglePlot,texLabels=wrtXytex
   simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogR", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
       svSinglePlot=svSinglePlot,texLabels=wrtXytex
@@ -494,34 +497,36 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
   simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsorted", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
       svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedDist", $
+      5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
+      svSinglePlot=svSinglePlot,texLabels=wrtXytex,NIndVarBins=20,percentileList=[.025,.16,.5,.84,.975],includeRandom=1
 
+  ;IF(TheNumberOfModels GT 10) THEN $
+  ;    simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogRz0", $
+  ;        5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
+  ;        svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  ;simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogRz0", $
+  ;    5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
+  ;    svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  ;IF(TheNumberOfModels GT 10) THEN $
+  ;    simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsz0", $
+  ;        5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12, $
+  ;        svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  ;simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedz0", $
+  ;    5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
+  ;    svSinglePlot=svSinglePlot,texLabels=wrtXytex
 
-  IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogRz0", $
-          5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
-          svSinglePlot=svSinglePlot,texLabels=wrtXytex
-  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogRz0", $
-      5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
-      svSinglePlot=svSinglePlot,texLabels=wrtXytex
-  IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsz0", $
-          5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12, $
-          svSinglePlot=svSinglePlot,texLabels=wrtXytex
-  simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedz0", $
-      5,axislabels=wrtXyt,whichFrames=whichFramesz0,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
-      svSinglePlot=svSinglePlot,texLabels=wrtXytex
-
-    IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogRz2", $
-          5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
-          svSinglePlot=svSinglePlot,texLabels=wrtXytex
-  simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogRz2", $
-      5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
-      svSinglePlot=svSinglePlot,texLabels=wrtXytex
-  IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsz2", $
-          5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12, $
-          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+   ; IF(TheNumberOfModels GT 10) THEN $
+   ;   simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,wrtXyl,expName2+"_intervalsLogRz2", $
+   ;       5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges,horizontal=1,thicknesses=linestyles[*]+12, $
+   ;       svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  ;simpleMovie,theData,z,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogRz2", $
+  ;    5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
+  ;    svSinglePlot=svSinglePlot,texLabels=wrtXytex
+  ;IF(TheNumberOfModels GT 10) THEN $
+  ;    simpleMovie,intervals,z,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsz2", $
+  ;        5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges2,horizontal=1,thicknesses=linestyles[*]+12, $
+  ;        svSinglePlot=svSinglePlot,texLabels=wrtXytex
   simpleMovie,theData,z,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedz2", $
       5,axislabels=wrtXyt,whichFrames=whichFramesz2,ranges=unsRanges2,horizontal=1,thicknesses=unsThicknesses, $
       svSinglePlot=svSinglePlot,texLabels=wrtXytex
@@ -529,15 +534,15 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,notations=notations
 
   IF(TheNumberOfModels GT 10) THEN $
       simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,linestyles,vsTimeToLog,expName2+"_vstimeDist", $
-          5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20,thicknesses=unsThicknesses,$
+          5,axisLabels=vsTimeLabels,whichFrames=[0],NIndVarBins=20,thicknesses=linestyles[*]+10,$
           svSinglePlot=svSinglePlot,texLabels=vsTimeTexLabels,percentileList=[.025,.16,.5,.84,.975]
   simpleMovie, vsTime,[z[n_elements(time)-1]],vsTimeNames,vsTimecolors,vsTimeStyles,vsTimeToLog,expName2+"_vstime", $
       5,axisLabels=vsTimeLabels,whichFrames=[0],thicknesses=unsThicknesses,svSinglePlot=svSinglePlot,texLabels=vsTimeTexLabels
 ;  simpleMovie, avgdVsMdot,z,vsAvgMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsavgmdot", $
 ;      5,PSYM=1,axisLabels=vsAvgMdotLabels,horizontal=1,whichFrames=whichFrames3,thicknesses=unsThicknesses
-  simpleMovie, byAge,ages/1.0d9,byAgeNames,colors,colors*0,byAgeToLog,expName2+"_byAgeLogR", $
-      5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses, $
-      svSinglePlot=svSinglePlot,texLabels=byAgeTexLabels,timeText="age = "
+  ;simpleMovie, byAge,ages/1.0d9,byAgeNames,colors,colors*0,byAgeToLog,expName2+"_byAgeLogR", $
+  ;    5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses, $
+  ;    svSinglePlot=svSinglePlot,texLabels=byAgeTexLabels,timeText="age = "
   simpleMovie, byAge,ages/1.0d9,byAgeNames,colors,colors*0,[0,byAgeToLog[1:n_elements(byAgeToLog)-1]],expName2+"_byAge", $
       5,axisLabels=byAgeLabels,whichFrames=[0,1,5,10],horizontal=1,thicknesses=unsThicknesses, $
       svSinglePlot=svSinglePlot,texLabels=byAgeTexLabels,timeText="age = "

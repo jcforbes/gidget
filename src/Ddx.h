@@ -1,13 +1,20 @@
 #include <math.h>
 #include <vector>
+#include "Errors.h"
 
 inline double ddxAvg(double left, double right)
 {
+  if(left!=left || right!=right)
+      errormsg("Error computing ddx");
+
   return (left+right)/2.0;
 }
 
 inline double ddx(double left, double right)
 {
+  if(left!=left || right!=right)
+      errormsg("Error computing ddx");
+
   if(left*right <=0.)
     return 0.0;
   if(fabs(left)>fabs(right))

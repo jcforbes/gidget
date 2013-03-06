@@ -101,8 +101,9 @@ DiskContents::DiskContents(double tH, double eta,
         double Qinit, double km,
         unsigned int NA, unsigned int NP,
         double minSigSt,
-			   double rfrec, double zetarec,
-			   double fh2min, double tdeph2sc) :
+		double rfrec, double zetarec,
+		double fh2min, double tdeph2sc,
+        double ZIGM) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
     dim(d), mesh(m), dbg(ddbg),
@@ -121,7 +122,13 @@ DiskContents::DiskContents(double tH, double eta,
     fH2Min(fh2min),
     thickness(thk), migratePassive(migP),
     col(std::vector<double>(m.nx()+1,0.)),
-    sig(std::vector<double>(m.nx()+1,0.)),  
+    sig(std::vector<double>(m.nx()+1,0.)),
+    dsigdtTrans(std::vector<double>(m.nx()+1,0.)),
+    dsigdtDdx(std::vector<double>(m.nx()+1,0.)),
+    dsigdtHeat(std::vector<double>(m.nx()+1,0.)),
+    dsigdtCool(std::vector<double>(m.nx()+1,0.)),
+    dcoldtIncoming(std::vector<double>(m.nx()+1,0.)),
+    dcoldtOutgoing(std::vector<double>(m.nx()+1,0.)),
     dQdS(std::vector<double>(m.nx()+1,0.)), 
     dQds(std::vector<double>(m.nx()+1,0.)), 
     dQdSerr(std::vector<double>(m.nx()+1)),
@@ -131,6 +138,8 @@ DiskContents::DiskContents(double tH, double eta,
     dsigdtPrev(std::vector<double>(m.nx()+1,0.)),
     dsigdt(std::vector<double>(m.nx()+1,0.)),
     dZDiskdtPrev(std::vector<double>(m.nx()+1,0.)),
+    dZDiskdtDiff(std::vector<double>(m.nx()+1,0.)),
+    dZDiskdtAdv(std::vector<double>(m.nx()+1,0.)),
     dZDiskdt(std::vector<double>(m.nx()+1,0.)),
     colSFR(std::vector<double>(m.nx()+1,0.)),
     keepTorqueOff(std::vector<int>(m.nx()+1,0)),
@@ -161,7 +170,8 @@ DiskContents::DiskContents(double tH, double eta,
     dm1(expm1(m.dlnx())), // dm1 = d-1. Use expm1 to find this to high precision.
     dmm1(-expm1(-m.dlnx())),   // dmm1 = 1 -d^-1
     dmdinv(expm1(2.*m.dlnx())/exp(m.dlnx())),  // dmdinv = d -d^-1
-    sqd(exp(m.dlnx()/2.)) // sqd = square root of d
+    sqd(exp(m.dlnx()/2.)), // sqd = square root of d
+    Z_IGM(ZIGM)
 {
     accel_colst = gsl_interp_accel_alloc();
     accel_sigst = gsl_interp_accel_alloc();
@@ -211,16 +221,15 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
     StellarPop * initialStarsP = new StellarPop(mesh);
 
 
-    double Z_Init = 0.1 * Z_Sol;
     for(unsigned int n=1; n<=nx; ++n) {
-        ZDisk[n] = Z_Init;
+        ZDisk[n] = Z_IGM;
 
         col[n] = in.col[n];
         sig[n] = in.sig[n];
         initialStarsA->spcol[n] = in.col_st[n];
         initialStarsA->spsigR[n] = in.sig_stR[n];
         initialStarsA->spsigZ[n] = in.sig_stZ[n];
-        initialStarsA->spZ[n]   = Z_Init;
+        initialStarsA->spZ[n]   = Z_IGM;
         initialStarsA->spZV[n]  = 0.0;
 
         initialStarsP->spcol[n] = initialStarsA->spcol[n];
@@ -253,7 +262,7 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 
 // Simplify things. Just put in exponential disks with constant velocity dispersions.
 // Set Q=Qf only when these simple initial tries yield Q<Qf.
-void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
+void DiskContents::Initialize(double fcool, double fg0,
         double sig0, double phi0, double Mh0,
         double MhZs, double stScaleLength)
 {
@@ -275,11 +284,11 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
     double S0 = 0.18*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
 
     for(unsigned int n=1; n<=nx; ++n) {
-        ZDisk[n] = Z_Init;
+        ZDisk[n] = Z_IGM;
         initialStarsA->spcol[n] = S0*(1-fg0)*exp(-x[n]/xd);
         initialStarsA->spsigR[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spsigZ[n] = max(sig0 * phi0, minsigst);
-        initialStarsA->spZ[n] = Z_Init;
+        initialStarsA->spZ[n] = Z_IGM;
         initialStarsA->spZV[n] = 0.0;
 
         initialStarsP->spcol[n] = initialStarsA->spcol[n];
@@ -316,9 +325,9 @@ void DiskContents::Initialize(double Z_Init, double fcool, double fg0,
 }
 
 
-// Z_Init is in absolute units (i.e solar metallicity would be ~0.02), Mh0 in solar masses
+// Mh0 in solar masses
 // sigst0 is in units of vphiR. stScaleLength is, as usual in units of kpc, as is BulgeRadius.
-void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
+void DiskContents::Initialize(double fcool, double fg0,
         double sigst0, double Mh0,double MhZs,
         double stScaleLength)
 {			     
@@ -339,7 +348,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
 
         //// For each cell...
         for(unsigned int n=1; n<=nx; ++n) {
-            ZDisk[n] = Z_Init;
+            ZDisk[n] = Z_IGM;
 
             // Put in the exponential stellar profile.
             initialStarsA->spcol[n] = S0 *exp(-x[n]/xd);
@@ -359,7 +368,7 @@ void DiskContents::Initialize(double Z_Init,double fcool, double fg0,
                 maxsig=initialStarsA->spsigR[n];
                 maxsign=n;
             }
-            initialStarsA->spZ[n] = Z_Init;
+            initialStarsA->spZ[n] = Z_IGM;
             initialStarsA->spZV[n] = 0.0;
 
             initialStarsP->spcol[n] = initialStarsA->spcol[n];
@@ -451,16 +460,15 @@ void DiskContents::Initialize(double tempRatio, double fg0)
     //  InitializeGrid(BulgeRadius);
 
     // Metallicity
-    double Z_Init = 0.1*Z_Sol;
     for(unsigned int n=1; n<=nx; ++n) {
-        ZDisk[n] = Z_Init;
+        ZDisk[n] = Z_IGM;
         sig[n] = pow(dim.chi()/(ETA*fg0),1./3.)/sqrt(2.);
         col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
             tempRatio/(x[n]*M_PI*dim.chi() * (tempRatio + (1.-fg0)/fg0));
         initialStarsA->spcol[n] = col[n]*(1.-fg0)/fg0;
         initialStarsA->spsigR[n] = max(tempRatio*sig[n],minsigst);
         initialStarsA->spsigZ[n] = initialStarsA->spsigR[n];
-        initialStarsA->spZ[n]   = Z_Init;
+        initialStarsA->spZ[n]   = Z_IGM;
         initialStarsA->spZV[n]  = 0.0;
         initialStarsP->spcol[n] = initialStarsA->spcol[n];
         initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
@@ -504,7 +512,10 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
     //  }
     //  MdotiPlusHalf[nx] = -1.0 / (uu[nx] * (1.0+ beta[nx]))  * tauvec[2][nx];
 
-
+    for(unsigned int n=1; n<=nx; ++n) {
+        dcoldtIncoming[n] = 0;
+        dcoldtOutgoing[n] = 0;
+    }
     for(unsigned int n=1; n<=nx; ++n) {
         double dlnZdx; double dlnZdxL; double dlnZdxR;
         // dlnx=dx/x 
@@ -531,6 +542,28 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
 
         dcoldtPrev[n] = dcoldt[n]; 
+
+        if(MdotiPlusHalf[n] > 0) {
+            dcoldtIncoming[n] += MdotiPlusHalf[n] / (mesh.dx(n)*x[n]);
+            if(n<nx)
+                dcoldtOutgoing[n+1] += MdotiPlusHalf[n] / (x[n+1]*mesh.dx(n+1));
+        }
+        if(MdotiPlusHalfMRI[n] > 0) {
+            dcoldtIncoming[n] += MdotiPlusHalfMRI[n] / (mesh.dx(n)*x[n]);
+            if(n<nx)
+                dcoldtOutgoing[n+1] += MdotiPlusHalfMRI[n] / (x[n+1]*mesh.dx(n+1));
+        }
+        if(MdotiPlusHalf[n] < 0) {
+            if(n<nx)
+                dcoldtIncoming[n+1] += -MdotiPlusHalf[n] / (mesh.dx(n+1)*x[n+1]);
+            dcoldtOutgoing[n] += -MdotiPlusHalf[n] / (mesh.dx(n)*x[n]);
+        }
+        if(MdotiPlusHalfMRI[n] < 0) {
+            if(n<nx)
+                dcoldtIncoming[n+1] += -MdotiPlusHalfMRI[n] / (mesh.dx(n+1)*x[n+1]);
+            dcoldtOutgoing[n] += -MdotiPlusHalfMRI[n] / (mesh.dx(n)*x[n]);
+        }
+
         dcoldt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n]- MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n])
             -RfREC * colSFR[n] - dSdtOutflows(n) + accProf[n]*AccRate;
 
@@ -545,6 +578,16 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
     	double dsigdtMRI = (MdotiPlusHalfMRI[n] - MdotiPlusHalfMRI[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddxSig*tauvecMRI[2][n]/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvecMRI[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
 	    double dsigdtGI = (MdotiPlusHalf[n] - MdotiPlusHalf[n-1])*sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]) - 5.0*ddxSig*tauvec2/(3.0*(beta[n]+1.)*x[n]*col[n]*uu[n]) + uu[n]*(beta[n]-1.)*tauvec[1][n]/(3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
 	
+        dsigdtTrans[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n]/(3.0*x[n]*mesh.dx(n)*col[n]);
+        dsigdtDdx[n] = -5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]);
+        dsigdtHeat[n] = uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+
+        if(sig[n] >= sigth)
+            dsigdtCool[n] = -2.0*M_PI*M_PI*(ETA*pow(1.-sigth*sigth/(sig[n]*sig[n]),1.5))    
+                *col[n]*dim.chi()*(1.0+activeColSt(n)/col[n] *sig[n]/activeSigStZ(n))/3.0;
+        else 
+            dsigdtCool[n] = 0.0;
+
         dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
             - 5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
             +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
@@ -558,6 +601,8 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
 
 
         //    colSFR[n] = dSSFdt(n);
+        dZDiskdtAdv[n] =  -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n]  * dlnZdx *tauvec[2][n] ;
+
         dZDiskdtPrev[n] = dZDiskdt[n];
         dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
             * dlnZdx *tauvec[2][n] 
@@ -1008,7 +1053,21 @@ void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const dou
 
     // Zero out positive (non-physical) torques.
     for(unsigned int n=0; n<=nx+1; ++n) {
-        if(tauvec[1][n]>0.0) tauvec[1][n]=0.0;
+        if(tauvec[1][n]>0.0) {
+            tauvec[1][n]=0.0;
+        }
+    }
+
+    if(dbg.opt(18)) {
+        std::vector<int> overshoot(nx+1,0);
+        for(unsigned int n=1; n<=nx; ++n) {
+            if(tauvec[1][n]>=0.0 && (tauvec[1][n-1]<0.0 || tauvec[1][n+1]<0.0))
+                overshoot[n]=1;
+        }
+        for(unsigned int n=1; n<=nx; ++n) {
+            if(overshoot[n]==1)
+                tauvec[1][n]=(tauvec[1][n-1]+tauvec[1][n+1])/3.0;
+        }
     }
 
     // Compute first derivatives and fluxes.
@@ -1091,7 +1150,9 @@ void DiskContents::DiffuseMetals(double dt)
     gsl_linalg_solve_tridiag(diag,ur,lr,MetalMass1,MetalMass2);
 
     for(unsigned int n=1; n<=nx; ++n) {
+        dZDiskdtDiff[n] = ZDisk[n]/dt;
         ZDisk[n] = gsl_vector_get(MetalMass2,n-1)/ (col[n]*x[n]*x[n]*dlnx);
+        dZDiskdtDiff[n] -= ZDisk[n]/dt;
         if(ZDisk[n]!=ZDisk[n] || ZDisk[n]<0.0 || ZDisk[n]>1.0)
             errormsg("Error diffusing the metals. Printing n, ZDisk[n], col[n]:  "+str(n)+" "+str(ZDisk[n])+" "+str(col[n]));
     }
@@ -1431,8 +1492,17 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
     double absc = 1.;
     RafikovQParams rqp;
     //  std::vector<double> LL(nx+1,0.), DD(nx+1,0.0), UU(nx+1,0.0), FF(nx+1,0.0);
+    std::vector<double> Qs(nx+1,fixedQ);
     for(unsigned int n=1; n<=nx; ++n) {
         ComputeRafikovQParams(&rqp,n);
+        Qs[n] = Q(&rqp,&absc);
+    }
+
+
+
+    for(unsigned int n=1; n<=nx; ++n) {
+
+
         double ddxSig = ddx(sig,n,x,true,!dbg.opt(9));
         std::vector<int> & flags = flagList[n];
         double baseDdxTerm = dQds[n] * (-5.0/(3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]));
@@ -1503,20 +1573,24 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         //if(redshift <.1 && n>=20 && n<=40) {
         //    std::cout << "Components of torque eq: n, S,sR,sZ "<<n<<" "<<spsActive[i].dQdsR[n] * dSigStRdt(n,i,redshift,spsActive,tauvecStar)<<" "<<
         //}
-        double QQ = Q(&rqp,&absc);
+        double QQ = Qs[n];// Q(&rqp,&absc);
 
         // Forget all of the contributions to forcing we just computed, and
         // set it to an exponential.
         if(dbg.opt(4)) {
-	  FF[n] = exp((fixedQ-QQ)*uu[n] / (x[n]));
+    	  FF[n] = exp((fixedQ-QQ)*uu[n] / (x[n]));
 
+        }
+
+        if(dbg.opt(0) && FF[n] < 0.0)  {
+          FF[n]=0.0;
         }
 
 
         // When this cell is stable, set the torque equal to zero. This may imply a non-zero
         // mass flux if tau' is nonzero, in which case mass may flow into this cell, but that's
         // exactly what we want to happen.
-        if(QQ>fixedQ) {
+        if(QQ>fixedQ && !dbg.opt(0)) {
             FF[n]=0.0;
             UU[n]=0.0;
             DD[n]=1.0;
@@ -1690,8 +1764,8 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(x[n]);wrt.push_back(tauvec[1][n]);wrt.push_back(tauvec[2][n]);  // 1..3
         wrt.push_back(col[n]);wrt.push_back(sig[n]);wrt.push_back(col_st[n]);         // 4..6
         wrt.push_back(sig_stR[n]);wrt.push_back(dcoldt[n]);wrt.push_back(dsigdt[n]);   // 7..9
-        wrt.push_back(dcol_stdt);wrt.push_back(dsig_stdt);wrt.push_back(currentQ);    // 10..12
-        wrt.push_back(0);wrt.push_back(MdotiPlusHalfMRI[n]*dim.MdotExt0*speryear/MSol);wrt.push_back(beta[n]);   // 13..15
+        wrt.push_back(0);wrt.push_back(dsig_stdt);wrt.push_back(currentQ);    // 10..12
+        wrt.push_back(dZDiskdtAdv[n]);wrt.push_back(MdotiPlusHalfMRI[n]*dim.MdotExt0*speryear/MSol);wrt.push_back(beta[n]);   // 13..15
         wrt.push_back(uu[n]);wrt.push_back(col[n]/(col[n]+col_st[n]));wrt.push_back(temp2); // 16..18
         wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
         wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
@@ -1700,12 +1774,13 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(dQdS[n]);wrt.push_back(dQds[n]);wrt.push_back(dQdSerr[n]); // 31..33
         wrt.push_back(dQdserr[n]);wrt.push_back(yy);wrt.push_back(torqueErr); // 34..36
         wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back((MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*dim.MdotExt0*speryear/MSol); // 37..39
-        wrt.push_back(0.0);wrt.push_back(0);wrt.push_back(0);//40..42
-        wrt.push_back(ddx(tauvec[2],n,x,false,true));wrt.push_back(ddx(sig,n,x,true,!dbg.opt(9)));wrt.push_back(0); // 43..45
-        wrt.push_back(0);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
+        wrt.push_back(dsigdtTrans[n]);wrt.push_back(dsigdtDdx[n]);wrt.push_back(dsigdtHeat[n]);//40..42
+        wrt.push_back(ddx(tauvec[2],n,x,false,true));wrt.push_back(ddx(sig,n,x,true,!dbg.opt(9)));wrt.push_back(dsigdtCool[n]); // 43..45
+        wrt.push_back(dZDiskdtDiff[n]);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
         wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
         wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52
-
+        wrt.push_back(dcoldtIncoming[n]); wrt.push_back(dcoldtOutgoing[n]); // 53..54
+        
         if(n==1 ) {
             int ncol = wrt.size();
             int nrow = nx;

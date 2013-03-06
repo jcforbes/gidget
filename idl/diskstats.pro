@@ -236,7 +236,7 @@ FUNCTION diskStats,model,z=z
 
 
     wh = where(info NE info, count)
-    IF(count NE 0) THEN STOP, "NaN found in modelInfo!"
+;    IF(count NE 0) THEN STOP, "NaN found in modelInfo!"
 
     return,info
 END

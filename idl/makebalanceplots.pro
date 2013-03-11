@@ -57,7 +57,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
         theName = ExtractSlashName( (*(ptrListOfModels[k])).name, 1)
         filename = theName+"_"+baseName+"_only"
         FigureInit,filename,svSinglePlot,n_elements(whichRedshifts),1
-        modmultiplot,[n_elements(whichRedshifts),1],mxtitle=labels[0],mxtitSize=cs, myTitle=myTitle,myTitSize=cs,/square,mxTitOffset=.05,myTitOffset=.05
+        modmultiplot,[n_elements(whichRedshifts),1],mxtitle=labels[0],mxtitSize=cs, myTitle=myTitle,myTitSize=cs,/square,mxTitOffset=-.35,myTitOffset=-.35
 ; myTitle=myTitle,myTitSize=cs;,mxtitle=labels[0],mxtitSize=cs,/square,additionalMargin=0.2       
         !p.noerase=0
         
@@ -78,7 +78,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
                 ENDFOR
             ENDIF
 
-            xoff = .388*gap + (1.0-3.5*gap) * (.9/double(n_elements(zs)) + double(i)/double(n_elements(zs)))
+            xoff = .828*gap + (1.0-3.5*gap) * (.9/double(n_elements(zs)) + double(i)/double(n_elements(zs)))
             XYOUTS,xoff,yoff,zs[i],/normal,color=0,charsize=cs*1.2,charthick=chth
 
             modmultiplot
@@ -86,7 +86,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
         ENDFOR
 ;        XYOUTS,.9,yoff,theName,color=0,charsize=cs,charthick=chth,/normal
         FigureClean,filename,svSinglePlot
-        latexify,(filename+".eps"),labels,texLabels,[replicate(1.0,n_elements(labels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
+        latexify,(filename+".eps"),labels,texLabels,[replicate(1.3,n_elements(labels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
         modmultiplot,/default
         spawn,"ps2pdf -dEPSCrop "+filename+".eps"
         spawn,"rm "+filename+".eps"

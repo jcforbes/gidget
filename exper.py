@@ -781,10 +781,6 @@ if __name__ == "__main__":
     rw10[0].vary('b',0,2.5,6,0)
     rw10[1].vary('b',3.5,10,14,0)
 
-    # problem @ beta0=.95
-    rw26=NewSetOfExperiments(rw01,"rw26",N=2)
-    rw26[0].vary('innerPowerLaw',-0.5,.45,20,0)
-    rw26[1].vary('innerPowerLaw',.55,.95, 9,0)
 
     # Vary initial gas fraction
     rw11=NewSetOfExperiments(rw01,"rw11",N=2)
@@ -832,7 +828,7 @@ if __name__ == "__main__":
 
     # Vary delta omega
     rw20=NewSetOfExperiments(rw01,"rw20",N=2)
-    [rw20[i].vary('whichAccretionHistory',1001,1400,400,0) for i in range(len(rw20))]
+    [rw20[i].vary('whichAccretionHistory',1001,1400,400,0,3) for i in range(len(rw20))]
     rw20[0].irregularVary('deltaOmega',.2)
     rw20[1].irregularVary('deltaOmega',.5)
 #    rw20[2].irregularVary('deltaOmega',.8)
@@ -865,9 +861,11 @@ if __name__ == "__main__":
     rw25[0].vary('fcool',.20,.55,8,0)
     rw25[1].vary('fcool',.65,1.0,8,0)
 
-    rw29=NewSetOfExperiments(rw01,"rw29",N=2)
-    rw29[0].vary('phi0',.5,.95,10,1)
-    rw29[1].vary('phi0',1.05,2.0,10,1)
+    # problem @ beta0=.95
+    rw26=NewSetOfExperiments(rw01,"rw26",N=2)
+    rw26[0].vary('innerPowerLaw',-0.5,.45,20,0,6)
+    rw26[0].irregularVary('softening',[-2 for i in range(10)]+[2 for i in range(10)],6)
+    rw26[1].vary('innerPowerLaw',.55,.95, 9,0)
 
     # Sanity check. Very strong efficiency evolution
     rw27=NewSetOfExperiments(rw01,"rw27",N=2)
@@ -883,6 +881,11 @@ if __name__ == "__main__":
     rw28=NewSetOfExperiments(rw27,"rw28")
     [rw28[i].irregularVary('dbg',2+2**6) for i in range(len(rw28))]
     [rw28[i].irregularVary('RfREC',.8) for i in range(len(rw28))]
+
+    rw29=NewSetOfExperiments(rw01,"rw29",N=2)
+    rw29[0].vary('phi0',.5,.95,10,1)
+    rw29[1].vary('phi0',1.05,2.0,10,1)
+
 
     rw30=NewSetOfExperiments(rw01,"rw30",N=2)
     rw30[0].vary('fH2Min',.003,.029,10,1)
@@ -917,16 +920,47 @@ if __name__ == "__main__":
     rw36[0].irregularVary('dbg',2+2**4) # exp Delta Q
     rw36[1].irregularVary('dbg',2+2**17) # upstream
     rw36[2].irregularVary('dbg',2+2**18) # overshoot
-    # no star formation!
+    # no star formation! - rw36d
     rw36[3].irregularVary('epsff',0)
     rw36[3].irregularVary('tDepH2SC',1000000000.0)
 #    rw36[3].irregularVary('ZIGM',10**-10)
     rw36[3].irregularVary('fH2Min',0.03)
-    rw36[4].irregularVary('dbg',2+2**12) # no GI
+    rw36[4].irregularVary('dbg',2+2**12) # no GI - rw36e
     rw36[5].irregularVary('dbg',2+1) # tau=0 when F<0
     rw36[5].irregularVary('kappaMetals',1.0e-7)
     rw36[5].irregularVary('zetaREC',.1)
 
+    rw37=NewSetOfExperiments(rw20,"rw37")
+    sc=GetScaleLengths(400,multiple=0.7,scatter=0.3,upper=20,lower=2)
+    scp5=GetScaleLengths(400,multiple=0.35,scatter=0.3,upper=10,lower=1)
+    [rw37[i].irregularVary('accScaleLength',sc,3) for i in range(len(rw37))]
+    [rw37[i].irregularVary('diskScaleLength',scp5,3) for i in range(len(rw37))]
+            
+    rw38=NewSetOfExperiments(rw01,"rw38",N=2)
+    rw38[0].vary("ZIGM",.0002,.002,5,1) # 1/100 - 1/10 solar
+    rw38[1].vary("ZIGM",.002,.02,5,1) # 1/10 - 1 solar
+
+    # Vary halo mass, but only 
+    rw39=NewSetOfExperiments(rw01,"rw39",N=2)
+    Mhlo = [1.0e10 * 10**(i/10.0) for i in range(20)]
+    Mhhi = [1.0e12 * 10**((i+1.0)/10.0) for i in range(10)]
+    rw39[0].irregularVary('Mh0',Mhlo,5)
+    rw39[1].irregularVary('Mh0',Mhhi,5)
+
+    rw40=NewSetOfExperiments(rw39,"rw40")
+    rw40[0].irregularVary("R",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1),5)
+    rw40[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(20)],5)
+    rw40[0].irregularVary("diskScaleLength",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=0.35),5)
+    rw40[0].irregularVary("accScaleLength",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
+#    rw40[0].irregularVary("b",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=0.3),5)
+    rw40[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(20)],5)
+
+    rw40[1].irregularVary("R",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
+    rw40[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(10)],5)
+    rw40[1].irregularVary("diskScaleLength",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.35),5)
+    rw40[1].irregularVary("accScaleLength",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
+#    rw40[1].irregularVary("b",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
+    rw40[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(10)],5)
 
 
     # A series of experiments designed to explore the effect on halo mass.

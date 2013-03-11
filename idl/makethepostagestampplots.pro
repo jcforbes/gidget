@@ -29,12 +29,16 @@ PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th, $
                     FOR m=0,numberOfModels[exper]-1 DO OPLOT, theData[j,*,0,m+offsetModel],theData[j,*,i,m+offsetModel],COLOR=exper,THICK=tthh
 
                 ENDFOR
-                gap =0.15; 0.2
-                xoff = gap + (1.0-2.3*gap) * (.8/double(columns) + double((k MOD columns))/double(columns))
-                yoff = 1.0 - 1.05*gap - (1.0-2.05*gap)* double(k/columns)/double(rows)
+                IF(columns EQ 6 and rows EQ 4) THEN BEGIN
+                    bottom = 0 
+                    IF(names[i] EQ 'colPerCrit') THEN bottom=1
+                    gap =0.15; 0.2
+                    xoff = gap + (1.0-2.3*gap) * (.8/double(columns) + double((k MOD columns))/double(columns))
+                    yoff = 1.0 - 1.2*gap - bottom*(1.0-4.5*gap)/double(rows) - (1.0-2.45*gap)* double(k/columns)/double(rows)
+                ENDIF
                 XYOUTS,xoff,yoff,stampLabels[k],/normal,color=0,charsize=cs*.9,charthick=chth
-                XYOUTS,xoff,yoff-.01,lowRange[k],/normal,color=1,charsize=cs*.8,charthick=chth*.8
-                XYOUTS,xoff,yoff-.02,hiRange[k],/normal,color=2,charsize=cs*.8,charthick=chth*.8
+                XYOUTS,xoff,yoff-.013,lowRange[k],/normal,color=1,charsize=cs*.8,charthick=chth*.8
+                XYOUTS,xoff,yoff-.025,hiRange[k],/normal,color=2,charsize=cs*.8,charthick=chth*.8
                 modmultiplot
             ENDFOR
             FigureClean,filename,svSinglePlot

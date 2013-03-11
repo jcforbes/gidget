@@ -61,7 +61,20 @@ PRO setct,which,n,colorRef
         g[problematic] = byte(fix(g[problematic]/2))
         b[problematic] = byte(fix(b[problematic]/2))
 
+        rr = fix(r[0:11])-80
+        gg = fix(g[0:11])-80
+        bb = fix(b[0:11])-80
+
+        wh = WHERE(rr LT 0,ct)
+        IF(ct NE 0) THEN rr[wh]=0
+        wh = WHERE(gg LT 0,ct)
+        IF(ct NE 0) THEN gg[wh]=0
+        wh = WHERE(bb LT 0,ct)
+        IF(ct NE 0) THEN bb[wh]=0
 	
+        r[50:61] = rr
+        g[50:61] = gg
+        b[50:61] = bb
 	ENDIF
 
 	IF(which EQ 4) THEN BEGIN

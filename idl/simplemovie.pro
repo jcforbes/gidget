@@ -182,7 +182,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(nr NE nmodels) THEN randomSet = cgRandomIndices(nmodels,nr) ELSE randomSet=indgen(nmodels)
       IF(includeRandom EQ 1 or NIndVarBins EQ 0 or n_elements(data[0,*,0,0]) EQ 1) THEN BEGIN
           ;; loop over models (4th column of data)
-          FOR jj=0,nmodels-1 DO BEGIN 
+          FOR jj=0,nmodels*(1-includeRandom) + n_elements(randomSet)*includeRandom-1 DO BEGIN 
             IF(includeRandom NE 1) THEN j=nmodels-1-jj $ ;; reverse order!
                 ELSE j=randomSet[jj]
             
@@ -190,7 +190,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
     ;        IF(n_elements(styles) GT 80) THEN IF(sv NE 3 AND sv NE 4) THEN setct,5,n_elements(styles),j ELSE setct,3,n_elements(styles),0
             
             ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
-            OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j],linestyle=styles[j],PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
+            OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j]+50*includeRandom,linestyle=styles[j]*(1-includerandom)+includeRandom*jj,PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
             IF(prev EQ 1) THEN BEGIN
               OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=styles[j],THICK=thicknesses[j]
             ENDIF
@@ -255,9 +255,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
                   ENDFOR ; end loop over independent variable bins.
 		  ;stop
                   FOR percentileIndex=0,nper-1 DO BEGIN
-                      theDist = ABS(nper-nper/2)
+                      theDist = ABS(percentileIndex-nper/2)
                       OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor, $
-                        THICK=max(thicknesses)*1.2/(theDist+1),linestyle=styles[0]
+                        THICK=max(thicknesses)*1.3/(theDist+1.0),linestyle=0
                   ENDFOR
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color

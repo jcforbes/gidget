@@ -1,5 +1,7 @@
 *pdf
 *eps
+TMP*
+src/*.o
 *~
 *.swp
 analysis/r*

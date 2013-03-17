@@ -1150,9 +1150,9 @@ void DiskContents::DiffuseMetals(double dt)
     gsl_linalg_solve_tridiag(diag,ur,lr,MetalMass1,MetalMass2);
 
     for(unsigned int n=1; n<=nx; ++n) {
-        dZDiskdtDiff[n] = ZDisk[n]/dt;
+        dZDiskdtDiff[n] = -ZDisk[n]/dt;
         ZDisk[n] = gsl_vector_get(MetalMass2,n-1)/ (col[n]*x[n]*x[n]*dlnx);
-        dZDiskdtDiff[n] -= ZDisk[n]/dt;
+        dZDiskdtDiff[n] += ZDisk[n]/dt;
         if(ZDisk[n]!=ZDisk[n] || ZDisk[n]<0.0 || ZDisk[n]>1.0)
             errormsg("Error diffusing the metals. Printing n, ZDisk[n], col[n]:  "+str(n)+" "+str(ZDisk[n])+" "+str(col[n]));
     }

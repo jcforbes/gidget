@@ -835,14 +835,14 @@ if __name__ == "__main__":
 
     # Lognormal acc history variation, with different coherence redshift interwals
     rw21=NewSetOfExperiments(rw01,"rw21",N=2)
-    [rw21[i].vary('whichAccretionHistory',-1010,-1000,11,0) for i in range(len(rw21))]
+    [rw21[i].vary('whichAccretionHistory',-1050,-1000,51,0) for i in range(len(rw21))]
     [rw21[i].irregularVary("fscatter",0.3) for i in range(len(rw21))]
     rw21[0].irregularVary("NChanges",5)
     rw21[1].irregularVary("NChanges",30)
 
     # Lognormal acc history variation, with different scatter amplitude
     rw22=NewSetOfExperiments(rw01,"rw22",N=2)
-    [rw22[i].vary("whichAccretionHistory",-1010,-1000,11,0) for i in range(len(rw22))]
+    [rw22[i].vary("whichAccretionHistory",-1050,-1000,51,0) for i in range(len(rw22))]
     [rw22[i].irregularVary("NChanges",10) for i in range(len(rw22))]
     rw22[0].irregularVary("fscatter",0.1)
     rw22[1].irregularVary("fscatter",0.5)
@@ -962,7 +962,34 @@ if __name__ == "__main__":
 #    rw40[1].irregularVary("b",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
     rw40[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(10)],5)
 
+    rw41=NewSetOfExperiments(rw01,"rw41",N=2)
+    Mhlo = [1.0e10 * 10**(i/100.0) for i in range(200)]
+    Mhhi = [1.0e12 * 10**((i+1.0)/100.0) for i in range(100)]
 
+    rw41[0].irregularVary("R",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1),5)
+    rw41[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(200)],5)
+    rw41[0].irregularVary("diskScaleLength",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.35),5)
+    rw41[0].irregularVary("accScaleLength",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
+#    rw41[0].irregularVary("b",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.3),5)
+    rw41[0].irregularVary("b",0)
+    rw41[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(200)],5)
+    rw41[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(200)],5)
+
+    rw41[1].irregularVary("R",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
+    rw41[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(100)],5)
+    rw41[1].irregularVary("diskScaleLength",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.35),5)
+    rw41[1].irregularVary("accScaleLength",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
+#    rw41[1].irregularVary("b",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
+    rw41[1].irregularVary("b",0)
+    rw41[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(100)],5)
+    rw41[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(100)],5)
+
+
+    rw42=NewSetOfExperiments(rw01,"rw42",N=3)
+    rw42[0].vary('innerPowerLaw',-0.5,-0.05,10,0,6)
+    rw42[0].vary('softening',-2,-2,10,0,6)
+    rw42[1].vary('innerPowerLaw',0.0,0.5, 11,0)
+    rw42[2].vary('innerPowerLaw',.55,.95, 9,0)
     # A series of experiments designed to explore the effect on halo mass.
 
 

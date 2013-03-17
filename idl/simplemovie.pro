@@ -269,6 +269,7 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
         IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
           ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+          ELSE IF(wf EQ 1) THEN XYOUTS,.36+.36*float(tii)/float(n_elements(whichFrames)),.69,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
           ELSE IF(wf EQ 2) THEN XYOUTS,.35+.36*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
           ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
       ENDIF

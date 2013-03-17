@@ -7,14 +7,14 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
     filename=filename+basename+"_all"
     FigureInit,filename,svSinglePlot,n_elements(whichRedshifts),n_elements(ptrListOfModels)
     myTitle = "Fraction of";labels[1]
-    modmultiplot,[n_elements(whichRedshifts),n_elements(ptrListOfModels)],mxtitle=labels[0],mxtitSize=cs, myTitle=myTitle,myTitSize=cs
+    modmultiplot,[n_elements(whichRedshifts),n_elements(ptrListOfModels)],mxtitle=labels[0],mxtitSize=cs, myTitle=myTitle,myTitSize=cs,additionalMargin=.11
     
     !p.noerase=0
     FOR k=0,n_elements(ptrListOfModels)-1 DO BEGIN
         theData = (*(ptrListOfModels[k])).theData
         theName = ExtractSlashName((*(ptrListOfModels[k])).name,1)
         gap =0.15; 0.2
-        yoff = 1.0 - 1.3*gap - (1.0-2.05*gap)* double(k)/double(n_elements(ptrListOfModels))
+        yoff = 1.0 - 1.3*gap - (1.0-2.35*gap)* double(k)/double(n_elements(ptrListOfModels))
         FOR i=0,n_elements(whichRedshifts)-1 DO BEGIN
             IF(k NE 0 OR i NE 0) THEN !p.noerase=1
             yt=""
@@ -32,6 +32,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
 
             xoff = .075+gap + (1.0-2.8*gap) * (.9/double(n_elements(zs)) + double(i)/double(n_elements(zs)))
             IF(k EQ 0) THEN XYOUTS,xoff,yoff,zs[i],/normal,color=0,charsize=cs*1.2,charthick=chth
+            IF(i EQ 0) THEN XYOUTS,.87,yoff-.07+.07*k/double(n_elements(ptrListOfModels)),annotations[k],color=0,charsize=cs*1.5,charthick=chth,/normal
 
             modmultiplot
 
@@ -39,12 +40,10 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
 ;        XYOUTS,.9,yoff,theName,color=0,charsize=cs,charthick=chth,/normal
     ENDFOR
     FigureClean,filename,svSinglePlot
-    latexify,(filename+".eps"),labels,texLabels,[replicate(1.0,n_elements(labels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
+    latexify,(filename+".eps"),[myTitle,labels],[myTitle,texLabels],[replicate(1.0,n_elements(labels)+1)],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
     modmultiplot,/default
     spawn,"ps2pdf -dEPSCrop "+filename+".eps"
     spawn,"rm "+filename+".eps"
-;    spawn,"rm TMP_"+filename+".eps"
-;    spawn,"rm TMP_"+filename+".pdf"
 
 
 

@@ -962,7 +962,11 @@ if __name__ == "__main__":
 #    rw40[1].irregularVary("b",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
     rw40[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(10)],5)
 
-    rw41=NewSetOfExperiments(rw01,"rw41",N=2)
+
+    rw41x=NewSetOfExperiments(rw01,"rw41x")
+    rw41x[0].irregularVary("NPassive",1)
+
+    rw41=NewSetOfExperiments(rw41x[0],"rw41",N=2)
     Mhlo = [1.0e10 * 10**(i/100.0) for i in range(200)]
     Mhhi = [1.0e12 * 10**((i+1.0)/100.0) for i in range(100)]
 
@@ -974,6 +978,8 @@ if __name__ == "__main__":
     rw41[0].irregularVary("b",0)
     rw41[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(200)],5)
     rw41[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(200)],5)
+    rw41[0].irregularVary('kappaMetals',[(Mhlo[i]/1.0e12)**(-2.0/3.0) for i in range(200)],5)
+    rw41[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(200)],5)
 
     rw41[1].irregularVary("R",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
     rw41[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(100)],5)
@@ -983,6 +989,7 @@ if __name__ == "__main__":
     rw41[1].irregularVary("b",0)
     rw41[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(100)],5)
     rw41[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(100)],5)
+    rw41[1].irregularVary('kappaMetals',[(Mhhi[i]/1.0e12)**(-2.0/3.0) for i in range(100)],5)
 
 
     rw42=NewSetOfExperiments(rw01,"rw42",N=3)

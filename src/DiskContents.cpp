@@ -21,6 +21,18 @@
 #include <iostream>
 #include <fstream>
 
+double PosOnly(double input)
+{
+    if(input>0.0)
+        return input;
+    else
+        return 0.0;
+}
+double NegOnly(double input)
+{
+    return -PosOnly(-input);
+}
+
 double ddxUpstream(std::vector<double>& vec, std::vector<double>& x, std::vector<int>& flags, unsigned int n)
 {
     if(n>1 && n<x.size()-1) {
@@ -141,6 +153,7 @@ DiskContents::DiskContents(double tH, double eta,
     dZDiskdtDiff(std::vector<double>(m.nx()+1,0.)),
     dZDiskdtAdv(std::vector<double>(m.nx()+1,0.)),
     dZDiskdt(std::vector<double>(m.nx()+1,0.)),
+    dMZdt(std::vector<double>(m.nx()+1,0.)),
     colSFR(std::vector<double>(m.nx()+1,0.)),
     keepTorqueOff(std::vector<int>(m.nx()+1,0)),
     diffused_dcoldt(std::vector<double>(m.nx()+1,0.)),
@@ -603,6 +616,24 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         //    colSFR[n] = dSSFdt(n);
         dZDiskdtAdv[n] =  -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n]  * dlnZdx *tauvec[2][n] ;
 
+        double Znp1,Znm1;
+        if(n<nx) 
+            Znp1=ZDisk[n+1];
+        else
+            Znp1=Z_IGM;
+        if(n>1)
+            Znm1=ZDisk[n-1];
+        else
+            Znm1=ZBulge; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
+        dMZdt[n] = yREC*zetaREC*(1.0-RfREC)*colSFR[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0) + // Generation of metals from SF
+                    accProf[n]*AccRate*Z_IGM *x[n]*x[n]*2.0*sinh(dlnx/2.0) +  // new metals from the IGM ;
+                    PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
+                        - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
+                        + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
+                        - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*Znm1;
+
+
+
         dZDiskdtPrev[n] = dZDiskdt[n];
         dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
             * dlnZdx *tauvec[2][n] 
@@ -612,6 +643,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         // Terms for non-instantaneous-recycling
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
             dZDiskdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n]/col[n];
+            dMZdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0);
             dcoldt[n] += spsPassive[i]->dcoldtREC[n];
         }
 
@@ -863,6 +895,8 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
         //	dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
         //    }
 
+        double MZ = ZDisk[n]*x[n]*x[n]*2.0*sinh(dlnx/2.0)*col[n];
+
         if(!dbg.opt(11))
             col[n] += dcoldt[n] * dt; //Euler step
         else
@@ -882,10 +916,13 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
             else
                 sig[n] += dt*dsigdt[n];
         }  
-        if(dbg.opt(11))
-            ZDisk[n] += dt* ((dZDiskdt[n]-dZDiskdtPrev[n])*.5*dt/dtPrev + dZDiskdt[n]);
-        else
-            ZDisk[n] += dZDiskdt[n] * dt; // -- Euler step
+//        if(dbg.opt(11))
+//            ZDisk[n] += dt* ((dZDiskdt[n]-dZDiskdtPrev[n])*.5*dt/dtPrev + dZDiskdt[n]);
+//        else
+//            ZDisk[n] += dZDiskdt[n] * dt; // -- Euler step
+//
+        MZ += dMZdt[n]*dt;
+        ZDisk[n] = MZ/ (x[n]*x[n]*2.0*sinh(dlnx/2.0)*col[n]);
         CumulativeSF[n] += colSFR[n] * dt;
 
         double totalLost=0.0;

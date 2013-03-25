@@ -60,7 +60,7 @@ FUNCTION diskStats,model,z=z
     inr=where(Q GT model.fixedQ*2.5,ct)
     IF(ct GT 0) THEN xin=max(x[inr]) ELSE xin=0.0
     outr=where(fH2 GT .5,ct)
-    IF(ct GT 0) THEN xout=max(x[outr]) ELSE xout=0.0
+    IF(ct GT 0) THEN xout=max(x[outr]) ELSE xout=model.xmin
     tmp=max(col,xpeakInd)
     xpeak=x[xpeakInd]
     xinInd = nearest("position",1,model,xin)
@@ -223,12 +223,26 @@ FUNCTION diskStats,model,z=z
         mdotBulgeG,mdotbulgeSt, $ ; 12,13
         sfr,stMass,totFg,gasZ,eff, $ ; - 14,15,16,17,18
         sfr+mdotBulgeG,stMass+BulgeM, $ ;; 19,20
-        fgL, ZL, vrAvg, GIin*model.Radius, GIout*model.Radius, sigAvg, vrGE0,$   ; 21, 22, 23, 24, 25, 26, 27
-        tdepAvg, gasScaleLength,starScaleLengthMeas,starSersic,starBTMeas, $ ; 28,29,30,31,32
-        gChiSq,stChiSq, sfrHalfRadius, gasHalfRadius, stHalfRadius, $ ; 33,34,35,36,37
+        fgL, ZL, vrAvg, GIin*model.Radius, $ ; 21, 22, 23, 24,
+        GIout*model.Radius, sigAvg, vrGE0,$   ; 25, 26, 27
+        tdepAvg, gasScaleLength, $ ; 28,29
+        starScaleLengthMeas,starSersic,starBTMeas, $ ; 30,31,32
+        gChiSq,stChiSq, sfrHalfRadius, $ ; 33,34,35
+        gasHalfRadius, stHalfRadius, $ ; 36,37
         centralDensity,sStJ,sGasJ,sOutJ, $ ; 38,39,40,41
-        gasZdelta,stZdelta,molfg,tdepAllGas,stZ,stAge,deltaCol, $ ; 42,43,44,45,46,47,48
-        deltaColAvg] ; 49
+        gasZdelta,stZdelta,molfg,tdepAllGas, $ ; 42,43,44,45
+        stZ,stAge,deltaCol,deltaColAvg, $ ; 46,47,48,49
+        BulgeM/(stMass+BulgeM), gasZ*.02, $ ; 50,51
+        ZL*.02, model.x25s[zj]*model.Radius, $ ; 52, 53
+        model.x25s_2[zj]*model.Radius, $ ; 54
+        model.x25s_3[zj]*model.Radius, $ ; 55
+        model.colTranses[zj], $ ;56
+        (stMass+BulgeM)/(0.18 * eff), $ ;57
+        model.x25s_4[zj]*model.Radius, $ ; 58
+        model.sigmath*sqrt(1.0+(model.NN[zj]*model.NN[zj]))^(1.0/3.0), $ ;59
+        max(model.dataCube[zj,*,model.ncolstep+11-1]), $ ;60
+        0] ;61
+    info[61-1]= info[60-1]/info[59-1]
     ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
         ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]
 

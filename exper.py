@@ -980,6 +980,7 @@ if __name__ == "__main__":
     rw41[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(200)],5)
     rw41[0].irregularVary('kappaMetals',[(Mhlo[i]/1.0e12)**(-2.0/3.0) for i in range(200)],5)
     rw41[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(200)],5)
+    rw41[0].irregularVary('Mh0',Mhlo,5)
 
     rw41[1].irregularVary("R",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
     rw41[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(100)],5)
@@ -990,13 +991,49 @@ if __name__ == "__main__":
     rw41[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(100)],5)
     rw41[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(100)],5)
     rw41[1].irregularVary('kappaMetals',[(Mhhi[i]/1.0e12)**(-2.0/3.0) for i in range(100)],5)
-
+    rw41[1].irregularVary('Mh0',Mhhi,5)
 
     rw42=NewSetOfExperiments(rw01,"rw42",N=3)
     rw42[0].vary('innerPowerLaw',-0.5,-0.05,10,0,6)
     rw42[0].vary('softening',-2,-2,10,0,6)
     rw42[1].vary('innerPowerLaw',0.0,0.5, 11,0)
     rw42[2].vary('innerPowerLaw',.55,.95, 9,0)
+
+    rw43=NewSetOfExperiments(rw41,"rw43")
+    [rw43[i].irregularVary('fscatter',0.3) for i in range(len(rw43))]
+    rw43[0].irregularVary('whichAccretionHistory',[-2000+i for i in range(200)],5)
+    rw43[1].irregularVary('whichAccretionHistory',[-1500+i for i in range(100)],5)
+
+    rw44=NewSetOfExperiments(rw43,"rw44")
+    [rw44[i].irregularVary('dbg',2+2**14) for i in range(len(rw44))]
+
+    rw45=NewSetOfExperiments(rw43,"rw45")
+    [rw45[i].irregularVary('NChanges',1) for i in range(len(rw45))]
+
+    rw46=NewSetOfExperiments(rw43,"rw46")
+    [rw46[i].irregularVary('NChanges',1000) for i in range(len(rw46))]
+
+
+    rw47=NewSetOfExperiments(rw43,"rw47")
+    [rw47[i].irregularVary('fscatter',0.1) for i in range(len(rw47))]
+
+    rw48=NewSetOfExperiments(rw47,"rw48")
+    [rw48[i].irregularVary('NChanges',1) for i in range(len(rw48))]
+
+    rw49=NewSetOfExperiments(rw47,"rw49")
+    [rw49[i].irregularVary('NChanges',1000) for i in range(len(rw49))]
+
+
+    rw50=NewSetOfExperiments(rw43,"rw50")
+    [rw50[i].irregularVary('fscatter',0.5) for i in range(len(rw50))]
+
+    rw51=NewSetOfExperiments(rw50,"rw51")
+    [rw51[i].irregularVary('NChanges',1) for i in range(len(rw51))]
+
+    rw52=NewSetOfExperiments(rw50,"rw52")
+    [rw52[i].irregularVary('NChanges',1000) for i in range(len(rw52))]
+
+
     # A series of experiments designed to explore the effect on halo mass.
 
 

@@ -71,8 +71,8 @@ int main(int argc, char **argv) {
     const unsigned int NPassive=     as.Set(10,"N Passive Stellar Populations");
     const double vphiR =             as.Set(220,"Circular velocity (km/s)")*1.e5;
     const double radius=             as.Set(20.,"Outer Radius (kpc)")*cmperkpc;
-    //  const double sigth=         sqrt(as.Set(7000,"Gas Temperature (K)")*kB/mH)/vphiR;
     const double Tgas =		   as.Set(7000,"Gas Temperature (K)");
+    const double sigth = sqrt(Tgas *kB/(mH))/vphiR;
     const double Qlim =              as.Set(2.5,"Limiting Q_*");
     const double fg0  =              as.Set(.5,"Initial gas fraction");
     const double tempRatio =         as.Set(1.,"Initial sigma_*/sigma_g");
@@ -92,14 +92,6 @@ int main(int argc, char **argv) {
     const double Qinit =             as.Set(2.0,"The fixed Q");
     const double kappaMetals =       as.Set(.001,"Kappa Metals");
     const double Mh0 =  		   as.Set(1.0e12,"Halo Mass");
-
-
-
-    // Scale the things which scale with halo mass.
-    //  const double MassLoadingFactor = MassLoadingFactorAtMh12 * pow((Mh0/1.0e12) , -1./3.);
-    //  const double vphiR = vphiRatMh12 * pow(Mh0/1.0e12,  1./3.);
-    const double sigth = sqrt(Tgas *kB/(mH))/vphiR;
-
     const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
     const double NChanges =          as.Set(6,"The number of times the lognormal accretion history should draw a new value.");
     const unsigned int Experimental= as.Set(0,"Debug parameter");
@@ -107,7 +99,7 @@ int main(int argc, char **argv) {
 
     const double zquench =           as.Set(-1.0,"Redshift at which accretion shuts off.");
     const double zrelax =            as.Set(zstart+1.0,"Redshift at which to start the relaxation of the disk");
-    const double zetaREC =           as.Set(1.0,"Metal loading factor");
+    const double zetaREC =           as.Set(1.0,"Metal retention factor");
     const double RfREC =             as.Set(0.46,"Remnant fraction for inst. rec. approx.");
     const double deltaOmega =        as.Set(0.1,"Delta omega to generate Neistein10");
     const unsigned int Noutputs =    as.Set(200,"Number of outputs, excluding an initial and final output.");

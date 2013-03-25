@@ -685,6 +685,8 @@ FUNCTION readOutput,name
 	starsHyperCube[*,*,*,7:8]=convHCube
 
 
+
+
 	model = {name:name,nx:nx,tmax:tmax,maxstep:nstepmax, $
 		radius:Radius,vphiR:vphiR,eta:ETA,epsff:EPS_ff,fg0:FG0, $
 		tauHeat:tauHeat,cosmology:CosmologyOn,analyticQ:analyticQ, $

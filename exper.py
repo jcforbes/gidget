@@ -734,7 +734,7 @@ if __name__ == "__main__":
     rw01.irregularVary('nx',200)
 
 
-    # Vary the exponential scale length of the IC and accretion together.
+    # Vary the scale length of the accretion.
     rw02=NewSetOfExperiments(rw01,"rw02",N=2)
 #    rw02[0].vary('diskScaleLength',l045*.10,l045*.67,5,0,3)
 #    rw02[1].vary('diskScaleLength',l045*.73,l045*2.1,10,0,3)
@@ -804,8 +804,8 @@ if __name__ == "__main__":
 
     # Vary metal loading factor
     rw15=NewSetOfExperiments(rw01,"rw15",N=2)
-    rw15[0].vary('zetaREC',.3,.9,10,1)
-    rw15[1].vary('zetaREC',1.1,3,10,1)
+    rw15[0].vary('zetaREC',.1,.9,9,1)
+    rw15[1].vary('zetaREC',1.1,1.5,4,1)
 
     # Vary Qlim
     rw16=NewSetOfExperiments(rw01,"rw16",N=2)
@@ -1032,6 +1032,9 @@ if __name__ == "__main__":
 
     rw52=NewSetOfExperiments(rw50,"rw52")
     [rw52[i].irregularVary('NChanges',1000) for i in range(len(rw52))]
+
+    rw53=NewSetOfExperiments(rw02,"rw53")
+    [rw53[i].irregularVary('alphaAccretionProfile',1.0) for i in range(len(rw53))]
 
 
     # A series of experiments designed to explore the effect on halo mass.

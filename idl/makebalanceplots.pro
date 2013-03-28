@@ -6,7 +6,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
     FOR k=0,n_elements(ptrListOfModels)-1 DO filename=filename+ExtractSlashName((*(ptrListOfModels[k])).name,1)+"_"
     filename=filename+basename+"_all"
     FigureInit,filename,svSinglePlot,n_elements(whichRedshifts),n_elements(ptrListOfModels)
-    myTitle = "Fraction of";labels[1]
+    myTitle = "";"Fraction of";labels[1]
     modmultiplot,[n_elements(whichRedshifts),n_elements(ptrListOfModels)],mxtitle=labels[0],mxtitSize=cs, myTitle=myTitle,myTitSize=cs,additionalMargin=.11
     
     !p.noerase=0
@@ -43,10 +43,6 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
     latexify,(filename+".eps"),[myTitle,labels],[myTitle,texLabels],[replicate(1.0,n_elements(labels)+1)],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
     modmultiplot,/default
     spawn,"ps2pdf -dEPSCrop "+filename+".eps"
-    spawn,"rm "+filename+".eps"
-
-
-
 
 
 
@@ -88,7 +84,6 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
         latexify,(filename+".eps"),labels,texLabels,[replicate(1.3,n_elements(labels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
         modmultiplot,/default
         spawn,"ps2pdf -dEPSCrop "+filename+".eps"
-        spawn,"rm "+filename+".eps"
     ;    spawn,"rm TMP_"+filename+".eps"
     ;    spawn,"rm TMP_"+filename+".pdf"
     ENDFOR

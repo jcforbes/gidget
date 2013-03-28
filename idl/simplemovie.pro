@@ -25,7 +25,6 @@
 ;; whichFrames - specify a subset of all time indices to use for movies/plots, e.g. [2,17,30]
 ;; texLabels - LaTeX-ified version of axislabels. Only used if svSinglePlot == 2 (meaning save plots as .eps)
 ;; horizontal - for multi-paned plots, arrange them horizontally, as opposed to vertically
-;; timeText - a string to be printed in front of time[i] at each timestep i.
 ;; NIndVarBins - when plotting many galaxies, this variable allows you to divide the galaxies into this many
 ;;   bins according to their value of the independent variable, such that equal numbers will appear in each bin.
 ;; percentileList - after dividing galaxies up into bins by their independent value, within each bin find 
@@ -33,19 +32,35 @@
 ;;   2-sigma contours+the median
 ;; svSinglePlot - the value of sv to use if we're producing a single plot. See figureinit.pro; typically 4 is a good choice
 ;; strt: for each variable, specify whether we should draw a straight line along x=y
+;; yranges: Set the y range for every variable to be the same range, e.g. yranges=[0,1].
+;; ranges: manually specify the data ranges. Useful if the default (simpleranges) yields too much whitespace.
+;; replacementText: a list the same length as whichFrames with a label for each frame which will
+;;          be placed on the plot as an annotation.
+;; fill: fill between each line. I don't use this anymore, as the functionality is a bit specialized
+;;         (see balanceplots.pro )
+;; 
 
-PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=psym,axislabels=axislabels,taillength=taillength,plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels,horizontal=horizontal,timeText=timeText,NIndVarBins=NIndVarBins,percentileList=percentileList,svSinglePlot=svSinglePlot,strt=strt,thicknesses=thicknesses,yranges=yranges,ranges=ranges,replacementText=replacementText,fill=fill,includeRandom=includeRandom
+PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
+    prev=prev,psym=psym,axislabels=axislabels,taillength=taillength, $
+    plotContours=plotContours,whichFrames=whichFrames,texLabels=texLabels, $
+    horizontal=horizontal,NIndVarBins=NIndVarBins, $
+    percentileList=percentileList,svSinglePlot=svSinglePlot,strt=strt, $
+    thicknesses=thicknesses,yranges=yranges,ranges=ranges, $
+    replacementText=replacementText,fill=fill,includeRandom=includeRandom, $
+    additionalLines=additionalLines,additionalLineColors=additionalLineColors, $
+    additionalLineLabels=additionalLineLabels,leg=leg
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
 
   PRINT, "Starting to make the files of the form: ", name,"*"
 
   ;; exclude the first time step from setting the range.
-  IF(n_elements(time) NE n_elements(data[*,0,0,0])) THEN message,"unexpected # of entries for the time vector in simplemovie"
+;  IF(n_elements(time) NE n_elements(data[*,0,0,0])) THEN message,"unexpected # of entries for the time vector in simplemovie"
+  nTimeStepsInput = n_elements(data[*,0,0,0])
   IF(n_elements(ranges) EQ 0) THEN  $
       IF(n_elements(data[*,0,0,0]) GT 3 ) THEN $
-        ranges= simpleranges(data[2:n_elements(time)-1,*,*,*],wrtxlog) $
+        ranges= simpleranges(data[2:nTimeStepsInput-1,*,*,*],wrtxlog) $
       ELSE $
-        ranges=simpleranges(data[0:n_elements(time)-1,*,*,*],wrtxlog)
+        ranges=simpleranges(data[0:nTimeStepsInput-1,*,*,*],wrtxlog)
   IF(n_elements(yranges) EQ 2) THEN BEGIN
     ranges[0,1:n_elements(ranges[0,*])-1] = yranges[0]
     ranges[1,1:n_elements(ranges[1,*])-1] = yranges[1]
@@ -56,9 +71,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(prev) EQ 0) THEN prev=0
   IF(n_elements(taillength) EQ 0) THEN taillength=2
   IF(n_elements(saveFrames) EQ 0) THEN saveFrames=0
-  IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(n_elements(time))
+  IF(n_elements(whichFrames) EQ 0) THEN whichFrames = indgen(nTimeStepsInput)
   IF(n_elements(texLabels) EQ 0) THEN texLabels = axisLabels[*]
-  IF(n_elements(timeText) EQ 0) THEN timeText="z = "
   IF(n_elements(NIndVarBins) EQ 0) THEN NIndVarBins=0
   IF(n_elements(percentileList) EQ 0) THEN percentileList=[.16,.5,.84]
   IF(n_elements(svSinglePlot) EQ 0) THEN svSinglePlot = 4
@@ -66,6 +80,11 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
   IF(n_elements(thicknesses) EQ 0) THEN thicknesses = intarr(n_elements(data[0,0,0,*]))+2
   IF(n_elements(fill) EQ 0) THEN fill=0
   IF(n_elements(includeRandom) EQ 0) THEN includeRandom = 0
+  IF(size(colors,/n_dimensions) EQ 1) THEN BEGIN
+      tmp = dblarr(nTimeStepsInput,n_elements(colors))
+      FOR ti=0,nTimeStepsInput-1 DO tmp[ti,*]=colors[*]
+      colors=tmp[*,*]
+  ENDIF
   IF(sv EQ 4) THEN thicknesses= 3+temporary(thicknesses)
   chth = thicknesses[0]
   cs =0.8* thicknesses[0]
@@ -151,8 +170,8 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
 
       ;; Print the time in the upper left of the screen
       
-      IF(N_ELEMENTS(replacementText) EQ 0) THEN theTimeText = timeText+string(abs(time[ti]),Format='(D0.2)')
-      IF(N_ELEMENTS(replacementText) NE 0) THEN theTimeText = replacementText[ti]
+      IF(N_ELEMENTS(replacementText) EQ 0) THEN theTimeText = "";timeText+string(abs(time[ti]),Format='(D0.2)')
+      IF(N_ELEMENTS(replacementText) NE 0) THEN theTimeText = replacementText[tii]
 
       ; Having set up the plotting space, loop over models and plot each one.
 
@@ -182,10 +201,12 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       IF(nr NE nmodels) THEN randomSet = cgRandomIndices(nmodels,nr) ELSE randomSet=indgen(nmodels)
       IF(includeRandom EQ 1 or NIndVarBins EQ 0 or n_elements(data[0,*,0,0]) EQ 1) THEN BEGIN
           ;; loop over models (4th column of data)
-          FOR jj=0,nmodels*(1-includeRandom) + n_elements(randomSet)*includeRandom-1 DO BEGIN 
+          nplot = nmodels*(1-includeRandom) + n_elements(randomSet)*includeRandom
+          mindices = intarr(nplot)
+          FOR jj=0,nplot-1 DO BEGIN 
             IF(includeRandom NE 1) THEN j=nmodels-1-jj $ ;; reverse order!
                 ELSE j=randomSet[jj]
-            
+            mindices[jj]=j
             ;; Set the color table.	
     ;        IF(n_elements(styles) GT 80) THEN IF(sv NE 3 AND sv NE 4) THEN setct,5,n_elements(styles),j ELSE setct,3,n_elements(styles),0
             
@@ -194,8 +215,17 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
             IF(prev EQ 1) THEN BEGIN
               OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=styles[j],THICK=thicknesses[j]
             ENDIF
+
+
           ENDFOR ;; end loop over models
+          IF(n_elements(leg) NE 0 and tii EQ wf) THEN BEGIN
+              legend,leg[mindices],COLORS=colors[mindices],THICK=thicknesses[mindices],/right,charsize=cs,charthick=chth,linestyle=intarr(n_elements(mindices))
+          ENDIF
+
       ENDIF
+
+
+
 
       ;; All of the models have been plotted. Now if the user has requested it, we would like to 
       ;; bin the data by its independent variable, and then its dependent variable!
@@ -264,6 +294,18 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
       ENDIF
 
 
+      IF(n_elements(additionalLines) NE 0) THEN BEGIN
+            FOR pcaI=0,n_elements(additionalLines[0,0,*])-1 DO BEGIN
+                arrow,additionalLines[tii,k-1,0,pcaI],additionalLines[tii,k-1,1,pcaI], $
+                    additionalLines[tii,k-1,2,pcaI],additionalLines[tii,k-1,3,pcaI], $
+                    /data,color=additionalLineColors[pcaI],THICK=max(thicknesses)/2.0, $
+                    hsize=-0.1
+                XYOUTS,additionalLines[tii,k-1,2,pcaI], additionalLines[tii,k-1,3,pcaI], $
+                    additionalLineLabels[pcaI],COLOR=additionalLineColors[pcaI], $
+                    CHARSIZE=cs*.45
+            ENDFOR    
+
+      ENDIF
 
       ;;; PRINT TEXT ON THE PLOTS
       IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
@@ -274,6 +316,9 @@ PRO simpleMovie,data,time,labels,colors,styles,wrtXlog,name,sv,prev=prev,psym=ps
           ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
       ENDIF
 
+      IF(n_elements(leg) NE 0) THEN BEGIN
+;          legend,
+      ENDIF
 
       ;; We've created a single frame. What do we do with it?
       IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER

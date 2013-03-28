@@ -67,7 +67,7 @@ PRO balanceplotsCol,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnot
     colors=indgen(n_elements(theProcessedData[0,0,*]))
     colors=[0,1,2,5,3]
     labels=["r (kpc)","Fraction of dcoldt"]
-    texLabels=["$r$ (kpc)","$|\dot{\Sigma}_\mathrm{trans}| + \dot{\Sigma}_{cos}+(\mu+f_R)\dot{\Sigma}^{SF}$"]
+    texLabels=["$r$ (kpc)","Share of $\partial \Sigma/\partial t$"]
     baseName="balance_col"
 
 ;    FOR a=0, 100 DO BEGIN
@@ -139,7 +139,7 @@ PRO balanceplotsCol2,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnno
     colors=indgen(n_elements(theProcessedData[0,0,*]))
     colors=[0,1,2,5,3]
     labels=["r (kpc)","Fraction of dcoldt"]
-    texLabels=["$r$ (kpc)","$\dot{\Sigma}_{in}+ \dot{\Sigma}_{out} + \dot{\Sigma}_{cos}+(\mu+f_R)\dot{\Sigma}^{SF}$"]
+    texLabels=["$r$ (kpc)","Share of $\partial \Sigma/\partial t$"]
     baseName="balance_col2"
 
 ;    FOR a=0, 100 DO BEGIN
@@ -226,7 +226,7 @@ PRO balanceplotsSig,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnot
     colors=indgen(n_elements(theProcessedData[0,0,*]))
     colors=[0,1,2,3,2,4]
     labels=["r (kpc)","Fraction of dsigdt"]
-    texLabels=["$r$ (kpc)","$|\dot{\sigma}_{\dot{M}'}| + |\dot{\sigma}_{\sigma'}|+\dot{\sigma}_{visc}-\dot{\sigma}_{cool}$"]
+    texLabels=["$r$ (kpc)","Share of $\partial \sigma/\partial t$"]
     baseName="balance_sig"
 
 ;    FOR a=0, 100 DO BEGIN
@@ -259,8 +259,6 @@ PRO balanceplotsZ,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnotat
     chth=1
     cs=.3
     svSinglePlot=2
-
-
 
 
     dummy = GetLabels(keys=[0,41,42,43,44], names=names, $
@@ -307,7 +305,7 @@ PRO balanceplotsZ,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnotat
     colors=indgen(n_elements(theProcessedData[0,0,*]))
     colors=[0,3,2,4,2,1]
     labels=["r (kpc)","Fraction of dsigdt"]
-    texLabels=["$r$ (kpc)","$|\dot{Z}_{\dot{M}'}| + |\dot{Z}_{diff}|+\dot{Z}_{dil}+\dot{Z}_{SF}$"]
+    texLabels=["$r$ (kpc)","Share of $\partial Z/\partial t$"]
     baseName="balance_Z"
 
 ;    FOR a=0, 100 DO BEGIN

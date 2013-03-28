@@ -31,8 +31,8 @@ FUNCTION simpleranges,data,wrtxlog
 
     ENDIF
 
-    ;; Give us a little breathing room: add 15% in each direction for each axis.
-    breathe = 0.15
+    ;; Give us a little breathing room: add 2% in each direction for each axis.
+    breathe = 0.02
     IF(wrtXlog[k] EQ 1) THEN BEGIN
       dexRange = alog10(ranges[1,k]/ranges[0,k])
       ranges[1,k] = ranges[1,k]*(10.0 ^ (dexRange*breathe))

@@ -103,6 +103,7 @@ spawn, 'rm -f '+tempname+'.blg'
 spawn, 'rm -f '+tempname+'.log'
 spawn, 'rm -f '+tempname+'.out'
 spawn, 'rm -f '+tempname+'.bbl'
+;spawn, 'rm -f '+tempname+'.tex'
 
 
 ps_mod, outname, /skip

@@ -19,7 +19,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
             IF(k NE 0 OR i NE 0) THEN !p.noerase=1
             yt=""
             IF(i EQ 0 and k EQ n_elements(ptrListOfModels)/2 ) THEN yt=labels[1]
-            PLOT,[0],[0],/nodata,COLOR=0,BACKGROUND=255,XRANGE=ranges[*,0],YRANGE=[-1.1,1.1],$
+            PLOT,[0],[0],/nodata,COLOR=0,BACKGROUND=255,XRANGE=[-.05,39.99],YRANGE=[-.9999,1.0],$
                 XSTYLE=1,YSTYLE=1,ylog=logs[1],CHARSIZE=cs,CHARTHICK=chth,THICK=th,XTHICK=th, $
                 YTHICK=th,LINESTYLE=0,ticklen=.05,YTITLE=yt;,XTITLE=labels[0],YTITLE=labels[1]
             IF(fill EQ 1) THEN BEGIN
@@ -31,8 +31,8 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
             ENDIF
 
             xoff = .075+gap + (1.0-2.8*gap) * (.9/double(n_elements(zs)) + double(i)/double(n_elements(zs)))
-            IF(k EQ 0) THEN XYOUTS,xoff,yoff,zs[i],/normal,color=0,charsize=cs*1.2,charthick=chth
-            IF(i EQ 0) THEN XYOUTS,.87,yoff-.07+.07*k/double(n_elements(ptrListOfModels)),annotations[k],color=0,charsize=cs*1.5,charthick=chth,/normal
+            IF(k EQ 0) THEN XYOUTS,xoff,yoff,zs[i],/normal,color=0,charsize=cs*1.0,charthick=chth
+            IF(i EQ 0) THEN XYOUTS,.87,yoff-.07+.07*k/double(n_elements(ptrListOfModels)),annotations[k],color=0,charsize=cs*1.3,charthick=chth,/normal
 
             modmultiplot
 
@@ -40,7 +40,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
 ;        XYOUTS,.9,yoff,theName,color=0,charsize=cs,charthick=chth,/normal
     ENDFOR
     FigureClean,filename,svSinglePlot
-    latexify,(filename+".eps"),[myTitle,labels],[myTitle,texLabels],[replicate(1.0,n_elements(labels)+1)],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
+    latexify,(filename+".eps"),[myTitle,labels],[myTitle,texLabels],[replicate(0.9,n_elements(labels)+1)],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
     modmultiplot,/default
     spawn,"ps2pdf -dEPSCrop "+filename+".eps"
 
@@ -62,7 +62,7 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
             IF( i NE 0) THEN !p.noerase=1
             yt=""
             IF(i EQ 0) THEN yt=labels[1] 
-            PLOT,[0],[0],/nodata,COLOR=0,BACKGROUND=255,XRANGE=ranges[*,0],YRANGE=[-1.1,1.1],$
+            PLOT,[0],[0],/nodata,COLOR=0,BACKGROUND=255,XRANGE=[-.05,39.99],YRANGE=[-.99999,1.0],$
                 XSTYLE=1,YSTYLE=1,ylog=logs[1],CHARSIZE=cs,CHARTHICK=chth,THICK=th,XTHICK=th, $
                 YTHICK=th,LINESTYLE=0,ticklen=.05,YTITLE=yt
             IF(fill EQ 1) THEN BEGIN
@@ -74,14 +74,14 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
             ENDIF
 
             xoff = .828*gap + (1.0-3.5*gap) * (.9/double(n_elements(zs)) + double(i)/double(n_elements(zs)))
-            XYOUTS,xoff,yoff,zs[i],/normal,color=0,charsize=cs*1.2,charthick=chth
+            XYOUTS,xoff,yoff,zs[i],/normal,color=0,charsize=cs*0.9,charthick=chth
 
             modmultiplot
 
         ENDFOR
 ;        XYOUTS,.9,yoff,theName,color=0,charsize=cs,charthick=chth,/normal
         FigureClean,filename,svSinglePlot
-        latexify,(filename+".eps"),labels,texLabels,[replicate(1.3,n_elements(labels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
+        latexify,(filename+".eps"),labels,texLabels,[replicate(1.1,n_elements(labels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
         modmultiplot,/default
         spawn,"ps2pdf -dEPSCrop "+filename+".eps"
     ;    spawn,"rm TMP_"+filename+".eps"

@@ -625,8 +625,11 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             Znm1=ZDisk[n-1];
         else
             Znm1=ZBulge; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
-        dMZdt[n] = yREC*zetaREC*(1.0-RfREC)*colSFR[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0) + // Generation of metals from SF
+        double mu = dSdtOutflows(n)/colSFR[n];
+        double Zej = ZDisk[n] + (1.0 - zetaREC) * yREC*RfREC / max(mu, 1.0-RfREC);
+        dMZdt[n] = 
                     accProf[n]*AccRate*Z_IGM *x[n]*x[n]*2.0*sinh(dlnx/2.0) +  // new metals from the IGM ;
+                    ((yREC-ZDisk[n])*RfREC - mu*Zej)*colSFR[n]*x[n]*x[n]*2.0*sinh(dlnx/2.0) +
                     PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
                         - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
                         + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
@@ -643,7 +646,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         // Terms for non-instantaneous-recycling
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
             dZDiskdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n]/col[n];
-            dMZdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0);
+            dMZdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0); /// THIS IS PROBABLY WRONG (the other two lines too)
             dcoldt[n] += spsPassive[i]->dcoldtREC[n];
         }
 
@@ -862,11 +865,17 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
         spsActive[i]->ComputeSpatialDerivs();
     }
 
+    if(MdotiPlusHalf[0] < -1.0e-10 || MdotiPlusHalfMRI[0] < -1.0e-10 || MdotiPlusHalfStar[0] < -1.0e-10 || fracAccInner*AccRate < -1.0e-10)
+        errormsg("Nonphysical mass flux at inner boundary.");
 
-    double MIn = dt*MdotiPlusHalf[0]+dt*MdotiPlusHalfStar[0]+dt*MdotiPlusHalfMRI[0]+dt*fracAccInner*AccRate;
+    double reduce = RfREC/(RfREC+dSdtOutflows(1)/colSFR[1]);
+    double MGasIn = dt*PosOnly(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0]);
+    double MStarsIn = dt*PosOnly(MdotiPlusHalfStar[0]);
+    double MGasAcc = dt*fracAccInner*AccRate;
+    double MIn = MGasIn*reduce + MStarsIn + MGasAcc*reduce;
     //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
-    ZBulge = (ZBulge*MBulge +dt*(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0])*ZDisk[1]+dt*MdotiPlusHalfStar[0]*spsActive[0]->spZ[1]+dt*fracAccInner*AccRate*Z_IGM)/(MBulge + MIn);
-    if(ZBulge <= 0.0) {
+    ZBulge = (ZBulge*MBulge + (yREC*zetaREC + ZDisk[1])*MGasIn + (yREC*zetaREC+ Z_IGM)*MGasAcc + spsActive[0]->spZ[1]*MStarsIn)/(MBulge+MIn);
+    if(ZBulge <= 0.0 || ZBulge >1.0) {
       errormsg(std::string("Nonphysical ZBulge- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulge)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDisk[1])+" "+str(fracAccInner*(AccRate)));
     }
     MBulge += MIn;
@@ -1142,8 +1151,11 @@ void DiskContents::DiffuseMetals(double dt)
     // ZFlux[n] = net flux of metal mass from bin i+1 to bin i.
     for(unsigned int n=1; n<=nx; ++n) {
         double KM;
-        if(dbg.opt(15)) KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
-        else if(dbg.opt(8)) KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(M_PI*col[n]*dim.chi() * (1.0 +  sig[n]*activeColSt(n)/(activeSigStZ(n)*col[n]))); 
+        // Scale from Yang and Krumholz 2012 (proportional to lambda_J^2/t_orb).
+        if(dbg.opt(15)) KM=(kappaMetals*1.0e3)*4.7e-3*sig[n]*sig[n]*sig[n]*sig[n]*sqrt(1.0+beta[n])*uu[n]/(col[n]*col[n]*dim.chi()*dim.chi()*x[n]); //KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
+        // Scale from Yang and Krumholz 2012 (t_orb only)
+        else if(dbg.opt(8)) KM = (kappaMetals*1.0e3)*1.0e-4 * uu[n]/uu[nx]*x[nx]/x[n] * dim.Radius/(10.0*cmperkpc); //KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(M_PI*col[n]*dim.chi() * (1.0 +  sig[n]*activeColSt(n)/(activeSigStZ(n)*col[n]))); 
+        // don't scale - kappa is constant.
         else KM = kappaMetals;
         double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
         double colnp1 = col[nx];
@@ -1190,7 +1202,7 @@ void DiskContents::DiffuseMetals(double dt)
         dZDiskdtDiff[n] = -ZDisk[n]/dt;
         ZDisk[n] = gsl_vector_get(MetalMass2,n-1)/ (col[n]*x[n]*x[n]*dlnx);
         dZDiskdtDiff[n] += ZDisk[n]/dt;
-        if(ZDisk[n]!=ZDisk[n] || ZDisk[n]<0.0 || ZDisk[n]>1.0)
+        if(ZDisk[n]!=ZDisk[n] || ZDisk[n]<0.0 || ZDisk[n]>0.5)
             errormsg("Error diffusing the metals. Printing n, ZDisk[n], col[n]:  "+str(n)+" "+str(ZDisk[n])+" "+str(col[n]));
     }
     gsl_vector_free(lr); gsl_vector_free(diag); gsl_vector_free(ur);
@@ -1681,23 +1693,47 @@ void DiskContents::WriteOutStarsFile(std::string filename,
         starsFile.write((char *) &start,sizeof(start));
         starsFile.write((char *) &end,sizeof(end));
         //    std::cerr << "i, step, Age in Ga (resp): "<<i<<" "<<step<<" "<<yrs*1.0e-9<<std::endl;
+        int nError = -1;
+	int kError = -1;
         for(unsigned int n=1; n<=nx; ++n) {
+            if(sps[i]->spcol[n]!=sps[i]->spcol[n]) {
+                nError = n;
+                kError = 0;
+            }
             starsFile.write((char *) &(sps[i]->spcol[n]),sizeof(sps[i]->spcol[n]));
         }
         for(unsigned int n=1; n<=nx; ++n) {
+            if(sps[i]->spsigR[n]!=sps[i]->spsigR[n]) {
+                nError = n;
+                kError = 1;
+            }
             starsFile.write((char *) &(sps[i]->spsigR[n]),sizeof(sps[i]->spsigR[n]));
         }
         for(unsigned int n=1; n<=nx; ++n) {
+            if(sps[i]->spsigZ[n]!=sps[i]->spsigZ[n]) {
+                nError = n;
+                kError = 2;
+            }
             starsFile.write((char *) &(sps[i]->spsigZ[n]),sizeof(sps[i]->spsigZ[n]));
         }
         for(unsigned int n=1; n<=nx; ++n) {
+            if(sps[i]->spZ[n]!=sps[i]->spZ[n]) {
+                nError = n;
+                kError = 3;
+            }
             starsFile.write((char *) &(sps[i]->spZ[n]),sizeof(sps[i]->spZ[n]));
         }
 
         for(unsigned int n=1; n<=nx; ++n) {
             double zv = sqrt(sps[i]->spZV[n]);
+            if(zv!=zv) {
+                nError = n;
+                kError = 4;
+            }
             starsFile.write((char *) &(zv),sizeof(zv));
         }
+	if(kError >= 0)
+	  errormsg("Attempted to write out NaN to starsfile. n,k: "+str(nError)+" "+str(kError));
         //    for(unsigned int n=1; n<=nx; ++n) {
         //      starsFile.write((char *) &(sps[i].dQdS[n]),sizeof(sps[i].dQdS[n]));
         //    }

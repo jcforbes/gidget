@@ -381,34 +381,23 @@ FUNCTION readOutput,name
     stellarAges=(temporary(stellarAges))[0:timeOutputs-1,0:NABp1-1] ;; trim down the stellarAges array
 
 
-;    OPENR,lunConv,(name+"_convergence.dat"),/GET_LUN
     conv=dblarr(ncolconv)
-;    IF(MAX(evArray[1,*]) GT 25.2) THEN READF,lunConv,conv
-;    FREE_LUN,lunConv
 
-;;   Change the reported errors in the numerical derivatives to absolute values
-;    errs = dataCube[*,*,60:63]
-;    errs=abs(errs)
-;    errs[where(errs LT 1.e-21)] = 1.e-21
-;    dataCube[*,*,60:63] = errs
 
     NPostProcess= 56
-    tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess+(NPassive+1)*STVars)
+    tdc=dblarr(n_elements(dataCube[*,0,0]),n_elements(dataCube[0,*,0]),n_elements(dataCube[0,0,*])+NPostProcess)
     tdc[*,*,0:(ncolStep-1)] = (temporary(dataCube))[*,*,*]
     ; ZstNum and ZstDen:  ( time steps ) x 1 x ( nx ) x 1
     ZstNum = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
     ZstDen = dblarr(n_elements(starsHyperCubeA[*,0,0,0]),1,n_elements(starsHyperCubeA[0,0,*,0]),1)
     FOR i=0,NPassive DO BEGIN
-;	tdc[*,*,ncolstep+npostprocess+i*STVars:ncolstep+npostprocess+i*STVars-1] = starsHyperCube[*,i,*,*]
-    	tdc[*,*,ncolstep+npostprocess+i*STVars] = starsHyperCube[*,i,*,0] ;;; * mdotext0/(vphiR*1d5*Radius*cmperkpc) * cmperpc*cmperpc/MSol ;; g/cm^2 * (cm/pc)^2 *msol/g
-    	tdc[*,*,ncolstep+npostprocess+i*STVars+1] = starsHyperCube[*,i,*,1] ;;; * vphiR
-;	ZstNum[*,0,*,0] += starsHyperCube[*,i,*,2]*starsHyperCube[*,i,*,0]
-;	ZstDen[*,0,*,0] += starsHyperCube[*,i,*,0]
-	    tdc[*,*,ncolstep+npostprocess+i*STVars+2:ncolstep+npostprocess+(i+1)*STVars-1] = starsHyperCube[*,i,*,2:STVars-1]
+;    	tdc[*,*,ncolstep+npostprocess+i*STVars] = starsHyperCube[*,i,*,0] ;;; * mdotext0/(vphiR*1d5*Radius*cmperkpc) * cmperpc*cmperpc/MSol ;; g/cm^2 * (cm/pc)^2 *msol/g
+;    	tdc[*,*,ncolstep+npostprocess+i*STVars+1] = starsHyperCube[*,i,*,1] ;;; * vphiR
+;        tdc[*,*,ncolstep+npostprocess+i*STVars+2:ncolstep+npostprocess+(i+1)*STVars-1] = starsHyperCube[*,i,*,2:STVars-1]
     ENDFOR
     FOR ii=0,NActive DO BEGIN
-	    ZstNum[*,0,*,0] += starsHyperCubeA[*,ii,*,3]*starsHyperCubeA[*,ii,*,0]
-    	ZstDen[*,0,*,0] += starsHyperCubeA[*,ii,*,0]
+        ZstNum[*,0,*,0] += starsHyperCubeA[*,ii,*,3]*starsHyperCubeA[*,ii,*,0]
+       	ZstDen[*,0,*,0] += starsHyperCubeA[*,ii,*,0]
     ENDFOR
 
     tdc[0,*,39-1] = tdc[1,*,39-1] ;; currently the initial value is zero.
@@ -450,8 +439,6 @@ FUNCTION readOutput,name
     tdc[*,*,ncolStep+14] = tdc[*,*,51] * mdotext0*cmperpc*cmperpc/(vphiR*Radius*cmperkpc*1d5*MSol) ;; cumulative SF
     tdc[*,*,ncolStep+15] = -1.0*tdc[*,*,34] * vphiR ;; vr_*
     tdc[*,*,ncolStep+16] = -1.0*tdc[*,*,36] * vphiR ;; vr_gas
-    tdc[*,*,ncolStep+26-1] = alog10(tdc[*,*,ncolStep+16])
-    tdc[*,*,ncolStep+27-1] = alog10(tdc[*,*,ncolStep+15])	
 	
     ;;ang. mom. of.. 
     tdc[*,*,ncolstep+28-1]= tdc[*,*,3]*tdc[*,*,0] ;; gas
@@ -594,7 +581,10 @@ FUNCTION readOutput,name
     FOR iii=0,n_elements(xiIn)-1 DO xiInArr[iii,*] = xiIn[iii]
     FOR iii=0,n_elements(NN)-1 DO NNarr[iii,*] = NN[iii]
 ;    arg = (NNarr*(exp(-xiOutArr)*(1.0-xiIn/xi)*(2+xiOutArr/xi)/(xiOutArr-xiIn) - exp(-xiIn)*(2+xiIn)/(xiOutArr-xiIn) - exp(-xi)*(1.0+2/xi)))
-    arg = NNarr*(-exp(-xi)*(1.0+2.0/xi) + 1.0/(xiOutArr-xiInArr) * (-exp(-xiInArr)*(2.0+xiInArr) + exp(-xiOutArr)*(2+xiOutArr)) + 1.0/(xi*(xiOutArr-xiInArr))*(exp(-xiInArr)*(2.0+xiInArr)*xiOutArr - exp(-xiOutArr)*(2.0+xiOutArr)*xiInArr))
+    dXi = xiOutArr - xiInArr
+    wh=WHERE(dXi EQ 0, ct)
+    IF(ct GT 0) THEN dXi[wh]=.01
+    arg = NNarr*(-exp(-xi)*(1.0+2.0/xi) + 1.0/dXi * (-exp(-xiInArr)*(2.0+xiInArr) + exp(-xiOutArr)*(2+xiOutArr)) + 1.0/(xi*dXi)*(exp(-xiInArr)*(2.0+xiInArr)*xiOutArr - exp(-xiOutArr)*(2.0+xiOutArr)*xiInArr))
     tdc[*,*,ncolstep+56-1] = tdc[*,*,ncolstep+11-1]/ $
         ( .5*(sign(xiOutArr-xi)+1.0)*.5*(sign(xi-xiInArr)+1.0)*(sigmath*sigmath*((arg*arg)^(1.0/3.0) + 1))^(1.0/2.0) + .5*(sign(xi-xiOutArr)+1.0)*sigmath + .5*(sign(xiInArr-xi)+1.0)*sigmath)
 
@@ -624,7 +614,7 @@ FUNCTION readOutput,name
 	;45- dsigdtCool, 46- dZDiskdtDiff, 47- alpha, 
 	;48- f_H2, 49- cuTorqueErr, 50- cuTorqueErr2,
 	;51- tau''(meas),52- cuSF
-    ;53- dcoldtIncoming 54- dcoldtOutgoing
+        ;53- dcoldtIncoming 54- dcoldtOutgoing
 
 	;	ncolstep+ ... (still indexed from 1)
 	;1- col timescale, 2- sig timescale, 3- col* timescale, 4- sig* timescale,
@@ -636,21 +626,21 @@ FUNCTION readOutput,name
 	;22- Gas fractional error in mass
 	;23- Stellar fractional error in mass
 	;24- log Sigma_g, 25- log Sigma_*
-	;26- log vr_g, 27- log vr_*
+	;26- 0, 27- 0 
 	;28- ang. mom of gas, 29- ang. mom of stars
 	;30- ang. mom of cumulative outflows
-    ;; 33,34 = -tau, -tau'
-    ;; 35,36,37: depletion time, viscous time, dep/visc
-    ;; 38,39 v_rg/r=1/tvisc, tdepH2
-    ;; 40,41 Sigma/SigmaEQ, (mu+Rf)*colSFR/colAccr
-    ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
-    ;; 45- dcoldt_transport/ dcoldt_accr
-    ;; 46- (dcoldt_transport+dcoldt_SF)/dcoldt_accr
-    ;; 47 - integrated t_visc,  48 - t_SF within r
-    ;; 49 - dcoldt_accr/all,  50 - dcoldt_SF/all
-    ;; 51- dZDiskdt_dil, 52- dZDiskdt_sf -- these two are dimensionless
-    ;; 53- equilibrium number, 54- dcoldt/dcoldt_accr, 55- Sigma/SigmaCrit
-    ;; 56 - sigma/sigma_an
+        ;; 33,34 = -tau, -tau'
+        ;; 35,36,37: depletion time, viscous time, dep/visc
+        ;; 38,39 v_rg/r=1/tvisc, tdepH2
+        ;; 40,41 Sigma/SigmaEQ, (mu+Rf)*colSFR/colAccr
+        ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
+        ;; 45- dcoldt_transport/ dcoldt_accr
+        ;; 46- (dcoldt_transport+dcoldt_SF)/dcoldt_accr
+        ;; 47 - integrated t_visc,  48 - t_SF within r
+        ;; 49 - dcoldt_accr/all,  50 - dcoldt_SF/all
+        ;; 51- dZDiskdt_dil, 52- dZDiskdt_sf -- these two are dimensionless
+        ;; 53- equilibrium number, 54- dcoldt/dcoldt_accr, 55- Sigma/SigmaCrit
+        ;; 56 - sigma/sigma_an
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )
@@ -658,10 +648,11 @@ FUNCTION readOutput,name
 
 
 	;; Normalize all metallicities to solar and take the log10.
-	convert = [22,ncolstep+18,ncolstep+npostprocess+indgen(NPassive+1)*STVars+3, $
-		   ncolstep+npostprocess+indgen(NPassive+1)*STVars+7,  $
-		   ncolstep+npostprocess+indgen(NPassive+1)*STVars+8]-1
-	tdc[*,*,convert] = alog10(tdc[*,*,convert]/0.02)
+;	convert = [22,ncolstep+18,ncolstep+npostprocess+indgen(NPassive+1)*STVars+3, $
+;		   ncolstep+npostprocess+indgen(NPassive+1)*STVars+7,  $
+;		   ncolstep+npostprocess+indgen(NPassive+1)*STVars+8]-1
+        convert = [22,ncolstep+18]-1
+	tdc[*,*,convert] = alog10(tdc[*,*,convert]/0.02 + 1.0d-8)
 	FOR j=0,n_elements(convert)-1 DO BEGIN
 		convSquare = tdc[*,*,convert[j]] 
 		c=where(convSquare LT -2,ct)
@@ -669,10 +660,10 @@ FUNCTION readOutput,name
 		tdc[*,*,convert[j]] = convsquare
 	ENDFOR
 
-	starsHyperCube[*,*,*,3]=alog10(starsHyperCube[*,*,*,3]/0.02)
-	starsHyperCube[*,*,*,7:8]=alog10(starsHyperCube[*,*,*,7:8]/0.02)
-    starsHyperCubeA[*,*,*,3]=alog10(starsHyperCubeA[*,*,*,3]/.02)
-    starsHyperCubeA[*,*,*,7:8]=alog10(starsHyperCubeA[*,*,*,7:8]/.02)
+	starsHyperCube[*,*,*,3]=alog10(starsHyperCube[*,*,*,3]/0.02+1.0d-8)
+	starsHyperCube[*,*,*,7:8]=alog10(starsHyperCube[*,*,*,7:8]/0.02+1.0d-8)
+        starsHyperCubeA[*,*,*,3]=alog10(starsHyperCubeA[*,*,*,3]/.02+1.0d-8)
+        starsHyperCubeA[*,*,*,7:8]=alog10(starsHyperCubeA[*,*,*,7:8]/.02+1.0d-8)
 
 	convCube=starsHyperCube[*,*,*,3]
 	c=where(convCube LT -2,ct)
@@ -685,6 +676,8 @@ FUNCTION readOutput,name
 	starsHyperCube[*,*,*,7:8]=convHCube
 
 
+    wh = where(tdc NE tdc,ct)
+    IF(ct GT 0) THEN stop,"NaN found in data array."
 
 
 	model = {name:name,nx:nx,tmax:tmax,maxstep:nstepmax, $

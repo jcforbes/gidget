@@ -63,7 +63,7 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.46,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,50.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,.001,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,1.0,0.54,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -331,12 +331,9 @@ class experiment:
         binary=self.bin+'/gidget'
         expDir=self.analysis+'/'+self.expName #directory for output files
         if(os.path.exists(expDir) and startAt == 0):
+            print "************"
             print "This directory already contains output. CANCELLING this run!"
             print
-            print "This is fine if you've already run the desired models and are"
-            print "just interested in looking at the results of ExamineExperiment."
-            print "Otherwise, just delete the appropriate directory and run this"
-            print "script again, or specify a nonzero starting run number."
             return
         elif(os.path.exists(expDir) and startAt != 0):
             pass # let the user overwrite whatever runs they so desire.
@@ -560,8 +557,8 @@ if __name__ == "__main__":
 
     # Vary the Q below which the disk will be unstable
     rv05=NewSetOfExperiments(rv01,"rv05",N=2)
-    rv05[0].vary('fixedQ',1.3,1.9,7,0)
-    rv05[1].vary('fixedQ',2.1,3.0,10,0)
+    rv05[0].vary('fixedQ',1.3,1.9,4,0)
+    rv05[1].vary('fixedQ',2.1,3.0,6,0)
 
     # Vary the Q below which the disk will be unstable, but relax the timescale on which turbulence will stabilize the disk
     rv06=NewSetOfExperiments(rv05,"rv06")
@@ -610,8 +607,8 @@ if __name__ == "__main__":
 
     # Vary metal loading factor
     rv15=NewSetOfExperiments(rv01,"rv15",N=2)
-    rv15[0].vary('zetaREC',.5,1,10,1)
-    rv15[1].vary('zetaREC',1,2,10,1)
+    rv15[0].vary('zetaREC',.1,.4,4,1)
+    rv15[1].vary('zetaREC',.6,1.0,4,1)
 
     # Vary efficiency of accretion at high redshift
     rv16=NewSetOfExperiments(rv01,"rv16",N=2)
@@ -721,17 +718,19 @@ if __name__ == "__main__":
     rw01.irregularVary("R",40)
     rw01.irregularVary('diskScaleLength',l045*.35)
     rw01.irregularVary('accScaleLength',l045*.7)
-    rw01.irregularVary('mu',.5)
+    rw01.irregularVary('mu',1.0)
     rw01.irregularVary('vphiR',220.0)
     rw01.irregularVary('NPassive',20)
     rw01.irregularVary('invMassRatio',1.0)
-    rw01.irregularVary('dbg',2)
+    rw01.irregularVary('dbg',2+2**15)
     rw01.irregularVary('xmin',.002)
     rw01.irregularVary('alphaMRI',.01)
     rw01.irregularVary('fcool',0.6)
     rw01.irregularVary('innerPowerLaw',0.5)
     rw01.irregularVary('b',3.0)
     rw01.irregularVary('nx',200)
+    rw01.irregularVary('kappaMetals',1.0e-3)
+    rw01.irregularVary('zetaREC',1.0)
 
 
     # Vary the scale length of the accretion.
@@ -742,44 +741,50 @@ if __name__ == "__main__":
     rw02[1].vary('accScaleLength',l045*.73,l045*2.1,10,0,3)
 
     # Vary the metal diffusion constant 
+    # scaled with sigma L_J
     rw03=NewSetOfExperiments(rw01,"rw03",N=2)
-    rw03[0].vary('kappaMetals',1.0e-4,9.5e-4,10,1)
-    rw03[1].vary('kappaMetals',1.1e-3,3.0e-3,5,1)
+    rw03[0].vary('kappaMetals',1.0e-4,1.0e-3,6,1)
+    rw03[1].vary('kappaMetals',1.0e-3,1.0e-2,6,1)
 
 
     # Vary the metal diffusion constant normalization, with scaling proportional to sigma H
+    # scaled with 1/t_orb
     rw04=NewSetOfExperiments(rw03,"rw04")
     [rw04[i].irregularVary('dbg',2+2**8) for i in range(len(rw04))]
 
+    # constant.
+    rw04x=NewSetOfExperiments(rw03,"rw04x")
+    [rw04x[i].irregularVary('dbg',2) for i in range(len(rw04x))]
+
     # Vary the Q below which the disk will be unstable
     rw05=NewSetOfExperiments(rw01,"rw05",N=2)
-    rw05[0].vary('fixedQ',1.3,1.9,7,0)
-    rw05[1].vary('fixedQ',2.1,3.0,10,0)
+    rw05[0].vary('fixedQ',1.3,1.9,4,0)
+    rw05[1].vary('fixedQ',2.1,3.0,6,0)
 
     # Vary the Q below which the disk will be unstable, but relax the timescale on which turbulence will stabilize the disk
     rw06=NewSetOfExperiments(rw05,"rw06")
-    [rw06[i].irregularVary('dbg',2+2**4) for i in range(len(rw06))]
+    [rw06[i].irregularVary('dbg',2+2**4+2**15) for i in range(len(rw06))]
 
     # Vary MRI torques
     rw07=NewSetOfExperiments(rw01,"rw07",N=2)
     rw07[0].vary('alphaMRI',0.0,.009, 6,0)
-    rw07[1].vary('alphaMRI',.011, .1,6,0)
+    rw07[1].vary('alphaMRI',.011, .5,12,0)
     #rw07[2].vary('alphaMRI',.11,1,6,0)
 
     # Vary mass loading factor
     rw08=NewSetOfExperiments(rw01,"rw08",N=2)
-    rw08[0].vary('mu',.1,.4,4,0)
-    rw08[1].vary('mu',.6,2.0,15,0)
+    rw08[0].vary('mu',.1,.9,5,0)
+    rw08[1].vary('mu',1.1,2.0,5,0)
 
     # Vary dissipation rate
     rw09=NewSetOfExperiments(rw01,"rw09",N=2)
-    rw09[0].vary('eta',.5,1.5,10,1)
-    rw09[1].vary('eta',1.5,4.5,10,1)
+    rw09[0].vary('eta',.5,1.5,5,1)
+    rw09[1].vary('eta',1.5,4.5,5,1)
 
     # Vary turnover radius of rot. curwe with an inner power law of 0.5 and 1
     rw10=NewSetOfExperiments(rw01,"rw10",N=2)
-    rw10[0].vary('b',0,2.5,6,0)
-    rw10[1].vary('b',3.5,10,14,0)
+    rw10[0].vary('b',0,2.5,3,0)
+    rw10[1].vary('b',3.5,10,7,0)
 
 
     # Vary initial gas fraction
@@ -789,8 +794,8 @@ if __name__ == "__main__":
 
     # Vary circular velocity
     rw12=NewSetOfExperiments(rw01,"rw12",N=2)
-    rw12[0].vary('vphiR',160,215,12,0)
-    rw12[1].vary('vphiR',225,250, 6,0)
+    rw12[0].vary('vphiR',160,215, 9,0)
+    rw12[1].vary('vphiR',225,250, 5,0)
 
     # Vary accretion scale, but this time use a narrow gaussian profile
     ## problems migrating stars for rw13b*
@@ -799,13 +804,13 @@ if __name__ == "__main__":
 
     # Vary star formation efficiency
     rw14=NewSetOfExperiments(rw01,"rw14",N=2)
-    rw14[0].vary('epsff',.0031,.0095,10,1)
-    rw14[1].vary('epsff',.0105,.031,10,1)
+    rw14[0].vary('epsff',.0031,.0095,6,1)
+    rw14[1].vary('epsff',.0105,.031,6,1)
 
     # Vary metal loading factor
     rw15=NewSetOfExperiments(rw01,"rw15",N=2)
-    rw15[0].vary('zetaREC',.1,.9,9,1)
-    rw15[1].vary('zetaREC',1.1,1.5,4,1)
+    rw15[0].vary('zetaREC',0.0,.9,5,0)
+    rw15[1].vary('zetaREC',1.1,1.3,2,0)
 
     # Vary Qlim
     rw16=NewSetOfExperiments(rw01,"rw16",N=2)
@@ -819,12 +824,12 @@ if __name__ == "__main__":
 
     # Vary recycling fraction
     rw18=NewSetOfExperiments(rw01,"rw18",N=2)
-    rw18[0].vary("RfREC",.22,.45,10,0)
-    rw18[1].vary("RfREC",.47,.7,10,0)
+    rw18[0].vary("RfREC",.4,.5,4,0)
+    rw18[1].vary("RfREC",.6,.7,4,0)
 
     # Vary recycling fraction, with large RfREC leading to non-instantaneous recycling
     rw19=NewSetOfExperiments(rw18,"rw19")
-    [rw19[i].irregularVary('dbg',2+2**6) for i in range(len(rw19))]
+    [rw19[i].irregularVary('dbg',2+2**6+2**15) for i in range(len(rw19))]
 
     # Vary delta omega
     rw20=NewSetOfExperiments(rw01,"rw20",N=2)
@@ -851,21 +856,22 @@ if __name__ == "__main__":
     # similar problems as w/ rw13 rw17
     rw23=NewSetOfExperiments(rw17,"rw23")
     [rw23[i].irregularVary("RfREC",0.8) for i in range(len(rw23))]
-    [rw23[i].irregularVary('dbg',2+2**6) for i in range(len(rw23))]
+    [rw23[i].irregularVary('dbg',2+2**6+2**15) for i in range(len(rw23))]
 
     rw24=NewSetOfExperiments(rw01,"rw24",N=2)
-    rw24[0].vary('softening',1.0,1.9,10,0)
-    rw24[1].vary('softening',2.1,3.0,10,0)
+    rw24[0].vary('softening',1.0,1.9,5,0)
+    rw24[1].vary('softening',2.1,3.0,5,0)
 
     rw25=NewSetOfExperiments(rw01,"rw25",N=2)
     rw25[0].vary('fcool',.20,.55,8,0)
     rw25[1].vary('fcool',.65,1.0,8,0)
 
     # problem @ beta0=.95
-    rw26=NewSetOfExperiments(rw01,"rw26",N=2)
-    rw26[0].vary('innerPowerLaw',-0.5,.45,20,0,6)
-    rw26[0].irregularVary('softening',[-2 for i in range(10)]+[2 for i in range(10)],6)
-    rw26[1].vary('innerPowerLaw',.55,.95, 9,0)
+    rw26=NewSetOfExperiments(rw01,"rw26",N=3)
+    rw26[0].vary('innerPowerLaw',0,.45,5,0)
+    rw26[1].vary('innerPowerLaw',.55,.95, 5,0)
+    rw26[2].vary('innerPowerLaw',-.5,-.05, 5, 0)
+    rw26[2].irregularVary('softening',-2)
 
     # Sanity check. Very strong efficiency evolution
     rw27=NewSetOfExperiments(rw01,"rw27",N=2)
@@ -879,17 +885,17 @@ if __name__ == "__main__":
 
     # Very strong efficiency evolution with wind recycling.
     rw28=NewSetOfExperiments(rw27,"rw28")
-    [rw28[i].irregularVary('dbg',2+2**6) for i in range(len(rw28))]
+    [rw28[i].irregularVary('dbg',2+2**6+2**15) for i in range(len(rw28))]
     [rw28[i].irregularVary('RfREC',.8) for i in range(len(rw28))]
 
     rw29=NewSetOfExperiments(rw01,"rw29",N=2)
-    rw29[0].vary('phi0',.5,.95,10,1)
-    rw29[1].vary('phi0',1.05,2.0,10,1)
+    rw29[0].vary('phi0',.5,.95,6,1)
+    rw29[1].vary('phi0',1.05,2.0,6,1)
 
 
     rw30=NewSetOfExperiments(rw01,"rw30",N=2)
-    rw30[0].vary('fH2Min',.003,.029,10,1)
-    rw30[1].vary('fH2Min',.031,.3,10,1)
+    rw30[0].vary('fH2Min',.003,.029,6,1)
+    rw30[1].vary('fH2Min',.031,.3,6,1)
 
     rw31=NewSetOfExperiments(rw01,"rw31",N=2)
     rw31[0].vary('gasTemp',100,6900,8,1)
@@ -900,8 +906,8 @@ if __name__ == "__main__":
     [rw32[i].irregularVary('invMassRatio',0.3) for i in range(len(rw32))]
 
     rw33=NewSetOfExperiments(rw01,"rw33",N=2)
-    rw33[0].vary("tDepH2SC",1.0,1.9,8,1)
-    rw33[1].vary('tDepH2SC',2.1,4.0,8,1)
+    rw33[0].vary("tDepH2SC",1.0,1.9,5,1)
+    rw33[1].vary('tDepH2SC',2.1,4.0,5,1)
 
     # Vary only the r_IC.
     rw34=NewSetOfExperiments(rw01,"rw34",N=2)
@@ -911,22 +917,22 @@ if __name__ == "__main__":
 
 
     rw35=NewSetOfExperiments(rw01,"rw35",N=3)
-    [rw35[i].irregularVary('dbg',2+2**12) for i in range(len(rw35))]
+    [rw35[i].irregularVary('dbg',2+2**12+2**15) for i in range(len(rw35))]
     rw35[1].irregularVary('Qlim',0)
     rw35[2].irregularVary('kappaMetals',1.0e-6)
 
 
     rw36=NewSetOfExperiments(rw01,"rw36",N=6)
-    rw36[0].irregularVary('dbg',2+2**4) # exp Delta Q
-    rw36[1].irregularVary('dbg',2+2**17) # upstream
-    rw36[2].irregularVary('dbg',2+2**18) # overshoot
+    rw36[0].irregularVary('dbg',2+2**4+2**15) # exp Delta Q
+    rw36[1].irregularVary('dbg',2+2**17+2**15) # upstream
+    rw36[2].irregularVary('dbg',2+2**18+2**15) # overshoot
     # no star formation! - rw36d
     rw36[3].irregularVary('epsff',0)
     rw36[3].irregularVary('tDepH2SC',1000000000.0)
 #    rw36[3].irregularVary('ZIGM',10**-10)
     rw36[3].irregularVary('fH2Min',0.03)
-    rw36[4].irregularVary('dbg',2+2**12) # no GI - rw36e
-    rw36[5].irregularVary('dbg',2+1) # tau=0 when F<0
+    rw36[4].irregularVary('dbg',2+2**12+2**15) # no GI - rw36e
+    rw36[5].irregularVary('dbg',2+1+2**15) # tau=0 when F<0
     rw36[5].irregularVary('kappaMetals',1.0e-7)
     rw36[5].irregularVary('zetaREC',.1)
 
@@ -994,10 +1000,10 @@ if __name__ == "__main__":
     rw41[1].irregularVary('Mh0',Mhhi,5)
 
     rw42=NewSetOfExperiments(rw01,"rw42",N=3)
-    rw42[0].vary('innerPowerLaw',-0.5,-0.05,10,0,6)
-    rw42[0].vary('softening',-2,-2,10,0,6)
-    rw42[1].vary('innerPowerLaw',0.0,0.5, 11,0)
-    rw42[2].vary('innerPowerLaw',.55,.95, 9,0)
+    rw42[0].vary('innerPowerLaw',-0.5,-0.05,4,0)
+    rw42[0].irregularVary('softening',-2)
+    rw42[1].vary('innerPowerLaw',0.0,0.5, 4,0)
+    rw42[2].vary('innerPowerLaw',.55,.95, 4,0)
 
     rw43=NewSetOfExperiments(rw41,"rw43")
     [rw43[i].irregularVary('fscatter',0.3) for i in range(len(rw43))]
@@ -1005,7 +1011,7 @@ if __name__ == "__main__":
     rw43[1].irregularVary('whichAccretionHistory',[-1500+i for i in range(100)],5)
 
     rw44=NewSetOfExperiments(rw43,"rw44")
-    [rw44[i].irregularVary('dbg',2+2**14) for i in range(len(rw44))]
+    [rw44[i].irregularVary('dbg',2+2**14+2**15) for i in range(len(rw44))]
 
     rw45=NewSetOfExperiments(rw43,"rw45")
     [rw45[i].irregularVary('NChanges',1) for i in range(len(rw45))]
@@ -1047,13 +1053,13 @@ if __name__ == "__main__":
         # for each such key (aModel) check whether this inputString is contained in its name
         matches = [aModel for aModel in sorted(allModels.keys()) if inputString in aModel]
         if(len(matches) != 0): 
-	    for model in matches: #if(model in allModels): 
-	        if(not args.xgrid): #local run
-	            allModels[model].localRun(args.nproc,args.start)
-		else: # write a file to run on the xgrid
-		    allModels[model].write('runExperiment_'+model+'.txt')
+            for model in matches: #if(model in allModels): 
+                if(not args.xgrid): #local run
+                    allModels[model].localRun(args.nproc,args.start)
+                else: # write a file to run on the xgrid
+                    allModels[model].write('runExperiment_'+model+'.txt')
         else:
-          print "You asked me to run ",inputString," but did not define it in the script."
+            print "You asked me to run ",inputString," but did not define it in the script."
 
 
     # now all of our processes have been sent off

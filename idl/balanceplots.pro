@@ -19,7 +19,7 @@ PRO balanceplotsCol,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnot
     IF(n_elements(texAnnotations) EQ 0) THEN texAnnotations=annotations[*]
 
     whichRedshifts=[1,51,201]
-    zs=['z=2','z=1','z=0']
+    zs=['z=2.00','z=1.01','z=0.00']
     columns = n_elements(ListOfModels)
     rows = n_elements(zs)
     setct,1,0,0
@@ -96,7 +96,7 @@ PRO balanceplotsCol2,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnno
     IF(n_elements(texAnnotations) EQ 0) THEN texAnnotations=annotations[*]
 
     whichRedshifts=[1,51,201]
-    zs=['z=2','z=1','z=0']
+    zs=['z=2.00','z=1.01','z=0.00']
     columns = n_elements(ListOfModels)
     rows = n_elements(zs)
     setct,1,0,0
@@ -170,7 +170,7 @@ PRO balanceplotsSig,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnot
     IF(n_elements(texAnnotations) EQ 0) THEN texAnnotations=annotations[*]
 
     whichRedshifts=[1,51,201]
-    zs=['z=2','z=1','z=0']
+    zs=['z=2.00','z=1.01','z=0.00']
     columns = n_elements(ListOfModels)
     rows = n_elements(zs)
     setct,1,0,0
@@ -251,7 +251,7 @@ PRO balanceplotsZ,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnotat
     IF(n_elements(texAnnotations) EQ 0) THEN texAnnotations=annotations[*]
 
     whichRedshifts=[1,51,201]
-    zs=['z=2','z=1','z=0']
+    zs=['z=2.00','z=1.01','z=0.00']
     columns = n_elements(ListOfModels)
     rows = n_elements(zs)
     setct,1,0,0

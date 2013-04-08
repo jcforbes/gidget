@@ -48,7 +48,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
     thicknesses=thicknesses,yranges=yranges,ranges=ranges, $
     replacementText=replacementText,fill=fill,includeRandom=includeRandom, $
     additionalLines=additionalLines,additionalLineColors=additionalLineColors, $
-    additionalLineLabels=additionalLineLabels,leg=leg
+    additionalLineLabels=additionalLineLabels,leg=leg, grouping=grouping
   IF(sv EQ 3 || sv EQ 4 || sv EQ 5) THEN cg=1 ELSE cg=0
 
   PRINT, "Starting to make the files of the form: ", name,"*"
@@ -94,7 +94,8 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
     chth=.5
     cs = .5
     ;thicknesses = [thicknesses[0]/1.7, thicknesses[1:n_elements(thicknesses)-1]/10.0]
-    thicknesses=[3,thicknesses[1:n_elements(thicknesses)-1]*0+1]
+    ;thicknesses=[3,thicknesses[1:n_elements(thicknesses)-1]*0+1]
+    thicknesses=thicknesses*0+2.5
     IF(wf EQ 0) THEN BEGIN
         chth=.3
         cs=.3
@@ -104,28 +105,42 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
 
   SETCT,1,n_elements(styles),2
 
+  ngrp = n_elements(grouping)
+  IF(ngrp GT 0 and horizontal NE 1) THEN message,"At this point, grouping and !horizontal is not supported"
+  IF(ngrp GT 5) THEN message,"Probably too many plots: ",ngrp
+  corr =0
+  IF(ngrp GT 0) THEN corr=1
+  theHeight = 1+(1-horizontal)*wf + ngrp -corr
+  theWidth = 1+horizontal*wf
 
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
-  FOR k=1,n_elements(labels)-1 DO BEGIN    
-    fn=name+"_"+labels[k]
-    dn="movie_"+name+"_"+labels[k]
-    set_plot,'x'
-    IF(sv EQ 3 || sv EQ 4) THEN set_plot,'z'
-    IF(cg NE 1) THEN WINDOW,1,XSIZE=1024,YSIZE=1024,RETAIN=2
-    IF(sv EQ 3 || sv EQ 4 ) THEN cgDisplay,1024,1024,color=255
-    IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([1024,1024],FILENAME=(fn+".mpg"))
-    IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
-      FILE_MKDIR,dn
-    ENDIF
-    IF(sv EQ 5 ) THEN BEGIN
-    	IF (wf GT 6) THEN message,"You have requested an unreasonable number of frames for a single plot."
-	    ;cs = .3
-        figureInit,(fn+"_timeSeries"),svSinglePlot,1+horizontal*wf,1+(1-horizontal)*wf,sm=1
-;	    IF(wf NE 0) THEN 
-        modmultiplot,[0,wf*horizontal+1,wf*(1-horizontal)+1,0,0],/square,additionalMargin=0.2;,mxtitle=axisLabels[0],mytitle=axislabels[k],gap=.003,mxtitsize=cs,mytitsize=cs
-;	    IF(wf NE 0) THEN 
-        !p.noerase=0
+  labelsIT=labels[*]
+  IF(ngrp GT 0) THEN labelsIT=[labels[0],labels[grouping]]
+  FOR kx=1,n_elements(labelsIT)-1 DO BEGIN    
+    k=kx
+    IF(ngrp GT 0) THEN k=grouping[kx-1]
+    IF(ngrp EQ 0) THEN fn=name+"_"+labels[k] ELSE fn=name+"_"+labelsIT[1]
+    dn="movie_"+fn
 
+    IF(ngrp GT 0 and kx EQ 1 or ngrp EQ 0) THEN BEGIN
+        set_plot,'x'
+        IF(sv EQ 3 || sv EQ 4) THEN set_plot,'z'
+        IF(cg NE 1) THEN WINDOW,1,XSIZE=1024,YSIZE=1024,RETAIN=2
+        IF(sv EQ 3 || sv EQ 4 ) THEN cgDisplay,1024,1024,color=255
+        IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([1024,1024],FILENAME=(fn+".mpg"))
+        IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
+          FILE_MKDIR,dn
+        ENDIF
+        IF(sv EQ 5 ) THEN BEGIN
+        	IF (wf GT 6) THEN message,"You have requested an unreasonable number of frames for a single plot."
+    	    ;cs = .3
+            corr = 0
+            figureInit,(fn+"_timeSeries"),svSinglePlot,theWidth,theHeight,sm=1
+    ;	    IF(wf NE 0) THEN 
+            modmultiplot,[0,theWidth,theHeight,0,0],/square,additionalMargin=0.2;,mxtitle=axisLabels[0],mytitle=axislabels[k],gap=.003,mxtitsize=cs,mytitsize=cs
+    ;	    IF(wf NE 0) THEN 
+            !p.noerase=0
+        ENDIF
     ENDIF
 
     symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
@@ -147,7 +162,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
       ;; Either way, this long statement draws the first plot for this frame.
       ;; Everything else will be overplotted on top in a few lines. 
       xt = axisLabels[0]
-      IF(sv EQ 5 AND tii NE wf AND horizontal EQ 0 and wf NE 0) THEN xt=""
+      IF(sv EQ 5 and horizontal EQ 1 and (ngrp GT 0 and kx NE ngrp)) THEN xt=""
       yt = axisLabels[k]
       IF(sv EQ 5 AND tii NE 0 AND horizontal EQ 1 and wf NE 0) THEN yt=""
       ;IF(sv EQ 5) THEN yt=yt+" at z="+str(time)
@@ -180,9 +195,9 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
       ;; FILL IN REGIONS BETWEEN LINES - most plots don't do this, and typically the input
       ;; lines need to be set up very carefully to show the appropriate regions in the same colors
       ;; In practice I tend to do this separately using balanceplots and makethebalanceplots. 
-      IF(fill EQ 1) THEN BEGIN
-	  aa = data[ti,*,k,*]
-	  FOR xx=0,n_elements(data[ti,*,k,0])-1 DO aa[0,xx,0,*] = aa[0,xx,0,SORT(aa[0,xx,0,*])]
+      IF(fill EQ 1 and NIndVarBins EQ 0) THEN BEGIN
+          aa = data[ti,*,k,*]
+          FOR xx=0,n_elements(data[ti,*,k,0])-1 DO aa[0,xx,0,*] = aa[0,xx,0,SORT(aa[0,xx,0,*])]
           FOR jj=1,n_elements(data[0,0,0,*])-1 DO BEGIN
               POLYFILL, [[data[ti,*,0,jj-1]], [REVERSE(data[ti,*,0,jj],2)]], [[aa[0,*,0,jj-1]], [REVERSE(aa[0,*,0,jj],2)]], COLOR=colors[ti,jj];,line_fill=1
 	      
@@ -218,8 +233,8 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
 
 
           ENDFOR ;; end loop over models
-          IF(n_elements(leg) NE 0 and tii EQ wf) THEN BEGIN
-              legend,leg[mindices],COLORS=colors[mindices],THICK=thicknesses[mindices],/right,charsize=cs,charthick=chth,linestyle=intarr(n_elements(mindices))
+          IF(n_elements(leg) NE 0 and tii EQ wf and (labels[k] NE 'tdep' and labels[k] NE 'fH2' and labels[k] NE 'tdepH2')) THEN BEGIN
+              legend,leg[mindices],COLORS=colors[ti,mindices],THICK=thicknesses[mindices],/right,charsize=cs,charthick=chth,linestyle=intarr(n_elements(mindices)),box=0,horizontal=(labels[k] EQ 'colPerCrit')
           ENDIF
 
       ENDIF
@@ -260,6 +275,8 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
       ; FOR THE CASE THAT THERE /IS/ X-DEPENDENCE WHICH IS THE SAME FROM MODEL TO MODEL
       ; For now, we ignore the actual value of NIndVarBins and just find the percentiles for every single "x" value.
       nper = n_elements(percentileList)
+      orientations = [0,0,30,20,0]
+      linefills = [0,0,1,1,0]
       IF(NIndVarBins GT 0 and n_elements(data[0,*,0,0]) NE 1) THEN BEGIN
           ;;;; ASSUMING that there are some galaxies in each color bin,
           ncolors = MAX(colors)+1
@@ -289,6 +306,20 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
                       OPLOT, binCenters, theCurves[*,percentileIndex,aColor], COLOR=aColor, $
                         THICK=max(thicknesses)*1.3/(theDist+1.0),linestyle=0
                   ENDFOR
+                  IF(fill EQ 1) THEN BEGIN
+                      aa = theCurves[*,*,aColor]  ;data[ti,*,k,*]
+                      wh = WHERE(aa LT ranges[0,k], ct)
+                      IF(ct GT 0) THEN aa[wh] = ranges[0,k]
+                      wh = WHERE(aa GT ranges[1,k], ct)
+                      IF(ct GT 0) THEN aa[wh] = ranges[1,k]
+                      FOR xx=0,n_elements(binCenters)-1 DO aa[xx,*] = aa[xx,SORT(aa[xx,*])]
+                      FOR jj=1,n_elements(aa[0,*])-1 DO BEGIN
+                          xp = [[binCenters],[REVERSE(binCenters,2)]]
+                          yp = [aa[*,jj-1], REVERSE(aa[*,jj])]
+                          IF(linefills[jj] EQ 1 ) THEN POLYFILL, xp[*], yp[*], COLOR=aColor,line_fill=linefills[jj], orientation=orientations[jj], thick=0.3,spacing=0.02
+                          ;IF(linefills[jj] EQ 1 and acolor EQ 1) THEN stop
+                      ENDFOR
+                  ENDIF
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
       ENDIF
@@ -307,42 +338,49 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
 
       ENDIF
 
+      yfiddle = 0.0
+      IF(labels[k] EQ 'equilibrium') THEN yfiddle = -0.26
+      IF(labels[k] EQ 'colPerCrit') THEN yfiddle = -0.26
       ;;; PRINT TEXT ON THE PLOTS
-      IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
-        IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
-          ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-          ELSE IF(wf EQ 1) THEN XYOUTS,.36+.36*float(tii)/float(n_elements(whichFrames)),.69,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-          ELSE IF(wf EQ 2) THEN XYOUTS,.35+.36*float(tii)/float(n_elements(whichFrames)),.66,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-          ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+      IF(ngrp EQ 0 or (ngrp GT 0 and kx EQ 1)) THEN BEGIN
+          IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
+            IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
+              ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+              ELSE IF(wf EQ 1 and labels[k] NE 'tdep' and labels[k] NE 'tdepH2' and labels[k] NE 'fH2') THEN XYOUTS,.36+(.36+.01*ngrp)*float(tii)/float(n_elements(whichFrames)),.69-ngrp*.01,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+              ELSE IF(wf EQ 2) THEN XYOUTS,.31+.36*float(tii)/float(n_elements(whichFrames)),.66+yfiddle,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+              ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
+          ENDIF
       ENDIF
 
-      IF(n_elements(leg) NE 0) THEN BEGIN
-;          legend,
+      IF(ngrp EQ 0 or (ngrp GT 0 and ngrp EQ kx)) THEN BEGIN
+          ;; We've created a single frame. What do we do with it?
+          IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
+          IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_'+string(count,FORMAT="(I4.4)") + '.png',TVRD(TRUE=1)
+          IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count-1,FORMAT="(I4.4)")),/png,/true,/nodialog) 
+          IF(sv EQ 0) THEN wait,.05
+    ;      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN 
       ENDIF
+      IF(sv EQ 5 and (not (tii EQ wf and kx EQ ngrp) and ngrp GT 0) or (ngrp EQ 0 and tii NE wf)) THEN modmultiplot
 
-      ;; We've created a single frame. What do we do with it?
-      IF(sv EQ 1) THEN MPEG_PUT,mpeg_id,WINDOW=1,FRAME=count,/ORDER
-      IF(sv EQ 2) THEN WRITE_PNG, dn+'/frame_'+string(count,FORMAT="(I4.4)") + '.png',TVRD(TRUE=1)
-      IF(sv EQ 3 || sv EQ 4) THEN dummy=cgSnapshot(filename=(dn+'/frame_'+STRING(count-1,FORMAT="(I4.4)")),/png,/true,/nodialog) 
-      IF(sv EQ 0) THEN wait,.05
-;      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN 
-      IF(sv EQ 5 and tii NE wf) THEN modmultiplot
     ENDFOR ;; end loop over time indices
-    IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
-    IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
-    ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("rm " + fn+".mpg") 
-    ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
-    ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
-    IF(sv EQ 5) THEN BEGIN
-    	figureClean,(fn+"_timeSeries"),svSinglePlot
-        if(svSinglePlot EQ 2) THEN latexify,(fn+"_timeSeries.eps"),[axisLabels[0],axisLabels[k]],[texLabels[0],texLabels[k]],1.5*[cs,cs],height=8.89*(1+(1-horizontal)*wf),width=8.89*(1+horizontal*wf),tempname=("TMP_"+fn+"_timeSeries")
-        ;IF(wf NE 0) THEN 
-        modmultiplot,/default
-        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"ps2pdf -dEPSCrop "+fn+"_timeSeries.eps"         
-        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"rm TMP_"+fn+"_timeSeries.eps"
-;        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"epstopdf "+fn+"_timeSeries.eps"
+    IF(ngrp EQ 0 or (ngrp GT 0 and ngrp EQ kx)) THEN BEGIN
+        IF(sv EQ 1) THEN MPEG_SAVE,mpeg_id
+        IF(sv EQ 1) THEN MPEG_CLOSE,mpeg_id
+        ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("rm " + fn+".mpg") 
+        ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN spawn,("ffmpeg -f image2 -qscale 4 -i "+dn+"/frame_%04d.png " + fn + ".mpg")
+        ;IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN IF(saveFrames EQ 0) THEN spawn,("rm -rf "+dn)
+        IF(sv EQ 5) THEN BEGIN
+        	figureClean,(fn+"_timeSeries"),svSinglePlot
+            scale = 1.5
+            ;IF(ngrp GT 0) THEN scale = 1.0
+            IF(svSinglePlot EQ 2) THEN latexify,(fn+"_timeSeries.eps"),axisLabels,texLabels,replicate(scale*cs,n_elements(texLabels)),height=8.89*theHeight,width=8.89*theWidth,tempname=("TMP_"+fn+"_timeSeries")
+            modmultiplot,/default
+            IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"ps2pdf -dEPSCrop "+fn+"_timeSeries.eps"         
+            IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"rm TMP_"+fn+"_timeSeries.eps"
+    ;        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"epstopdf "+fn+"_timeSeries.eps"
+        ENDIF
+        set_plot,'x'
     ENDIF
-    set_plot,'x'
   ENDFOR ;; end loop over dependent variables
   IF(sv EQ 2|| sv EQ 3 || sv EQ 4) THEN spawn,"python makeGidgetMovies.py"
 END

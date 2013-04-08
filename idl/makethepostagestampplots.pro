@@ -1,6 +1,6 @@
 PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th, $
     labels,stampLabels,texLabels,texStampLabels, $
-    lowRange, hiRange, $
+    lowRange, hiRange, exRange, $
     names,columns,rows,svSinglePlot,cs,chth,logs,ranges
 
     cs=0.53
@@ -33,12 +33,13 @@ PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th, $
                     bottom = 0 
                     IF(names[i] EQ 'colPerCrit') THEN bottom=1
                     gap =0.15; 0.2
-                    xoff = gap + (1.0-2.3*gap) * (.8/double(columns) + double((k MOD columns))/double(columns))
+                    xoff = gap + .02 + (1.0-2.3*gap) * (.8/double(columns) + double((k MOD columns))/double(columns))
                     yoff = 1.0 - 1.2*gap - bottom*(1.0-4.5*gap)/double(rows) - (1.0-2.45*gap)* double(k/columns)/double(rows)
                 ENDIF
                 XYOUTS,xoff,yoff,stampLabels[k],/normal,color=0,charsize=cs*.9,charthick=chth
                 XYOUTS,xoff,yoff-.013,lowRange[k],/normal,color=1,charsize=cs*.8,charthick=chth*.8
                 XYOUTS,xoff,yoff-.025,hiRange[k],/normal,color=2,charsize=cs*.8,charthick=chth*.8
+                XYOUTS,xoff,yoff-.037,exRange[k],/normal,color=3,charsize=cs*.8,charthick=chth*.8
                 modmultiplot
             ENDFOR
             FigureClean,filename,svSinglePlot

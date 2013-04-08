@@ -5,6 +5,7 @@ FUNCTION listvalidmodels,expName,N
   nameList2=nameList
   ctr=0
   FOR i=0, n_elements(nameList2)-1 DO BEGIN
+    IF(nameList[i] EQ '') THEN stop,"blank element of namelist! Did you forget to run experiment ",expName,"?"
     IF(success(nameList[i])) THEN BEGIN
       nameList2[ctr]=nameList[i]
       ctr=ctr+1

@@ -4,8 +4,9 @@
 ;; I think this will just involve constructing the 
 ;; appropriate matrix to send to simpleMovie
 
-FUNCTION GetStampData,fiducialName,comparisonName,whichVariables,whichRedshifts,offsetVars,comparisonNumbers
+FUNCTION GetStampData,fiducialName,comparisonName,whichVariables,whichRedshifts,offsetVars,comparisonNumbers,third
     expNames = [fiducialName, comparisonName+'a', comparisonName+'b']
+    IF(third) THEN expNames=[fiducialName,comparisonName+'a', comparisonName+'b', comparisonName+'c']
 
     ;; ntime x nx x nvar x nModels
     nModelsMax = 100
@@ -13,6 +14,7 @@ FUNCTION GetStampData,fiducialName,comparisonName,whichVariables,whichRedshifts,
     comparisonNumbers=intarr(n_elements(expNames))
 
     FOR i=0, n_elements(expNames)-1 DO BEGIN
+        PRINT,"Loading experiment ",expNames[i]
         nameList = ListValidModels(expNames[i],nModelsMax)
         comparisonNumbers[i] = n_elements(nameList)
         FOR j=0, n_elements(nameList)-1 DO BEGIN
@@ -55,6 +57,11 @@ PRO postagestamps
     ; Radius, Col, Sig, Z, sfrPerAccr, ageAtz0, equilibrium, colPerCrit, BB4, Q
     dummy = GetLabels(keys=[0,1,2,6,23,12,47,49,27,8], names=names, labels=labels, tex=texLabels, base=vars, log=logs, offset=offsets,ranges=ranges)
 
+        ranges[0,0] = -.7
+        ranges[1,0] = 39.99
+        ranges[0,1] = 2.0 ; min column dens of 2 solar masses/yr
+        ranges[1,3] = 0.6 ; max metallicity [Z/Zsun]
+
     stampLabels=[ $
         'racc','kz','kzh','QGI','rIC', $
         'QGIt','mri','mu','eta','rb', $
@@ -77,21 +84,23 @@ PRO postagestamps
          'rw27','rw28','rw29','rw30','rw31', $
          'rw33','rw38','rw39','rw40','rw53']
      lowRange= $
-         ['1-6.6 kpc', '1e-4 : 1e-3', '1e-4 : 1e-3', '1.3-1.9', '1.0-3.2', $
-          '1.3-1.9','0-.009','0.1-0.4','0.5-1.5','0-2.5', $
-          '0.1-0.45','160-215','.0031-.0095','0.3-0.9','1.8-2.4', $
-          '.22-.45','.22-.45','1.0-1.9','.20-.55','-0.5 : .45', $
+         ['1-6.6 kpc', '0.1-1x fid.', '0.1-1 x fid', '1.3-1.9', '1.0-3.2', $
+          '1.3-1.9','0-.009','0.1-0.9','0.5-1.5','0-2.5', $
+          '0.1-0.45','160-215','.0031-.0095','0.1-0.9','1.8-2.4', $
+          '0.4-0.5','0.4-0.5','1.0-1.9','.20-.55','0 - .45', $
           '.003-.2','.003-.2','.5-.95','.003-.029','100-6900', $
           '1-1.9', '1/100 - 1/10', '1e10-1e12','1e10-1e12','1-6.6 kpc' $
           ]
      hiRange= $
-         ['9.9-20.8 kpc', '1e-3 : 3e-3', '1e-3 : 3e-3', '2.1-3.0', '3.8-20.8', $
-          '2.1-3.0','.011-0.1','0.6-2.0','1.5-4.5','3.5-10', $
-          '.55-.95','225-250','.0105-.031','1.1-3','2.6-3.0', $
-          '.47-.7','.22-.45','2.1-3.0','.65-1.0','.55-.95', $
+         ['9.9-20.8 kpc', '1-10 x fid.', '1-10 x fid.', '2.1-3.0', '3.8-20.8', $
+          '2.1-3.0','.011-0.5','1.1-2.0','1.5-4.5','3.5-10', $
+          '.55-.7','225-250','.0105-.031','1.1-1.3','2.6-3.0', $
+          '0.6-0.7','0.6-0.7','2.1-3.0','.65-1.0','.55-.95', $
           '.31-.46','.31-.46','1.05-2','.031-.3','7100-30000', $
           '2.1-4', '1/10-1','1e12-1e13','1e12-1e13','9.9-20.8 kpc' $
           ]
+      exRange = REPLICATE('',n_elements(hiRange))
+      exRange[19] = '-0.5 - 0'
 ;    keys= [ $
 ;        0,1,3,4,6,7, $
 ;        8,9,10,11,12,13, $
@@ -109,11 +118,12 @@ PRO postagestamps
     comparisonExperiments=comparisonExperiments[keys]
     lowRange=lowRange[keys]
     hiRange=hiRange[keys]
+    exRange=exRange[keys]
 
     ;; collect data from the disk.
     stampList = ptrarr(n_elements(stampLabels), /allocate_heap)
     FOR k=0, n_elements(stampLabels)-1 DO BEGIN
-        theData = GetStampData(fid,comparisonExperiments[k],vars,whichRedshifts,offsets,numberOfModels)
+        theData = GetStampData(fid,comparisonExperiments[k],vars,whichRedshifts,offsets,numberOfModels,(exRange[k] NE ''))
     	stamp = {fid:fid, comp:comparisonExperiments[k], $
                  theData:theData,numberOfModels:numberOfModels}
         *(stampList[k]) = stamp
@@ -123,7 +133,7 @@ PRO postagestamps
 
 	     makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th, $
              labels,stampLabels,texLabels,texStampLabels, $
-             lowRange, hiRange, $
+             lowRange, hiRange, exRange, $
              names,columns,rows,svSinglePlot,cs,chth,logs,ranges
          stop
     ENDFOR

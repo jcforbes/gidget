@@ -24,7 +24,7 @@ FUNCTION percentiles, theArray, percentileArray, log
 
     ENDIF
 
-    thenbins = 1000
+    thenbins = 300
     themin = min(theArray,/nan)
     spacing = (max(theArray)-theMin)/(thenbins-1.)
     theLinearHist = histogram(theArray,min=theMin,binsize=spacing,nbins=theNbins)
@@ -34,7 +34,7 @@ FUNCTION percentiles, theArray, percentileArray, log
     	wh = WHERE(cumulativeLinear GE theTotal*percentileArray[i],count)
 
         IF(count GT 0) THEN theResults[i] = wh[0]*spacing+theMin+spacing/2.0 $
-            ELSE stop,"Problem in percentiles.pro"
+            ELSE stop,"Problem in percentiles.pro; this is usually caused by a NaN in the data."
         
     ENDFOR
     

@@ -1,7 +1,7 @@
 
 ;; Given an array of mdot's vs. other variables, compute the cross-correlations between mdot and the others
 ;; and also the autocorrelation of each variable.
-PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thicknesses=thicknesses,logarithms=logarithms,normalize=normalize,percentileList=percentileList
+PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thicknesses=thicknesses,logarithms=logarithms,normalize=normalize,percentileList=percentileList,texLabelsIn=texLabelsIn
     IF(n_elements(nt0) EQ 0) THEN nt0 = 1
     IF(n_elements(sv) EQ 0 ) THEN sv=4
     IF(n_elements(normalize) EQ 0) THEN normalize=1
@@ -91,8 +91,18 @@ PRO ComputeCorrelations,vsmdot,colors,time,labelsIn,names,name,sv=sv,nt0=nt0,thi
 ;    simpleMovie, autoCorrelations[0,1:nt-2-nt0,*,*],  names, colors, intarr(nmodels)+ls, intarr(nvars), name+"_xac", 5, axisLabels="autocorr "+qualifier+labelsIn, whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
 
 
-    simpleMovie, ccVsTime[0,1:nt-2-nt0,*,*], ['time',names], colors, intarr(nmodels)+ls, [1,intarr(nvars)], name+"_cc", 5, axisLabels=['lag time',"x-corr "+qualifier+labelsIn], whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
-    simpleMovie, acVsTime[0,1:nt-2-nt0,*,*], ['time',names], colors, intarr(nmodels)+ls, [1,intarr(nvars)], name+"_ac", 5, axisLabels=['lag time',"autocorr "+qualifier+labelsIn], whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses
+    simpleMovie, ccVsTime[0,1:nt-2-nt0,*,*], ['time',names], colors, $
+        intarr(nmodels)+ls, [1,intarr(nvars)], name+"_cc", 5, $
+        axisLabels=['lag time',"x-corr "+qualifier+labelsIn], $
+        whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses, $
+        svSinglePlot=2,percentileList=[.025,.16,.5,.84,.975],fill=1,$
+        texLabels=['$t_{lag}$ (Gyr)','$P_{t_{lag}}(\dot{M}_{ext},$ '+texLabelsIn+'$)$']
+    simpleMovie, acVsTime[0,1:nt-2-nt0,*,*], ['time',names], colors, $
+        intarr(nmodels)+ls, [1,intarr(nvars)], name+"_ac", 5, $
+        axisLabels=['lag time',"autocorr "+qualifier+labelsIn], $
+        whichFrames=[0], NIndVarBins=20,thicknesses=thicknesses, $
+        svSinglePlot=2,percentileList=[.025,.16,.5,.84,.975],fill=1,$
+        texLabels=['$t_{lag}$ (Gyr)','$P_{t_{lag}}(\dot{M}_{ext},$ '+texLabelsIn+'$)$']
 
     IF(sv EQ 4) THEN thicknesses = temporary(thicknesses)/3.0
 END

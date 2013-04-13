@@ -15,6 +15,13 @@ double psiIntegrand(double xp, void * params)
   return m->uu(xp) * m->uu(xp)/xp;
 }
 
+double sign(double a) {
+    if(a==0.0) return 0;
+    if(a>0.0)
+        return 1;
+    return -1;
+}
+
 
 FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, double mst, unsigned int nnx):
     beta0(bet0), b(turnoverRadius),nxc(nnx), nRotCurve(nRC), dlnxc(-log(xm)/(((double) nnx)-1.)), 
@@ -158,20 +165,25 @@ double FixedMesh::psi(double x)
 
 double FixedMesh::uu(double x)
 {
-    return 1.0/pow(pow(b/x,nRotCurve*beta0)+1.0,1.0/nRotCurve);
+    return pow(1.0+pow(x/b,-fabs(nRotCurve*beta0)),-sign(beta0)/nRotCurve);
+//    return 1.0/pow(pow(b/x,nRotCurve*beta0)+1.0,1.0/nRotCurve);
 //  return pow(x,ip) / pow(pow(x,ip*soft)+bsf,1./soft);
 }
 
 double FixedMesh::beta(double x)
 {
-  return beta0 - beta0/(1.0+pow(b/x,beta0*nRotCurve));
+    return beta0*sign(nRotCurve) / (1.0 + pow(x/b,fabs(nRotCurve*beta0)));
+
+//  return beta0 - beta0/(1.0+pow(b/x,beta0*nRotCurve));
     
 //  return bsf*ip/(bsf+pow(x,ip*soft));
 }
 
 double FixedMesh::betap(double x)
 {
-    return - beta0*beta0*nRotCurve*pow(b/x, beta0*nRotCurve) / (x*pow(1.0+pow(b/x,beta0*nRotCurve),2.0));
+    return -1.0e-9; // hopefully nothing uses this function. We shall see.
+// the top one's more recent:
+//    return - beta0*beta0*nRotCurve*pow(b/x, beta0*nRotCurve) / (x*pow(1.0+pow(b/x,beta0*nRotCurve),2.0));
 //  return -bsf*ip*ip*soft*pow(x,-1.+ip*soft) / ((bsf+pow(x,ip*soft))*(bsf+pow(x,ip*soft)));
 }
 

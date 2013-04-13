@@ -112,6 +112,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
   IF(ngrp GT 0) THEN corr=1
   theHeight = 1+(1-horizontal)*wf + ngrp -corr
   theWidth = 1+horizontal*wf
+  IF(ngrp GT 3) THEN cs=cs*1.3
 
   ;; loop over y-axis variables to be plotted (except the first one, which is just the independent var!)
   labelsIT=labels[*]
@@ -375,7 +376,12 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
             ;IF(ngrp GT 0) THEN scale = 1.0
             IF(svSinglePlot EQ 2) THEN latexify,(fn+"_timeSeries.eps"),axisLabels,texLabels,replicate(scale*cs,n_elements(texLabels)),height=8.89*theHeight,width=8.89*theWidth,tempname=("TMP_"+fn+"_timeSeries")
             modmultiplot,/default
-            IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"ps2pdf -dEPSCrop "+fn+"_timeSeries.eps"         
+            IF(sv EQ 5 and svSinglePlot EQ 2) THEN BEGIN
+
+                spawn,"cat "+fn+"_timeSeries.eps | ps2eps --loose --preserveorientation > crp_"+fn+"_timeSeries.eps"
+                spawn,"ps2pdf -dEPScrop crp_"+fn+"_timeSeries.eps "+fn+"_timeSeries.pdf"
+
+            ENDIF
             IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"rm TMP_"+fn+"_timeSeries.eps"
     ;        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"epstopdf "+fn+"_timeSeries.eps"
         ENDIF

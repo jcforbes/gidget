@@ -480,8 +480,11 @@ FUNCTION readOutput,name
         wh = WHERE((tdc[ti,0:(nx-2),48-1]-0.5)*(tdc[ti,1:(nx-1),48-1]-0.5) LE 0.0, count)
         ;; If no such locations exist, just take a guess
         IF(count LE 0) THEN BEGIN 
-            colTrans = 6.75558 ; KMT value for Zsun
-            x25_4 = 1.0
+            ;colTrans = 6.75558 ; KMT value for Zsun
+            ;x25_4 = 1.0
+            maxfH2 = MAX(tdc[ti,*,48-1],loc)  
+            colTrans = tdc[ti,loc,ncolstep+10-1] * 0.5 / maxfH2
+            x25_4 = tdc[ti,loc,0]*1.0/0.449659
         ENDIF
         IF(count GE 1) THEN BEGIN
             colTrans = sqrt(tdc[ti,wh[count-1],ncolstep+10-1] * tdc[ti,wh[count-1]+1,ncolstep+10-1])

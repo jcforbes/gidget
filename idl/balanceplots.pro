@@ -70,8 +70,34 @@ PRO balanceplotsCol,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnot
     texLabels=["$r$ (kpc)","Share of $\partial \Sigma/\partial t$"]
     baseName="balance_col"
 
+    textArr = intarr(n_elements(whichRedshifts), n_elements(ListOfModels),3)
+    textArr[2,1,[0,1,2]]=1
+    textArr[2,2,0]=1
+
+    theText = strarr(n_elements(whichRedshifts), n_elements(ListOfModels),3)
+    theText[2,1,0] = "Inward Transport"
+    theText[2,1,1] = "Outward Transport"
+    theText[2,1,2] = "Cosmological Accretion"
+    theText[2,2,0] = "SF + galactic winds"
+
+    textPos = dblarr(n_elements(whichRedshifts), n_elements(ListOfModels),3,2)
+    textPos[2,1,1,0] = 19.0
+    textPos[2,1,2,0] = 10.0
+    textPos[2,1,0,0]= 2.0
+    textPos[2,1,0,1] = -.7
+    textPos[2,1,1,1] = -.4
+    textPos[2,1,2,1] = 0.28
+    textPos[2,2,0,0] = 5.0
+    textPos[2,2,0,1] = -0.3
+
+    textCol = intarr(n_elements(whichRedshifts), n_elements(ListOfModels),3)
+    textCol[2,1,0] = 1
+
+
+
+
 ;    FOR a=0, 100 DO BEGIN
-        makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnotations,svSinglePlot,cs,chth,logs,ranges,colors,labels,texLabels,baseName,fill=1
+        makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnotations,svSinglePlot,cs,chth,logs,ranges,colors,labels,texLabels,baseName,fill=1,textArr=textArr,theText=theText,textPos=textPos
 ;	    stop
 ;    ENDFOR
 
@@ -228,9 +254,11 @@ PRO balanceplotsSig,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnot
     labels=["r (kpc)","Fraction of dsigdt"]
     texLabels=["$r$ (kpc)","Share of $\partial \sigma/\partial t$"]
     baseName="balance_sig"
+    leg=["Viscous heating","Turbulent dissipation","Mass flux gradient","Velocity dispersion gradient"]
+    legColors=[4,1,2,3]
 
 ;    FOR a=0, 100 DO BEGIN
-        makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnotations,svSinglePlot,cs,chth,logs,ranges,colors,labels,texLabels,baseName,fill=1
+        makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnotations,svSinglePlot,cs,chth,logs,ranges,colors,labels,texLabels,baseName,fill=1,legName=leg,legColors=legColors
 ;	    stop
 ;    ENDFOR
 

@@ -311,7 +311,7 @@ class DiskContents {
   double ZBulge,MBulge;
 
   // parameters controlling the instantaneous recycling approx.
-  double yREC, RfREC, zetaREC; 
+  double yREC, RfREC, xiREC; 
   
   double Z_IGM; // absolute units
 

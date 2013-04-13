@@ -113,7 +113,7 @@ DiskContents::DiskContents(double tH, double eta,
         double Qinit, double km,
         unsigned int NA, unsigned int NP,
         double minSigSt,
-		double rfrec, double zetarec,
+		double rfrec, double xirec,
 		double fh2min, double tdeph2sc,
         double ZIGM) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
@@ -128,7 +128,7 @@ DiskContents::DiskContents(double tH, double eta,
     spsActive(std::vector<StellarPop*>(0)),
     spsPassive(std::vector<StellarPop*>(0)),
     dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
-    yREC(.054),RfREC(rfrec),zetaREC(zetarec), 
+    yREC(.054),RfREC(rfrec),xiREC(xirec), 
     analyticQ(aq),
     tDepH2SC(tdeph2sc),
     fH2Min(fh2min),
@@ -626,7 +626,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         else
             Znm1=ZBulge; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
         double mu = dSdtOutflows(n)/colSFR[n];
-        double Zej = ZDisk[n] + (1.0 - zetaREC) * yREC*RfREC / max(mu, 1.0-RfREC);
+        double Zej = ZDisk[n] + xiREC * yREC*RfREC / max(mu, 1.0-RfREC);
         dMZdt[n] = 
                     accProf[n]*AccRate*Z_IGM *x[n]*x[n]*2.0*sinh(dlnx/2.0) +  // new metals from the IGM ;
                     ((yREC-ZDisk[n])*RfREC - mu*Zej)*colSFR[n]*x[n]*x[n]*2.0*sinh(dlnx/2.0) +
@@ -640,13 +640,13 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         dZDiskdtPrev[n] = dZDiskdt[n];
         dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
             * dlnZdx *tauvec[2][n] 
-            + yREC*(1.0-RfREC)*zetaREC*colSFR[n]/(col[n])
+            + yREC*(1.0-RfREC)*colSFR[n]/(col[n])
             + accProf[n]*AccRate * (Z_IGM - ZDisk[n])/col[n];
 
         // Terms for non-instantaneous-recycling
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-            dZDiskdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n]/col[n];
-            dMZdt[n] += yREC*zetaREC*spsPassive[i]->dcoldtREC[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0); /// THIS IS PROBABLY WRONG (the other two lines too)
+            dZDiskdt[n] += yREC*spsPassive[i]->dcoldtREC[n]/col[n];
+            dMZdt[n] += yREC*spsPassive[i]->dcoldtREC[n] * x[n]*x[n]*2.0*sinh(dlnx/2.0); /// THIS IS PROBABLY WRONG (the other two lines too)
             dcoldt[n] += spsPassive[i]->dcoldtREC[n];
         }
 
@@ -874,7 +874,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     double MGasAcc = dt*fracAccInner*AccRate;
     double MIn = MGasIn*reduce + MStarsIn + MGasAcc*reduce;
     //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
-    ZBulge = (ZBulge*MBulge + (yREC*zetaREC + ZDisk[1])*MGasIn + (yREC*zetaREC+ Z_IGM)*MGasAcc + spsActive[0]->spZ[1]*MStarsIn)/(MBulge+MIn);
+    ZBulge = (ZBulge*MBulge + (yREC+ ZDisk[1])*MGasIn + (yREC+ Z_IGM)*MGasAcc + spsActive[0]->spZ[1]*MStarsIn)/(MBulge+MIn);
     if(ZBulge <= 0.0 || ZBulge >1.0) {
       errormsg(std::string("Nonphysical ZBulge- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulge)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDisk[1])+" "+str(fracAccInner*(AccRate)));
     }

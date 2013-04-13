@@ -315,7 +315,7 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   unsRanges[1,[8,9,10]] = 50.0 ;; manually set max Q,Qgas,Qst
   unsRanges[0,17] = -2.5 ;; mdotDisk
   unsRanges[1,17] = 4.3
-  unsRanges[0,3-1] = 7.0 ;; velocity dispersion
+  unsRanges[0,3-1] = 0.0 ;; velocity dispersion
   unsRanges[1,3-1] = 35.0
   unsRanges[0,50-1] = .09
   unsRanges[1,50-1] = 3.1
@@ -416,16 +416,16 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   vsTimeRanges = simpleRanges(vstime,vstimetolog)
   vsTimeRanges[0,53-1] = 0.95e11 ; Lower Mh
   vsTimeRanges[1,53-1] = 1.05e12 ; upper Mh
-  vsTimeRanges[0,[56,57]-1] = 7.0
-  vsTimeRanges[1,[56,57]-1] = 50.0
-  vsTimeRanges[0,58-1] = .4
-  vsTimeRanges[1,58-1] = 2.3 
+  vsTimeRanges[0,[56,57]-1] = 0.0
+  vsTimeRanges[1,[56,57]-1] = 49.9
+  vsTimeRanges[0,58-1] = 0.0
+  vsTimeRanges[1,58-1] =  1.99
 
   svSinglePlot=2 ;; 2=eps, 4=png
 
   setct,3,n_elements(vsMdot[0,0,0,*]),0
 ;  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2,sv=4,nt0=2,thicknesses=thicknesses
-  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2+"_log",sv=svSinglePlot,nt0=2,thicknesses=thicknesses,logarithms=vsMdotToLog,normalize=(n_elements(expNames) NE n_elements(vsMdot[0,0,0,*]))
+  ComputeCorrelations,vsmdot,colors,time,vsMdotLabels,vsMdotNames,expName2+"_log",sv=svSinglePlot,nt0=2,thicknesses=thicknesses,logarithms=vsMdotToLog,normalize=(n_elements(expNames) NE n_elements(vsMdot[0,0,0,*])),texLabelsIn=vsMdotTexLabels
 
 
 

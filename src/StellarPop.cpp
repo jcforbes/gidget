@@ -167,7 +167,7 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
   
   for(unsigned int n=1; n<=spcol.size()-1; ++n) {
     double f = (spcol[n]/disk.activeColSt(n));
-    dcoldt[n] = f*(MdotiPlusHalf[n]-MdotiPlusHalf[n-1])/(x[n]*mesh.dx(n));
+    dcoldt[n] = f*(MdotiPlusHalf[n]-MdotiPlusHalf[n-1])*2.0*M_PI/mesh.area(n);
     double MdotCentered = (-tauvecStar[2][n]*f
 		          /(uu[n]*(1+beta[n]))); 
     if(n<nx) {
@@ -191,7 +191,7 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     //
     //Compute some derivatives. Check that it makes sense to do so, i.e. there's material there.
     if(spcol[n] > 0.0) {
-        dsigRdt[n] =  1.0/(x[n]*spcol[n]*(spsigR[n]+spsigZ[n])) * ((beta[n]-1.)*uu[n]*f*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*spsigR[n]*dSigRdr[n] + 2.0*spsigZ[n]*dSigZdr[n]) *(-tauvecStar[2][n]*f/(uu[n]*(1.+beta[n]))) + spsigR[n]*spsigR[n]*f*(MdotiPlusHalf[n]-MdotiPlusHalf[n])/mesh.dx(n));
+        dsigRdt[n] =  1.0/(x[n]*spcol[n]*(spsigR[n]+spsigZ[n])) * ((beta[n]-1.)*uu[n]*f*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*spsigR[n]*dSigRdr[n] + 2.0*spsigZ[n]*dSigZdr[n]) *(-tauvecStar[2][n]*f/(uu[n]*(1.+beta[n]))) + spsigR[n]*spsigR[n]*f*(MdotiPlusHalf[n]-MdotiPlusHalf[n])*2.0*M_PI/mesh.area(n));
 
         dZdt[n] =  MdotCentered*ddx(spZ,n,x,true,true)/(x[n]*spcol[n]);
     }
@@ -206,7 +206,7 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     }
 
     // Now we proceed to do what looks like a ridiculous amount of work to compute spZV.
-    cellMass[n] = spcol[n]*x[n]*mesh.dx(n);
+    cellMass[n] = spcol[n]*mesh.area(n)/(2.0*M_PI);
     bool fromRight = MdotiPlusHalf[n]>0.0;
     bool fromLeft = MdotiPlusHalf[n-1]<0.0;
     unsigned nx = spcol.size()-1;

@@ -13,6 +13,7 @@ class FixedMesh {
   double x(unsigned int);
   double xPlusHalf(unsigned int);
   double dx(unsigned int);
+  double area(unsigned int);
   double x(double);
   double psi(unsigned int);
   double psi(double x);
@@ -34,6 +35,7 @@ class FixedMesh {
   std::vector<double> betapv;
   std::vector<double> xiPlusHalf;
   std::vector<double> dxi;
+  std::vector<double> areas;
   std::vector<double> u1pbiPlusHalf;
   const double beta0, // power law index of vphi(R)
                    b, // turnover radius.

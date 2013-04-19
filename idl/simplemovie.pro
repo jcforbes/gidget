@@ -320,6 +320,14 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
                           IF(linefills[jj] EQ 1 ) THEN POLYFILL, xp[*], yp[*], COLOR=aColor,line_fill=linefills[jj], orientation=orientations[jj], thick=0.3,spacing=0.02
                           ;IF(linefills[jj] EQ 1 and acolor EQ 1) THEN stop
                       ENDFOR
+                      ;; Plot previous times on the same pane.
+                      IF(prev EQ 1) THEN BEGIN
+                          ;; If this is the first frame, store this data (to plot later!)
+                          IF(tii EQ 0) THEN BEGIN
+                              storeAA = aa
+                          ENDIF
+
+                      ENDIF
                   ENDIF
               ENDIF ; end check that there are models w/ this color
           ENDFOR ; end loop over color
@@ -327,7 +335,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
 
 
       IF(n_elements(additionalLines) NE 0) THEN BEGIN
-            FOR pcaI=0,n_elements(additionalLines[0,0,*])-1 DO BEGIN
+            FOR pcaI=0,n_elements(additionalLines[0,0,0,*])-1 DO BEGIN
                 arrow,additionalLines[tii,k-1,0,pcaI],additionalLines[tii,k-1,1,pcaI], $
                     additionalLines[tii,k-1,2,pcaI],additionalLines[tii,k-1,3,pcaI], $
                     /data,color=additionalLineColors[pcaI],THICK=max(thicknesses)/2.0, $
@@ -340,15 +348,17 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
       ENDIF
 
       yfiddle = 0.0
+      xfiddle = 0.0
       IF(labels[k] EQ 'equilibrium') THEN yfiddle = -0.26
       IF(labels[k] EQ 'colPerCrit') THEN yfiddle = -0.26
+      IF(labels[k] EQ 'MJeans') THEN xfiddle = .05
       ;;; PRINT TEXT ON THE PLOTS
       IF(ngrp EQ 0 or (ngrp GT 0 and kx EQ 1)) THEN BEGIN
           IF(wf NE 0) THEN BEGIN ; if there's more than one frame, label them:
             IF(sv NE 5) THEN XYOUTS,.3,.87,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth  $
               ELSE IF(horizontal EQ 0) THEN XYOUTS,.3,.95-float(tii)*(1.0 - 2.0/8.89)/(float(n_elements(whichFrames))),theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
               ELSE IF(wf EQ 1 and labels[k] NE 'tdep' and labels[k] NE 'tdepH2' and labels[k] NE 'fH2') THEN XYOUTS,.36+(.36+.01*ngrp)*float(tii)/float(n_elements(whichFrames)),.69-ngrp*.01,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
-              ELSE IF(wf EQ 2) THEN XYOUTS,.31+.36*float(tii)/float(n_elements(whichFrames)),.66+yfiddle,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
+              ELSE IF(wf EQ 2) THEN XYOUTS,.31+xfiddle+.36*float(tii)/float(n_elements(whichFrames)),.66+yfiddle,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth $
               ELSE IF(wf EQ 3) THEN xyouts,.10+.67*float(tii)/float(n_elements(whichFrames)),.7,theTimeText,/NORMAL,COLOR=0,CHARSIZE=cs,CHARTHICK=chth
           ENDIF
       ENDIF

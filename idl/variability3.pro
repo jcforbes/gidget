@@ -122,9 +122,7 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   ;; (# timesteps) x (nx) x (# of columns) x (# models)
   theData= dblarr(theNTS,n_elements(model.dataCube[0,*,0]),n_elements(wrtXyy),n_elements(nameList2))
 
-  NVS = 58
-  ;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 20) x (# models)
-  vsMdot = dblarr(theNTS,1,NVS,n_elements(nameList2))
+
   nameList4 = strarr(n_elements(nameList2))
 
   ; so far we have set up two data structures, namely one for quantities which vary in radius & time, 
@@ -142,6 +140,9 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   dummy=GetTimeLabels(names=vsMdotNames,tex=vsMdotTexLabels,labels=vsMdotLabels,$
         log=vsMdotToLog, offset=offset, base=base, ranges=vsMdotRanges, strt=vsMdotStrt)
 
+  NVS = n_elements(vsMdotLabels)
+  ;; (# timesteps) x (# pts/model frame = 1) x (one thing vs another = 20) x (# models)
+  vsMdot = dblarr(theNTS,1,NVS,n_elements(nameList2))
 
   FOR expInd=1, n_elements(expNames) DO BEGIN
     low = modelcounter[expInd-1]
@@ -313,12 +314,16 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   unsRanges[0,[1,3]] = 0.3 ;; manually set minimum col and colst to 1 Msun/pc^2
   unsRanges[0,7] =  1.0d-6 ;; manually set min SFR col density to 10^-5 Msun/yr/kpc^2
   unsRanges[1,[8,9,10]] = 50.0 ;; manually set max Q,Qgas,Qst
-  unsRanges[0,17] = -2.5 ;; mdotDisk
-  unsRanges[1,17] = 4.3
+  unsRanges[0,17] = -2.8 ;; mdotDisk
+  unsRanges[1,17] = 5.8
   unsRanges[0,3-1] = 0.0 ;; velocity dispersion
   unsRanges[1,3-1] = 35.0
-  unsRanges[0,50-1] = .09
+  unsRanges[0,50-1] = .09 ;; colPerCrit
   unsRanges[1,50-1] = 3.1
+  unsRanges[0,28-1] = 0.099 ; col/BB profile
+  unsRanges[1,28-1] = 21.0
+  unsRanges[0,52-1] = 3.0e6
+  unsRanges[1,52-1] = 3.0e9 ; 2D Jeans Mass
   
   unsRangesLin = unsRanges[*,*]
   unsRangesLin[0,0] = - 0.5
@@ -420,6 +425,10 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   vsTimeRanges[1,[56,57]-1] = 49.9
   vsTimeRanges[0,58-1] = 0.0
   vsTimeRanges[1,58-1] =  1.99
+  vsTimeRanges[0,13-1] = 0.0
+  vsTimeRanges[1,13-1] = 0.5
+  vsTimeRanges[0,59-1] = 0.0
+  vsTimeRanges[1,59-1] = 0.6
 
   svSinglePlot=2 ;; 2=eps, 4=png
 
@@ -665,9 +674,13 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
 
  IF(TheNumberOfModels GT 10) THEN BEGIN
     singlePane = dblarr(n_elements(expNames),n_elements(theData[0,*,0,0]),n_elements(theData[0,0,*,0]),5)
+    singlePaneAvg = dblarr(n_elements(expNames),n_elements(theData[0,*,0,0]),n_elements(theData[0,0,*,0]),5)
     FOR j=0,n_elements(expNames)-1 DO BEGIN
       FOR ii=0,5-1 DO BEGIN
 	    singlePane[j,*,*,ii] = intervals[whichFrames5[ii],*,*,j*nper+nper/2]
+        IF(modelCounter[j] NE modelCounter[j+1]-1) THEN $
+            singlePaneAvg[j,*,*,ii] = avg(theData[whichFrames5[ii], *,*, modelCounter[j]:modelCounter[j+1]-1],3) $
+            ELSE singlePaneAvg[j,*,*,ii] = theData[whichFrames5[ii], *, *, modelCounter[j]]
       ENDFOR
     ENDFOR
     spColors= indgen(5)
@@ -675,11 +688,19 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
     simpleMovie,singlePane,wrtXyn,transpose(spColors), $
         transpose(spColors)*0,wrtXyl,expName2+"_intervalsSPlogR", $
     	5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRanges, $
-        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Median of '+notations
     simpleMovie,singlePane,wrtXyn,transpose(spColors), $
         transpose(spColors)*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsSP", $
 	    5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRangesLin,$
-        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Median of '+notations
+    simpleMovie,singlePaneAvg,wrtXyn,transpose(spColors), $
+        transpose(spColors)*0,wrtXyl,expName2+"_intervalsSPAvglogR", $
+    	5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRanges, $
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Average of '+notations
+    simpleMovie,singlePaneAvg,wrtXyn,transpose(spColors), $
+        transpose(spColors)*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsSPAvg", $
+	    5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRangesLin,$
+        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Average of '+notations
 
   ENDIF
 

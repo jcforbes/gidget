@@ -116,6 +116,7 @@ int main(int argc, char **argv) {
     const double fH2Min =            as.Set(.03,"Minimum fH2");
     const double tDepH2SC =          as.Set(2.0,"Depletion time (Gyr)");
     const double ZIGM =              as.Set(.002,"Z of IGM in absolute units");
+    const double yREC =              as.Set(.054,"yield - mass of metals produced per gas mass locked in stars");
 
     as.~ArgumentSetter();
 
@@ -211,10 +212,11 @@ int main(int argc, char **argv) {
         DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-			  minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM);
+			  minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
         // double sig0 = 8.0/220.0; 
         double sig0 = sigth;
-        disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLength);
+        double stScaleLengthA = accScaleLength * pow(MhZs/Mh0,alphaAccProf);
+        disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA);
 
         Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
                 zstart,NActive,NPassive,alphaMRI,
@@ -229,7 +231,7 @@ int main(int argc, char **argv) {
         DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,
-			    RfREC,xiREC,fH2Min,tDepH2SC,ZIGM);
+			    RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
         if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
         else diskIC.Initialize(.6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
 
@@ -250,7 +252,7 @@ int main(int argc, char **argv) {
         DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
                 TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
                 thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-			  minSigSt, RfREC,xiREC,fH2Min,tDepH2SC,ZIGM);
+			  minSigSt, RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
         disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
         Simulation sim(tmax,stepmax,
                 cosmologyOn,nx,TOL,

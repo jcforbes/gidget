@@ -412,7 +412,9 @@ FUNCTION readOutput,name
     tdc[*,*,ncolStep+5]=tdc[*,*,6]*(tdc[*,*,6]/(tdc[*,*,5]+tdc[*,*,3]))*Radius/(chi*!pi) ;; stellar scale height
     tdc[*,*,ncolStep+6]=tdc[*,*,4]*(tdc[*,*,4]/(tdc[*,*,5]*tdc[*,*,4]/tdc[*,*,6]+tdc[*,*,3]))*Radius/(chi*!pi) ;; gas scale height
 
-    tdc[*,*,ncolStep+7]=tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*Radius*cmperkpc*mdotext0/(chi*chi*vphiR*1d5*tdc[*,*,3] * MSol)  ;;;  2d Jeans Mass in Solar Masses
+    tdc[*,*,ncolStep+7]=tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*tdc[*,*,4]*Radius*cmperkpc* $
+        mdotext0/(chi*chi*vphiR*1d5*tdc[*,*,3] * MSol)  $
+        *  (sign(tdc[*,*,48-1] - fH2Min*1.0001)+1.000001)/2;;;  2d Jeans Mass in Solar Masses in the SF region
 
     evArray[1,*] = evArray[1,*]*2*!pi*Radius/(vphiR*.977813952) ;; kpc/(km/s) = .9778 Gyr -- convert times to Ga.
 
@@ -537,10 +539,10 @@ FUNCTION readOutput,name
     tdc[*,*,ncolstep+40-1] = tdc[*,*,ncolstep+10-1]/((3.0*!pi*tdc[*,*,ncolstep+42-1]^2*Qlim*sigmath * tdc[*,*,ncolstep+9-1]*cmperkpcpers2peryear2*cm2perpc2perMsol / (32.0*eps_ff^2 * tdc[*,*,48-1] * tdc[*,*,48-1] * tdc[*,*,16-1]*vphiR * sqrt(2.0*(bbeta+1)) * G*(Rf+mlf)^2))^(1./3.)) 
 
     ; viscous timescale = integral (gas mass interior to r) / mdot(r)
-    tdc[*,*,ncolstep+47-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d6,2,/cumulative)/tdc[*,*,39-1]
+    tdc[*,*,ncolstep+47-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*sinh(dlnx)*tdc[*,*,ncolstep+10-1]*1.0d6,2,/cumulative)/tdc[*,*,39-1]
 
     ; SF timescale = integral (gas mass interior to r) / integral(SF interior to r)
-    tdc[*,*,ncolstep+48-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+10-1]*1.0d6,2,/cumulative)/TOTAL(2.0*!pi*x*Radius*x*Radius*2.0*sinh(dlnx/2.0)*tdc[*,*,ncolstep+14-1],2,/cumulative)
+    tdc[*,*,ncolstep+48-1] = TOTAL(2.0*!pi*x*Radius*x*Radius*sinh(dlnx)*tdc[*,*,ncolstep+10-1]*1.0d6,2,/cumulative)/TOTAL(2.0*!pi*x*Radius*x*Radius*sinh(dlnx)*tdc[*,*,ncolstep+14-1],2,/cumulative)
 
     ;; dcoldt_accr / all
     tdc[*,*,ncolstep+49-1] = tdc[*,*,ncolstep+46-1]/tdc[*,*,ncolstep+45-1]
@@ -632,18 +634,18 @@ FUNCTION readOutput,name
 	;26- 0, 27- 0 
 	;28- ang. mom of gas, 29- ang. mom of stars
 	;30- ang. mom of cumulative outflows
-        ;; 33,34 = -tau, -tau'
-        ;; 35,36,37: depletion time, viscous time, dep/visc
-        ;; 38,39 v_rg/r=1/tvisc, tdepH2
-        ;; 40,41 Sigma/SigmaEQ, (mu+Rf)*colSFR/colAccr
-        ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
-        ;; 45- dcoldt_transport/ dcoldt_accr
-        ;; 46- (dcoldt_transport+dcoldt_SF)/dcoldt_accr
-        ;; 47 - integrated t_visc,  48 - t_SF within r
-        ;; 49 - dcoldt_accr/all,  50 - dcoldt_SF/all
-        ;; 51- dZDiskdt_dil, 52- dZDiskdt_sf -- these two are dimensionless
-        ;; 53- equilibrium number, 54- dcoldt/dcoldt_accr, 55- Sigma/SigmaCrit
-        ;; 56 - sigma/sigma_an
+    ;; 33,34 = -tau, -tau'
+    ;; 35,36,37: depletion time, viscous time, dep/visc
+    ;; 38,39 v_rg/r=1/tvisc, tdepH2
+    ;; 40,41 Sigma/SigmaEQ, (mu+Rf)*colSFR/colAccr
+    ;; 42- Accretion col dens 43- accretion timescale, 44- BB4
+    ;; 45- dcoldt_transport/ dcoldt_accr
+    ;; 46- (dcoldt_transport+dcoldt_SF)/dcoldt_accr
+    ;; 47 - integrated t_visc,  48 - t_SF within r
+    ;; 49 - dcoldt_accr/all,  50 - dcoldt_SF/all
+    ;; 51- dZDiskdt_dil, 52- dZDiskdt_sf -- these two are dimensionless
+    ;; 53- equilibrium number, 54- dcoldt/dcoldt_accr, 55- Sigma/SigmaCrit
+    ;; 56 - sigma/sigma_an
 
 	;	ncolstep + npostprocess +... (still indexed from 1)
 	; 1- S_*0,   2- s_*0,  3- Z_*0, 4- ScHeight (kpc), 5- Q_i ( initial population of stars )
@@ -696,7 +698,8 @@ FUNCTION readOutput,name
 		zrelax:zrelax, zetaREC:zetaREC, deltaOmega:deltaOmega, $
         NoutputsNominal:NoutputsNominal,  ND08attempts:ND08attempts, $
         x25s_2:x25s_2, x25s_3:x25s_3, x25s:x25s, x25s_4:x25s_4, $
-        colTranses:colTranses, NN:NN, sigmath:sigmath }
+        colTranses:colTranses, NN:NN, sigmath:sigmath,  $
+        alphaAccProf:alphaAccProf, accScaleLength:accScaleLength   }
 	
 	RETURN,model ;; end of the readOutput function
 END

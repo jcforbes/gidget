@@ -82,13 +82,13 @@ PRO balanceplotsCol,ListOfModels,Annotations=Annotations,TexAnnotations=TexAnnot
 
     textPos = dblarr(n_elements(whichRedshifts), n_elements(ListOfModels),3,2)
     textPos[2,1,1,0] = 19.0
-    textPos[2,1,2,0] = 10.0
+    textPos[2,1,2,0] = 6.0
     textPos[2,1,0,0]= 2.0
     textPos[2,1,0,1] = -.7
     textPos[2,1,1,1] = -.4
     textPos[2,1,2,1] = 0.28
-    textPos[2,2,0,0] = 5.0
-    textPos[2,2,0,1] = -0.3
+    textPos[2,2,0,0] = 4.0
+    textPos[2,2,0,1] = -0.26
 
     textCol = intarr(n_elements(whichRedshifts), n_elements(ListOfModels),3)
     textCol[2,1,0] = 1

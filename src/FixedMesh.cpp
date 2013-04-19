@@ -16,10 +16,8 @@ double psiIntegrand(double xp, void * params)
 }
 
 double sign(double a) {
-    if(a==0.0) return 0;
     if(a>0.0)
         return 1;
-    return -1;
 }
 
 
@@ -30,6 +28,7 @@ FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, 
     xiPlusHalf(std::vector<double>(nnx+1,0.)),dxi(std::vector<double>(nnx+1,0.)),
     u1pbiPlusHalf(std::vector<double>(nnx+1,0.)),
     uuv(std::vector<double>(nnx+1,0.)),// psiv(std::vector<double>(nnx+1,0.)),
+    areas(std::vector<double>(nnx+1,0.)),
     stored(false),PsiInitialized(false)
 {
   psi1 = 0.0;
@@ -45,6 +44,7 @@ FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, 
     xiPlusHalf[n] = x(((double) n) + 0.5);
     u1pbiPlusHalf[n] = uu(xiPlusHalf[n])*(1.0+beta(xiPlusHalf[n]));
     dxi[n] = xiPlusHalf[n]-xiPlusHalf[n-1];
+    areas[n] = M_PI*(xiPlusHalf[n] + xiPlusHalf[n-1])*(xiPlusHalf[n]-xiPlusHalf[n-1]);
 //    psiv[n] = psi(xv[n]);
     uuv[n] = uu(xv[n]);
     betav[n] = beta(xv[n]);
@@ -59,7 +59,10 @@ double FixedMesh::u1pbPlusHalf(unsigned int i)
 {
   return u1pbiPlusHalf[i];
 }
-
+double FixedMesh::area(unsigned int n)
+{
+    return areas[n];
+}
 double FixedMesh::dx(unsigned int n)
 {
   return dxi[n];
@@ -172,18 +175,14 @@ double FixedMesh::uu(double x)
 
 double FixedMesh::beta(double x)
 {
-    return beta0*sign(nRotCurve) / (1.0 + pow(x/b,fabs(nRotCurve*beta0)));
-
-//  return beta0 - beta0/(1.0+pow(b/x,beta0*nRotCurve));
+  return beta0 - beta0/(1.0+pow(b/x,beta0*nRotCurve));
     
 //  return bsf*ip/(bsf+pow(x,ip*soft));
 }
 
 double FixedMesh::betap(double x)
 {
-    return -1.0e-9; // hopefully nothing uses this function. We shall see.
-// the top one's more recent:
-//    return - beta0*beta0*nRotCurve*pow(b/x, beta0*nRotCurve) / (x*pow(1.0+pow(b/x,beta0*nRotCurve),2.0));
+    return - beta0*beta0*nRotCurve*pow(b/x, beta0*nRotCurve) / (x*pow(1.0+pow(b/x,beta0*nRotCurve),2.0));
 //  return -bsf*ip*ip*soft*pow(x,-1.+ip*soft) / ((bsf+pow(x,ip*soft))*(bsf+pow(x,ip*soft)));
 }
 

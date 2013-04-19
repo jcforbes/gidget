@@ -32,7 +32,7 @@ class DiskContents {
 	           double minSigSt, 
                double rfrec, double zetarec,
     	       double fh2min, double tdeph2sc,
-               double Z_IGM);
+               double Z_IGM, double yrec);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -223,7 +223,7 @@ class DiskContents {
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
   std::vector<double> dZDiskdtDiff, dZDiskdtAdv; // components of the metallicity time derivative
-  std::vector<double> dMZdt;
+  std::vector<double> dMZdt, MZ;
   std::vector<double> dcoldtIncoming, dcoldtOutgoing; // mass balances in a single cell (dimensionless!)
   std::vector<double> dcoldtPrev,dsigdtPrev,dZDiskdtPrev; // time derivatives at the previous timestep.
 //  std::vector<double> MdotiPlusHalf;

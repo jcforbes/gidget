@@ -1,6 +1,6 @@
 ;; Find the principal components of a particular snapshot (in redshift) of a population of galaxies.
 ;; Designed to be called by vsMstarPCA.
-PRO snapshotPCA, vsMstar , whichVars, log, frame,frameI, means, variances, eigenvect, proj_obj, proj_atr, theArrows
+PRO snapshotPCA, vsMstar , whichVars, log, frame,frameI, means, variances, eigenvect, proj_obj, proj_atr, theArrows=theArrows
     nvars = n_elements(whichVars)
     nmodels = n_elements(vsMstar[0,0,0,*])
 
@@ -47,16 +47,19 @@ PRO snapshotPCA, vsMstar , whichVars, log, frame,frameI, means, variances, eigen
 
 
     FOR pcaI=0,5 DO eigenvect[pcaI,*] =10.0* eigenvect[pcaI,*] / SQRT(TOTAL(eigenvect[pcaI,*]*eigenvect[pcaI,*]))
-    FOR varI=0,nvars-2 DO BEGIN
-        theArrows[frameI,varI,0,*] = 10.0 ^ (theMeans[0]-.5*sqrt(theVariances[0]))
-        theArrows[frameI,varI,1,*] = theMeans[varI+1]+sqrt(theVariances[varI+1])
 
-        theArrows[frameI,varI,2,*] = theArrows[frameI,varI,0,*]*10.0 ^ ( eigenvect[0:5,0])
-        theArrows[frameI,varI,3,*] = theArrows[frameI,varI,1,*] + eigenvect[0:5,varI+1] 
-
-        IF(log[whichVars[varI+1]-1] EQ 1) THEN theArrows[frameI,varI,3,*] = 10.0^theArrows[frameI,varI,3,*]
-        IF(log[whichVars[varI+1]-1] EQ 1) THEN theArrows[frameI,varI,1,*] = 10.0^theArrows[frameI,varI,1,*]
-    ENDFOR
+    IF(n_elements(theArrows) NE 0) THEN BEGIN
+        FOR varI=0,nvars-2 DO BEGIN
+            theArrows[frameI,varI,0,*] = 10.0 ^ (theMeans[0]-.5*sqrt(theVariances[0]))
+            theArrows[frameI,varI,1,*] = theMeans[varI+1]+sqrt(theVariances[varI+1])
+    
+            theArrows[frameI,varI,2,*] = theArrows[frameI,varI,0,*]*10.0 ^ ( eigenvect[0:5,0])
+            theArrows[frameI,varI,3,*] = theArrows[frameI,varI,1,*] + eigenvect[0:5,varI+1] 
+    
+            IF(log[whichVars[varI+1]-1] EQ 1) THEN theArrows[frameI,varI,3,*] = 10.0^theArrows[frameI,varI,3,*]
+            IF(log[whichVars[varI+1]-1] EQ 1) THEN theArrows[frameI,varI,1,*] = 10.0^theArrows[frameI,varI,1,*]
+        ENDFOR
+    ENDIF
 
 
 

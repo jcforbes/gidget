@@ -45,8 +45,9 @@ PRO figureInit,nm,sv,nx,ny,sm=sm
         DEVICE, _Extra=pageInfo,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',language_level=2
 		!p.font = 0
         IF(sm EQ 1) THEN $
+;		DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xsize=30.0*nx,ysize=30.0*ny
 		DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xsize=8.89*nx,ysize=8.89*ny
-		;DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xoffset=1.0,yoffset=1.0
+;;;;		;DEVICE,encapsulated=eps,/helvetica,/isolatin1,bits_per_pixel=8,/color,filename=nm+'.eps',xoffset=1.0,yoffset=1.0
 
 		
 	ENDIF

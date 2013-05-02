@@ -317,7 +317,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
                       FOR jj=1,n_elements(aa[0,*])-1 DO BEGIN
                           xp = [[binCenters],[REVERSE(binCenters,2)]]
                           yp = [aa[*,jj-1], REVERSE(aa[*,jj])]
-                          IF(linefills[jj] EQ 1 ) THEN POLYFILL, xp[*], yp[*], COLOR=aColor,line_fill=linefills[jj], orientation=orientations[jj], thick=0.3,spacing=0.02
+                          IF(linefills[jj] EQ 1 ) THEN POLYFILL, xp[*], yp[*], COLOR=aColor,line_fill=linefills[jj], orientation=orientations[jj]+aColor*40, thick=0.3,spacing=0.03
                           ;IF(linefills[jj] EQ 1 and acolor EQ 1) THEN stop
                       ENDFOR
                       ;; Plot previous times on the same pane.

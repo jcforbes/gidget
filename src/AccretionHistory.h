@@ -35,6 +35,12 @@ double GenerateLogNormal(double zstart,double zrelax, Cosmology& cos,
                     double Mh0, unsigned int seed, std::string fn,
                     bool constInTime);
 
+double GenerateAverageNMD10(double zst, Cosmology& cos,
+        std::string fn, bool writeOut, unsigned long int seed,
+        double invMassRatioLimit, double zquench, int nToAvg,
+        double domega, double zrelax, double fscatter);
+
+
   double GenerateNeistein08(double zstart, Cosmology & cos,
 			    std::string fn, bool writeOut, unsigned long int seed,
 			    double invMassRatioLimit, double zquench, int * attempts,

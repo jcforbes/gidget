@@ -115,9 +115,12 @@ FUNCTION diskStats,model,z=z
     gasMass = model.dataCube[zj,*,3] * (2.0*!pi*model.Radius*model.mdotext0*(sinh(model.dlnx))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
     stellarMass =  model.dataCube[zj,*,5] * (2.0*!pi*model.Radius*model.mdotext0*(sinh(model.dlnx))*(kmperkpc/speryear)/model.vphiR) * x[*] * x[*]
 
-    theBulgeExcess = bulgeExcess(x,model.dataCube[zj,*,5], $
-         (model.accScaleLength/model.Radius)*(model.evArray[19-1,zj]/ $
-         model.evArray[19-1,n_elements(model.evArray[0,*])-1])^model.alphaAccProf)
+    currentScaleLength = (model.accScaleLength/model.Radius)*(model.evArray[19-1,zj]/ $
+         model.evArray[19-1,n_elements(model.evArray[0,*])-1])^model.alphaAccProf
+    rotCurveTurnoverRadius = model.rotCurveTurnover
+
+    theBulgeExcess = bulgeExcess(x,model.dataCube[zj,*,5],max([ currentScaleLength, rotCurveTurnoverRadius]))
+;    IF(theBulgeExcess LE 0) THEN PRINT, "bulge excess didn't converge for name, zj : ",model.name," ",zj
     dimensionalExcess = theBulgeExcess * 2.0*!pi*model.Radius*model.mdotext0*(sinh(model.dlnx))*(kmperkpc/speryear)/model.vphiR
 
     stMass = total(stellarMass) ;;;;; model.evArray[5,zj]/model.evArray[6,zj] * (1.0-model.evArray[6,zj])

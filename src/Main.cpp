@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
     const double accAlpha_z =        as.Set(0.38,"Power to which to raise (1+z) in accretion efficiency");
     const double accAlpha_Mh=        as.Set(-0.25,"Power to which to raise (M_h/10^12 Msun) in acc eff");
     const double accCeiling =        as.Set(1.0,"Maximum accretion efficiency.");
-    const double fscatter =          as.Set(1.0,"Artificial factor by which to multiply scatter in ND10");
+    const double fscatter =          as.Set(1.0,"Artificial factor by which to multiply scatter in NMD10");
     const double invMassRatio =      as.Set(.3,"Maximum change in halo mass across 1 step in domega");
     const double fcool =             as.Set(1.0,"Fraction of f_b M_h(zstart) that has cooled into a disk");
     const double whichAccretionProfile=as.Set(0,"Accretion profile- 0,1,2, respectively exponential, flat, or gaussian");
@@ -140,8 +140,15 @@ int main(int argc, char **argv) {
 
     // Based on the user's choice of accretion history, generate the appropriate
     // mapping between redshift and accretion rate.
-    if(whichAccretionHistory==0)
-        mdot0 = accr.GenerateBoucheEtAl2009(zrelax,cos,filename+"_Bouche09.dat",true,true,zquench) * MSol/speryear;
+    if(whichAccretionHistory==0) {
+        if(!dbg.opt(15))
+            mdot0 = accr.GenerateBoucheEtAl2009(zrelax,cos,filename+"_Bouche09.dat",true,true,zquench) * MSol/speryear;
+        else
+            mdot0 = accr.GenerateAverageNMD10(
+                zstart,cos,filename+"_AvgNeistein08.dat",
+                true,whichAccretionHistory,invMassRatio,zquench,10000,
+                deltaOmega, zrelax,fscatter)*MSol/speryear;
+    }
     else if(whichAccretionHistory==2)
         mdot0 = accr.GenerateConstantAccretionHistory(2.34607,zstart,cos,filename+"_ConstAccHistory.dat",true) * MSol/speryear;
     else if(whichAccretionHistory==1)
@@ -172,14 +179,14 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(5), "Old initialization (powerlaw), relaxation");
     as2.Set(dbg.opt(6), "Stellar recycling");
     as2.Set(dbg.opt(7), "Toomre SFR");
-    as2.Set(dbg.opt(8), "Varying kappaM with correct scaleheight dependence");
+    as2.Set(dbg.opt(8), "Like Bouche, but use prescription from Dekel13 WMAP5 cosmology" );
     as2.Set(dbg.opt(9), "not minmod in ddx(sig)");
     as2.Set(dbg.opt(10),"pretend fH2=.03 always"); 
     as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 
     as2.Set(dbg.opt(12), "Artificially set GI torque=0 everywhere");
     as2.Set(dbg.opt(13), "Artificially set fH2 as if [Z/Zsun] = 0.3-.05*(r/kpc)");
     as2.Set(dbg.opt(14), "For lognormal acc history, bursts uniform in time (otherwise uniform in z)");
-    as2.Set(dbg.opt(15), "non-constant kappa_Z");
+    as2.Set(dbg.opt(15), "If whichAccretionHistory is 0, use the average from NMD instead of Bouche");
     as2.Set(dbg.opt(16), "Newly formed stars have full gas velocity dispersion instead of turbulent component only");
     as2.Set(dbg.opt(17), "upstream");
     as2.Set(dbg.opt(18), "overshoot");

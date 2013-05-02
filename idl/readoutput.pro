@@ -699,7 +699,8 @@ FUNCTION readOutput,name
         NoutputsNominal:NoutputsNominal,  ND08attempts:ND08attempts, $
         x25s_2:x25s_2, x25s_3:x25s_3, x25s:x25s, x25s_4:x25s_4, $
         colTranses:colTranses, NN:NN, sigmath:sigmath,  $
-        alphaAccProf:alphaAccProf, accScaleLength:accScaleLength   }
+        alphaAccProf:alphaAccProf, accScaleLength:accScaleLength, $
+        rotCurveTurnover:b}
 	
 	RETURN,model ;; end of the readOutput function
 END

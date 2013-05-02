@@ -20,7 +20,7 @@ PRO vsMstarPCA,vsMstar,whichFrames=whichFrames,log=log,names=names,colors=colors
     ;; We want an m by n matrix. m is a variable, n is a model.
     FOR frameI = 0, n_elements(whichFrames)-1 DO BEGIN
         frame = whichFrames[frameI]
-        snapshotPCA, vsMstar , whichVars, log, frame,frameI, means, variances, eigenvect, proj_obj, proj_atr, theArrows
+        snapshotPCA, vsMstar , whichVars, log, frame,frameI, means, variances, eigenvect, proj_obj, proj_atr, theArrows=theArrows
     ENDFOR
 
     ;; STEP ONE: plot the projections (theArrows, stored from above) of each eigenvector
@@ -38,6 +38,13 @@ PRO vsMstarPCA,vsMstar,whichFrames=whichFrames,log=log,names=names,colors=colors
 
     ;; STEP TWO: plot each model in PCA-space. This requires setting up the following matrix:
     ;; time/redshift, -, PC, model  
+    ; To construct a plot vs. time, we actually need to do PCA at every snapshot to find the main sequence.
+    collect = dblarr(n_elements(vsMstar[*,0,0,0]), 1, n_elements(vsMstar[0,0,*,0]), nmodels)
+    FOR i=0, n_elements(vsMstar[*,0,0,0])-1 DO BEGIN
+
+        snapshotPCA, vsMstar, whichVars, log, i,i, means,variances, eigenvect, proj_obj, proj_atr
+
+    ENDFOR
 
 END
 

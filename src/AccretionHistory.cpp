@@ -191,6 +191,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         if(drawNewNumber) {
             x = gsl_ran_gaussian(r,1.0);
         }
+        // Set dMh such that the average accretion rate == the value given above by dMh.
         currentAccretionRate = exp(log(dMh*1.0e12)-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
         
         if(z>zstart) currentAccretionRate = dMh*1.0e12;
@@ -253,6 +254,53 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
     gsl_rng_free(r);
 
     return mdotext0;
+}
+
+
+double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
+        std::string fn, bool writeOut, unsigned long int seed,
+        double invMassRatioLimit, double zquench, int nToAvg,
+        double domega, double zrelax, double fscatter)
+{
+    int TotalAttempts=0;
+    double mdotext0;
+    int NSamples = 1000; // resolution of redshift grid.
+    zstart = zst;
+
+    // Set up a grid in redshift
+    std::vector<double> zs(NSamples,0);
+    for(unsigned int j=0; j!=NSamples; ++j) {
+        zs[j] = zrelax*1.05 - j*(zrelax*1.05 + .01)/((double) NSamples);
+    }
+
+    std::vector<double> avgMh(NSamples,0);
+    std::vector<double> avgMdots(NSamples,0);
+    double avgMdotExt0 = 0.0;
+    for(int i=0; i!=nToAvg; ++i) {
+        int nattempts=0;
+        AccretionHistory accr(Mh0, dbg); // Same as for *this.
+        accr.SetEfficiencyParams(normalization, alpha_z, alpha_Mh,  ceiling);
+        mdotext0 = accr.GenerateNeistein08(zst,cos,fn,false,i,invMassRatioLimit,zquench,&nattempts,domega,zrelax,fscatter);
+        avgMdotExt0 += mdotext0/((double) nToAvg);
+        TotalAttempts += nattempts;
+        // Now that we have an accretion history, accumulate its mdot's and mh's.
+        for(unsigned int j=0; j!=zs.size(); ++j){
+            avgMh[j] += accr.MhOfZ(zs[j])/((double) nToAvg);
+            avgMdots[j] += accr.AccOfZ(zs[j])*mdotext0/((double) nToAvg);
+        }
+    }
+
+    if(writeOut) {
+        std::ofstream file(fn.c_str());
+        for(unsigned int j=0; j!=zs.size()-1; ++j) {
+            file << zs[j] << " " << avgMh[j] << " " << avgMdots[j] << " " << 0.18*epsin(zs[j],avgMh[j],cos,zquench) << " " << 0.18*epsin(zs[j],avgMh[j],cos,zquench)*fabs((avgMh[j+1]-avgMh[j])*1.0e12*speryear/(cos.Tsim(zs[j+1])-cos.Tsim(zs[j]))) << std::endl;
+        }
+        file.close();
+    }
+
+    linear=true;
+    InitializeGSLObjs(zs,avgMdots,avgMh);
+    return avgMdotExt0;
 }
 
 // Attempts to generate an accretion history based on Neistein08. If it fails, it will return -1,
@@ -323,8 +371,8 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
             return -1.0;
         masses.push_back(M);
         if(!first)  masses.push_back(M); // solar masses
-        std::cout<<"z,om;S,M;ds,s,x: "<<zs[zs.size()-1]<<" "<<om<<"; "<<SS<<" "<<
-            masses[masses.size()-1]<<"; "<<deltaS<<" "<<s<<" "<<x<<std::endl;
+//        std::cout<<"z,om;S,M;ds,s,x: "<<zs[zs.size()-1]<<" "<<om<<"; "<<SS<<" "<<
+//            masses[masses.size()-1]<<"; "<<deltaS<<" "<<s<<" "<<x<<std::endl;
 
         SS+=deltaS;
         om += dom;
@@ -381,6 +429,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
         zs2.push_back(zs[i]);
         accs2.push_back(accs[i] * epsin(zs[i],masses[i]*1.0e-12,cos,zquench));
         masses2.push_back(masses[i]);
+        // The number of points to add between two known z's.
         unsigned int NExpand = 100;
         for(unsigned int j=1; j!=NExpand; ++j ) {
             // Generate a value of z, equally spaced between the two known z's.
@@ -454,11 +503,24 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
         else // if Mh is given at z=0, start from low redshift and go to z=zstart.
             z=((double) i)/((double) N) * (zstart - 0.0);
 
+        double deltaz = (zstart-0.0) / ((double) N);
+
         // Use the Bouche formula to tell us the dark matter accretion rate
         double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // in 10^12 Msol/yr
 
+        double zero = 0.0;
+
+        if(dbg.opt(8))
+            dMh = 0.623 * pow(Mh,1.0+0.14) // so far this is dM/domega
+                * fabs((omega(z,&zero)-omega(z-deltaz,&zero)) // d omega
+                        * speryear / (cos.Tsim(z)-cos.Tsim(z-deltaz)));  // 1/dt
+
+        double MdotExt = dMh*1.0e12 *0.18*fbp18*epsin(z,Mh,cos,zquench); 
+
+        
+
         // Use the analogous formula to tell us the baryonic accretion rate.
-        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
+//        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
 
         if((i==0 && !MhAtz0) || (i==N && MhAtz0)) // always set MdotExt0 to be MdotExt at z=2
             MdotExt0= MdotExt;
@@ -474,7 +536,7 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
         }
 
         // these small adjustments to z avoid interpolation errors without really affecting anything.
-        redshifts.push_back(z*1.001-.001); 
+        redshifts.push_back(z*1.0001-.0001); 
 
         tabulatedAcc.push_back(MdotExt);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
@@ -620,8 +682,6 @@ void testAccretionHistory()
     //
     //    }
     //  }
-
-
 
 
 }

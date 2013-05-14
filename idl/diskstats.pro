@@ -195,6 +195,9 @@ FUNCTION diskStats,model,z=z
     den = model.evArray[11-1,zj]
     IF(den EQ 0) THEN den = model.evArray[11-1,1]
     tdepAvg = TOTAL( gasMass )*totfH2/den ; = molecular gas mass / SFR
+    tcoh = (-(2.3067430037592236*10^16 * (-(2.543802317900929/(Sqrt(1/(1+z)^3) * (1+z)^4))-4.313953488372093/((1+z)^4 *sqrt(1.+2.875968992248062/(1+z)^3))))/((1-0.2784* exp(-1.16* z)-0.09/(1+z)^2) * (1.6958682119339528* Sqrt(1/(1+z)^3)+Sqrt(1.+2.875968992248062/(1+z)^3))))/speryear
+
+    timescaleRatio = tcoh*(model.MLF+model.Rf)/(tdepAvg)
 
     ; other quantities to compute: variance in Z_gas, Z_*, variance in Z_*, stellar age, mol gas frac, tdep for all gas
 

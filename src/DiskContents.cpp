@@ -285,7 +285,7 @@ void DiskContents::Initialize(double fcool, double fg0,
     double xd = stScaleLength/dim.d(1.0);
     // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
     // fcool of the baryons have cooled to form a disk.
-//    double S0 = 0.18 * fcool * MhZs*MSol / (dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+//    double S0 = 0.17 * fcool * MhZs*MSol / (dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
     // This is a correction, to account for the fact that for scale lengths >~ the radius of the disk,
     // most of this mass will fall off the edge of the grid. We want to put that mass back into the grid.
     // dmdtCosOuter(1.0) is the fraction of the accretion which occurs outside the outer radius of the disk.
@@ -293,8 +293,8 @@ void DiskContents::Initialize(double fcool, double fg0,
     double xinner = mesh.x(.5);
 //    double fOuter =   (1.0 + xb/xd)*exp(-xb/xd);
 //     S0 *= 1.0 / (1.0 - fOuter);
-//    double S0 = 0.18*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*xd*(xd-exp(-xb/xd)*(xd+xb))*dim.MdotExt0*dim.Radius);
-    double S0 = 0.18*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
+//    double S0 = 0.17*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*xd*(xd-exp(-xb/xd)*(xd+xb))*dim.MdotExt0*dim.Radius);
+    double S0 = 0.17*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
 
     for(unsigned int n=1; n<=nx; ++n) {
         ZDisk[n] = Z_IGM;
@@ -357,7 +357,7 @@ void DiskContents::Initialize(double fcool, double fg0,
 
         double fc = 1.0/6.0;
         double xd = stScaleLength/dim.d(1.0);
-        double S0 = 0.18 * fc * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
+        double S0 = 0.17 * fc * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
 
         //// For each cell...
         for(unsigned int n=1; n<=nx; ++n) {
@@ -672,6 +672,11 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
     // Compute a bunch of timescales for variation in each cell, i.e. Quantity / (dQuantity/dt)
     // Find the maximum value of the inverse of all such timescales. 
     double dmax=0.;
+
+
+
+
+
     for(unsigned int n=1; n<=nx; ++n) {
         if(fabs(dZDiskdt[n]/ZDisk[n]) > dmax) {
             dmax = fabs(dZDiskdt[n]/ZDisk[n]);
@@ -762,11 +767,40 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
         }
 
 
-
+        
         if(dmax!=dmax) errormsg("Error setting timestep. n, whichVar, whichCell: "+str(n)+" "+str(*whichVar)+" "+str(*whichCell));
 
     } // end loop over cells
-    return TOL/max(dmax,10.0*TOL/x[1]); // maximum stepsize of .1 innermost orbital times
+    double dt = TOL/max(dmax,10.0*TOL/x[1]); // maximum stepsize of .1 innermost orbital times
+
+
+        // Code from DiffuseMetals. Despite its implicit nature, 
+        // the diffusion algorithm has a limitation, namely the 
+        // tridiagonal matrix can't have 30 orders of magnitude
+        // in dynamic range! This puts a limit on the timestep.
+        double KM;
+        unsigned int n=nx;
+        // Scale from Yang and Krumholz 2012 (proportional to lambda_J^2/t_orb).
+        KM=(kappaMetals)*4.7e-3*sig[n]*sig[n]*sig[n]*sig[n]*sqrt(1.0+beta[n])*uu[n]/(col[n]*col[n]*dim.chi()*dim.chi()*x[n]); //KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(col[n]*dim.chi());
+        // Scale from Yang and Krumholz 2012 (t_orb only)
+        //else if(dbg.opt(8)) KM = (kappaMetals*1.0e3)*1.0e-4 * uu[n]/uu[nx]*x[nx]/x[n] * dim.Radius/(10.0*cmperkpc); //KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(M_PI*col[n]*dim.chi() * (1.0 +  sig[n]*activeColSt(n)/(activeSigStZ(n)*col[n]))); 
+        // don't scale - kappa is constant.
+        //else KM = kappaMetals;
+        double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
+        double colnp1 = col[nx];
+        if(n!=nx) colnp1=col[n+1];
+        double ratio = mesh.x(n+1)*mesh.x(n+1)*colnp1/(x[n]*x[n]*col[n]);
+        double eta = sum/(1.0+ratio);
+        double dtZ =   (1.0+ratio)*1.0e30 / (   (kappaMetals)*4.7e-3*sig[n]*sig[n]*sig[n]*sig[n]*sqrt(1.0+beta[n])*uu[n]/(col[n]*col[n]*dim.chi()*dim.chi()*x[n]) * 4.0*M_PI/(mesh.dx(n)*mesh.dx(n))  );
+
+//    if(dt>dtZ) {
+//        dt=dtZ;
+//        *whichVar=15;
+//    }
+
+
+
+    return dt;
 }
 
 void DiskContents::AddNewStellarPop(const double redshift, 
@@ -1157,6 +1191,7 @@ void DiskContents::DiffuseMetals(double dt)
         //else if(dbg.opt(8)) KM = (kappaMetals*1.0e3)*1.0e-4 * uu[n]/uu[nx]*x[nx]/x[n] * dim.Radius/(10.0*cmperkpc); //KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(M_PI*col[n]*dim.chi() * (1.0 +  sig[n]*activeColSt(n)/(activeSigStZ(n)*col[n]))); 
         // don't scale - kappa is constant.
         //else KM = kappaMetals;
+        if(KM > 1.0) KM = 1.0;
         double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
         double colnp1 = col[nx];
         if(n!=nx) colnp1=col[n+1];
@@ -1179,12 +1214,13 @@ void DiskContents::DiffuseMetals(double dt)
         gsl_vector_set(MetalMass1,n-1, ZDisk[n]*col[n]*x[n]*x[n]*dlnx);
     }
 
-    if(dbg.opt(1)) { // Z_boundary = Z_IGM, i.e. metals are free to flow off the edge of the disk.
+    // Now the default is to set Z_boundary = Z_IGM - dbg.opt(1) is being used for something else
+    //    if(dbg.opt(1)) { // Z_boundary = Z_IGM, i.e. metals are free to flow off the edge of the disk.
         gsl_vector_set(MetalMass1,nx,Z_IGM*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
-    }
-    else { // Zero flux condition
-        gsl_vector_set(MetalMass1,nx,ZDisk[nx]*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
-    }
+	//    }
+	//    else { // Zero flux condition
+	//        gsl_vector_set(MetalMass1,nx,ZDisk[nx]*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+	//    }
 
     for(unsigned int n=0; n<=nx; ++n) {
         double left=0;

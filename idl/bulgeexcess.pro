@@ -83,6 +83,7 @@ FUNCTION bulgeExcess,r,col,scaleRadius
    ; stop
    IF(doneFlag EQ 0) THEN BEGIN
       PRINT,"bulgeExcess did not converge"
+      stop
       return,0.0
    ENDIF
     RETURN,excL

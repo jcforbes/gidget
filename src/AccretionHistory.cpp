@@ -165,7 +165,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     unsigned int N=1000; 
     if(Nchanges > N/100) N=100*Nchanges;
     double Mh=Mh012; // units of 10^12 solar masses
-    double fbp18 = 1.0; // baryon fraction / 0.18
+    double fbp18 = 17.0/18.0; // baryon fraction / 0.18
     double MdotExt0, MdotExt;
     std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
     double duration = cos.Tsim(0.0);
@@ -195,7 +195,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         currentAccretionRate = exp(log(dMh*1.0e12)-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
         
         if(z>zstart) currentAccretionRate = dMh*1.0e12;
-        MdotExt = currentAccretionRate * epsin(z,Mh,cos,zquench)*.18;
+        MdotExt = currentAccretionRate * epsin(z,Mh,cos,zquench)*.17;
 
         if((z-zstart)*(z+dz-zstart)<=0.0)// always set MdotExt0 to be MdotExt at z=2
             MdotExt0= MdotExt;
@@ -284,16 +284,24 @@ double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
         avgMdotExt0 += mdotext0/((double) nToAvg);
         TotalAttempts += nattempts;
         // Now that we have an accretion history, accumulate its mdot's and mh's.
-        for(unsigned int j=0; j!=zs.size(); ++j){
+        for(unsigned int j=0; j!=zs.size(); ++j) {
             avgMh[j] += accr.MhOfZ(zs[j])/((double) nToAvg);
-            avgMdots[j] += accr.AccOfZ(zs[j])*mdotext0/((double) nToAvg);
+            double currentAcc = accr.AccOfZ(zs[j]) * mdotext0;
+            avgMdots[j] += currentAcc/((double) nToAvg);
+            sqMdots[j] += currentAcc*currentAcc/((double) nToAvg);
         }
+        double dummy=0;
     }
 
     if(writeOut) {
         std::ofstream file(fn.c_str());
         for(unsigned int j=0; j!=zs.size()-1; ++j) {
-            file << zs[j] << " " << avgMh[j] << " " << avgMdots[j] << " " << 0.18*epsin(zs[j],avgMh[j],cos,zquench) << " " << 0.18*epsin(zs[j],avgMh[j],cos,zquench)*fabs((avgMh[j+1]-avgMh[j])*1.0e12*speryear/(cos.Tsim(zs[j+1])-cos.Tsim(zs[j]))) << std::endl;
+            file << zs[j] << " " <<  // redshift
+                avgMh[j] << " " <<   // <M_h(t)>
+                avgMdots[j] << " " << // <Mdot_b(t)>
+                sqrt(sqLogMdots[j] - avgLogMdots*avgLogMdots) << " "<< // variance
+                0.17*epsin(zs[j],avgMh[j],cos,zquench) << " " << // efficiency factor
+                0.17*epsin(zs[j],avgMh[j],cos,zquench)*fabs((avgMh[j+1]-avgMh[j])*1.0e12*speryear/(cos.Tsim(zs[j+1])-cos.Tsim(zs[j]))) << " " << std::endl; // Mdot_b(t) derived from avg. acc history
         }
         file.close();
     }
@@ -313,20 +321,34 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     zstart = zst;
     std::ofstream file;
     if(writeOut) file.open(fn.c_str());
-    double sigma8=0.82;
-    if(!dbg.opt(3)) sigma8=.796; // WMAP5
-    double OmegaM=cos.OmegaM();
+
+    // The following bit of logic allows us to use either ND08a or NMD10 to
+    // generate the accretion histories. If we use ND08a, (dbg.opt(3)), we need
+    // to use the Millenium Run cosmology to generate the accretion histories,
+    // but we don't want other functions of the cosmology to use MR cosmology
+    // So, we will use hisCos to generate the histories, but simCos in the rest of the simulation.
+    // If !dbg.opt(3), both will be the same (presumably WMAP5)
+    Cosmology MR(0.25, 0.75, 2.36576888e-18, 0.9, zrelax); // Millenium run cosmology
+    Cosmology simCos(cos); // 
+    Cosmology hisCos(MR);
+    if(!dbg.opt(3))
+        hisCos = Cosmology(simCos);
+//    double sigma8=0.82;
+//    if(!dbg.opt(3)) sigma8=.796; // WMAP5
+    double sigma8 = hisCos.sigma8();
+    double OmegaM=hisCos.OmegaM();
     // double dom = 0.1;
     double dom = domega;
     double zero=0.0;
     double om = omega(0.0,&zero);
+    double omTr = om;
     linear=true; // use linear interpolation
     SParams sp;
     sp.rhs=0.0;
     sp.sigma8=sigma8;
     sp.OmegaM=OmegaM;
     std::vector<double> zs(0),accs(0),masses(0),zs2(0),accs2(0),masses2(0);
-    double SS= S(Mh0*cos.h(),&sp);
+    double SS= S(Mh0*hisCos.h(),&sp);
     bool first=true;
     do {
         // pick a value for our Gaussian random variable.
@@ -359,14 +381,20 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
         // update our list of redshifts, given our uniformly spaced value of omega.
         // subtract a small number so that when we evaluate some quantity at z=0, we don't get an interpolation error.
 
-        double z=zOfOmega(om); // avoids interpolation errors at the end of the simulation...
+        double fac = 1.0;
+        // if we're using the MR to generate histories, rescale omega's as recommended
+        // in Neistein, Maccio and Dekel (2010), section 5.1
+        if(dbg.opt(3)) 
+            fac = 0.86;
+            
+        double z=zOfOmega(omTr); 
         zs.push_back(z);
         if(!first) zs.push_back(z+.000001); // z's cannot have identical values or the GSL interpreter chokes.
         if(SS > 500.0) {
             return -1.0;
         } 
         // update our tabulated value of halo mass.
-        double M=MofS(SS,sp.sigma8,sp.OmegaM)/cos.h();
+        double M=MofS(SS,sp.sigma8,sp.OmegaM)/hisCos.h();
         if(M < 1.0e4)
             return -1.0;
         masses.push_back(M);
@@ -376,14 +404,15 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
 
         SS+=deltaS;
         om += dom;
+        omTr += dom*fac;
         first=false;
     } while(zs[zs.size()-1]<zrelax*1.1);
     //  for(unsigned int i=0; i!=masses.size()-1; ++i) {
     double md0;
     for(unsigned int i=0; i<masses.size()-1; i+=2) {
-        if((masses[i]-masses[i+1])/masses[i+1] > invMassRatioLimit && zs[i+1]<zstart) {
-            //errormsg("Major merger at z="+str(zs[i+1])+"<zstart; throwing out this accretion history. dM="+str(masses[i]-masses[i+1])+", M="+str(masses[i+1])+", (dM/dz)/M="+str(((masses[i]-masses[i+1])/(zs[i+1]-zs[i]))/masses[i+1]),fatal);
-            return -1.0;
+        // Check to confirm that no large change in M has occurred this step.
+        if((masses[i]-masses[i+1])/masses[i+1] > invMassRatioLimit  && zs[i]<zstart) {
+            return -1.0; // if too-large a change has occurred, throw out this history.
         }
 
         // The accretion rate is the difference in DM halo masses between the two time steps 
@@ -391,17 +420,15 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
         // This is in units of solar masses per year
         // NOTE that this equation DOES NOT INCLUDE the efficiency factor. It will be added in
         // momentarily in the loop over intermediate redshifts.
-        double accr = (.18*(masses[i]-masses[i+1])/
-                (fabs(cos.Tsim(zs[i+1]) - cos.Tsim(zs[i]))
+        double accr = (.17*(masses[i]-masses[i+1])/
+                (fabs(simCos.Tsim(zs[i+1]) - simCos.Tsim(zs[i]))
                  /speryear)
                 );
         // if the "first" flag above is working correctly, these two accretion rates should
         // occur at very different redshifts.
         accs.push_back(accr);
         accs.push_back(accr);
-        // When we cross zstart, set md0 equal to the current accretion rate.
-        if((zs[i+1] - zstart)*(zs[i]-zstart) <= 0.0)
-            md0 = accr;
+
     }
     zs.pop_back();
     masses.pop_back();
@@ -427,7 +454,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     // At this point zs is going from high redshift to low.
     for(unsigned int i=0; i!=zs.size()-1; ++i) {
         zs2.push_back(zs[i]);
-        accs2.push_back(accs[i] * epsin(zs[i],masses[i]*1.0e-12,cos,zquench));
+        accs2.push_back(accs[i] * epsin(zs[i],masses[i]*1.0e-12,simCos,zquench));
         masses2.push_back(masses[i]);
         // The number of points to add between two known z's.
         unsigned int NExpand = 100;
@@ -436,10 +463,16 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
             double z = zs[i] - ((double) j)/((double) NExpand) * (zs[i]-zs[i+1]);
             zs2.push_back(z);
             // Now let's make Mh(z) linear in time not redshift!
-            double Mhz = masses[i] + (masses[i+1]-masses[i]) * (cos.Tsim(z) - cos.Tsim(zs[i]))/(cos.Tsim(zs[i+1])-cos.Tsim(zs[i]));
+            double Mhz = masses[i] + (masses[i+1]-masses[i]) * (simCos.Tsim(z) - simCos.Tsim(zs[i]))/(simCos.Tsim(zs[i+1])-simCos.Tsim(zs[i]));
             masses2.push_back(Mhz);
             // and finally multiply the accretion rate by some efficiency which changes with redshfit and halo mass.
-            accs2.push_back(accs[i]*epsin(z,Mhz*1.0e-12,cos,zquench));
+//            accs2.push_back(fabs((Mhz-masses2[masses2.size()-2]) / 
+//                        (cos.Tsim(z)-cos.Tsim(zs2[zs2.size()-2])))*
+//                        0.17*epsin(z,Mhz*1.0e-12,cos,zquench)*speryear);
+            accs2.push_back(accs[i]*epsin(z,Mhz*1.0e-12,simCos,zquench));
+            // When we cross zstart, set md0 equal to the current accretion rate.
+            if((z - zstart)*(zs2[zs2.size()-2]-zstart) <= 0.0)
+                md0 = accs2[accs2.size()-1];
 
         }
     }
@@ -491,7 +524,7 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
     unsigned int N=1000; 
     double Mh=Mh012; // units of 10^12 solar masses
     double z=zstart;
-    double fbp18 = 1.0; // baryon fraction / 0.18
+    double fbp18 = 17.0/18.0; // baryon fraction / 0.18
     double MdotExt0;
     std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
 
@@ -669,7 +702,7 @@ double AccretionHistory::MhOfZ(double z)
 // which called it as having failed (by having written to std::cerr; these should be resolved now.
 void testAccretionHistory()
 {
-    Cosmology cos(1.0-.734, .734, 2.29e-18, 2.0);
+    //Cosmology cos(1.0-.734, .734, 2.29e-18, 2.0);
 
 
     double dummy=0.0;

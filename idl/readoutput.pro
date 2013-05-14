@@ -400,6 +400,10 @@ FUNCTION readOutput,name
        	ZstDen[*,0,*,0] += starsHyperCubeA[*,ii,*,0]
     ENDFOR
 
+    ;; If you get an error on the following line, it's probably because
+    ;; you're trying to read an invalid run, e.g. one which did not write out
+    ;; data more than once. In my experience this is caused by an error in the
+    ;; C++ code which should probably be investigated.
     tdc[0,*,39-1] = tdc[1,*,39-1] ;; currently the initial value is zero.
     evArray[9-1,0] = evArray[9-1,1]
 

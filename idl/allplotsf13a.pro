@@ -3,17 +3,22 @@
 ; since the poorly-written code may require a fresh IDL session each time.
 
 PRO allplotsf13a,numbers
+    fid = 'rg01'
+    stoch='rg69b';'rg20b'
+    alt='rg36'
+
+
     wh = WHERE(numbers EQ 0,ct)
-    IF(ct GT 0) THEN variability3,['rg01','rg20b']
+    IF(ct GT 0) THEN variability3,[fid,stoch]
     wh = WHERE(numbers EQ 1,ct)
-    IF(ct GT 0) THEN variability3,['rg01','rg36d','rg36e'],annotations=['Fiducial','No SF','No GI']
+    IF(ct GT 0) THEN variability3,[fid,alt+'d',alt+'e'],annotations=['Fiducial','No SF','No GI']
     wh = WHERE(numbers EQ 2,ct)
-    IF(ct GT 0) THEN variability3,['rg01','rg36e'],annotations=['Fiducial','No GI']
+    IF(ct GT 0) THEN variability3,[fid,alt+'e'],annotations=['Fiducial','No GI']
     wh = WHERE(numbers EQ 3,ct)
     IF(ct GT 0) THEN postagestamps
     wh = WHERE(numbers EQ 4,ct)
-    IF(ct GT 0) THEN balanceplots,['rg01/rg01','rg36d/rg36d','rg36e/rg36e'],annotations=['Fiducial','No SF','No GI']
+    IF(ct GT 0) THEN balanceplots,[fid+'/'+fid,alt+'d/'+alt+'d',alt+'e/'+alt+'e'],annotations=['Fiducial','No SF','No GI']
     wh = WHERE(numbers EQ 5,ct)
-    IF(ct GT 0) THEN variability3,['rg01','rg36d'],annotations=['Fiducial','No SF']
+    IF(ct GT 0) THEN variability3,[fid,alt+'d'],annotations=['Fiducial','No SF']
 
 END

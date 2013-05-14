@@ -45,6 +45,9 @@ void AccretionProfile::UpdateProfile(double MhOverMh0)
 
         double currentFracOuter = fOuter();
 
+	if(dbg.opt(1))
+            currentFracOuter = 0.0;
+
         for(unsigned int n=1; n<=nx; ++n) {
             double nD = ((double) n);
             double xlo = mesh.x(nD-0.5);

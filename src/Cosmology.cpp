@@ -3,6 +3,13 @@
 #include <math.h>
 #include <iostream>
 
+Cosmology Cosmology::operator=(const Cosmology& c)
+{
+    Cosmology toReturn(c.OmegaM(),c.OmegaL(),c.Hubble(), c.sigma8(), c.zs());
+    return toReturn;
+}
+
+
 // The following two functions are inverses of each 
 // other. lbt is the lookback time for a matter+lambda 
 // - dominated universe.

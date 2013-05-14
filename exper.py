@@ -527,7 +527,7 @@ if __name__ == "__main__":
     rg01.irregularVary("R",40)
     rg01.irregularVary('diskScaleLength',l045*.35)
     rg01.irregularVary('accScaleLength',l045*.7)
-    rg01.irregularVary('mu',1.0)
+    rg01.irregularVary('mu',.5)
     rg01.irregularVary('vphiR',220.0)
     rg01.irregularVary('NPassive',20)
     rg01.irregularVary('invMassRatio',1.0)
@@ -541,6 +541,7 @@ if __name__ == "__main__":
     rg01.irregularVary('kappaMetals',1.0)
     rg01.irregularVary('xiREC',0.0)
     rg01.irregularVary('alphaAccretionProfile',1./3.)
+    rg01.irregularVary('deltaOmega',.5)
 
 
     # Vary the scale length of the accretion.
@@ -572,9 +573,25 @@ if __name__ == "__main__":
     rg04[3].irregularVary('dbg',2+2**15)
     rg04[3].irregularVary('invMassRatio',0.2)
 
+    rg04y=NewSetOfExperiments(rg01,"rg04y",N=4)
+    [rg04y[i].irregularVary('deltaOmega',0.1) for i in range(len(rg04y))]
+    # rg04ya Dekel13 prescription for WMAP5
+    rg04y[0].irregularVary('dbg',2+2**8+2**3) 
+    # rg04yb Average of NMD w/ standard params
+    rg04y[1].irregularVary('dbg',2+2**15+2**3) 
+    # rg04yc Average of NMD w/ no merger cut
+    rg04y[2].irregularVary('dbg',2+2**15+2**3)
+    rg04y[2].irregularVary('invMassRatio',100.0)
+    # rg04yd Average of NMD w/ strict merger cut
+    rg04y[3].irregularVary('dbg',2+2**15+2**3)
+    rg04y[3].irregularVary('invMassRatio',0.2)
+
+
     # constant.
-    rg04x=NewSetOfExperiments(rg03,"rg04x")
-    [rg04x[i].irregularVary('dbg',2) for i in range(len(rg04x))]
+    rg04x=NewSetOfExperiments(rg04,"rg04x")
+    [rg04x[i].irregularVary('accCeiling',0.1) for i in range(len(rg04x))]
+    [rg04x[i].irregularVary('accNorm',100000.0) for i in range(len(rg04x))]
+    [rg04x[i].irregularVary('accAlphaMh',0.0) for i in range(len(rg04x))]
 
     # Vary the Q below which the disk will be unstable
     rg05=NewSetOfExperiments(rg01,"rg05",N=2)
@@ -593,8 +610,8 @@ if __name__ == "__main__":
 
     # Vary mass loading factor
     rg08=NewSetOfExperiments(rg01,"rg08",N=2)
-    rg08[0].vary('mu',.1,.9,5,0)
-    rg08[1].vary('mu',1.1,2.0,5,0)
+    rg08[0].vary('mu',.1,.4,4,0)
+    rg08[1].vary('mu',.6,1.5,10,0)
 
     # Vary dissipation rate
     rg09=NewSetOfExperiments(rg01,"rg09",N=2)
@@ -742,7 +759,7 @@ if __name__ == "__main__":
     rg35[2].irregularVary('kappaMetals',1.0e-6)
 
 
-    rg36=NewSetOfExperiments(rg01,"rg36",N=8)
+    rg36=NewSetOfExperiments(rg01,"rg36",N=9)
     rg36[0].irregularVary('dbg',2+2**4) # exp Delta Q
     rg36[1].irregularVary('dbg',2+2**17) # upstream
     rg36[2].irregularVary('dbg',2+2**18) # overshoot
@@ -757,6 +774,7 @@ if __name__ == "__main__":
     rg36[5].irregularVary('xiREC',.9)
     rg36[6].irregularVary('innerPowerLaw',0) # g
     rg36[7].irregularVary('alphaAccretionProfile',1) #h
+    rg36[8].irregularVary('dbg',2+2**12+2**13), #i
 
     rg36x=NewSetOfExperiments(rg36,"rg36x")
     [rg36x[i].irregularVary("R",60) for i in range(len(rg36x))]
@@ -920,34 +938,36 @@ if __name__ == "__main__":
 
 
 
-    # First attempt to do a mass study. Mh0 from 10^10-10^12 and 10^12-10^13
+    # Another mass study, with an eye towards understanding th emain squence
     rg58=NewSetOfExperiments(rg41x[0],"rg58",N=2)
-    Mhlo = [1.0e11 * 10**(i/60.0) for i in range(60)]
-    Mhhi = [1.0e12 * 10**((i+1.0)/60.0) for i in range(60)]
+    Nsample = 200 
+    Mhlo = [1.0e11 * 10**(i/float(Nsample)) for i in range(Nsample)]
+    Mhhi = [1.0e12 * 10**((i+1.0)/float(Nsample)) for i in range(Nsample)]
 
-    rg58[0].irregularVary("R",GetScaleLengths(60,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1),5)
-    rg58[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(60)],5)
-    rg58[0].irregularVary("diskScaleLength",GetScaleLengths(60,Mh0=Mhlo,scatter=1.0e-10,multiple=0.35),5)
-    rg58[0].irregularVary("accScaleLength",GetScaleLengths(60,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
+    rg58[0].irregularVary("R",GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1),5)
+    rg58[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(Nsample)],5)
+    rg58[0].irregularVary("diskScaleLength",GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=0.35),5)
+    rg58[0].irregularVary("accScaleLength",GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
 #    rg41[0].irregularVary("b",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.3),5)
     rg58[0].irregularVary("b",0)
-    rg58[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(60)],5)
-    rg58[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(60)],5)
+    rg58[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
+    rg58[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(Nsample)],5)
     #rg41[0].irregularVary('kappaMetals',[(Mhlo[i]/1.0e12)**(-2.0/3.0) for i in range(200)],5)
-    rg58[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(60)],5)
+    rg58[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
     rg58[0].irregularVary('Mh0',Mhlo,5)
 
-    rg58[1].irregularVary("R",GetScaleLengths(60,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
-    rg58[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(60)],5)
-    rg58[1].irregularVary("diskScaleLength",GetScaleLengths(60,Mh0=Mhhi,scatter=1.0e-10,multiple=0.35),5)
-    rg58[1].irregularVary("accScaleLength",GetScaleLengths(60,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
+    rg58[1].irregularVary("R",GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
+    rg58[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(Nsample)],5)
+    rg58[1].irregularVary("diskScaleLength",GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=0.35),5)
+    rg58[1].irregularVary("accScaleLength",GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
     #rg41[1].irregularVary("b",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
     rg58[1].irregularVary("b",0)
-    rg58[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(60)],5)
-    rg58[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(60)],5)
+    rg58[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
+    rg58[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(Nsample)],5)
     #rg41[1].irregularVary('kappaMetals',[(Mhhi[i]/1.0e12)**(-2.0/3.0) for i in range(100)],5)
     rg58[1].irregularVary('Mh0',Mhhi,5)
 
+    # Random scale lengths (and stochastic accr history)
     rg59=NewSetOfExperiments(rg01,"rg59",N=2)
     [rg59[i].vary('whichAccretionHistory',1001,1200,200,0,3) for i in range(len(rg59))]
     scl = GetScaleLengths(200,Mh0=1.0e12,scatter=0.4,multiple=0.7)
@@ -956,7 +976,68 @@ if __name__ == "__main__":
     rg59[0].irregularVary('deltaOmega',.2)
     rg59[1].irregularVary('deltaOmega',.5)
 
+    # Study the Main Sequence using smaller stepsizes
+    rg60=NewSetOfExperiments(rg58,"rg60")
+    [rg60[i].irregularVary('deltaOmega',0.1) for i in range(len(rg60))]
+    [rg60[i].irregularVary('dbg',2+2**3) for i in range(len(rg60))]
 
+
+    rg61=NewSetOfExperiments(rg01,"rg61",N=1)
+    rg61[0].irregularVary('accScaleLength',3.0)
+    rg61[0].irregularVary('R',30.0)
+
+    rg62=NewSetOfExperiments(rg36,"rg62")
+    [rg62[i].irregularVary('accScaleLength',3.0) for i in range(len(rg62))]
+    [rg62[i].irregularVary('R',30.0) for i in range(len(rg62))]
+
+    rg63=NewSetOfExperiments(rg20,"rg63")
+    [rg63[i].irregularVary('accScaleLength',3.0) for i in range(len(rg63))]
+    [rg63[i].irregularVary('R',30.0) for i in range(len(rg63))]
+
+    rg64=NewSetOfExperiments(rg01,"rg64",N=1)
+    rg64[0].irregularVary('accScaleLength',3.0)
+    rg64[0].irregularVary('R',30.0)
+    rg64[0].irregularVary('dbg',2+2**3)
+    rg64[0].irregularVary('deltaOmega',0.1)
+
+    rg65=NewSetOfExperiments(rg36,"rg65")
+    [rg65[i].irregularVary('accScaleLength',3.0) for i in range(len(rg65))]
+    [rg65[i].irregularVary('R',30.0) for i in range(len(rg65))]
+    [rg65[i].irregularVary('dbg',2+2**3) for i in range(len(rg65))]
+    [rg65[i].irregularVary('deltaOmega',0.1) for i in range(len(rg65))]
+
+
+    rg66=NewSetOfExperiments(rg20,"rg66")
+    [rg66[i].irregularVary('accScaleLength',3.0) for i in range(len(rg66))]
+    [rg66[i].irregularVary('R',30.0) for i in range(len(rg66))]
+    [rg66[i].irregularVary('dbg',2+2**3) for i in range(len(rg66))]
+    [rg66[i].irregularVary('deltaOmega',0.1) for i in range(len(rg66))]
+
+
+    rg67=NewSetOfExperiments(rg01,"rg67",N=1)
+    rg67[0].irregularVary('dbg',2+2**3)
+    rg67[0].irregularVary('deltaOmega',0.1)
+
+    rg68=NewSetOfExperiments(rg36,"rg68")
+    [rg68[i].irregularVary('dbg',2+2**3) for i in range(len(rg68))]
+    [rg68[i].irregularVary('deltaOmega',0.1) for i in range(len(rg68))]
+
+
+    rg69=NewSetOfExperiments(rg20,"rg69")
+    [rg69[i].irregularVary('dbg',2+2**3) for i in range(len(rg69))]
+    [rg69[i].irregularVary('deltaOmega',0.1) for i in range(len(rg69))]
+
+    rg70=NewSetOfExperiments(rg69,"rg70")
+    scl = GetScaleLengths(400,Mh0=1.0e12,scatter=0.4,multiple=0.7)
+    [rg70[i].irregularVary('accScaleLength',scl,3) for i in range(len(rg70))]
+    [rg70[i].irregularVary('R',[scl[j]*5 for j in range(len(scl))],3) for i in range(len(rg70))]
+
+    rg71=NewSetOfExperiments(rg70,"rg71")
+    [rg71[i].irregularVary('xmin',.0006) for i in range(len(rg71))]
+
+    # Try the rg20bish thing but with no invMassRatio cut
+    rg72=NewSetOfExperiments(rg69,"rg72")
+    [rg72[i].irregularVary('invMassRatio',10000.0) for i in range(len(rg72))]
 
     successTables=[]
 

@@ -94,6 +94,21 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
 
 ;  IF(n_elements(keys) EQ 0) THEN keys=[[indgen(38)+1],47,48,49,50]
 ;  tk=[0,keys[*]]
+  IF(n_elements(keys) EQ 0) THEN BEGIN
+      keys = [ $ ; compare to the data in getlabels.pro
+           0, 1, 2, 3, 4, $  ; r, col, sig, colst, sigst
+           5, 6, 7, 8, 9, $  ; f_g, Z, colsfr, Q, Qg
+          10,11,12,   14, $  ; Qst, fH2, ageAtz0,   tdep
+          15,   17,18,19, $  ; tvisc, mdotDisk, vrg, vst
+             21,   23,    $  ; tdepH2, sfrPerAccr
+          25,   27,28,29, $  ; accr, BB4, beta, u
+                      34, $  ; mdotGtr0
+             36,          $  ; sfPerAll
+                47,   49, $  ; equilibrium, colPerCrit
+          50,51           $  ; sigPerAn, MJeans
+          ]
+
+  ENDIF
 
   ;; variables to plot- title, column index, log plot, name, y-range
   dummy = GetLabels(keys=keys,tex=wrtXytex, labels=wrtXyt, names=wrtXyn,$
@@ -244,6 +259,7 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   proftimes[2]=systime(1)
 
   theData = (temporary(theData))[*,*,*,0:ctr-1]
+  xBig = (temporary(xBig))[*,*,*,0:ctr-1]
   theDataScaleR = theData[*,*,*,*]
   theDataScaleR[*,*,0,*] = xBig[*,*,*,*]
   resample,theData
@@ -256,28 +272,28 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
 
   thePercentiles = [0.025,.16,.5,.84,.975]
   nper = n_elements(thePercentiles)
-  intervals = dblarr(n_elements(theData[*,0,0,0]),  n_elements(theData[0,*,0,0]), n_elements(theData[0,0,*,0]), nper*n_elements(expNames))  
+;  intervals = dblarr(n_elements(theData[*,0,0,0]),  n_elements(theData[0,*,0,0]), n_elements(theData[0,0,*,0]), nper*n_elements(expNames))  
   ;; having accumulated theData, let's do some analysis!
 ;  sortdData = theData * 0.0
 ;  sortdData[*,*,0,*] = theData[*,*,0,*] ;; don't sort radii..
   ;sortdVsMdot = vsMdot*0.0
-  print, "Computing the intervals"
-  FOR expInd=1, n_elements(expNames) DO BEGIN
-    low = modelcounter[expInd-1]
-    high= modelcounter[expInd]-1
-    ;; for all time & space, set the x-values of intervals = appropriate x-values from theData
-    FOR perInd = 0, nper -1 DO $
-        intervals[*,*,0,(expInd-1)*nper+perInd] = theData[*,*,0,low]
+;  print, "Computing the intervals"
+;  FOR expInd=1, n_elements(expNames) DO BEGIN
+;    low = modelcounter[expInd-1]
+;    high= modelcounter[expInd]-1
+;    ;; for all time & space, set the x-values of intervals = appropriate x-values from theData
+;    FOR perInd = 0, nper -1 DO $
+;        intervals[*,*,0,(expInd-1)*nper+perInd] = theData[*,*,0,low]
 
-    FOR j=0,n_elements(theData[*,0,0,0])-1 DO BEGIN ;; loop over time
-      FOR k=1,n_elements(wrtXyy)-1 DO BEGIN ;; loop over variables
-        FOR xx=0,n_elements(theData[0,*,0,0])-1 DO BEGIN ;; loop over x-coord
-    	  ;;; Sort the models, within each experiment
-          intervals[j,xx,k,(expInd-1)*nper:(expInd)*nper-1] = percentiles(theData[j,xx,k,low:high],thePercentiles,wrtXyl[k])
-	    ENDFOR ;; end loop over x-coord 
-      ENDFOR ;; end loop over variables
-    ENDFOR ;; end loop over time
-  ENDFOR ;; end loop over experiments
+;    FOR j=0,n_elements(theData[*,0,0,0])-1 DO BEGIN ;; loop over time
+;      FOR k=1,n_elements(wrtXyy)-1 DO BEGIN ;; loop over variables
+;        FOR xx=0,n_elements(theData[0,*,0,0])-1 DO BEGIN ;; loop over x-coord
+;    	  ;;; Sort the models, within each experiment
+;          intervals[j,xx,k,(expInd-1)*nper:(expInd)*nper-1] = percentiles(theData[j,xx,k,low:high],thePercentiles,wrtXyl[k])
+;	    ENDFOR ;; end loop over x-coord 
+;      ENDFOR ;; end loop over variables
+;    ENDFOR ;; end loop over time
+;  ENDFOR ;; end loop over experiments
 
 
 
@@ -313,31 +329,41 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
 
 
   expName2 = expNames[0]
-  IF(n_elements(expNames) LT 5) THEN BEGIN
+;  IF(n_elements(expNames) LT 5) THEN BEGIN
       FOR i=1, N_elements(expNames)-1 DO BEGIN
           expName2 = expName2 + '_' + expNames[i];; +'_'+strcompress(string(MIN([n_elements(nameList2),N])),/remove) ;; e.g. rk5_113
       ENDFOR
-  ENDIF ELSE expName2 +='_' + strcompress(string(n_elements(expNames)),/remove)
+;  ENDIF ELSE expName2 +='_' + strcompress(string(n_elements(expNames)),/remove)
   expName2 = expName2 + '_' + strcompress(string(MIN([n_elements(nameList2),N*n_elements(expNames)])),/remove) ;; e.g. rk5_rk6_113
 
-  unsRanges = simpleRanges(intervals[1:n_elements(time)-1,*,*,*],wrtXyl)
-  unsRanges[0,[1,3]] = 0.3 ;; manually set minimum col and colst to 1 Msun/pc^2
-  unsRanges[0,7] =  1.0d-6 ;; manually set min SFR col density to 10^-5 Msun/yr/kpc^2
-  unsRanges[1,[8,9,10]] = 50.0 ;; manually set max Q,Qgas,Qst
-  unsRanges[0,17] = -2.8 ;; mdotDisk
-  unsRanges[1,17] = 5.8
-  unsRanges[0,3-1] = 0.0 ;; velocity dispersion
-  unsRanges[1,3-1] = 35.0
-  unsRanges[0,50-1] = .09 ;; colPerCrit
-  unsRanges[1,50-1] = 3.1
-  unsRanges[0,28-1] = 0.099 ; col/BB profile
-  unsRanges[1,28-1] = 21.0
-  unsRanges[0,52-1] = 3.0e6
-  unsRanges[1,52-1] = 3.0e9 ; 2D Jeans Mass
+  unsRanges = simpleRanges(thedata[1:n_elements(time)-1,*,*,*],wrtXyl)
+  wh = WHERE(keys EQ 1 or keys EQ 3, ct)
+  IF(ct GT 0) THEN unsRanges[0,wh] = 0.3 ;; manually set minimum col and colst to 1 Msun/pc^2
+  wh = WHERE(keys EQ 7, ct)
+  IF(ct GT 0) THEN unsRanges[0,7] =  1.0d-6 ;; manually set min SFR col density to 10^-5 Msun/yr/kpc^2
+  wh = WHERE(keys EQ 8 or keys EQ 9 or keys EQ 10, ct)
+  IF(ct GT 0) THEN unsRanges[1,wh] = 50.0 ;; manually set max Q,Qgas,Qst
+  wh = WHERE(keys EQ 17 , ct)
+  IF(ct GT 0) THEN unsRanges[0,wh] = -2.8 ;; mdotDisk
+  IF(ct GT 0) THEN unsRanges[1,wh] = 5.8
+  wh = WHERE(keys EQ 3-1 , ct)
+  IF(ct GT 0) THEN  unsRanges[0,wh] = 0.0 ;; velocity dispersion
+  IF(ct GT 0) THEN  unsRanges[1,wh] = 35.0
+  wh = WHERE(keys EQ 50-1, ct)
+  IF(ct GT 0) THEN  unsRanges[0,wh] = .09 ;; colPerCrit
+  IF(ct GT 0) THEN  unsRanges[1,wh] = 3.1
+  wh = WHERE(keys EQ 28-1 , ct)
+  IF(ct GT 0) THEN  unsRanges[0,wh] = 0.099 ; col/BB profile
+  IF(ct GT 0) THEN  unsRanges[1,wh] = 21.0
+  wh = WHERE(keys EQ 52-1 , ct)
+  IF(ct GT 0) THEN  unsRanges[0,wh] = 3.0e6
+  IF(ct GT 0) THEN  unsRanges[1,wh] = 3.0e9 ; 2D Jeans Mass
   
   unsRangesLin = unsRanges[*,*]
   unsRangesLin[0,0] = - 0.5
   unsRangesLin[1,0] = 39.999
+
+  IF(unsRanges[1,0] LT unsRangesLin[1,0]) THEN unsRangesLin[1,0] = unsRanges[1,0]
 ;  unsRanges[1,0] = unsRanges[1,0]-.3
 
   unsRangesScaled = unsRangesLin[*,*]
@@ -414,7 +440,7 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   vsMstarStrt = vsMstarTransform(vsMdotStrt,NVS)
   vsMstarToLog = vsMstarTransform(vsMdotToLog,NVS)
 
-  deltaMS,vsMstar, [1.0/3.0, 2.0/3.0], msColors, theDeltas
+  deltaMS,vsMstar, [1.0/3.0, 2.0/3.0], msColors, theDeltas, widths
   IF(useMsColors EQ 1) THEN colors=msColors
 
   vsTimeLabels = vsMdotLabels[*]
@@ -439,13 +465,13 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   vsTimeRanges[0,53-1] = 0.95e11 ; Lower Mh
   vsTimeRanges[1,53-1] = 1.05e12 ; upper Mh
   vsTimeRanges[0,[56,57]-1] = 0.0
-  vsTimeRanges[1,[56,57]-1] = 49.9
+  vsTimeRanges[1,[56,57]-1] = 44.9
   vsTimeRanges[0,58-1] = 0.0
-  vsTimeRanges[1,58-1] =  1.99
+  vsTimeRanges[1,58-1] =  2.99
   vsTimeRanges[0,13-1] = 0.0
   vsTimeRanges[1,13-1] = 0.5
   vsTimeRanges[0,59-1] = 0.0
-  vsTimeRanges[1,59-1] = 1.0 ; bt ratio
+  vsTimeRanges[1,59-1] = .6 ; bt ratio
 
   svSinglePlot=2 ;; 2=eps, 4=png
 
@@ -460,24 +486,31 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
 ;;  IF(n_elements(vsSpecificSFR[0,0,0,*]) LE 50) THEN simpleMovie, vsSpecificSFR,vssSFRNames,colors,colors*0,vssSFRToLog,expName2+"_vsSpSFR",sv,PSYM=1,prev=1,axisLabels=vssSFRLabels,taillength=2,whichFrames=whichFrames
 ;;  IF(n_elements(vsSpecificSFR[0,0,0,*]) GT 50) THEN simpleMovie, vsSpecificSFR,vssSFRNames,colors,colors*0,vssSFRToLog,expName2+"_vsSpSFRDist",sv,PSYM=1,prev=0,axisLabels=vssSFRLabels,NIndVarBins=5,whichFrames=whichFrames
 ;;  IF(n_elements(vsMstar[0,0,0,*]) LE 50) THEN simpleMovie, vsMstar, vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstar",sv,PSYM=1,prev=0,axisLabels=vsMstarLabels,whichFrames=whichFrames
-;;  IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, vsMstarNames, colors, colors*0, vsMstarToLog,expName2+"_vsMstarDist",sv,PSYM=1,prev=0,axisLabels=vsMstarLabels,NIndVarBins=5,percentileList=[.17,.5,.83],whichFrames=whichFrames
 ;;  simpleMovie, avgdVsMdot,vsAvgMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsavgmdot",sv,PSYM=1,prev=1,axisLabels=vsAvgMdotLabels,whichFrames=whichFrames,thicknesses=unsThicknesses
 ;;  simpleMovie,theData,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsorted",sv,axislabels=wrtXyt,whichFrames=whichFrames,ranges=unsRanges
 ;;;    simpleMovie, vsSFR, vsSFRNames, colors, colors*0, vsSFRtoLog,expName2+"_vsSFR",sv,vsSFRstrt,PSYM=1,prev=1,axisLabels=vsSFRLabels
 ;;;    simpleMovie, vsMdot,vsMdotNames,colors,colors*0,vsMdotToLog,expName2+"_vsmdot",sv,vsMdotStrt,PSYM=1,prev=1,axisLabels=vsMdotLabels
 
 
-   ;;;;; STANDALONE PNG's ;;;;;
+
+
+   ;;;;; STANDALONE PNG's (or eps as the case may be) ;;;;;
    ;vs radius. First two are log radius, second two are identical with linear radius
   TheNumberOfModels = n_elements(vsMstar[0,0,0,*])
 
   whichFramesz0 = [n_elements(z)-1]
   whichFramesz2 = [1]
   whichFrames5 = [1,20,51,105,201]; a guess for z=2,1.5,1,.5,0
+  whichFramesThird = [indgen(n_elements(z)/3) * 3 +1,n_elements(z)-1] ; every third element, starting with 2nd frame and ending w/ last frame
+  whichFramesAll = indgen(n_elements(z))
   z5 = strarr(5)  ;z[whichFrames5]
   z3 = strarr(3)
+  zAll= strarr(n_elements(z))
+  zThird = strarr(n_elements(whichFramesThird))
   FOR zi=0,3-1 DO z3[zi] = 'z='+string(abs(z[whichFrames3[zi]]),Format='(D0.2)')
   FOR zi=0,5-1 DO z5[zi] = 'z='+string(abs(z[whichFrames5[zi]]),Format='(D0.2)')
+  FOR zi=0,n_elements(zAll)-1 DO zAll[zi] = 'z='+string(abs(z[zi]),Format='(D0.2)')
+  FOR zi=0,n_elements(zThird)-1 DO zThird[zi] = 'z='+string(abs(z[whichFramesThird[zi]]),Format='(D0.2)')
 
   setct,1,n_elements(linestyles),2
 
@@ -488,10 +521,10 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
   simpleMovie,theData,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogR", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRanges,horizontal=1,thicknesses=unsThicknesses, $
       svSinglePlot=svSinglePlot,texLabels=wrtXytex
-  IF(TheNumberOfModels GT 10) THEN $
-      simpleMovie,intervals,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervals", $
-          5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRangesLin,horizontal=1,thicknesses=linestyles[*]+12, $
-          svSinglePlot=svSinglePlot,texLabels=wrtXytex
+;  IF(TheNumberOfModels GT 10) THEN $
+;      simpleMovie,intervals,wrtXyn,intervalsColors,linestyles,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervals", $
+;          5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRangesLin,horizontal=1,thicknesses=linestyles[*]+12, $
+;          svSinglePlot=svSinglePlot,texLabels=wrtXytex
   simpleMovie,theData,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsorted", $
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRangesLin,horizontal=1,thicknesses=unsThicknesses, $
       svSinglePlot=svSinglePlot,texLabels=wrtXytex
@@ -508,6 +541,9 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
       5,axislabels=wrtXyt,whichFrames=whichFrames3,ranges=unsRangesScaled,horizontal=1,thicknesses=unsThicknesses, $
       svSinglePlot=svSinglePlot,texLabels=["$x = r/R$",wrtXytex[1:n_elements(wrtXytex)-1]],NIndVarBins=20,percentileList=[.025,.16,.5,.84,.975], $
       replacementText=z3,fill=1
+
+
+
 
 
   ;IF(TheNumberOfModels GT 10) THEN $
@@ -626,6 +662,8 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
 
 
 
+
+
   ;; We've made some plots where each panel is a specific time and each line is a specific model. Maybe we can do the converse.
   ;; Right now unsorted ~ intervals ~ (time) (pos) (variable) (model).
   ;; The thing simpleMovie really does is ~ (pane) (pos) (plot) (line)
@@ -648,64 +686,65 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
      	5,axisLabels=wrtXyt,whichFrames=indgen(TheNumberOfModels),ranges=unsRangesLin, $
         horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations, $
         leg = z5
+    wh = WHERE(keys EQ 8-1 or keys EQ 15-1 or keys EQ 12-1 or keys EQ 22-1, ct)
     simpleMovie,singlePane,wrtXyn,transpose(spcolors), $
         transpose(spcolors)*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedSPGroup", $
      	5,axisLabels=wrtXyt,whichFrames=indgen(TheNumberOfModels),ranges=unsRangesLin, $
         horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText=notations, $
-        leg = z5, grouping = [8, 15, 12, 22]-1
+        leg = z5, grouping = wh
 
-    ; each pane is a model, separate plots for z.
-    fractionsPanePerModel = dblarr(TheNumberOfModels, n_elements(theData[0,*,0,0]),  n_elements(whichFrames3)+1, 4)
-    balancePanePerModel = fractionsPanePerModel[*,*,*,*]
-    fractionsPanePerZ = dblarr(n_elements(whichFrames3), n_elements(theData[0,*,0,0]), TheNumberOfModels+1, 4) ; more like the standard thing
-    balancePanePerZ = fractionsPanePerZ[*,*,*,*]
-    FOR j=0,ThenumberOfModels-1 DO BEGIN
-        FOR q=0,4-1 DO fractionsPanePerModel[j, *, 0, q] =theData[0, *, 0, j]
-	FOR q=0,4-1 DO balancePanePerModel[j,*,0,q]=theData[0,*,0,j]
-        FOR ii=0,n_elements(whichFrames3)-1 DO BEGIN
-	        
-            fractionsPanePerModel[j, *, ii+1, 1] = abs(theData[whichFrames3[ii], *, 31 ,j]) ; trPerAll
-            fractionsPanePerModel[j, *, ii+1, 2] = fractionsPanePerModel[j,*,ii+1,1] + theData[whichFrames3[ii], *, 36, j ]; tr+sf perAll
-            fractionsPanePerModel[j, *, ii+1, 3] = fractionsPanePerModel[j,*,ii+1,2] + theData[whichFrames3[ii], *, 35, j]
-    	    balancePanePerModel[j,*,ii+1, 1] = theData[whichFrames3[ii],*,31,j]
-    	    balancePanePerModel[j,*,ii+1, 2] = -theData[whichFrames3[ii],*,36,j] + (theData[whichFrames3[ii],*,31,j] - abs(theData[whichFrames3[ii],*,31,j]))/2.0
-    	    balancePanePerModel[j,*,ii+1, 3] = theData[whichFrames3[ii],*,35,j] + (theData[whichFrames3[ii],*,31,j] + abs(theData[whichFrames3[ii],*,31,j]))/2.0
-
-    	    fractionsPanePerZ[ii,*,j+1,1]=fractionsPanePerModel[j,*,ii+1,1]
-    	    fractionsPanePerZ[ii,*,j+1,2]=fractionsPanePerModel[j,*,ii+1,2]
-    	    fractionsPanePerZ[ii,*,j+1,3]=fractionsPanePerModel[j,*,ii+1,3]
-    	    balancePanePerZ[ii,*,j+1,1]=balancePanePerModel[j,*,ii+1,1]
-    	    balancePanePerZ[ii,*,j+1,2]=balancePanePerModel[j,*,ii+1,2]
-    	    balancePanePerZ[ii,*,j+1,3]=balancePanePerModel[j,*,ii+1,3]
-    	ENDFOR
-    ENDFOR
-    FOR ii=0,n_elements(whichFrames3)-1 DO FOR q=0,4-1 DO fractionsPanePerZ[ii,*,0,q] = theData[whichFrames3[ii],*,0,0]
-    FOR ii=0,n_elements(whichFrames3)-1 DO FOR q=0,4-1 DO balancePanePerZ[ii,*,0,q] = theData[whichFrames3[ii],*,0,0]
-
-    fractionColors=intarr(n_elements(whichFrames3), 4)
-    fractionColors[*,0]=0
-    fractionColors[*,1]=1
-    fractionColors[*,2]=2
-    fractionColors[*,3]=3
-    simpleMovie, fractionsPanePerModel,  ["r","z2","z1","z0"], fractionColors, intarr(4)+1, intarr(n_elements(whichFrames3)+1), $
-        expName2+"_fracPanePerModel",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
-    simpleMovie, fractionsPanePerZ,  ["r",expNames], fractionColors, intarr(4)+1, intarr(TheNumberOfModels+1), $
-        expName2+"_fracPanePerZ",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
-
-    simpleMovie, balancePanePerModel, ["r","z2","z1","z0"], fractionColors, intarr(4)+1, intarr(n_elements(whichFrames3)+1), $
-        expName2+"_balPanePerModel",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
-    simpleMovie, balancePanePerZ, ["r",expNames], fractionColors, intarr(4)+1, intarr(TheNumberOfModels+1), $
-        expName2+"_balPanePerZ",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
+;;;    ; each pane is a model, separate plots for z.
+;;;    fractionsPanePerModel = dblarr(TheNumberOfModels, n_elements(theData[0,*,0,0]),  n_elements(whichFrames3)+1, 4)
+;;;    balancePanePerModel = fractionsPanePerModel[*,*,*,*]
+;;;    fractionsPanePerZ = dblarr(n_elements(whichFrames3), n_elements(theData[0,*,0,0]), TheNumberOfModels+1, 4) ; more like the standard thing
+;;;    balancePanePerZ = fractionsPanePerZ[*,*,*,*]
+;;;    FOR j=0,ThenumberOfModels-1 DO BEGIN
+;;;        FOR q=0,4-1 DO fractionsPanePerModel[j, *, 0, q] =theData[0, *, 0, j]
+;;;	FOR q=0,4-1 DO balancePanePerModel[j,*,0,q]=theData[0,*,0,j]
+;;;        FOR ii=0,n_elements(whichFrames3)-1 DO BEGIN
+;;;	        
+;;;            fractionsPanePerModel[j, *, ii+1, 1] = abs(theData[whichFrames3[ii], *, 31 ,j]) ; trPerAll
+;;;            fractionsPanePerModel[j, *, ii+1, 2] = fractionsPanePerModel[j,*,ii+1,1] + theData[whichFrames3[ii], *, 36, j ]; tr+sf perAll
+;;;            fractionsPanePerModel[j, *, ii+1, 3] = fractionsPanePerModel[j,*,ii+1,2] + theData[whichFrames3[ii], *, 35, j]
+;;;    	    balancePanePerModel[j,*,ii+1, 1] = theData[whichFrames3[ii],*,31,j]
+;;;    	    balancePanePerModel[j,*,ii+1, 2] = -theData[whichFrames3[ii],*,36,j] + (theData[whichFrames3[ii],*,31,j] - abs(theData[whichFrames3[ii],*,31,j]))/2.0
+;;;    	    balancePanePerModel[j,*,ii+1, 3] = theData[whichFrames3[ii],*,35,j] + (theData[whichFrames3[ii],*,31,j] + abs(theData[whichFrames3[ii],*,31,j]))/2.0
+;;;
+;;;    	    fractionsPanePerZ[ii,*,j+1,1]=fractionsPanePerModel[j,*,ii+1,1]
+;;;    	    fractionsPanePerZ[ii,*,j+1,2]=fractionsPanePerModel[j,*,ii+1,2]
+;;;    	    fractionsPanePerZ[ii,*,j+1,3]=fractionsPanePerModel[j,*,ii+1,3]
+;;;    	    balancePanePerZ[ii,*,j+1,1]=balancePanePerModel[j,*,ii+1,1]
+;;;    	    balancePanePerZ[ii,*,j+1,2]=balancePanePerModel[j,*,ii+1,2]
+;;;    	    balancePanePerZ[ii,*,j+1,3]=balancePanePerModel[j,*,ii+1,3]
+;;;    	ENDFOR
+;;;    ENDFOR
+;;;    FOR ii=0,n_elements(whichFrames3)-1 DO FOR q=0,4-1 DO fractionsPanePerZ[ii,*,0,q] = theData[whichFrames3[ii],*,0,0]
+;;;    FOR ii=0,n_elements(whichFrames3)-1 DO FOR q=0,4-1 DO balancePanePerZ[ii,*,0,q] = theData[whichFrames3[ii],*,0,0]
+;;;
+;;;    fractionColors=intarr(n_elements(whichFrames3), 4)
+;;;    fractionColors[*,0]=0
+;;;    fractionColors[*,1]=1
+;;;    fractionColors[*,2]=2
+;;;    fractionColors[*,3]=3
+;;;    simpleMovie, fractionsPanePerModel,  ["r","z2","z1","z0"], fractionColors, intarr(4)+1, intarr(n_elements(whichFrames3)+1), $
+;;;        expName2+"_fracPanePerModel",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
+;;;    simpleMovie, fractionsPanePerZ,  ["r",expNames], fractionColors, intarr(4)+1, intarr(TheNumberOfModels+1), $
+;;;        expName2+"_fracPanePerZ",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
+;;;
+;;;    simpleMovie, balancePanePerModel, ["r","z2","z1","z0"], fractionColors, intarr(4)+1, intarr(n_elements(whichFrames3)+1), $
+;;;        expName2+"_balPanePerModel",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
+;;;    simpleMovie, balancePanePerZ, ["r",expNames], fractionColors, intarr(4)+1, intarr(TheNumberOfModels+1), $
+;;;        expName2+"_balPanePerZ",5, fill=1,svSinglePlot=svSinglePlot,horizontal=1
   ENDIF
 
 
 
  IF(TheNumberOfModels GT 10) THEN BEGIN
-    singlePane = dblarr(n_elements(expNames),n_elements(theData[0,*,0,0]),n_elements(theData[0,0,*,0]),5)
+;    singlePane = dblarr(n_elements(expNames),n_elements(theData[0,*,0,0]),n_elements(theData[0,0,*,0]),5)
     singlePaneAvg = dblarr(n_elements(expNames),n_elements(theData[0,*,0,0]),n_elements(theData[0,0,*,0]),5)
     FOR j=0,n_elements(expNames)-1 DO BEGIN
       FOR ii=0,5-1 DO BEGIN
-	    singlePane[j,*,*,ii] = intervals[whichFrames5[ii],*,*,j*nper+nper/2]
+;       singlePane[j,*,*,ii] = intervals[whichFrames5[ii],*,*,j*nper+nper/2]
         IF(modelCounter[j] NE modelCounter[j+1]-1) THEN $
             singlePaneAvg[j,*,*,ii] = avg(theData[whichFrames5[ii], *,*, modelCounter[j]:modelCounter[j+1]-1],3) $
             ELSE singlePaneAvg[j,*,*,ii] = theData[whichFrames5[ii], *, *, modelCounter[j]]
@@ -713,14 +752,14 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
     ENDFOR
     spColors= indgen(5)
     FOR j=1,n_elements(expNames)-1 DO spColors=[[spColors],[indgen(5)]]
-    simpleMovie,singlePane,wrtXyn,transpose(spColors), $
-        transpose(spColors)*0,wrtXyl,expName2+"_intervalsSPlogR", $
-    	5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRanges, $
-        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Median of '+notations
-    simpleMovie,singlePane,wrtXyn,transpose(spColors), $
-        transpose(spColors)*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsSP", $
-	    5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRangesLin,$
-        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Median of '+notations
+;    simpleMovie,singlePane,wrtXyn,transpose(spColors), $
+;        transpose(spColors)*0,wrtXyl,expName2+"_intervalsSPlogR", $
+;    	5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRanges, $
+;        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Median of '+notations
+;    simpleMovie,singlePane,wrtXyn,transpose(spColors), $
+;        transpose(spColors)*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_intervalsSP", $
+;	    5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRangesLin,$
+;        horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Median of '+notations
     simpleMovie,singlePaneAvg,wrtXyn,transpose(spColors), $
         transpose(spColors)*0,wrtXyl,expName2+"_intervalsSPAvglogR", $
     	5,axisLabels=wrtXyt,whichFrames=indgen(n_elements(expNames)),ranges=unsRanges, $
@@ -731,6 +770,44 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
         horizontal=1,svSinglePlot=svSinglePlot,texLabels=wrtXytex,replacementText='Average of '+notations
 
   ENDIF
+
+
+
+
+;  ;;; These 6 are movies
+;    simpleMovie,theData,wrtXyn,colors,colors*0,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedmv", $
+;      4,axislabels=wrtXyt,ranges=unsRangesLin,horizontal=1,thicknesses=unsThicknesses, $
+;      texLabels=wrtXytex,whichFrames=whichFramesAll,replacementText=zAll
+
+IF(TheNumberOfModels GT 10) THEN BEGIN
+
+    simpleMovie,theData,wrtXyn,colors,colors*0+2,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_unsortedDistFillmv", $
+      4,axislabels=wrtXyt,ranges=unsRangesLin,horizontal=1,thicknesses=unsThicknesses, $
+      texLabels=wrtXytex,NIndVarBins=20,percentileList=[.025,.16,.5,.84,.975], $
+      replacementText=zAll,fill=1,whichFrames=whichFramesAll
+
+  simpleMovie,theDataScaleR,wrtXyn,colors,colors*0+2,[0,wrtXyl[1:n_elements(wrtXyl)-1]],expName2+"_scaleDistFillmv", $
+      4,axislabels=wrtXyt,ranges=unsRangesScaled,horizontal=1,thicknesses=unsThicknesses, $
+      texLabels=["$x = r/R$",wrtXytex[1:n_elements(wrtXytex)-1]],NIndVarBins=20,percentileList=[.025,.16,.5,.84,.975], $
+      replacementText=zAll,fill=1,whichFrames=whichFramesAll
+  ENDIF
+
+ ; IF(n_elements(vsMstar[0,0,0,*]) GT 50) THEN simpleMovie, vsMstar, vsMstarNames, colors, colors*0, $
+;      vsMstarToLog,expName2+"_vsMstarDist",4,PSYM=1,prev=0,axisLabels=vsMstarLabels,NIndVarBins=5, $
+;      percentileList=[.17,.5,.83],whichFrames=whichFramesAll,replacementText=zAll
+
+      ;; This one is a movie.
+  IF(TheNumberOfModels GT 10) THEN $
+       simpleMovie, vsMstar, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstar", $
+           4,PSYM=1,prev=0,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels, $
+           horizontal=1,thicknesses=unsThicknesses,whichFrames=whichFramesAll, replacementText=zAll
+   ;; as is this one
+;  IF(TheNumberOfModels GT 10) THEN $
+;       simpleMovie, vsMstar, vsMstarNames, colors, colors*0, vsMstarToLog, expName2+"_vsMstarPrev", $
+;           4,PSYM=1,prev=1,axisLabels=vsMstarLabels,texLabels=vsMstarTexLabels, $
+;           horizontal=1,thicknesses=unsThicknesses,tailLength=300,whichFrames=whichFramesAll, $
+;           replacementText=zAll
+
 
 
   ;; Now make some standalone plots.

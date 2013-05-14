@@ -125,7 +125,9 @@ int main(int argc, char **argv) {
     double OmegaMatter = .258; // WMAP5
     double OmegaLambda = 1.0 - OmegaMatter;
     double H0 = 2.29e-18;
-    Cosmology cos(OmegaMatter, OmegaLambda, H0 ,zrelax);
+    double sigma8 = 0.796;
+
+    Cosmology cos(OmegaMatter, OmegaLambda, H0 , sigma8, zrelax);
 
     Debug dbg(Experimental);
 
@@ -172,7 +174,7 @@ int main(int argc, char **argv) {
     as2.Set(attempts,"Attempts to generate Neistein08");
     // This is where we'll store a record of all the possiblities of dbg.opt
     as2.Set(dbg.opt(0), "Preemptively set torque = 0 when F<0");
-    as2.Set(dbg.opt(1), "Z_OBC = Z_IGM");
+    as2.Set(dbg.opt(1), "Dont increase accr rate to account for matter falling outside domain");
     as2.Set(dbg.opt(2), "Record IC generation (only relevant if dbg 5)");
     as2.Set(dbg.opt(3), "Neistein & Dekel (2008)"); // check this
     as2.Set(dbg.opt(4), "dQ/dt ~ exp(Delta Q)");

@@ -87,7 +87,8 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
   ENDIF
   IF(sv EQ 4) THEN thicknesses= 3+temporary(thicknesses)
   chth = thicknesses[0]
-  cs =0.8* thicknesses[0]
+  cs =0.5* thicknesses[0]
+  fillspacing = 0.3
   ;; We're making EPS plots in this case. That means that charthick and charsize need to be much smaller
   wf = n_elements(whichFrames)-1  
   IF(sv EQ 5 AND svSinglePlot EQ 2) THEN BEGIN
@@ -100,6 +101,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
         chth=.3
         cs=.3
     ENDIF
+    fillspacing = 0.03
   ENDIF
 
 
@@ -175,13 +177,14 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
          YTITLE=yt, XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
          xlog=wrtXlog[0],CHARTHICK=chth,CHARSIZE=cs,THICK=thicknesses[0], $
          XTHICK=thicknesses[0],YTHICK=thicknesses[0],/nodata $
-       ELSE $
+     ELSE $
         PLOT,findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
 	 findgen(1001)*(ranges[1,0]-ranges[0,0])/1000 + ranges[0,0], $
          COLOR=0,BACKGROUND=255,XSTYLE=1,YSTYLE=1,XTITLE=xt, $
          YTITLE=yt,XRANGE=ranges[*,0],YRANGE=ranges[*,k],ylog=wrtXlog[k], $
          xlog=wrtXlog[0],linestyle=2,CHARSIZE=cs,CHARTHICK=chth, $
          THICK=thicknesses[0],XTHICK=thicknesses[0],YTHICK=thicknesses[0]
+     
       ;; that was all one line! It's now over, and our plotting space is set up.
 
       ;; Print the time in the upper left of the screen
@@ -317,7 +320,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
                       FOR jj=1,n_elements(aa[0,*])-1 DO BEGIN
                           xp = [[binCenters],[REVERSE(binCenters,2)]]
                           yp = [aa[*,jj-1], REVERSE(aa[*,jj])]
-                          IF(linefills[jj] EQ 1 ) THEN POLYFILL, xp[*], yp[*], COLOR=aColor,line_fill=linefills[jj], orientation=orientations[jj]+aColor*40, thick=0.3,spacing=0.03
+                          IF(linefills[jj] EQ 1 ) THEN POLYFILL, xp[*], yp[*], COLOR=aColor,line_fill=linefills[jj], orientation=orientations[jj]+aColor*40, thick=0.3,spacing=fillspacing
                           ;IF(linefills[jj] EQ 1 and acolor EQ 1) THEN stop
                       ENDFOR
                       ;; Plot previous times on the same pane.
@@ -371,7 +374,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
           IF(sv EQ 0) THEN wait,.05
     ;      IF(sv EQ 5 AND tii NE wf AND wf NE 0) THEN 
       ENDIF
-      IF(sv EQ 5 and (not (tii EQ wf and kx EQ ngrp) and ngrp GT 0) or (ngrp EQ 0 and tii NE wf)) THEN modmultiplot
+      IF(sv EQ 5 and ((not (tii EQ wf and kx EQ ngrp) and ngrp GT 0) or (ngrp EQ 0 and tii NE wf))) THEN modmultiplot
 
     ENDFOR ;; end loop over time indices
     IF(ngrp EQ 0 or (ngrp GT 0 and ngrp EQ kx)) THEN BEGIN
@@ -388,16 +391,21 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
             modmultiplot,/default
             IF(sv EQ 5 and svSinglePlot EQ 2) THEN BEGIN
 
-                spawn,"cat "+fn+"_timeSeries.eps | ps2eps --loose --preserveorientation > crp_"+fn+"_timeSeries.eps"
+                spawn,"cat "+fn+"_timeSeries.eps | ps2eps --loose --preserveorientation > TMP2_"+fn+"_timeSeries.eps"
+                spawn,"epstool --add-tiff4-preview TMP2_"+fn+"_timeSeries.eps crp_"+fn+"_timeSeries.eps"
                 spawn,"ps2pdf -dEPScrop crp_"+fn+"_timeSeries.eps "+fn+"_timeSeries.pdf"
 
             ENDIF
             IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"rm TMP_"+fn+"_timeSeries.eps"
+            IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"rm TMP2_"+fn+"_timeSeries.eps"
+            IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"rm TMP_"+fn+"_timeSeries.tex"
+
+            
     ;        IF(sv EQ 5 and svSinglePlot EQ 2) THEN spawn,"epstopdf "+fn+"_timeSeries.eps"
         ENDIF
         set_plot,'x'
     ENDIF
   ENDFOR ;; end loop over dependent variables
-  IF(sv EQ 2|| sv EQ 3 || sv EQ 4) THEN spawn,"python makeGidgetMovies.py"
+;  IF(sv EQ 2|| sv EQ 3 || sv EQ 4) THEN spawn,"python makeGidgetMovies.py"
 END
 

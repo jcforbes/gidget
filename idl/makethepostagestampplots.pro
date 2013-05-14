@@ -45,11 +45,9 @@ PRO makeThePostageStampPlots, stampList, whichRedshifts,vars,zs,th, $
             FigureClean,filename,svSinglePlot
             latexify,(filename+".eps"),[labels,stampLabels],[texLabels,texStampLabels],[replicate(1.2,n_elements(labels)),replicate(.6,n_elements(stampLabels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
             modmultiplot,/default
-
-            spawn,"cat "+filename+".eps | ps2eps --loose --preserveorientation > crp_"+filename+".eps"
+            spawn,"cat "+filename+".eps | ps2eps --loose > TMP2_"+filename+".eps"
+            spawn,"epstool --add-tiff4-preview TMP2_"+filename+".eps crp_"+filename+".eps"
             spawn,"ps2pdf -dEPSCrop crp_"+filename+".eps "+filename+".pdf"
-;            spawn,"mv crp_"+filename+".eps "+filename+".eps"
-
         ENDFOR
     ENDFOR
 

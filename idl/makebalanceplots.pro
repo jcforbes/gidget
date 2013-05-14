@@ -54,8 +54,9 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
     FigureClean,filename,svSinglePlot
     latexify,(filename+".eps"),[myTitle,labels],[myTitle,texLabels],[replicate(0.9,n_elements(labels)+1)],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
     modmultiplot,/default
-    spawn,"cat "+filename+".eps | ps2eps --loose > crp_"+filename+".eps"
-    spawn,"ps2pdf -dEPScrop crp_"+filename+".eps "+filename+".pdf"
+    spawn,"cat "+filename+".eps | ps2eps > TMP2_"+filename+".eps"
+    spawn,"epstool --add-tiff4-preview TMP2_"+filename+".eps crp_"+filename+".eps"
+    spawn,"ps2pdf -dEPSCrop crp_"+filename+".eps "+filename+".pdf"
 
 
 
@@ -107,8 +108,8 @@ PRO makeBalancePlots, ptrListOfModels, whichRedshifts,zs,th,annotations,texAnnot
         FigureClean,filename,svSinglePlot
         latexify,(filename+".eps"),labels,texLabels,[replicate(1.1,n_elements(labels))],tempname=("TMP_"+filename);height=8.89*rows,width=8.89*columns,tempname=("TMP_"+filename)
         modmultiplot,/default
-        spawn,"cat "+filename+".eps | ps2eps --loose --preserveorientation > crp_"+filename+".eps"
-        spawn,"ps2pdf -dEPScrop crp_"+filename+".eps "+filename+".pdf"
+        spawn,"cat "+filename+".eps | ps2eps --loose > crp_"+filename+".eps"
+        spawn,"ps2pdf -dEPSCrop crp_"+filename+".eps "+filename+".pdf"
 
     ENDFOR
 

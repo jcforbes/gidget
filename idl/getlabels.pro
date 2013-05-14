@@ -6,11 +6,11 @@
 ;  - tex-ified versions of the labels
 ;  - the element of the appropriate array where this variable resides
 
-FUNCTION GetLabels, keys=keys, names=names, tex=tex, labels=labels, log=log, offset=offset, base=base, ranges=ranges
+FUNCTION GetLabels, keys=keys, names=names, tex=tex, labels=labels, log=log, offset=offset, base=base, ranges=ranges, indicesUsed=indicesUsed
 
 
-  wrtXyt=['R (kpc)','Gas Column Density (Msun/pc^2)','Velocity Dispersion (km/s)','Stellar Column Density (Msun/pc^2)','Stellar Velocity Dispersion (km/s)','Gas Fraction','[Z/Zsun]','SFR Column Density (Msun/yr/kpc^2)','Q','Gas Q','Stellar Q','Molecular Fraction','Age At z=0 (Ga)','Age (Ga)','Depletion Time (yr)','Viscous Time (Ga)','Depletion/Viscous Time','Mass Flux Through Disk (Msun/yr)',"Gas v_r (km/s)","Star v_r (km/s)","Inv Viscous Time (yr^-1)","tdepH2","Sigma/SigmaEQ","(mu+Rf)*colSFR/colAccr","col timescale (yr)","Accr (Msun/pc^2/yr)","Accretion timescale","Ratio with Universal Prof 4","beta","v/vcirc","transPerAccr","transPerAll","IntegralTVisc","tSF","Positive Mdot (Msun/yr)","accrPerAll","sfPerAll","dsigdt_tr","dsigdt_ddx","dsigdtHeat","dsigdtCool","dZdtAdv","dZdtDiff","dZdtDil","dZdtSF","dcoldtIn","dcoldtOut","Balance","dcoldtPerAccr","colPerCrit","sigmaPerAn","Jeans Mass (Msun)"]
-  wrtXytex=['r (kpc)','$\Sigma\ (M_\odot/pc^2)$','$\sigma$ (km/s)','$\Sigma_*\ (M_\odot/pc^2)$','$\sigma_{*,r}$ (km/s)','$f_g$','$[Z/Z_\odot]$','$\dot{\Sigma}_*^{SF}\ (M_\odot/yr/kpc^2)$','$Q$','$Q_g$','$Q_*$','$f_{H_2}$','Age At $z=0$ (Ga)','Age (Ga)','$t_{dep}$ (yr)','$t_{visc}$ (yr)','$t_{dep}/t_{visc}$','$\dot{M}_{GI}+\dot{M}_{MRI}\ (M_\odot/yr)$',"$v_r$ (km/s)","$v_{r,*}$ (km/s)","$t_{visc}^{-1}\ (yr^{-1})$","$t_{dep,H_2}$ (yr)","$\Sigma/\Sigma_{eq}$","$(\mu+f_R)\dot{\Sigma}^{SF}/\dot{\Sigma}_{cos}$","$\Sigma/\dot{\Sigma}$ (yr)","$\dot{\Sigma}_{cos}\ (M_\odot/pc^2/yr)$","$\Sigma/\dot{\Sigma}_{cos}$","$\Sigma/\Sigma_{UP}$","$\beta$","$v/v_{circ}$","$\dot{\Sigma}_{tr}/\dot{\Sigma}_{acc}$","$\dot{\Sigma}_{tr}/(|\dot{\Sigma}_{tr}|+\dot{\Sigma}_{cos}+\dot{\Sigma}^{SF})$","Integrated $t_{visc}$","$\int^r M_g/\int^r SFR$","$\dot{M}>0 (M_\odot/yr)$","$\dot{\Sigma}_{acc}/(|\dot{\Sigma}_{tr}|+\dot{\Sigma}_{cos}+\dot{\Sigma}^{SF})$","$\dot{\Sigma}^{SF}/(|\dot{\Sigma}_{tr}|+\dot{\Sigma}_{cos}+\dot{\Sigma}^{SF})$","$\partial\sigma/\partial T_{tr}$","$\partial\sigma/\partial T_{ddx}$","$\partial\sigma/\partial T_{visc}$","$\partial\sigma/\partial T_{Cool}$","$\partial Z/\partial T_{Adv}$","$\partial Z/\partial T_{Diff}$","$\partial Z/\partial T_{Dil}$","$\partial Z/\partial T_{SF}$","$\dot{\Sigma}_{in}$","$\dot{\Sigma}_{out}$","$\dot{\Sigma}/A$","$\dot{\Sigma}/\dot{\Sigma}_{accr}$","$\Sigma/\Sigma_{crit}$","$\sigma/\sigma_{an}$",'2D Jeans Mass $(M_\odot)$']
+  wrtXyt=['R (kpc)','Gas Column Density (Msun/pc^2)','Velocity Dispersion (km/s)','Stellar Column Density (Msun/pc^2)','Stellar Velocity Dispersion (km/s)','Gas Fraction','[Z/Zsun]','SFR Column Density (Msun/yr/kpc^2)','Q','Gas Q','Stellar Q','Molecular Fraction','Age At z=0 (Ga)','Age (Ga)','Depletion Time (yr)','Viscous Time (Ga)','Depletion/Viscous Time','Mass Flux Through Disk (Msun/yr)',"Gas v_r (km/s)","Star v_r (km/s)","Inv Viscous Time (yr^-1)","tdepH2","Sigma/SigmaEQ","(mu+Rf)*colSFR/colAccr","col timescale (yr)","Accr (Msun/pc^2/yr)","Accretion timescale","Ratio with Universal Prof 4","beta","v/vcirc","transPerAccr","transPerAll","IntegralTVisc","tSF","Positive Mdot (Msun/yr)","accrPerAll","sfPerAll","dsigdt_tr","dsigdt_ddx","dsigdtHeat","dsigdtCool","dZdtAdv","dZdtDiff","dZdtDil","dZdtSF","dcoldtIn","dcoldtOut","Balance","dcoldtPerAccr","colPerCrit","sigmaPerAn","Jeans Mass (Msun)","x"]
+  wrtXytex=['r (kpc)','$\Sigma\ (M_\odot/pc^2)$','$\sigma$ (km/s)','$\Sigma_*\ (M_\odot/pc^2)$','$\sigma_{*,r}$ (km/s)','$f_g$','$[Z/Z_\odot]$','$\dot{\Sigma}_*^{SF}\ (M_\odot/yr/kpc^2)$','$Q$','$Q_g$','$Q_*$','$f_{H_2}$','Age At $z=0$ (Ga)','Age (Ga)','$t_{dep}$ (yr)','$t_{visc}$ (yr)','$t_{dep}/t_{visc}$','$\dot{M}_{GI}+\dot{M}_{MRI}\ (M_\odot/yr)$',"$v_r$ (km/s)","$v_{r,*}$ (km/s)","$t_{visc}^{-1}\ (yr^{-1})$","$t_{dep,H_2}$ (yr)","$\Sigma/\Sigma_{eq}$","$(\mu+f_R)\dot{\Sigma}^{SF}/\dot{\Sigma}_{cos}$","$\Sigma/\dot{\Sigma}$ (yr)","$\dot{\Sigma}_{cos}\ (M_\odot/pc^2/yr)$","$\Sigma/\dot{\Sigma}_{cos}$","$\Sigma/\Sigma_{UP}$","$\beta$","$v/v_{circ}$","$\dot{\Sigma}_{tr}/\dot{\Sigma}_{acc}$","$\dot{\Sigma}_{tr}/(|\dot{\Sigma}_{tr}|+\dot{\Sigma}_{cos}+\dot{\Sigma}^{SF})$","Integrated $t_{visc}$","$\int^r M_g/\int^r SFR$","$\dot{M}>0 (M_\odot/yr)$","$\dot{\Sigma}_{acc}/(|\dot{\Sigma}_{tr}|+\dot{\Sigma}_{cos}+\dot{\Sigma}^{SF})$","$\dot{\Sigma}^{SF}/(|\dot{\Sigma}_{tr}|+\dot{\Sigma}_{cos}+\dot{\Sigma}^{SF})$","$\partial\sigma/\partial T_{tr}$","$\partial\sigma/\partial T_{ddx}$","$\partial\sigma/\partial T_{visc}$","$\partial\sigma/\partial T_{Cool}$","$\partial Z/\partial T_{Adv}$","$\partial Z/\partial T_{Diff}$","$\partial Z/\partial T_{Dil}$","$\partial Z/\partial T_{SF}$","$\dot{\Sigma}_{in}$","$\dot{\Sigma}_{out}$","$\dot{\Sigma}/A$","$\dot{\Sigma}/\dot{\Sigma}_{accr}$","$\Sigma/\Sigma_{crit}$","$\sigma/\sigma_{an}$",'2D Jeans Mass $(M_\odot)$','$x = r/R$']
   wrtXyy=[9,10,11,12,13, $
       17,22,14,12,24, $
       23,48,31,32,35, $
@@ -21,8 +21,18 @@ FUNCTION GetLabels, keys=keys, names=names, tex=tex, labels=labels, log=log, off
       49,50,40,41,42, $
       45,13,46,51,52, $
       53,54,53,54,55, $
-      56,8] ;; index
-  wrtXyp=[1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1] ;; offset? 
+      56,8,1] ;; index
+  wrtXyp=[1, 1, 1, 1, 1, $
+      0, 0, 1, 0, 0, $
+      0, 0, 1, 1, 1, $
+      1, 1, 0, 1, 1, $
+      1, 1, 1, 1, 1, $
+      1, 1, 1, 0, 0, $
+      1, 1, 1, 1, 0, $
+      1, 1, 0, 0, 0, $
+      0, 0, 0, 1, 1, $
+      0, 0, 1, 1, 1, $
+      1, 1, 0] ;; offset? 
   wrtXyn=[ $
   'r', 'col','sig','colst','sigst', $   ; 5
   'fg','Z','colsfr','Q','Qg', $ ;10
@@ -34,7 +44,7 @@ FUNCTION GetLabels, keys=keys, names=names, tex=tex, labels=labels, log=log, off
   "accrPerAll","sfPerAll","dsigTr","dsigDdx","dsigVisc", $ ;40
   "dsigCool","dZdtAdv","dZdtDiff","dZdtDil","dZdtSF", $ ; 45
   "dcoldtIn","dcoldtOut","equilibrium","dcoldtPerAccr","colPerCrit", $ ; 50
-  "sigPerAn","MJeans"]
+  "sigPerAn","MJeans",'x']
 
   wrtXyr=dblarr(2,n_elements(wrtXyn))
   ;; these are sometimes forsaken in favor of the output of simpleRanges, which tends to do a decent job
@@ -49,7 +59,7 @@ FUNCTION GetLabels, keys=keys, names=names, tex=tex, labels=labels, log=log, off
       [-.1,1.1],[-.1,1.1], [-1,1], [-1,1], [-1,1], $
       [-1,1] , [-1,1], [-1,1], [-1,1], [-1,1], $
       [-1,1], [-1,1], [-1,1], [-1,1], [.001,10], $
-      [.01,100],[1.0e6,1.0e10 ]]
+      [.01,100],[1.0e6,1.0e10 ], [0,1]]
 
 
 ;  wrtXyr=[[0,20],[.1,1000],[5,300],[.1,1000],[5,300],[0,1],[-1,1.0],$
@@ -64,7 +74,7 @@ FUNCTION GetLabels, keys=keys, names=names, tex=tex, labels=labels, log=log, off
       0,0,0,0,0, $
       0,0,0,0,0, $
       0,0,0,0,1, $
-      0,1] ;; log plot
+      0,1,0] ;; log plot
 
   IF(n_elements(keys) GT n_elements(wrtXyt) OR n_elements(keys) EQ 0 ) THEN keys=indgen(n_elements(wrtXyt))
 
@@ -76,6 +86,8 @@ FUNCTION GetLabels, keys=keys, names=names, tex=tex, labels=labels, log=log, off
   log=wrtXyl[keys] 
   ranges=wrtXyr[*,keys]
   tex=wrtXytex[keys]
+  indicesUsed = indgen(n_elements(wrtXyt))
+  indicesUsed=indicesUsed[keys]
 
 END
 

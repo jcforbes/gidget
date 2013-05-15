@@ -288,7 +288,7 @@ double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
             avgMh[j] += accr.MhOfZ(zs[j])/((double) nToAvg);
             double currentAcc = accr.AccOfZ(zs[j]) * mdotext0;
             avgMdots[j] += currentAcc/((double) nToAvg);
-            sqMdots[j] += currentAcc*currentAcc/((double) nToAvg);
+            //sqMdots[j] += currentAcc*currentAcc/((double) nToAvg);
         }
         double dummy=0;
     }
@@ -299,7 +299,7 @@ double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
             file << zs[j] << " " <<  // redshift
                 avgMh[j] << " " <<   // <M_h(t)>
                 avgMdots[j] << " " << // <Mdot_b(t)>
-                sqrt(sqLogMdots[j] - avgLogMdots*avgLogMdots) << " "<< // variance
+                //sqrt(sqLogMdots[j] - avgLogMdots*avgLogMdots) << " "<< // variance
                 0.17*epsin(zs[j],avgMh[j],cos,zquench) << " " << // efficiency factor
                 0.17*epsin(zs[j],avgMh[j],cos,zquench)*fabs((avgMh[j+1]-avgMh[j])*1.0e12*speryear/(cos.Tsim(zs[j+1])-cos.Tsim(zs[j]))) << " " << std::endl; // Mdot_b(t) derived from avg. acc history
         }

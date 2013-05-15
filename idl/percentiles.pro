@@ -33,8 +33,8 @@ FUNCTION percentiles, theArray, percentileArray, log
     FOR i=0, n_elements(theResults)-1 DO BEGIN
     	wh = WHERE(cumulativeLinear GE theTotal*percentileArray[i],count)
 
-        IF(count GT 0) THEN theResults[i] = wh[0]*spacing+theMin+spacing/2.0 $
-            ELSE stop,"Problem in percentiles.pro; this is usually caused by a NaN in the data."
+        IF(count GT 0) THEN theResults[i] = wh[0]*spacing+theMin+spacing/2.0 ;$
+            ;ELSE stop,"Problem in percentiles.pro; this is usually caused by a NaN in the data."
         
     ENDFOR
     

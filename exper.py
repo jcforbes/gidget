@@ -525,7 +525,6 @@ if __name__ == "__main__":
     print "l045 = ",l045," kpc"
     rg01=experiment("rg01")
     rg01.irregularVary("R",40)
-    rg01.irregularVary('diskScaleLength',l045*.35)
     rg01.irregularVary('accScaleLength',l045*.7)
     rg01.irregularVary('mu',.5)
     rg01.irregularVary('vphiR',220.0)
@@ -541,25 +540,23 @@ if __name__ == "__main__":
     rg01.irregularVary('kappaMetals',1.0)
     rg01.irregularVary('xiREC',0.0)
     rg01.irregularVary('alphaAccretionProfile',1./3.)
-    rg01.irregularVary('deltaOmega',.5)
+    rg01.irregularVary('deltaOmega',.1)
 
 
     # Vary the scale length of the accretion.
     rg02=NewSetOfExperiments(rg01,"rg02",N=2)
-#    rg02[0].vary('diskScaleLength',l045*.10,l045*.67,5,0,3)
-#    rg02[1].vary('diskScaleLength',l045*.73,l045*2.1,10,0,3)
     rg02[0].vary('accScaleLength',l045*.10,l045*.67,5,0,3)
     rg02[0].vary('R',l045*.10*7,l045*.67*7,5,0,3)
     rg02[1].vary('accScaleLength',l045*.73,l045*2.1,10,0,3)
     rg02[1].vary('R',l045*.73*7,l045*2.1*7,10,0,3)
 
     # Vary the metal diffusion constant 
-    # scaled with sigma L_J
     rg03=NewSetOfExperiments(rg01,"rg03",N=2)
     rg03[0].vary('kappaMetals',1.0e-1,1.0,6,1)
     rg03[1].vary('kappaMetals',1.0,1.0e1,6,1)
 
 
+    # rg04 and rg04y study various prescriptions for the accretion history
     rg04=NewSetOfExperiments(rg01,"rg04",N=4)
     [rg04[i].irregularVary('deltaOmega',0.5) for i in range(len(rg04))]
     # rg04a Dekel13 prescription for WMAP5
@@ -587,11 +584,6 @@ if __name__ == "__main__":
     rg04y[3].irregularVary('invMassRatio',0.2)
 
 
-    # constant.
-    rg04x=NewSetOfExperiments(rg04,"rg04x")
-    [rg04x[i].irregularVary('accCeiling',0.1) for i in range(len(rg04x))]
-    [rg04x[i].irregularVary('accNorm',100000.0) for i in range(len(rg04x))]
-    [rg04x[i].irregularVary('accAlphaMh',0.0) for i in range(len(rg04x))]
 
     # Vary the Q below which the disk will be unstable
     rg05=NewSetOfExperiments(rg01,"rg05",N=2)
@@ -606,7 +598,6 @@ if __name__ == "__main__":
     rg07=NewSetOfExperiments(rg01,"rg07",N=2)
     rg07[0].vary('alphaMRI',0.0,.009, 6,0)
     rg07[1].vary('alphaMRI',.011, .5,12,0)
-    #rg07[2].vary('alphaMRI',.11,1,6,0)
 
     # Vary mass loading factor
     rg08=NewSetOfExperiments(rg01,"rg08",N=2)
@@ -618,7 +609,7 @@ if __name__ == "__main__":
     rg09[0].vary('eta',.5,1.5,5,1)
     rg09[1].vary('eta',1.5,4.5,5,1)
 
-    # Vary turnover radius of rot. curge with an inner power law of 0.5 and 1
+    # Vary turnover radius of rot. curve with an inner power law of 0.5 and 1
     rg10=NewSetOfExperiments(rg01,"rg10",N=2)
     rg10[0].vary('b',0,2.5,3,0)
     rg10[1].vary('b',3.5,10,7,0)
@@ -635,7 +626,7 @@ if __name__ == "__main__":
     rg12[1].vary('vphiR',225,250, 5,0)
 
     # Vary accretion scale, but this time use a narrow gaussian profile
-    ## problems migrating stars for rg13b*
+    # This one has some problems
     rg13=NewSetOfExperiments(rg02,"rg13")
     [rg13[i].irregularVary('whichAccretionProfile',2) for i in range(len(rg13))]
 
@@ -665,17 +656,19 @@ if __name__ == "__main__":
     rg18[1].vary("RfREC",.6,.7,4,0)
 
     # Vary recycling fraction, with large RfREC leading to non-instantaneous recycling
+    # Note that non-inst. recycling is not well-tested
     rg19=NewSetOfExperiments(rg18,"rg19")
     [rg19[i].irregularVary('dbg',2+2**6) for i in range(len(rg19))]
 
-    # Vary delta omega
+    # Vary delta omega - this is not guaranteed to be physically meaningful.
     rg20=NewSetOfExperiments(rg01,"rg20",N=2)
     [rg20[i].vary('whichAccretionHistory',1001,1400,400,0,3) for i in range(len(rg20))]
     rg20[0].irregularVary('deltaOmega',.2)
     rg20[1].irregularVary('deltaOmega',.5)
 #    rg20[2].irregularVary('deltaOmega',.8)
 
-    # Lognormal acc history variation, with different coherence redshift intergals
+    # Lognormal acc history variation, with different coherence redshift intervals (set by NChanges -
+    # every new draw from the lognormal distribution is equally distributed in redshift.
     rg21=NewSetOfExperiments(rg01,"rg21",N=2)
     [rg21[i].vary('whichAccretionHistory',-1200,-1000,201,0) for i in range(len(rg21))]
     [rg21[i].irregularVary("fscatter",0.2) for i in range(len(rg21))]
@@ -689,21 +682,23 @@ if __name__ == "__main__":
     rg22[0].irregularVary("fscatter",0.1)
     rg22[1].irregularVary("fscatter",0.5)
 
-    # Gaussian profile with non-inst. recycling. Can we fill those holes?
+    # Gaussian profile with non-inst. recycling. 
     # similar problems as w/ rg13 rg17
     rg23=NewSetOfExperiments(rg17,"rg23")
     [rg23[i].irregularVary("RfREC",0.8) for i in range(len(rg23))]
     [rg23[i].irregularVary('dbg',2+2**6) for i in range(len(rg23))]
 
+    # Vary the sharpness of the turnover in the rotation curve
     rg24=NewSetOfExperiments(rg01,"rg24",N=2)
     rg24[0].vary('softening',1.0,1.9,5,0)
     rg24[1].vary('softening',2.1,3.0,5,0)
 
+    # Vary the fraction of baryons which have `cooled' into a disk at z=zrelax
     rg25=NewSetOfExperiments(rg01,"rg25",N=2)
     rg25[0].vary('fcool',.20,.55,8,0)
     rg25[1].vary('fcool',.65,1.0,8,0)
 
-    # problem @ beta0=.95
+    # Vary the inner power law.
     rg26=NewSetOfExperiments(rg01,"rg26",N=3)
     rg26[0].vary('innerPowerLaw',0,.45,5,0)
     rg26[1].vary('innerPowerLaw',.55,.95, 5,0)
@@ -725,15 +720,17 @@ if __name__ == "__main__":
     [rg28[i].irregularVary('dbg',2+2**6) for i in range(len(rg28))]
     [rg28[i].irregularVary('RfREC',.8) for i in range(len(rg28))]
 
+    # Vary initial ratio of stellar : gas velocity dispersion
     rg29=NewSetOfExperiments(rg01,"rg29",N=2)
     rg29[0].vary('phi0',.5,.95,6,1)
     rg29[1].vary('phi0',1.05,2.0,6,1)
 
-
+    # Vary the floor of the H2 fraction.
     rg30=NewSetOfExperiments(rg01,"rg30",N=2)
     rg30[0].vary('fH2Min',.003,.029,6,1)
     rg30[1].vary('fH2Min',.031,.3,6,1)
 
+    # Vary the gas temperature.
     rg31=NewSetOfExperiments(rg01,"rg31",N=2)
     rg31[0].vary('gasTemp',100,6900,8,1)
     rg31[1].vary('gasTemp',7100,30000,4,1)
@@ -742,23 +739,12 @@ if __name__ == "__main__":
     rg32=NewSetOfExperiments(rg20,"rg32")
     [rg32[i].irregularVary('invMassRatio',0.3) for i in range(len(rg32))]
 
+    # Vary the single-cloud star formation timescale
     rg33=NewSetOfExperiments(rg01,"rg33",N=2)
     rg33[0].vary("tDepH2SC",1.0,1.9,5,1)
     rg33[1].vary('tDepH2SC',2.1,4.0,5,1)
 
-    # Vary only the r_IC.
-    rg34=NewSetOfExperiments(rg01,"rg34",N=2)
-#    [rg34[i].irregularVary('accScaleLength',0.7*l045) for i in range(len(rg34))]
-    rg34[0].vary('diskScaleLength',l045*.10,l045*.32,3,0,3)
-    rg34[1].vary('diskScaleLength',l045*.38,l045*2.1,13,0,3)
-
-
-    rg35=NewSetOfExperiments(rg01,"rg35",N=3)
-    [rg35[i].irregularVary('dbg',2+2**12) for i in range(len(rg35))]
-    rg35[1].irregularVary('Qlim',0)
-    rg35[2].irregularVary('kappaMetals',1.0e-6)
-
-
+    # A set of experimental parameters, including the `No GI' and `No SF' models from the most recent paper.
     rg36=NewSetOfExperiments(rg01,"rg36",N=9)
     rg36[0].irregularVary('dbg',2+2**4) # exp Delta Q
     rg36[1].irregularVary('dbg',2+2**17) # upstream
@@ -776,49 +762,42 @@ if __name__ == "__main__":
     rg36[7].irregularVary('alphaAccretionProfile',1) #h
     rg36[8].irregularVary('dbg',2+2**12+2**13), #i
 
+    # Same as rg36 but with a larger computational domain
     rg36x=NewSetOfExperiments(rg36,"rg36x")
     [rg36x[i].irregularVary("R",60) for i in range(len(rg36x))]
 
-    rg37=NewSetOfExperiments(rg20,"rg37")
-    sc=GetScaleLengths(400,multiple=0.7,scatter=0.3,upper=20,lower=2)
-    scp5=GetScaleLengths(400,multiple=0.35,scatter=0.3,upper=10,lower=1)
-    [rg37[i].irregularVary('accScaleLength',sc,3) for i in range(len(rg37))]
-    [rg37[i].irregularVary('diskScaleLength',scp5,3) for i in range(len(rg37))]
-            
+    
+    # Vary ZIGM - this is the initial metallicity and the metallicity of incoming material
     rg38=NewSetOfExperiments(rg01,"rg38",N=2)
     rg38[0].vary("ZIGM",.0002,.002,5,1) # 1/100 - 1/10 solar
     rg38[1].vary("ZIGM",.002,.02,5,1) # 1/10 - 1 solar
 
-    # Vary halo mass, but only 
+    # Vary halo mass, but only as it affects the accretion history (vcirc, racc(z=0), etc. are unchanged)
     rg39=NewSetOfExperiments(rg01,"rg39",N=2)
     Mhlo = [1.0e10 * 10**(i/10.0) for i in range(20)]
     Mhhi = [1.0e12 * 10**((i+1.0)/10.0) for i in range(10)]
     rg39[0].irregularVary('Mh0',Mhlo,5)
     rg39[1].irregularVary('Mh0',Mhhi,5)
 
+    # Now vary halo mass with some other parameters expected to scale along with it. 
     rg40=NewSetOfExperiments(rg39,"rg40")
     rg40[0].irregularVary("R",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1),5)
     rg40[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(20)],5)
-    rg40[0].irregularVary("diskScaleLength",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=0.35),5)
     rg40[0].irregularVary("accScaleLength",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
-#    rg40[0].irregularVary("b",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=0.3),5)
     rg40[0].irregularVary("mu",[1.0*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(20)],5)
     rg40[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(20)],5)
-    #rg40[0].irregularVary('kappaMetals',[(Mhlo[i]/1.0e12)**(-2.0/3.0) for i in range(20)],5)
 
     rg40[1].irregularVary("R",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
     rg40[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(10)],5)
-    rg40[1].irregularVary("diskScaleLength",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.35),5)
     rg40[1].irregularVary("accScaleLength",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
-#    rg40[1].irregularVary("b",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
     rg40[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(10)],5)
-    #rg40[1].irregularVary('kappaMetals',[(Mhhi[i]/1.0e12)**(-2.0/3.0) for i in range(10)],5)
 
 
+    # The fiducial model with only one passive stellar population (saves time and disk space)
     rg41x=NewSetOfExperiments(rg01,"rg41x")
     rg41x[0].irregularVary("NPassive",1)
 
-    # First attempt to do a mass study. Mh0 from 10^10-10^12 and 10^12-10^13
+    # A mass study with stochastic accretion histories
     rg41=NewSetOfExperiments(rg41x[0],"rg41n",N=2)
     Mhlo = [1.0e10 * 10**(i/100.0) for i in range(200)]
     Mhhi = [1.0e12 * 10**((i+1.0)/100.0) for i in range(100)]
@@ -827,11 +806,9 @@ if __name__ == "__main__":
     rg41[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(200)],5)
     rg41[0].irregularVary("diskScaleLength",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.35),5)
     rg41[0].irregularVary("accScaleLength",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
-#    rg41[0].irregularVary("b",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.3),5)
     rg41[0].irregularVary("b",0)
     rg41[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(200)],5)
     rg41[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(200)],5)
-    #rg41[0].irregularVary('kappaMetals',[(Mhlo[i]/1.0e12)**(-2.0/3.0) for i in range(200)],5)
     rg41[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(200)],5)
     rg41[0].irregularVary('Mh0',Mhlo,5)
 
@@ -839,24 +816,25 @@ if __name__ == "__main__":
     rg41[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(100)],5)
     rg41[1].irregularVary("diskScaleLength",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.35),5)
     rg41[1].irregularVary("accScaleLength",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
-    #rg41[1].irregularVary("b",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
     rg41[1].irregularVary("b",0)
     rg41[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(100)],5)
     rg41[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(100)],5)
-    #rg41[1].irregularVary('kappaMetals',[(Mhhi[i]/1.0e12)**(-2.0/3.0) for i in range(100)],5)
     rg41[1].irregularVary('Mh0',Mhhi,5)
 
+    # Vary the inner powerlaw, i.e. beta0
     rg42=NewSetOfExperiments(rg01,"rg42",N=3)
     rg42[0].vary('innerPowerLaw',-0.5,-0.05,4,0)
     rg42[0].irregularVary('softening',-2)
     rg42[1].vary('innerPowerLaw',0.0,0.5, 4,0)
     rg42[2].vary('innerPowerLaw',.55,.95, 4,0)
 
+    # Mass study but use lognormal accretion histories.
     rg43=NewSetOfExperiments(rg41,"rg43")
     [rg43[i].irregularVary('fscatter',0.3) for i in range(len(rg43))]
     rg43[0].irregularVary('whichAccretionHistory',[-2000+i for i in range(200)],5)
     rg43[1].irregularVary('whichAccretionHistory',[-1500+i for i in range(100)],5)
 
+    # Mass study with lognormal accreiton histories, but use bursts uniform in time, not redshift.
     rg44=NewSetOfExperiments(rg43,"rg44")
     [rg44[i].irregularVary('dbg',2+2**14) for i in range(len(rg44))]
 

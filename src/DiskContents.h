@@ -114,7 +114,7 @@ class DiskContents {
                         double t, double z, double dt, 
                         unsigned int step,double **tauvec,double **tauvecStar,double ** tauvecMRI,
                         std::vector<double>& MdotiPlusHalf,std::vector<double>& MdotiPlusHalfMRI,
-                        std::vector<double>& accProf);
+                        std::vector<double>& accProf, double fAccInner);
 
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};

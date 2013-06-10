@@ -97,6 +97,7 @@ class SingleModel:
     def plotSequenceOfTimes(self,rfx, rfy, N):
         figure = plt.figure()
         plt.plot(self.vars[rfx].sensible(ti), self.vars[rfy].sensible(ti))
+        plt.savefig(self.name+'_'+rfy+'_vs_'+rfx+'.png')
     def plotSequenceOfRedshifts(self,rf1, rf2, N):
         pass
     def TwoDimSFR(self,filename,inclination,orientation,timeIndex):

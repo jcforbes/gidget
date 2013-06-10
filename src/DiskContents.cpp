@@ -1793,7 +1793,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         double t, double z, double dt, 
         unsigned int step,double **tauvec, double **tauvecStar, double ** tauvecMRI,
         std::vector<double>& MdotiPlusHalf, std::vector<double>& MdotiPlusHalfMRI,
-        std::vector<double>& accProf)
+        std::vector<double>& accProf, double fAccInner)
 {
     std::ofstream file;
     if(step==0) {
@@ -1927,7 +1927,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
     }
     wrt2.push_back((double) step);wrt2.push_back(t);wrt2.push_back(dt); // 1..3
     wrt2.push_back(MBulge);wrt2.push_back(ZBulge);wrt2.push_back(0.0); // 4..6
-    wrt2.push_back(gasMass/totalMass);wrt2.push_back(arrmax(Mts));wrt2.push_back(MdotiPlusHalf[0]); // 7..9
+    wrt2.push_back(gasMass/totalMass);wrt2.push_back(arrmax(Mts));wrt2.push_back(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0]); // 7..9
     wrt2.push_back(z); wrt2.push_back(TotalWeightedByArea(colSFR)); // 10..11
     double currentStellarMass=0.0;
     double currentGasMass = TotalWeightedByArea(col)* (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) * (1.0/MSol);
@@ -1944,6 +1944,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
     wrt2.push_back(CumulativeTorque);//18
     wrt2.push_back(accr.GetMh0() * accr.MhOfZ(z)); // 19
     wrt2.push_back(accr.AccOfZ(z) * dim.MdotExt0/MSol * speryear); // 20
+    wrt2.push_back(fAccInner*accr.AccOfZ(z)); // 21
     if(step==1) {
         int ncol = wrt2.size();
         file2.write((char *) &ncol,sizeof(ncol));

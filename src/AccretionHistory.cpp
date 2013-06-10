@@ -532,11 +532,11 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
     // Otherwise, loop over redshift from zstart to z=0.
     for(unsigned int i=0; i<=N; ++i) {
         if(!MhAtz0) // if Mh is given at z=zstart, start from high redshift and go to z=0 
-            z=((double) (N-i))/((double) N)*(zstart-0.0);
+            z=((double) (N-i))/((double) N)*(zstart*1.1-0.0)-.001;
         else // if Mh is given at z=0, start from low redshift and go to z=zstart.
-            z=((double) i)/((double) N) * (zstart - 0.0);
+            z=((double) i)/((double) N) * (zstart*1.1 - 0.0)-.001;
 
-        double deltaz = (zstart-0.0) / ((double) N);
+        double deltaz = (zstart*1.1-0.0) / ((double) N);
 
         // Use the Bouche formula to tell us the dark matter accretion rate
         double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // in 10^12 Msol/yr
@@ -563,13 +563,13 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
         if(true) { //z>zquench) {
             // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
             if(!MhAtz0) // starting from high redshift..
-                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart-0.0))) / speryear;
+                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (N-i-1))/((double) N) * (zstart*1.1-0.0)-.001)) / speryear;
             else // starting from low redshift..
-                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart-0.0))) / speryear;
+                Mh+= dMh* -1.0*( cos.Tsim(z) - cos.Tsim( ((double) (i+1))/((double) N) * (zstart*1.1-0.0)-.001)) / speryear;
         }
 
         // these small adjustments to z avoid interpolation errors without really affecting anything.
-        redshifts.push_back(z*1.0001-.0001); 
+        redshifts.push_back(z); 
 
         tabulatedAcc.push_back(MdotExt);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;

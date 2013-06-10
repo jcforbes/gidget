@@ -20,7 +20,43 @@ PRO vsMstarPCA,vsMstar,whichFrames=whichFrames,log=log,names=names,colors=colors
     ;; We want an m by n matrix. m is a variable, n is a model.
     FOR frameI = 0, n_elements(whichFrames)-1 DO BEGIN
         frame = whichFrames[frameI]
-        snapshotPCA, vsMstar , whichVars, log, frame,frameI, means, variances, eigenvect, proj_obj, proj_atr, theArrows=theArrows
+        dataMatrix = dblarr(nvars + 1, nmodels)
+        FOR j=0, nmodels-1 DO BEGIN
+            dataMatrix[0:nvars-1,j] = vsMstar[frame,0,whichVars-1,j]
+            wh = WHERE(log[whichVars-1] EQ 1, ct) 
+            IF(ct GT 0) THEN dataMatrix[wh,j] = alog10(dataMatrix[wh,j])
+            dataMatrix[nvars,j] = alog10(vsMstar[0,0,51,j])
+
+        ENDFOR
+
+        theMeans = dblarr(nvars+1)
+        theVariances = dblarr(nvars+1)
+        FOR v=0, nvars DO theMeans[v] = MEAN(dataMatrix[v,*])
+        FOR v=0, nvars DO theVariances[v] = VARIANCE(dataMatrix[v,*])
+
+        FOR v=0, nvars DO dataMatrix[v,*] = (dataMatrix[v,*] - theMeans[v])/(sqrt(theVariances[v]*double(nmodels-1.0)))
+
+        pca, transpose(dataMatrix), eigenval, eigenvect, percentages, proj_obj, proj_atr,matrix=matrix,/covariance, /silent
+	
+    	FOR v=0, nvars DO BEGIN
+            dataMatrix[v,*] = dataMatrix[v,*]*sqrt(theVariances[v]*double(nmodels-1.0))+theMeans[v]
+            eigenvect[*,v] = eigenvect[*,v] * sqrt(theVariances[v])
+            
+	    ENDFOR
+
+
+        FOR pcaI=0,5 DO eigenvect[pcaI,*] =10.0* eigenvect[pcaI,*] / SQRT(TOTAL(eigenvect[pcaI,*]*eigenvect[pcaI,*]))
+        FOR varI=0,nvars-2 DO BEGIN
+            theArrows[frameI,varI,0,*] = 10.0 ^ (theMeans[0]-.5*sqrt(theVariances[0]))
+            theArrows[frameI,varI,1,*] = theMeans[varI+1]+sqrt(theVariances[varI+1])
+    
+            theArrows[frameI,varI,2,*] = theArrows[frameI,varI,0,*]*10.0 ^ ( eigenvect[0:5,0])
+            theArrows[frameI,varI,3,*] = theArrows[frameI,varI,1,*] + eigenvect[0:5,varI+1] 
+
+            IF(log[whichVars[varI+1]-1] EQ 1) THEN theArrows[frameI,varI,3,*] = 10.0^theArrows[frameI,varI,3,*]
+            IF(log[whichVars[varI+1]-1] EQ 1) THEN theArrows[frameI,varI,1,*] = 10.0^theArrows[frameI,varI,1,*]
+        ENDFOR
+
     ENDFOR
 
     ;; STEP ONE: plot the projections (theArrows, stored from above) of each eigenvector
@@ -34,17 +70,8 @@ PRO vsMstarPCA,vsMstar,whichFrames=whichFrames,log=log,names=names,colors=colors
         replacementText=replacementText, additionalLineColors=[0,1,2,3,4,5,6], $
         additionalLines=theArrows,additionalLineLabels=["PC1","PC2","PC3","PC4","PC5","PC6"]
 
-
-
     ;; STEP TWO: plot each model in PCA-space. This requires setting up the following matrix:
     ;; time/redshift, -, PC, model  
-    ; To construct a plot vs. time, we actually need to do PCA at every snapshot to find the main sequence.
-    collect = dblarr(n_elements(vsMstar[*,0,0,0]), 1, n_elements(vsMstar[0,0,*,0]), nmodels)
-    FOR i=0, n_elements(vsMstar[*,0,0,0])-1 DO BEGIN
-
-        snapshotPCA, vsMstar, whichVars, log, i,i, means,variances, eigenvect, proj_obj, proj_atr
-
-    ENDFOR
 
 END
 

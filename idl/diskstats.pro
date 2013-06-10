@@ -71,8 +71,9 @@ FUNCTION diskStats,model,z=z
     sig = model.dataCube[zj,*,ncs+11-1] ;; velocity dispersion of gas (km/s)
     tdep = model.dataCube[zj,*,ncs+35-1] ;; depletion time := gas mass / SFR
 
+    mdotbulgeG = model.evArray[9-1,zj] * model.mdotext0  
     
-    sfrHalfRadius = halfRadius(x*model.Radius,model.dlnx,model.dataCube[zj,*,ncs+14-1],inner = mdotbulgeG)
+    sfrHalfRadius = halfRadius(x*model.Radius,model.dlnx,model.dataCube[zj,*,ncs+14-1],inner = mdotbulgeG*model.rf/(model.rf+model.mlf))
     gasHalfRadius = halfRadius(x*model.Radius,model.dlnx,col)
     stHalfRadius = halfRadius(x*model.Radius,model.dlnx,colst)
 
@@ -156,7 +157,6 @@ FUNCTION diskStats,model,z=z
     mdotbulgeSt = -model.dataCube[zj,0,40-1] * model.mdotext0
     ;;;	mdotbulgeG = -model.dataCube[zj,0,3-1] * model.mdotext0
 
-    mdotbulgeG = model.evArray[9-1,zj] * model.mdotext0  
 
     sSFR = model.evArray[11-1,zj]/(stMass+RemnantBulgeMass) ;; yr^-1
 
@@ -195,9 +195,10 @@ FUNCTION diskStats,model,z=z
     den = model.evArray[11-1,zj]
     IF(den EQ 0) THEN den = model.evArray[11-1,1]
     tdepAvg = TOTAL( gasMass )*totfH2/den ; = molecular gas mass / SFR
-    tcoh = (-(2.3067430037592236*10^16 * (-(2.543802317900929/(Sqrt(1/(1+z)^3) * (1+z)^4))-4.313953488372093/((1+z)^4 *sqrt(1.+2.875968992248062/(1+z)^3))))/((1-0.2784* exp(-1.16* z)-0.09/(1+z)^2) * (1.6958682119339528* Sqrt(1/(1+z)^3)+Sqrt(1.+2.875968992248062/(1+z)^3))))/speryear
+    tcoh = (-(2.3067430037592236*10.0^16.0 * (-(2.543802317900929/(Sqrt(1.0/(1.0+z)^3.0) * (1.0+z)^4.0))-4.313953488372093/((1.0+z)^4.0 *sqrt(1.+2.875968992248062/(1.0+z)^3.0))))/((1.0-0.2784* exp(-1.16* z)-0.09/(1.0+z)^2.0) * (1.6958682119339528* Sqrt(1.0/(1.0+z)^3.0)+Sqrt(1.+2.875968992248062/(1.0+z)^3.0))))/speryear
 
     timescaleRatio = tcoh*(model.MLF+model.Rf)/(tdepAvg)
+
 
     ; other quantities to compute: variance in Z_gas, Z_*, variance in Z_*, stellar age, mol gas frac, tdep for all gas
 
@@ -240,7 +241,7 @@ FUNCTION diskStats,model,z=z
         RemnantBulgeMass,BulgeMSt, totfH2, $  ; - 9,10,11
         mdotBulgeG,mdotbulgeSt, $ ; 12,13
         sfr,stMass,totFg,gasZ,eff, $ ; - 14,15,16,17,18
-        sfr+mdotBulgeG,stMass+RemnantBulgeMass, $ ;; 19,20
+        sfr+mdotBulgeG*model.Rf/(model.Rf+model.MLF),stMass+RemnantBulgeMass, $ ;; 19,20
         fgL, ZL, vrAvg, GIin*model.Radius, $ ; 21, 22, 23, 24,
         GIout*model.Radius, sigAvg, vrGE0,$   ; 25, 26, 27
         tdepAvg, gasScaleLength, $ ; 28,29
@@ -259,7 +260,7 @@ FUNCTION diskStats,model,z=z
         model.x25s_4[zj]*model.Radius, $ ; 58
         model.sigmath*sqrt(1.0+(model.NN[zj]*model.NN[zj]))^(1.0/3.0), $ ;59
         max(model.dataCube[zj,*,model.ncolstep+11-1]), $ ;60
-        0,BTguess] ;61,62
+        0,BTguess, timescaleRatio ] ;61,62,63
     info[61-1]= info[60-1]/info[59-1]
     ;               vrgNuc,vrgSf,vrgHI,$;; radial gas velocity [km/s]
         ;               vstNuc,vstSf,vstHI] ;; radial stellar velocity [km/s]

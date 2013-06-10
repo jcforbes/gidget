@@ -37,17 +37,6 @@ FUNCTION bulgeExcess,r,col,scaleRadius
 ;            yGuess5 = logcol[ind] + (r[*] - r[ind])*slope5
 
             fail1 = PosOnly( yGuess1[0:ind] - logcol[0:ind] )
-;            fail2 = PosOnly( yGuess2[0:ind] - logcol[0:ind] )
-;            fail3 = PosOnly( yGuess3[0:ind] - logcol[0:ind] )
-;            fail4 = PosOnly( yGuess4[0:ind] - logcol[0:ind] )
-;            fail5 = PosOnly( yGuess5[0:ind] - logcol[0:ind] )
-
-;            PRINT, "failure stats: current try = ",try, " index = ",ind
-;            PRINT, "fail1: ",MAX(fail1,failloc1), fail1[0]
-;            PRINT, "fail2: ",MAX(fail2,failloc1), fail2[0]
-;            PRINT, "fail3: ",MAX(fail3,failloc1), fail3[0]
-;            PRINT, "fail4: ",MAX(fail4,failloc1), fail4[0]
-;            PRINT, "fail5: ",MAX(fail5,failloc1), fail5[0]
 
             failFlag = (MAX(fail1) GT 0.0); 1.0e-2) 
 
@@ -83,7 +72,6 @@ FUNCTION bulgeExcess,r,col,scaleRadius
    ; stop
    IF(doneFlag EQ 0) THEN BEGIN
       PRINT,"bulgeExcess did not converge"
-      stop
       return,0.0
    ENDIF
     RETURN,excL

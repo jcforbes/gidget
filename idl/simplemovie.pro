@@ -85,10 +85,17 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
       FOR ti=0,nTimeStepsInput-1 DO tmp[ti,*]=colors[*]
       colors=tmp[*,*]
   ENDIF
-  IF(sv EQ 4) THEN thicknesses= 3+temporary(thicknesses)
-  chth = thicknesses[0]
+  chth = .6*thicknesses[0]
   cs =0.5* thicknesses[0]
   fillspacing = 0.3
+
+  IF(sv EQ 4) THEN BEGIN
+      thicknesses= temporary(thicknesses)*0+4 ;3+temporary(thicknesses)
+      chth = 5
+      cs = 3
+      fillspacing = .3
+
+  ENDIF
   ;; We're making EPS plots in this case. That means that charthick and charsize need to be much smaller
   wf = n_elements(whichFrames)-1  
   IF(sv EQ 5 AND svSinglePlot EQ 2) THEN BEGIN
@@ -125,10 +132,11 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
     IF(ngrp EQ 0) THEN fn=name+"_"+labels[k] ELSE fn=name+"_"+labelsIT[1]
     dn="movie_"+fn
 
+    ; If this is a grouping of multiple plots and this is the first one OR this is just a single plot
     IF(ngrp GT 0 and kx EQ 1 or ngrp EQ 0) THEN BEGIN
         set_plot,'x'
         IF(sv EQ 3 || sv EQ 4) THEN set_plot,'z'
-        IF(cg NE 1) THEN WINDOW,1,XSIZE=1024,YSIZE=1024,RETAIN=2
+        IF(cg NE 1) THEN WINDOW,1,XSIZE=2048,YSIZE=2048,RETAIN=2
         IF(sv EQ 3 || sv EQ 4 ) THEN cgDisplay,1024,1024,color=255
         IF(sv EQ 1) THEN mpeg_id=MPEG_OPEN([1024,1024],FILENAME=(fn+".mpg"))
         IF(sv EQ 2 || sv EQ 3 || sv EQ 4) THEN BEGIN
@@ -146,7 +154,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
         ENDIF
     ENDIF
 
-    symsize = cs* 2 / (alog10(n_elements(data[0,0,0,*]))+1)
+    symsize = cs* 1.5 / (alog10(n_elements(data[0,0,0,*]))+1)
     IF(NIndVarBins GT 0) THEN symsize = symsize/3.0
 
     ;; counter of frames.
@@ -232,7 +240,7 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
             ;; Overplot the data for this model. If prev is set, draw a tail to include previous values of the data.
             OPLOT, data[ti,*,0,j], data[ti,*,k,j], COLOR=colors[ti,j]+50*includeRandom,linestyle=styles[j]*(1-includerandom)+includeRandom*jj,PSYM=psym,SYMSIZE=symsize,THICK=thicknesses[j]
             IF(prev EQ 1) THEN BEGIN
-              OPLOT,data[MAX([0,ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=styles[j],THICK=thicknesses[j]
+              OPLOT,data[MAX([MIN(whichframes),ti-tailLength]):ti,0,0,j],data[MAX([0,ti-tailLength]):ti,0,k,j], COLOR=colors[ti,j],linestyle=styles[j],THICK=thicknesses[j]
             ENDIF
 
 
@@ -316,6 +324,10 @@ PRO simpleMovie,data,labels,colors,styles,wrtXlog,name,sv, $
                       IF(ct GT 0) THEN aa[wh] = ranges[0,k]
                       wh = WHERE(aa GT ranges[1,k], ct)
                       IF(ct GT 0) THEN aa[wh] = ranges[1,k]
+                      wh = WHERE(binCenters LT ranges[0,0],ct)
+                      IF(ct GT 0) THEN binCenters[wh] = ranges[0,0]
+                      wh = WHERE(binCenters GT ranges[1,0],ct)
+                      IF(ct GT 0) THEN binCenters[wh] = ranges[1,0]
                       FOR xx=0,n_elements(binCenters)-1 DO aa[xx,*] = aa[xx,SORT(aa[xx,*])]
                       FOR jj=1,n_elements(aa[0,*])-1 DO BEGIN
                           xp = [[binCenters],[REVERSE(binCenters,2)]]

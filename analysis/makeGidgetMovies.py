@@ -35,7 +35,7 @@ for movieDir in movieDirs:
     movieName = movieDir[6:]+".mpg"
     subprocess.call(["rm","-f",movieName])
     print "Producing movie #",ctr,"of",len(movieDirs)
-    procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-f","image2","-qscale","4","-i",regstring,movieName],stderr=nulfp))
+    procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-f","image2","-qscale","1","-i",regstring,movieName],stderr=nulfp))
 #    procs.append(subprocess.Popen(["ffmpeg","-f","image2","-qscale","0","-i",regstring,movieName]))
 #    pdb.set_trace()
     movieNames.append(movieName)

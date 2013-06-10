@@ -12,7 +12,7 @@ PRO resample, data
 
     ; the range over which all models actually have data
     restrictive = [MAX(data[*,0,0,*]),MIN(data[*,nx-1,0,*])]
-    IF(restrictive[0] GT restrictive[1]) THEN message,"No points qualify for resampling!"
+    IF(restrictive[0] GT restrictive[1]) THEN message,"No points qualify for resampling!",restrictive[0],restrictive[1]
     ; the full range over which we have data:
     full = [MIN(data[*,0,0,*]),MAX(data[*,nx-1,0,*])]
     IF(full[0] EQ restrictive[0] and full[1] EQ restrictive[1]) THEN RETURN ; no need to resample
@@ -24,6 +24,8 @@ PRO resample, data
     for k=1, nv-1 DO BEGIN
         for ti=0, nt-1 DO BEGIN
             for j=0, nm-1 DO BEGIN
+                ;; for each model, at each time, for each variable, interpolate in space
+                ;; to get the model value at each location in the new grid.
                 data[ti,*,k,j] = INTERPOL(data[ti,*,k,j],data[ti,*,0,j], newGrid )
             ENDFOR
         ENDFOR

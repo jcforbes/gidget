@@ -792,6 +792,8 @@ if __name__ == "__main__":
     rg40[1].irregularVary("accScaleLength",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
     rg40[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(10)],5)
 
+    rg40y=NewSetOfExperiments(rg40,"rg40y")
+    [rg40y[i].irregularVary('dbg',2+2**12) for i in range(len(rg40y))]
 
     # The fiducial model with only one passive stellar population (saves time and disk space)
     rg41x=NewSetOfExperiments(rg01,"rg41x")
@@ -921,28 +923,26 @@ if __name__ == "__main__":
     Nsample = 200 
     Mhlo = [1.0e11 * 10**(i/float(Nsample)) for i in range(Nsample)]
     Mhhi = [1.0e12 * 10**((i+1.0)/float(Nsample)) for i in range(Nsample)]
+    sclLo = GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1)
+    sclHi = GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1)
 
-    rg58[0].irregularVary("R",GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1),5)
+    rg58[0].irregularVary("R",sclLo,5)
     rg58[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(Nsample)],5)
-    rg58[0].irregularVary("diskScaleLength",GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=0.35),5)
-    rg58[0].irregularVary("accScaleLength",GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
-#    rg41[0].irregularVary("b",GetScaleLengths(200,Mh0=Mhlo,scatter=1.0e-10,multiple=0.3),5)
+    rg58[0].irregularVary("diskScaleLength",[sclLo[i]*.35/4.1 for i in range(Nsample)],5)
+    rg58[0].irregularVary("accScaleLength",[sclLo[i]*.7/4.1 for i in range(Nsample)],5)
     rg58[0].irregularVary("b",0)
     rg58[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
     rg58[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(Nsample)],5)
-    #rg41[0].irregularVary('kappaMetals',[(Mhlo[i]/1.0e12)**(-2.0/3.0) for i in range(200)],5)
     rg58[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
     rg58[0].irregularVary('Mh0',Mhlo,5)
 
-    rg58[1].irregularVary("R",GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
+    rg58[1].irregularVary("R",sclHi,5)
     rg58[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(Nsample)],5)
-    rg58[1].irregularVary("diskScaleLength",GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=0.35),5)
-    rg58[1].irregularVary("accScaleLength",GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=0.7),5)
-    #rg41[1].irregularVary("b",GetScaleLengths(100,Mh0=Mhhi,scatter=1.0e-10,multiple=0.3),5)
+    rg58[1].irregularVary("diskScaleLength",[sclHi[i]*.35/4.1 for i in range(Nsample)],5)
+    rg58[1].irregularVary("accScaleLength",[sclHi[i]*.7/4.1 for i in range(Nsample)],5)
     rg58[1].irregularVary("b",0)
     rg58[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
     rg58[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(Nsample)],5)
-    #rg41[1].irregularVary('kappaMetals',[(Mhhi[i]/1.0e12)**(-2.0/3.0) for i in range(100)],5)
     rg58[1].irregularVary('Mh0',Mhhi,5)
 
     # Random scale lengths (and stochastic accr history)
@@ -1016,6 +1016,72 @@ if __name__ == "__main__":
     # Try the rg20bish thing but with no invMassRatio cut
     rg72=NewSetOfExperiments(rg69,"rg72")
     [rg72[i].irregularVary('invMassRatio',10000.0) for i in range(len(rg72))]
+
+    # Another mass study, with an eye towards understanding th emain squence
+    rg73=NewSetOfExperiments(rg41x[0],"rg73",N=2)
+    Nsample = 200 
+    Mhlo = [1.0e11 * 10**(i/float(Nsample)) for i in range(Nsample)]
+    Mhhi = [1.0e12 * 10**((i+1.0)/float(Nsample)) for i in range(Nsample)]
+    sclLo = GetScaleLengths(Nsample,Mh0=Mhlo,scatter=0.4,multiple=4.1,upper = 100,lower=7)
+    sclHi = GetScaleLengths(Nsample,Mh0=Mhhi,scatter=0.4,multiple=4.1,upper = 100,lower=7)
+    [rg73[i].irregularVary('dbg',2+2**3) for i in range(len(rg73))]
+    [rg73[i].irregularVary('deltaOmega',0.1) for i in range(len(rg73))]
+
+    rg73[0].irregularVary("R",sclLo,5)
+    rg73[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(Nsample)],5)
+    rg73[0].irregularVary("accScaleLength",[sclLo[i]*.7/4.1 for i in range(Nsample)],5)
+    rg73[0].irregularVary("mu",[0.5*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
+    rg73[0].irregularVary('whichAccretionHistory',[i+1000 for i in range(Nsample)],5)
+    #rg73[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
+    rg73[0].irregularVary('Mh0',Mhlo,5)
+
+    rg73[1].irregularVary("R",sclHi,5)
+    rg73[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(Nsample)],5)
+    rg73[1].irregularVary("accScaleLength",[sclHi[i]*.7/4.1 for i in range(Nsample)],5)
+    rg73[1].irregularVary("mu",[0.5*(Mhhi[i]/1.0e12)**(-1.0/3.0) for i in range(Nsample)],5)
+    rg73[1].irregularVary('whichAccretionHistory',[i+1500 for i in range(Nsample)],5)
+    rg73[1].irregularVary('Mh0',Mhhi,5)
+
+    rg74=NewSetOfExperiments(rg73,"rg74")
+    #rg74[0].irregularVary('xmin',[.002*sclLo[i]/40.0 for i in range(Nsample)],5)
+    rg74[0].irregularVary('xmin',.01) 
+
+    # Accretion histories are not stochastic, but accr scales are random
+    rg75 = NewSetOfExperiments(rg74,"rg75")
+    [rg75[i].irregularVary('whichAccretionHistory',0) for i in range(len(rg75))]
+
+    # Reduce fscatter artificially.
+    rg76 = NewSetOfExperiments(rg74,"rg76")
+    [rg76[i].irregularVary('fscatter',0.3) for i in range(len(rg76))]
+
+    # Go back to not varying radial scale lengths. Now we have all four combinations of stochastic lambda, Mdot.
+    rg77 = NewSetOfExperiments(rg74,"rg77")
+    sclLoNV = GetScaleLengths(Nsample,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1,upper=100,lower=7)
+    sclHiNV = GetScaleLengths(Nsample,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1,upper=100,lower=7)
+    rg77[0].irregularVary("R",sclLoNV,5)
+    rg77[0].irregularVary('accScaleLength',[sclLoNV[i]*.7/4.1 for i in range(Nsample)],5)
+    rg77[1].irregularVary("R",sclHiNV,5)
+    rg77[1].irregularVary('accScaleLength',[sclHiNV[i]*.7/4.1 for i in range(Nsample)],5)
+
+    # Very similar to rg73, designed for stacking analysis.
+    # xmin s.t. rmin = 100 pc
+    # R which is at least 10 kpc
+    # but still a wide range in accScaleLength (0.4 dex)
+    rg78=NewSetOfExperiments(rg73,"rg78")
+    sclLo = GetScaleLengths(Nsample,Mh0=Mhlo,scatter=0.4,multiple=4.1,upper = 100,lower=1)
+    sclLoTr = [sclLo[i] if sclLo[i] > 10 else 10 for i in range(Nsample)]
+    sclHi = GetScaleLengths(Nsample,Mh0=Mhhi,scatter=0.4,multiple=4.1,upper = 100,lower=1)
+    sclHiTr = [sclHi[i] if sclHi[i] > 10 else 10 for i in range(Nsample)]
+    rg78[0].irregularVary('xmin',[.1/(sclLoTr[i]) for i in range(Nsample)],5)
+    rg78[0].irregularVary('R',sclLoTr,5)
+    rg78[0].irregularVary("accScaleLength",[sclLo[i]*.7/4.1 for i in range(Nsample)],5)
+    rg78[1].irregularVary('xmin',[.1/(sclHiTr[i]) for i in range(Nsample)],5)
+    rg78[1].irregularVary('R',sclHiTr,5)
+    rg78[1].irregularVary("accScaleLength",[sclHi[i]*.7/4.1 for i in range(Nsample)],5)
+
+
+    rg79=NewSetOfExperiments(rg78,"rg79")
+    [rg79[i].irregularVary('whichAccretionHistory',0) for i in range(len(rg79))]
 
     successTables=[]
 

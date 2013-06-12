@@ -1,5 +1,6 @@
 #include "Errors.h"
 #include <iostream>
+#include <cstdlib>
 
 errormsg::errormsg(const std::string msg, bool fatal)
 {

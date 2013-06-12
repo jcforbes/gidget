@@ -1,5 +1,5 @@
-LDFLAGS		=  -mmacosx-version-min=10.4 -O3 libgsl.a libgslcblas.a -static-libgcc -static-libstdc++
-CFLAGS		=  -O3 -I../inc -c 
+LDFLAGS		=  -O3 -L/home/jforbes/gsl/lib -lgsl -lgslcblas -lm
+CFLAGS		=  -O3 -I/home/jforbes/gsl/include -c 
 CC		= g++ 
 EXECUTABLE=../bin/gidget
 

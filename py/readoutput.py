@@ -222,7 +222,7 @@ class SingleModel:
                 np.copy(self.dataCube[:,:,3]),'col', \
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
-                r'$\Sigma (M_\odot\ yr^{-1}$')
+                r'$\Sigma (M_\odot\ pc^{-2}$')
         self.var['colst'] =RadialFunction( \
                 np.copy(self.dataCube[:,:,3]),'col', \
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
@@ -420,5 +420,6 @@ def testStackAnalysis():
 if __name__=='__main__':
     #test = Experiment('rg78')
     #test.read()
+    pass
 
 

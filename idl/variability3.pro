@@ -579,6 +579,7 @@ PRO variability3,expNames,N=N,sv=sv,keys=keys,annotations=annotations,integrated
         colors=colorsByZ0MS 
         app="_cbz0ms"
     ENDIF
+    vsTimeColors=colors[*,*]
 
     IF(thenumberOfModels LT 20) THEN BEGIN
       simpleMovie,theData,wrtXyn,colors,colors*0,wrtXyl,expName2+"_unsortedLogR"+app, $

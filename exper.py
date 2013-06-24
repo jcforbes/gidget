@@ -542,6 +542,11 @@ if __name__ == "__main__":
     rg01.irregularVary('alphaAccretionProfile',1./3.)
     rg01.irregularVary('deltaOmega',.1)
 
+    rh01 = NewSetOfExperiments(rg01,"rh01")
+    rh01[0].vary('mu',.1,5,20,1)
+#    rh01.irregularVary('mu',[.1,.7,1.3])
+
+
 
     # Vary the scale length of the accretion.
     rg02=NewSetOfExperiments(rg01,"rg02",N=2)
@@ -779,13 +784,41 @@ if __name__ == "__main__":
     rg39[0].irregularVary('Mh0',Mhlo,5)
     rg39[1].irregularVary('Mh0',Mhhi,5)
 
+
+    rh40 = NewSetOfExperiments(rg01,"rh40")[0]
+    Mh = [1.0e10 * 10**(i/10.0) for i in range(30)]
+    rh40.irregularVary('Mh0',Mh,5)
+    rh40.irregularVary('b',0)
+    rh40.irregularVary("R",GetScaleLengths(30,Mh0=Mh,scatter=1.0e-10,multiple=4.1),5)
+    rh40.irregularVary('vphiR',[220.0*(Mh[i]/1.0e12)**(1.0/3.0) for i in range(len(Mh))],5)
+    rh40.irregularVary('accScaleLength',GetScaleLengths(30,Mh0=Mh,scatter=1.0e-10,multiple=0.7),5)
+    rh40.irregularVary('mu',[0.5*(Mh[i]/1.0e12)**(-1.0/3.0) for i in range(len(Mh))],5)
+
+    rh41=NewSetOfExperiments(rh40,"rh41")[0]
+    rh41.irregularVary('alphaMRI',0)
+
+    rh42=NewSetOfExperiments(rh41,"rh42")[0]
+    rh42.irregularVary('xmin',.0005)
+
+    rh43=NewSetOfExperiments(rh41,"rh43")[0]
+    rh43.irregularVary('tauHeat',1.0e16)
+
+    rh44=NewSetOfExperiments(rh41,"rh44")[0]
+    rh44.irregularVary('Qlim',4.0)
+
+    rh45=NewSetOfExperiments(rh40,"rh45")[0]
+    rh45.irregularVary('alphaMRI',0)
+
+
     # Now vary halo mass with some other parameters expected to scale along with it. 
-    rg40=NewSetOfExperiments(rg39,"rg40")
+    rg40=NewSetOfExperiments(rg39,"rg40x")
+    #[rg40[i].irregularVary('TOL',1.0e-4) for i in range(len(rg40))]
+    [rg40[i].irregularVary('b',0) for i in range(len(rg40))]
     rg40[0].irregularVary("R",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=4.1),5)
     rg40[0].irregularVary("vphiR",[220.0*(Mhlo[i]/1.0e12)**(1.0/3.0) for i in range(20)],5)
     rg40[0].irregularVary("accScaleLength",GetScaleLengths(20,Mh0=Mhlo,scatter=1.0e-10,multiple=0.7),5)
     rg40[0].irregularVary("mu",[1.0*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(20)],5)
-    rg40[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(20)],5)
+    #rg40[0].irregularVary('xmin',[.002*(Mhlo[i]/1.0e12)**(-1.0/3.0) for i in range(20)],5)
 
     rg40[1].irregularVary("R",GetScaleLengths(10,Mh0=Mhhi,scatter=1.0e-10,multiple=4.1),5)
     rg40[1].irregularVary("vphiR",[220.0*(Mhhi[i]/1.0e12)**(1.0/3.0) for i in range(10)],5)

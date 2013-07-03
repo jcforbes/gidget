@@ -657,6 +657,11 @@ class Experiment:
             plt.cla()
 
             colors,fail,log,overallColorRange = self.constructQuantity(colorby)
+            if(colors.ndim==1):
+                colorsFlat = np.copy(colors[:])
+                for j in range(self.models[0].nTimeSteps()-1):
+                    colors = np.vstack((colors,colorsFlat))
+                colors = colors.T
             if(log):
                 colors=np.log10(colors)
                 overallColorRange=np.log10(overallColorRange)

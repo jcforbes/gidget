@@ -13,6 +13,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mpcolors
 import matplotlib.cm as cmx
+from makeGidgetMovies import makeMovies
 
 speryear = 31557600.0
 cmperkpc = 3.08567758e21
@@ -134,7 +135,7 @@ class SingleModel:
             cbar.set_label(colorby)
             plt.plot(self.vars[rfx].sensible(ti), self.vars[rfy].sensible(ti),c=rgb[ti])
         plt.savefig(self.name+'_'+rfy+'_vs_'+rfx+'.png')
-        plt.clf()
+        plt.close(figure)
     def TwoDimSFR(self,filename,inclination,orientation,timeIndex):
         cosmo = {'omega_M_0' : .258, 'omega_lambda_0':1-.258 , 'omega_b_0':.17*.258 , 'omega_k_0':0, 'h':.7 }
         d_a = cd.angular_diameter_distance(self.var['z'].sensible(timeIndex), **cosmo) # ang diam dist in Mpc
@@ -264,7 +265,7 @@ class SingleModel:
                 np.copy(self.dataCube[:,:,3]),'col', \
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
-                r'$\Sigma (M_\odot\ pc^{-2})$',theRange=[0.1,1000])
+                r'$\Sigma (M_\odot\ pc^{-2})$',theRange=[0.5,500])
         # Conversion from code units to Msun/pc^2 for column density-like units
         colSensibleConv = self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc)
         self.var['colst'] =RadialFunction( \
@@ -302,11 +303,11 @@ class SingleModel:
                 self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']**2.0)*cmperkpc*cmperkpc),\
                 self.p['md0']/(2.0*pi*self.p['R']**2.0), \
                 r'$\dot{\Sigma}_*^{SF} (M_\odot\ yr^{-1}\ kpc^{-2})$', \
-                inner=2.0*(self.evarray[:,8]+self.evarray[:,20])*self.p['RfREC']/((self.p['RfREC']+self.p['mu'])*np.power(internalR[:,0]-self.dataCube[:,0,0]*dlnx,2.0)) )
+                inner=2.0*(self.evarray[:,8]+self.evarray[:,20])*self.p['RfREC']/((self.p['RfREC']+self.p['mu'])*np.power(internalR[:,0]-self.dataCube[:,0,0]*dlnx,2.0)) , theRange = [1.0e-5,10.0])
         self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H_2}}$',log=False)
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',1.0,1.0,'Z')
         self.var['NHI'] = RadialFunction(self.getData('col',cgs=True)*(1.0-self.getData('fH2'))*(1.0-self.getData('Z'))/gperH,\
-                'NHI', 1.0,1.0,r'$N_{H\mathrm{I}}$ cm$^{-2}$')
+                'NHI', 1.0,1.0,r'$N_{H\mathrm{I}}$ (cm$^{-2}$)',theRange=[1.0e19,3.0e21])
         self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
         self.var['scaleRadius'] = TimeFunction( \
                 self.p['accScaleLength']*np.power(self.var['Mh'].sensible()/self.p['Mh0'],self.p['alphaAccretionProfile']), \
@@ -329,9 +330,11 @@ class SingleModel:
                 self.var['mCentral'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)',theRange=[1.0e9,1.0e11])
-        self.var['mBulge'] = TimeFunction(self.computeMBulge()[0],'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
+        mbulge,_,fcentral = self.computeMBulge()
+        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
         self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
                 'BT',1,1,r'Bulge to Total Ratio',log=False)
+        self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
         self.var['sSFR'] = TimeFunction(self.getData('sfr',cgs=True)/self.getData('mstar',cgs=True) , \
                 'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)')
         mg = self.getData('col')
@@ -417,7 +420,7 @@ class SingleModel:
                 mb.append(0)
                 failures.append(1)
         # End loop over time.
-        return np.array(mb)/gpermsun,failures
+        return np.array(mb)/gpermsun,failures,fc
     def quantityAt(self,radius,key,timeIndex):
         '''Given a radius (in kpc), find which annulus we're in. We need to handle a couple edge cases,
         namely the radius is within the inner edge, or the radius is beyond the outer edge of the 
@@ -461,6 +464,8 @@ class Experiment:
             else:
                 pass
         self.fn = fnames
+        if(len(fnames)==0):
+            raise ValueError("No models found in experiment "+name)
     def merge(self,expt):
         '''Merge two experiments - essentially just append two lists of models. '''
         self.fn = self.fn + expt.fn # concatenate the lists of models
@@ -472,6 +477,43 @@ class Experiment:
             n+=1
             if(n % 50 == 0):
                 print "Reading in model ",n," of ",len(self.models)
+    def rankBy(self,var=None,timeIndex=None,locIndex=None,keepMagnitude=False):
+        ''' For each model in the experiment, add a TimeSeries object called rankBy<var> to the model's var structure.
+        This variable will store the model's rank as a function of time.'''
+        if(var is None):
+            var = 'Mh0'
+        qu,_,_,_ = self.constructQuantity(var,timeIndex,locIndex) 
+        # possible results: 
+        #  qu ~ nModels x times x nx   --- Can't deal with this one
+        #   --- var is a radial variable with neither timeIndex nor locIndex specified
+        #  qu ~ nModels x times --- This is ok
+        #   --- one of: var is a timeVar w/ no timeIndex, or var is a radial w/ no ti but a loc specified
+        #  qu ~ nModels x nx  --- Can't deal with this one
+        #   --- one of: var is a radial w/ only ti specified
+        #  qu ~ nModels   --- typical case
+        #   --- one of: var is a parameter, var is a timeVariable but we've specified a timeIndex, var is radial w/ ti, loc
+        # Which can we deal with? we're making plots or movies vs time. How about this? rank has to be a timeVariable.
+        # So we can't deal with nModels x nx or nModels x times x nx:
+        nmodels = len(self.models)
+        nt = self.models[0].nTimeSteps()
+        ranks = np.ones((len(self.models),nt))
+        if(qu.ndim == 3 or (qu.ndim==2 and isinstance(self.models[0].var[var],RadialFunction) and locIndex is None)):
+            print "WARNING: you asked me to rank models by ",var," with timeIndex and locIndex",timeIndex,locIndex," but I can't do that."
+        else:
+            if(qu.ndim==2):
+                for i in range(nt):
+                    indices = np.argsort(qu[:,i])
+                    for j,ind in enumerate(indices):
+                        ranks[j,i] = ind
+            else:
+                indices = np.argsort(qu)
+                for i,ind in enumerate(indices):
+                    ranks[i,:] = ind
+        for i,model in enumerate(self.models):
+            model.var['rankBy'+var]=TimeFunction(np.copy(ranks[i,:]), 'rankBy'+var, 1.0, 1.0, 'Ranked by '+var, log=False, theRange=[0,nmodels])
+            
+
+
     def radialPlot(self,timeIndex=None,variables=None,colorby=None,percentiles=None,logR=False,scaleR=False):
         ''' Plot quantities vs radius. '''
         if(variables is None):
@@ -483,23 +525,23 @@ class Experiment:
 
         for i,v in enumerate(variables):
 
-
-
             overallVar,overallFail,overallLog,overallRange = self.constructQuantity(v)
             indVar = 'r'
             if(scaleR):
                 indVar='rx'
-            allR,_,_,_ = self.constructQuantity(indVar)
-            rRange = [np.min(allR),np.max(allR)]
-            #logR=False
-            #if(rRange[0]/rRange[1] < .001 ):
-            #    logR=True
-
+                rRange=[0,4.0]
+            else:
+                allR,_,_,_ = self.constructQuantity(indVar)
+                rRange = [np.min(allR),np.max(allR)]
 
             dirname = 'movie_'+self.name+'_'+v+'_cb'+colorby+'_vs'+indVar
             if(not os.path.exists(dirname)):
                 os.makedirs(dirname)
             print "Making movie: ",v
+
+            _,_,logColor,overallColorRange = self.constructQuantity(colorby)
+            if(logColor):
+                overallColorRange = np.log10(overallColorRange)
 
             counter = 0 
             for ti in timeIndex:
@@ -516,20 +558,22 @@ class Experiment:
                 model = self.models[0]
                 ax.set_xlabel(model.get(indVar).texString)
                 ax.set_ylabel(model.get(v).texString)
-                cNorm = mpcolors.Normalize(vmin=np.min(colors),vmax=np.max(colors))
-                scalarMap = cmx.ScalarMappable(cmap=cm,norm=cNorm)
-                scalarMap.set_array(colors)
-                scalarMap.autoscale()
-                cbar = plt.colorbar(scalarMap,ax=ax)
+                sc = ax.scatter(r[:,0],theVar[:,0],c=colors,cmap=cm,vmin=overallColorRange[0],vmax=overallColorRange[1],lw=0,s=40)
+                cbar = plt.colorbar(sc,ax=ax)
                 cbar.set_label(colorby)
-                #ax2 = ax.twin()
-                #s = ax.scatter(r,model.getData(v,ti),c=colors,cmap=cm,alpha=0)
+                normColors = (colors - overallColorRange[0])/ (overallColorRange[1]-overallColorRange[0])
+                #print "normColors: ", normColors
+                #pdb.set_trace()
+                theRGB = plt.cm.jet(normColors)
                 lwnorm = 1.0 + log10(float(len(self.models)))
                 for k,model in enumerate(self.models):
                     try:
-                        ax.plot(r[k],theVar[k],c=scalarMap.to_rgba(colors[k]),lw=2.0/lwnorm)
+                        ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm)
                     except ValueError:
-                        ax.plot(model.getData('rb',ti),theVar[k],c=scalarMap.to_rgba(colors[k]),lw=2.0/lwnorm)
+                        rr = model.getData('rb',ti)
+                        if(scaleR):
+                            rr/=model.getData('scaleRadius',ti)
+                        ax.plot(rr,theVar[k],c=theRGB[k],lw=2.0/lwnorm)
                 ax.set_xlim(rRange[0],rRange[1])
                 ax.set_ylim(overallRange[0],overallRange[1])
                 if(overallLog):
@@ -541,9 +585,9 @@ class Experiment:
                 plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
                 plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
                 counter = counter+1
-                plt.clf()
-                del fig
-                del ax
+                plt.close(fig)
+            #makeMovies(self.name+'_'+v+'_cb'+colorby+'_vs'+indVar)
+            makeMovies(dirname[7:])
     def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0):
         if(yvar is None):
             variables = self.models[0].getTimeFunctions()
@@ -553,6 +597,10 @@ class Experiment:
             colorby='Mh0'
 
         overallX,_,overallXLog,overallXRange = self.constructQuantity(xvar)
+        colors,_,log,overallColorRange = self.constructQuantity(colorby)
+        if(log):
+            colors=np.log10(colors)
+            overallColorRange = np.log10(overallColorRange)
         for i,v in enumerate(variables):
             dirname = 'movie_'+self.name+'_'+v+'_cb'+colorby+'_vs'+xvar
             if(not os.path.exists(dirname)):
@@ -566,21 +614,18 @@ class Experiment:
                 model = self.models[0]
                 ax.set_xlabel(model.get(xvar).texString)
                 ax.set_ylabel(model.get(v).texString)
-
-                colors,fail,log,_ = self.constructQuantity(colorby,timeIndex=ti)
+                
+                colorLoc,_,_,_ = self.constructQuantity(colorby,timeIndex=ti)
                 if(log):
-                    colors=np.log10(colors)
-                cNorm = mpcolors.Normalize(vmin=np.min(colors),vmax=np.max(colors))
-                scalarMap = cmx.ScalarMappable(cmap=cm,norm=cNorm)
-                scalarMap.set_array(colors)
-                scalarMap.autoscale()
-                cbar=plt.colorbar(scalarMap,ax=ax)
+                    colorLoc = np.log10(colorLoc)
+
+                sc = ax.scatter(overallX[:,ti],overallVar[:,ti],c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                cbar = plt.colorbar(sc,ax=ax)
                 cbar.set_label(colorby)
-                #pdb.set_trace()
-                ax.scatter(overallX[:,ti],overallVar[:,ti],c=colors,cmap=cm,norm=cNorm)
                 if(prev>0):
                     for k in range(max(ti-prev,0),ti):
-                        ax.scatter(overallX[:,k],overallVar[:,k],c=colors,cmap=cm,s=6,lw=0)
+                        #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                        ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
                 ax.set_xlim(overallXRange[0],overallXRange[1])
                 ax.set_ylim(overallRange[0],overallRange[1])
                 if(overallLog):
@@ -592,9 +637,8 @@ class Experiment:
                 plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
                 plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
                 counter+=1
-                plt.clf()
-                del fig
-                del ax
+                plt.close(fig)
+            makeMovies(dirname[7:])
 
     def timePlot(self,variables=None,colorby=None):
         if(variables is None):
@@ -603,15 +647,7 @@ class Experiment:
         z,fail,log,_ = self.constructQuantity('z')
         if(colorby is None):
             colorby = 'Mh0'
-        colors,fail,log,_ = self.constructQuantity(colorby)
-        #scalarMap = cmx.ScalarMappable(cmap=cm,norm=plt.normalize(vmin=0,vmax=1))
-        if(log):
-            colors=np.log10(colors)
-        #scalarMap.set_array(colors)
 
-        #scalarMap.autoscale()
-        #pdb.set_trace()
-        #rgb, colors = getRGB(colors,log)
         for i,v in enumerate(variables):
             fig,ax=plt.subplots(1,1)
             model = self.models[0]
@@ -620,29 +656,31 @@ class Experiment:
             #sc=plt.scatter(model.getData('t'),model.getData(v),c=colors,cmap=cm)
             plt.cla()
 
-            cNorm=mpcolors.Normalize(vmin=np.min(colors),vmax=np.max(colors))
-            scalarMap = cmx.ScalarMappable(cmap=cm,norm=cNorm)
-            scalarMap.set_array(colors)
-            scalarMap.autoscale()
-            
+            colors,fail,log,overallColorRange = self.constructQuantity(colorby)
+            if(log):
+                colors=np.log10(colors)
+                overallColorRange=np.log10(overallColorRange)
+
             ax.set_xlabel(model.get('t').texString)
             ax.set_ylabel(model.get(v).texString)
-            cbar = plt.colorbar(scalarMap,ax=ax)
-            cbar.set_label(colorby)
-            ax2 = ax.twiny()
             z = model.getData('z')
             t = model.getData('t')
             zs = [0.0,0.5,1.0,1.5,2.0]
             zind = [Nearest(z,zl)[0] for zl in zs]
             correspondingTs = [t[zi] for zi in zind]
-            #print "z,ind,ts: ", zs, zind, correspondingTs
+            lwnorm = 1.0 + log10(float(len(self.models)))
+            for j,model in enumerate(self.models):
+                #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
+                sc = ax.scatter(model.getData('t'),theVar[j],c=(colors[j]),lw=1.0/lwnorm,s=20.0/lwnorm,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                    
+            cbar = plt.colorbar(sc,ax=ax)
+            cbar.set_label(colorby)
+
+            ax2 = ax.twiny()
             ax2.set_xticks(correspondingTs)
             ax2.set_xticklabels([str(zl) for zl in zs] )
             ax2.set_xlabel(model.get('z').texString)
-            lwnorm = 1.0 + log10(float(len(self.models)))
-            for j,model in enumerate(self.models):
-                ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
-                    
+
             ax.set_xlim(correspondingTs[-1],correspondingTs[0])
             ax.set_ylim(varRange[0],varRange[1])
             if model.get(v).log:
@@ -657,10 +695,7 @@ class Experiment:
             try:
                 plt.savefig(self.name+'_'+v+'_cb'+colorby+'.png')
             except ValueError:
-                print "Caught ValueError! "
-                pdb.set_trace()
-                abc=114
-            plt.clf()
+                print "Caught ValueError while trying to plot variable ",v," colored by ",colorby
             plt.close(fig)
                 
     def constructQuantity(self,name,timeIndex=None,locIndex=None):
@@ -751,9 +786,10 @@ class Experiment:
             allResiduals.append(residuals)
             msParams.append(params)
         npres = np.array(allResiduals)
-        self.msParams = msParams
+        self.msParams = np.array(msParams)
+        rng = [-0.7*np.max(self.msParams[:,2]),0.7*np.max(self.msParams[:,2])]
         for i, model in enumerate(self.models):
-            model.var['deltaMS'] = TimeFunction(npres[:,i], 'deltaMS', 1.0, 1.0, r'$\Delta$ MS (dex)',log=False)
+            model.var['deltaMS'] = TimeFunction(npres[:,i], 'deltaMS', 1.0, 1.0, r'$\Delta$ MS (dex)',log=False,theRange=rng)
     def setParam(self,keyname,value,models=None):
         if(models is None):
             models=range(len(self.models))

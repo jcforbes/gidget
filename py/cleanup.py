@@ -12,37 +12,27 @@ def GetDirnames(listOfFiles):
         parsed = f.rsplit('_')
         dirname=parsed[0]
         dirs.add(dirname)
-        ##i=1
-        ###i=0
-        #### For each part of the filename,
-        ###for p in parsed:
-        ###    i=i+1
-        ###    # iterate until the component is a pure digit - this means we've reached
-        ###    # the end of the first part of the filename which tells us which experiments
-        ###    # contributed to the data plotted in these files.
-        ###    if(p.isdigit()):
-        ###        break
-        ##if i!=len(parsed):
-        ##    dirname = ''
-        ##    for j in range(i):
-        ##        if(j!=0 or parsed[j] != 'crp'): # exclude crp_ from the dirname
-        ##           dirname+=parsed[j]+'_'
-        ##    dirname=dirname[0:-1] # remove trailing _
-        ##    dirs.add(dirname)
     return list(dirs)
 
+def moveFiles(keyname=None):
+    if(keyname is None):
+        base = '*'
+    else:
+        base = '*'+keyname+'*'
 
-if __name__=="__main__":
-    pdfs = glob.glob('*pdf')
-    epss = glob.glob('*eps')
-    mpgs = glob.glob('*mpg')
-    pngs = glob.glob('*png')
 
-    allFiles = pdfs+epss+mpgs+pngs
+    pdfs = glob.glob(base+'pdf')
+    epss = glob.glob(base+'eps')
+    mpgs = glob.glob(base+'mpg')
+    movs = glob.glob(base+'mov')
+    pngs = glob.glob(base+'png')
+
+    allFiles = pdfs+epss+mpgs+pngs+movs
 
     ldirs = GetDirnames(allFiles)
 
-    print "Directories: ",ldirs
+    if keyname is None:
+        print "Directories: ",ldirs
 
     for dirname in ldirs:
         if(not os.path.exists(dirname)):
@@ -53,10 +43,13 @@ if __name__=="__main__":
                 if(os.path.exists(destname)):
                     os.remove(destname)
                 shutil.move(f,destname)
-                print "The plan is to move ",f," to ",destname
+                if keyname is None:
+                    print "Moving ",f," to ",destname
 
 
+if __name__=="__main__":
 
+    moveFiles()
 
 
 

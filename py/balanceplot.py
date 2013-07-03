@@ -104,9 +104,7 @@ def balance(models, timeIndex=None, name=None, sortby=None):
         plt.tight_layout()
         plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
         counter = counter+1
-        plt.clf()
-        del fig
-        del ax
+        plt.close(fig)
 
 
 

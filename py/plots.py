@@ -1,10 +1,8 @@
 from readoutput import *
 from balanceplot import balance
-from guppy import *
 import argparse
 import cleanup
 
-hp = hpy()
 
 
 def makeThePlots(args):

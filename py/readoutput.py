@@ -197,6 +197,12 @@ class SingleModel:
                     params.append(float(line[cloc+1:-1]))
             for k,p in enumerate(params):
                 self.p[paramnames[k]] = p
+        self.pLog={}
+        for par in self.p.keys():
+            self.pLog[par] = True # set all parameters to be logarithmic by default
+        # except for the following
+        for par in ['xiREC','b','innerPowerLaw','zrelax','zstart','zquench']:
+            self.pLog[par] = False
         auxparams=[]
         with open(self.path+'_aux.txt','r') as aux:
             lines = aux.readlines()
@@ -304,10 +310,10 @@ class SingleModel:
                 self.p['md0']/(2.0*pi*self.p['R']**2.0), \
                 r'$\dot{\Sigma}_*^{SF} (M_\odot\ yr^{-1}\ kpc^{-2})$', \
                 inner=2.0*(self.evarray[:,8]+self.evarray[:,20])*self.p['RfREC']/((self.p['RfREC']+self.p['mu'])*np.power(internalR[:,0]-self.dataCube[:,0,0]*dlnx,2.0)) , theRange = [1.0e-5,10.0])
-        self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H_2}}$',log=False)
+        self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H_2}}$',log=False,theRange=[0.0,1.0])
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',1.0,1.0,'Z')
         self.var['NHI'] = RadialFunction(self.getData('col',cgs=True)*(1.0-self.getData('fH2'))*(1.0-self.getData('Z'))/gperH,\
-                'NHI', 1.0,1.0,r'$N_{H\mathrm{I}}$ (cm$^{-2}$)',theRange=[1.0e19,3.0e21])
+                'NHI', 1.0,1.0,r'$N_{\mathrm{HI}}$ (cm$^{-2}$)',theRange=[1.0e19,3.0e21])
         self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
         self.var['scaleRadius'] = TimeFunction( \
                 self.p['accScaleLength']*np.power(self.var['Mh'].sensible()/self.p['Mh0'],self.p['alphaAccretionProfile']), \
@@ -558,9 +564,12 @@ class Experiment:
                 model = self.models[0]
                 ax.set_xlabel(model.get(indVar).texString)
                 ax.set_ylabel(model.get(v).texString)
-                sc = ax.scatter(r[:,0],theVar[:,0],c=colors,cmap=cm,vmin=overallColorRange[0],vmax=overallColorRange[1],lw=0,s=40)
+                sc = ax.scatter(r[:,0],theVar[:,0],c=colors,cmap=cm,vmin=overallColorRange[0],vmax=overallColorRange[1],lw=0,s=4)
                 cbar = plt.colorbar(sc,ax=ax)
-                cbar.set_label(colorby)
+                if(log):
+                    cbar.set_label(r'$\log_{10}$'+colorby)
+                else:
+                    cbar.set_label(colorby)
                 normColors = (colors - overallColorRange[0])/ (overallColorRange[1]-overallColorRange[0])
                 #print "normColors: ", normColors
                 #pdb.set_trace()
@@ -621,7 +630,10 @@ class Experiment:
 
                 sc = ax.scatter(overallX[:,ti],overallVar[:,ti],c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1])
                 cbar = plt.colorbar(sc,ax=ax)
-                cbar.set_label(colorby)
+                if(log):
+                    cbar.set_label(r'$\log_{10}$'+colorby)
+                else:
+                    cbar.set_label(colorby)
                 if(prev>0):
                     for k in range(max(ti-prev,0),ti):
                         #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
@@ -679,7 +691,10 @@ class Experiment:
                 sc = ax.scatter(model.getData('t'),theVar[j],c=(colors[j]),lw=1.0/lwnorm,s=20.0/lwnorm,vmin=overallColorRange[0],vmax=overallColorRange[1])
                     
             cbar = plt.colorbar(sc,ax=ax)
-            cbar.set_label(colorby)
+            if(log):
+                cbar.set_label(r'$\log_{10}$'+colorby)
+            else:
+                cbar.set_label(colorby)
 
             ax2 = ax.twiny()
             ax2.set_xticks(correspondingTs)
@@ -719,6 +734,8 @@ class Experiment:
             if(name in params):
                 construction.append(model.p[name])
                 nameIsParam=True
+                if(not model.pLog[name]):
+                    log=False
             elif(name in varNames):
                 if(isinstance(model.var[name],RadialFunction)):
                     construction.append(model.var[name].sensible(timeIndex,locIndex))

@@ -17,8 +17,6 @@ def makeThePlots(args):
                 tti,_ = Nearest(theExp.models[0].var['z'].sensible(),args.rbz[i])
             theExp.rankBy(var=rankby,timeIndex=tti)
         stepsize = args.step
-        if(args.balance):
-            balance(theExp.models,timeIndex=range(1,202,stepsize)+[201],name=modelName)
         for cb in args.colorby:
             if(args.time):
                 theExp.timePlot(colorby=cb)
@@ -28,6 +26,8 @@ def makeThePlots(args):
                 theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,scaleR=True,colorby=cb)
             if(args.mass):
                 theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],prev=args.prev,colorby=cb)
+        if(args.balance):
+            balance(theExp.models,timeIndex=range(1,202,stepsize)+[201],name=modelName,sortby=args.colorby[0])
 
 
 

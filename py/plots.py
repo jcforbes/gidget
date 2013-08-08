@@ -11,6 +11,7 @@ def makeThePlots(args):
         theExp = Experiment(modelName)
         theExp.read()
         theExp.storeMS()
+        theExp.assignIndices()
         for i,rankby in enumerate(args.rankby):
             tti=None
             if(args.rbz[i]>=0):
@@ -47,7 +48,7 @@ if __name__=='__main__':
     parser.add_argument('--mass',dest='mass',action='store_true',help="Make plots vs mstar")
     parser.set_defaults(mass=False)
     parser.add_argument('--colorby',type=str,nargs='+',default=['deltaMS','lambda','integratedZ'],help='List of variables to color points by in vs mstar plots. Default is deltaMS,lambda,integratedZ')
-    parser.add_argument('--vsr',type=str,nargs='+',default=['colsfr','colst','NHI','sig','col','Z','fH2','Mdot'],help='List of variables to plot vs mstar. Default is colsfr,colst,NHI,sig,col,Z,fH2,Mdot')
+    parser.add_argument('--vsr',type=str,nargs='+',default=['colsfr','colst','NHI','sig','col','Z','fH2','Mdot','MJeans','ClumpMassPerDisk','tDepRadial','tDepH2Radial','Q','Qg','Qst','fgRadial','equilibrium'],help='List of variables to plot vs mstar. Default is colsfr,colst,NHI,sig,col,Z,fH2,Mdot,MJeans,ClumpMassPerDisk,tDepRadial,tDepH2Radial,Q,Qg,Qst,fgRadial,equilibrium')
     parser.add_argument('--prev',type=int,default=5,help='Number of previous points to plot in vsmstar movies.')
     parser.add_argument('--rankby',type=str,nargs='+',default=[],help='Sort the models according to these arguments.')
     parser.add_argument('--rbz',type=float,nargs='+',default=[],help='Sort at a particular redshift (use -1 to keep the full time information)')

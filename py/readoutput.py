@@ -266,7 +266,7 @@ class SingleModel:
         self.var['dA'] = RadialFunction( \
                 pi*(np.power(self.getData('rb',locIndex=range(1,nxI+1),cgs=True),2.0) \
                 - np.power(self.getData('rb',locIndex=range(nxI),cgs=True),2.0)), \
-                'dA',1.0,1.0/cmperkpc**2.0, r'dA (kpc$^{2}$)')
+                'dA',1.0,1.0/cmperkpc**2.0, r'dA (kpc$^{2}$)',inner=pi*np.power(self.getData('rb',locIndex=0,cgs=True),2.0))
         self.var['col'] =RadialFunction( \
                 np.copy(self.dataCube[:,:,3]),'col', \
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
@@ -287,6 +287,11 @@ class SingleModel:
                 'maxsig',1.0e5,1.0,r'$\max(\sigma)$',log=True)
         self.var['mdotBulgeG'] = TimeFunction(np.copy(self.evarray[:,8]),'mdotBulgeG', \
                 self.p['md0']*gpermsun/speryear,self.p['md0'],r'$\dot{M}_\mathrm{Gas to Bulge}$')
+        self.var['mdotAccr'] = TimeFunction( \
+                self.evarray[:,19],'mdotAccr',gpermsun/speryear,1.0,r'$\dot{M}_{ext}$')
+        self.var['feedingEfficiency'] = TimeFunction( \
+                self.var['mdotBulgeG'].sensible()/self.evarray[:,19],'feedingEfficiency', \
+                1.0,1.0,r'$\dot{M}_\mathrm{bulge}/\dot{M}_{ext}$')
         self.var['dcoldt'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,7]),'dcoldt',self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']*cmperkpc)**2.0), \
                 self.p['md0']/(2.0*pi*(self.p['R'])**2.0),r'$\partial \Sigma/\partial t$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)')
@@ -310,6 +315,15 @@ class SingleModel:
                 self.p['md0']/(2.0*pi*self.p['R']**2.0), \
                 r'$\dot{\Sigma}_*^{SF} (M_\odot\ yr^{-1}\ kpc^{-2})$', \
                 inner=2.0*(self.evarray[:,8]+self.evarray[:,20])*self.p['RfREC']/((self.p['RfREC']+self.p['mu'])*np.power(internalR[:,0]-self.dataCube[:,0,0]*dlnx,2.0)) , theRange = [1.0e-5,10.0])
+        self.var['Q'] = RadialFunction( \
+                np.copy(self.dataCube[:,:,11]),'Q',1.0,1.0,r'Q',theRange=[1.0,10.0])
+        self.var['Qg'] = RadialFunction( \
+                np.copy(self.dataCube[:,:,23]),'Qg',1.0,1.0,r'$Q_g$',theRange=[.5,10.0])
+        self.var['Qst'] = RadialFunction( \
+                np.copy(self.dataCube[:,:,22]),'Qst',1.0,1.0,r'$Q_*$',theRange=[.5,10.0])
+        self.var['tDepRadial'] = RadialFunction( \
+                self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepRadial',\
+                1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$',theRange=[3.0e8,1.0e12])
         self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H_2}}$',log=False,theRange=[0.0,1.0])
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',1.0,1.0,'Z')
         self.var['NHI'] = RadialFunction(self.getData('col',cgs=True)*(1.0-self.getData('fH2'))*(1.0-self.getData('Z'))/gperH,\
@@ -326,16 +340,33 @@ class SingleModel:
         self.var['sfr'] = TimeFunction( \
                 self.var['mdotBulgeG'].sensible()*self.p['RfREC']/(self.p['RfREC']+self.p['mu']) \
                 +np.sum( self.var['dA'].sensible()*self.var['colsfr'].sensible(), 1 ), \
-                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)')
+                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)',theRange=[3.0e-2,1.0e2])
+        self.var['sfrPerAccr'] = TimeFunction( \
+                self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$')
         self.var['mCentral'] = TimeFunction( \
                 self.evarray[:,3], 'mCentral',
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
                 r'$M_\mathrm{center}\ (M_\odot)$')
+        self.var['mgas']=TimeFunction( \
+                np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
+                1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)')
+        self.var['tdep']=TimeFunction( \
+                self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_{dep}$ (yr)',theRange=[3.0e8,1.0e12])
         self.var['mstar'] = TimeFunction( \
                 self.var['mCentral'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
-                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)',theRange=[1.0e9,1.0e11])
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)',theRange=[1.0e9,4.0e11])
+        self.var['fg'] = TimeFunction( \
+                self.var['mgas'].cgs() / (self.var['mgas'].cgs()+self.var['mstar'].cgs()), \
+                'fg',1.0,1.0,r'$f_g$')
+        self.var['fgRadial'] = RadialFunction( \
+                self.var['col'].cgs()/(self.var['col'].cgs()+self.var['colst'].cgs()), \
+                'fgRadial',1.0,1.0,r'$f_g = \Sigma/(\Sigma_*+\Sigma)$')
+
+        self.var['tDepH2Radial'] = RadialFunction( \
+                self.var['fH2'].cgs()*self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepH2Radial',\
+                1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF}$')
         mbulge,_,fcentral = self.computeMBulge()
         self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
         self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
@@ -346,6 +377,26 @@ class SingleModel:
         mg = self.getData('col')
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z'),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', 1.0, 1.0, r'Z_g')
+        mJeansMask = np.zeros(np.shape(self.var['sig'].sensible()),dtype=float)
+        mJeansMask[self.var['fH2'].sensible()>0.1] = 1.0
+        self.var['MJeans'] = RadialFunction( \
+                np.power(self.var['sig'].cgs(),4.0)/(Gcgs**2.0 *self.var['col'].cgs())*mJeansMask, \
+                'MJeans', 1.0, 1.0/gpermsun, r'2D Jeans Mass where $f_{\mathrm{H}_2}>0.1$ ($M_\odot$)', \
+                theRange=[1.0e5,1.0e9])
+
+        mst = self.var['mstar'].cgs()
+        mj = self.var['MJeans'].cgs()
+        for ti in range(len(mst)):
+            mj[ti,:]/=mst[ti]
+        self.var['ClumpMassPerDisk'] = RadialFunction( \
+                mj,'ClumpMassPerDisk',1.0,1.0,r'$M_J/M_*$')
+        colAccr = self.getData('colAccr',cgs=True)
+        colTr = self.getData('colTr',cgs=True)
+        colSFR = self.getData('colsfr',cgs=True)*(self.p['mu']+self.p['RfREC'])
+        dcoldt = self.getData('dcoldt',cgs=True)
+        shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
+        self.var['equilibrium'] = RadialFunction( \
+                dcoldt/shareNorm, 'equilibrium', 1.0, 1.0, r'Equilibrium')
         #npd = (np.diff(np.sign(self.getData('fH2')-0.5),axis=1) != 0)*1
         #LI = []
         #for i in range(len(np.shape(npd)[0])):
@@ -475,6 +526,11 @@ class Experiment:
     def merge(self,expt):
         '''Merge two experiments - essentially just append two lists of models. '''
         self.fn = self.fn + expt.fn # concatenate the lists of models
+    def assignIndices(self):
+        ''' For each model, assign it a parameter equal to its index in the Experiment objects self.models list '''
+        for i,model in enumerate(self.models):
+            model.p['experIndex'] = float(i)
+            model.pLog['experIndex'] = False
     def read(self):
         ''' Read in every model in the experiment. '''
         n=0
@@ -570,9 +626,7 @@ class Experiment:
                     cbar.set_label(r'$\log_{10}$'+colorby)
                 else:
                     cbar.set_label(colorby)
-                normColors = (colors - overallColorRange[0])/ (overallColorRange[1]-overallColorRange[0])
-                #print "normColors: ", normColors
-                #pdb.set_trace()
+                normColors = (colors - float(overallColorRange[0]))/ float(overallColorRange[1]-overallColorRange[0])
                 theRGB = plt.cm.jet(normColors)
                 lwnorm = 1.0 + log10(float(len(self.models)))
                 for k,model in enumerate(self.models):
@@ -688,7 +742,7 @@ class Experiment:
             lwnorm = 1.0 + log10(float(len(self.models)))
             for j,model in enumerate(self.models):
                 #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
-                sc = ax.scatter(model.getData('t'),theVar[j],c=(colors[j]),lw=1.0/lwnorm,s=20.0/lwnorm,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                sc = ax.scatter(model.getData('t'),theVar[j],c=(colors[j]),lw=0.1/lwnorm,s=10.0/lwnorm,vmin=overallColorRange[0],vmax=overallColorRange[1])
                     
             cbar = plt.colorbar(sc,ax=ax)
             if(log):
@@ -764,6 +818,10 @@ class Experiment:
         else:
             theRange= self.models[0].get(name).theRange
 
+        if(log):
+            if(theRange[1]/theRange[0] < 20.0):
+                log=False
+
         return construction,failures,log,theRange
     def modelClosestTo(self,mstar, sfr, z):
         '''Locate the model closest to these mstar, sfr, z coordinates as follows:
@@ -812,6 +870,7 @@ class Experiment:
         rng = [-0.7*np.max(self.msParams[:,2]),0.7*np.max(self.msParams[:,2])]
         for i, model in enumerate(self.models):
             model.var['deltaMS'] = TimeFunction(npres[:,i], 'deltaMS', 1.0, 1.0, r'$\Delta$ MS (dex)',log=False,theRange=rng)
+        np.savetxt(self.name+'_msParams.dat',np.vstack((self.models[0].var['t'].sensible(),self.msParams.T)).T)
     def setParam(self,keyname,value,models=None):
         if(models is None):
             models=range(len(self.models))

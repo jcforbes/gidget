@@ -22,11 +22,15 @@ def makeThePlots(args):
             if(args.time):
                 theExp.timePlot(colorby=cb)
             if(args.radial):
-                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,colorby=cb)
+                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,colorby=cb,logR=args.logR)
             if(args.scaled):
-                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,scaleR=True,colorby=cb)
-            if(args.mass):
-                theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],prev=args.prev,colorby=cb)
+                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,scaleR=True,colorby=cb,logR=args.logR)
+            #if(args.mass):
+            #    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],prev=args.prev,colorby=cb)
+            #    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],xvar='Mh',prev=args.prev,colorby=cb)
+            if len(args.mass)!=0:
+                for xv in args.mass:
+                    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],xvar=xv,prev=args.prev,colorby=cb)
         if(args.balance):
             balance(theExp.models,timeIndex=range(1,202,stepsize)+[201],name=modelName,sortby=args.colorby[0])
 
@@ -45,13 +49,16 @@ if __name__=='__main__':
     parser.set_defaults(scaled=False)
     parser.add_argument('--balance',dest='balance',action='store_true',help="Make balance plots.")
     parser.set_defaults(balance=False)
-    parser.add_argument('--mass',dest='mass',action='store_true',help="Make plots vs mstar")
-    parser.set_defaults(mass=False)
+    #parser.add_argument('--mass',dest='mass',action='store_true',help="Make plots vs mstar")
+    #parser.set_defaults(mass=False)
+    parser.add_argument('--mass',type=str,nargs='+',default=[],help='List of x- variables to use in point movies. Eg. mstar, Mh, sSFR,...')
     parser.add_argument('--colorby',type=str,nargs='+',default=['deltaMS','lambda','integratedZ'],help='List of variables to color points by in vs mstar plots. Default is deltaMS,lambda,integratedZ')
     parser.add_argument('--vsr',type=str,nargs='+',default=['colsfr','colst','NHI','sig','col','Z','fH2','Mdot','MJeans','ClumpMassPerDisk','tDepRadial','tDepH2Radial','Q','Qg','Qst','fgRadial','equilibrium'],help='List of variables to plot vs mstar. Default is colsfr,colst,NHI,sig,col,Z,fH2,Mdot,MJeans,ClumpMassPerDisk,tDepRadial,tDepH2Radial,Q,Qg,Qst,fgRadial,equilibrium')
     parser.add_argument('--prev',type=int,default=5,help='Number of previous points to plot in vsmstar movies.')
     parser.add_argument('--rankby',type=str,nargs='+',default=[],help='Sort the models according to these arguments.')
     parser.add_argument('--rbz',type=float,nargs='+',default=[],help='Sort at a particular redshift (use -1 to keep the full time information)')
+    parser.add_argument('--logR',dest='logR',action='store_true',help="Use logarithmic radial coordinate in plots vs. r")
+    parser.set_defaults(logR=False)
     args = parser.parse_args()
 
     weNeed = len(args.rankby) - len(args.rbz) 

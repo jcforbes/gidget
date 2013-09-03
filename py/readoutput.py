@@ -113,6 +113,7 @@ class TimeFunction:
         else:
             return np.percentile(self.arr,(.2,99.8))*sensibleConv
 
+
 class SingleModel:
     def __init__(self,path):
         self.path=path
@@ -175,6 +176,20 @@ class SingleModel:
         hdulist.writeto(filename+'.fits')
     def nTimeSteps(self):
         return self.nt
+    def TotalWithinR(self,radialQuantity,centralValue,cutoffRadius):
+        nr= len(self.var['r'].sensible(timeIndex=0))
+        sums = np.zeros(self.nt)
+        for ti in range(self.nt):
+            theSum = centralValue[ti]
+            for ri in range(nr):
+                if(self.var['r'].sensible(timeIndex=ti,locIndex=ri) > cutoffRadius):
+                    break
+                theSum += radialQuantity[ti,ri]
+            sums[ti] = theSum
+        return sums
+            
+
+
     def read(self):
         with open(self.path+'_comment.txt','r') as comment:
             lines = comment.readlines()
@@ -271,7 +286,7 @@ class SingleModel:
                 np.copy(self.dataCube[:,:,3]),'col', \
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
-                r'$\Sigma (M_\odot\ pc^{-2})$',theRange=[0.5,500])
+                r'$\Sigma (M_\odot\ pc^{-2})$',theRange=[0.5,3000])
         # Conversion from code units to Msun/pc^2 for column density-like units
         colSensibleConv = self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc)
         self.var['colst'] =RadialFunction( \
@@ -340,7 +355,7 @@ class SingleModel:
         self.var['sfr'] = TimeFunction( \
                 self.var['mdotBulgeG'].sensible()*self.p['RfREC']/(self.p['RfREC']+self.p['mu']) \
                 +np.sum( self.var['dA'].sensible()*self.var['colsfr'].sensible(), 1 ), \
-                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)',theRange=[3.0e-2,1.0e2])
+                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)')
         self.var['sfrPerAccr'] = TimeFunction( \
                 self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$')
         self.var['mCentral'] = TimeFunction( \
@@ -356,7 +371,9 @@ class SingleModel:
         self.var['mstar'] = TimeFunction( \
                 self.var['mCentral'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
-                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)',theRange=[1.0e9,4.0e11])
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
+        self.var['efficiency'] = TimeFunction( \
+                self.var['mstar'].cgs()/self.var['Mh'].cgs(), 'efficiency',1.0,1.0,r'$M_*/M_h$')
         self.var['fg'] = TimeFunction( \
                 self.var['mgas'].cgs() / (self.var['mgas'].cgs()+self.var['mstar'].cgs()), \
                 'fg',1.0,1.0,r'$f_g$')
@@ -374,7 +391,7 @@ class SingleModel:
         self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
         self.var['sSFR'] = TimeFunction(self.getData('sfr',cgs=True)/self.getData('mstar',cgs=True) , \
                 'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)')
-        mg = self.getData('col')
+        mg = self.getData('col',cgs=True)*self.getData('dA',cgs=True)
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z'),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', 1.0, 1.0, r'Z_g')
         mJeansMask = np.zeros(np.shape(self.var['sig'].sensible()),dtype=float)
@@ -384,6 +401,9 @@ class SingleModel:
                 'MJeans', 1.0, 1.0/gpermsun, r'2D Jeans Mass where $f_{\mathrm{H}_2}>0.1$ ($M_\odot$)', \
                 theRange=[1.0e5,1.0e9])
 
+        self.var['centralDensity'] = TimeFunction(  \
+            self.TotalWithinR(self.var['dA'].cgs()*self.var['colst'].cgs(),self.var['mCentral'].cgs(),1.0)/(gpermsun*np.pi),
+            'centralDensity',gpermsun/cmperkpc**2.0,1.0,r'Average $\Sigma_*$ with $r<1$ kpc')
         mst = self.var['mstar'].cgs()
         mj = self.var['MJeans'].cgs()
         for ti in range(len(mst)):
@@ -396,7 +416,8 @@ class SingleModel:
         dcoldt = self.getData('dcoldt',cgs=True)
         shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
         self.var['equilibrium'] = RadialFunction( \
-                dcoldt/shareNorm, 'equilibrium', 1.0, 1.0, r'Equilibrium')
+                dcoldt/shareNorm, 'equilibrium', 1.0, 1.0, r'Equilibrium',log=False)
+
         #npd = (np.diff(np.sign(self.getData('fH2')-0.5),axis=1) != 0)*1
         #LI = []
         #for i in range(len(np.shape(npd)[0])):
@@ -870,6 +891,7 @@ class Experiment:
         rng = [-0.7*np.max(self.msParams[:,2]),0.7*np.max(self.msParams[:,2])]
         for i, model in enumerate(self.models):
             model.var['deltaMS'] = TimeFunction(npres[:,i], 'deltaMS', 1.0, 1.0, r'$\Delta$ MS (dex)',log=False,theRange=rng)
+        # Save data as time(Gyr), slope, zp, scatter
         np.savetxt(self.name+'_msParams.dat',np.vstack((self.models[0].var['t'].sensible(),self.msParams.T)).T)
     def setParam(self,keyname,value,models=None):
         if(models is None):

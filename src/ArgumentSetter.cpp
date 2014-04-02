@@ -9,13 +9,16 @@ ArgumentSetter::ArgumentSetter(int ac, char** av,std::string fn) :
   cmtfile << "--------------" << std::endl;
   cmtfile << argv[1] << std::endl;
 }
-ArgumentSetter::~ArgumentSetter()
+void ArgumentSetter::WriteOut()
 {
   cmtfile << "--------------" << std::endl;
   for(unsigned int i=0;i!=argc;++i) {
     cmtfile << argv[i] <<" ";
   }
   cmtfile<<std::endl;
+}
+ArgumentSetter::~ArgumentSetter()
+{
   cmtfile.close();
 }
 double ArgumentSetter::Set(double def,std::string name)

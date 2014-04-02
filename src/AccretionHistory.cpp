@@ -165,11 +165,11 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     unsigned int N=1000; 
     if(Nchanges > N/100) N=100*Nchanges;
     double Mh=Mh012; // units of 10^12 solar masses
-    double fbp18 = 17.0/18.0; // baryon fraction / 0.18
+    // double fbp18 = 17.0/18.0; // baryon fraction / 0.18
     double MdotExt0, MdotExt;
     std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
     double duration = cos.Tsim(0.0);
-    double DeltaT = duration/Nchanges; // seconds
+    // double DeltaT = duration/Nchanges; // seconds
     double currentAccretionRate;
     double z,dz;
     double x=0.0;
@@ -187,7 +187,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
 //        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
         double present = cos.lbt(z); // lookback time (in seconds) of the current redshift.
         double next = cos.lbt(z+dz); // this will be a larger number, i.e. a number further back in time.
-        bool drawNewNumber = floor(Nchanges * present/duration) < floor(Nchanges * next/duration) && z<zstart && constInTime || floor(Nchanges * z/zstart) < floor(Nchanges * (z+dz)/zstart) && z<zstart && !constInTime || (z-zstart)*(z+dz-zstart) <= 0.0;
+        bool drawNewNumber = (floor(Nchanges * present/duration) < floor(Nchanges * next/duration) && z<zstart && constInTime) || (floor(Nchanges * z/zstart) < floor(Nchanges * (z+dz)/zstart) && z<zstart && !constInTime) || (z-zstart)*(z+dz-zstart) <= 0.0;
         if(drawNewNumber) {
             x = gsl_ran_gaussian(r,1.0);
         }
@@ -290,7 +290,6 @@ double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
             avgMdots[j] += currentAcc/((double) nToAvg);
             //sqMdots[j] += currentAcc*currentAcc/((double) nToAvg);
         }
-        double dummy=0;
     }
 
     if(writeOut) {
@@ -328,7 +327,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     // but we don't want other functions of the cosmology to use MR cosmology
     // So, we will use hisCos to generate the histories, but simCos in the rest of the simulation.
     // If !dbg.opt(3), both will be the same (presumably WMAP5)
-    Cosmology MR(0.25, 0.75, 2.36576888e-18, 0.9, zrelax); // Millenium run cosmology
+    Cosmology MR(0.25, 0.75, 2.36576888e-18, 0.9, zrelax, 10); // Millenium run cosmology, use arbitrary number for nx
     Cosmology simCos(cos); // 
     Cosmology hisCos(MR);
     if(!dbg.opt(3))
@@ -626,7 +625,6 @@ void AccretionHistory::InitializeGSLObjs(std::vector<double> redshifts, std::vec
     gsl_spline_init(spline,redshift,acc, tabulatedAcc.size());  
     gsl_spline_init(splineMh,redshift,hMass, haloMass.size());
 
-    double dummy=0;
 }
 
 
@@ -705,7 +703,6 @@ void testAccretionHistory()
     //Cosmology cos(1.0-.734, .734, 2.29e-18, 2.0);
 
 
-    double dummy=0.0;
     //  for(unsigned int whichAccretionHistory=10; whichAccretionHistory!=1000; ++whichAccretionHistory) {
     //    AccretionHistory accr(1.0e12);
     //    double Mdot0 = accr.GenerateNeistein08(2.0, cos, "", false, whichAccretionHistory, .3, false);

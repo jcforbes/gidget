@@ -292,5 +292,11 @@ double ComputeVariance(double cellMass, double outgoingMassINPUT, double incomin
     else if(val <-1.0e-10)
       errormsg("Something has gone wrong in computing the variance of metallicity. We were given the following: cellMass, outgoingMass, incomingMass, Z, incomingZ, ZV, incoming ZV:  "+str(cellMass)+" "+str(outgoingMass)+" "+str(incomingMass)+" "+str(Z)+" "+str(incomingZ)+" "+str(ZV)+" "+str(incomingZV));
     else return 0.0;
+
+
+    errormsg("Something strange has happened in ComputeVariance in StellarPop.cpp");
+    return 0; // never get here.
+
 }
+
 

@@ -4,6 +4,8 @@
 // Some useful dimensional quantities:
 const double speryear = 31556926.0;
 const double cmperkpc = 3.08568025e21;
+const double cmperpc = 3.08568025e18;
+const double kmpermpc = 3.08568025e19;
 const double Z_Sol = .02;
 //const double Z_IGM = .1*Z_Sol; // this is now a user-specified parameter @ runtime
 const double Z_BBN = 2.0e-5;

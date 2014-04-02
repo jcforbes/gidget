@@ -52,6 +52,8 @@ double ddxUpstream(std::vector<double>& vec, std::vector<double>& x, std::vector
             return 0;
     }
 
+    std::cerr << "WARNING: unexpected result in ddxUpstream" << std::endl;
+    return 0;
 }
 
 void ComputeUpstreamFlags(std::vector<int>& flags, std::vector<double>& mdot1, std::vector<double>& mdot2, unsigned int n)
@@ -127,7 +129,7 @@ DiskContents::DiskContents(double tH, double eta,
     MassLoadingFactor(mlf),
     spsActive(std::vector<StellarPop*>(0)),
     spsPassive(std::vector<StellarPop*>(0)),
-    dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(Z_IGM),
+    dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(ZIGM),
     yREC(yrec),RfREC(rfrec),xiREC(xirec), 
     analyticQ(aq),
     tDepH2SC(tdeph2sc),
@@ -141,6 +143,8 @@ DiskContents::DiskContents(double tH, double eta,
     dsigdtCool(std::vector<double>(m.nx()+1,0.)),
     dcoldtIncoming(std::vector<double>(m.nx()+1,0.)),
     dcoldtOutgoing(std::vector<double>(m.nx()+1,0.)),
+    dQdu(std::vector<double>(m.nx()+1,0.)), 
+    dudt(std::vector<double>(m.nx()+1,0.)), 
     dQdS(std::vector<double>(m.nx()+1,0.)), 
     dQds(std::vector<double>(m.nx()+1,0.)), 
     dQdSerr(std::vector<double>(m.nx()+1)),
@@ -169,6 +173,9 @@ DiskContents::DiskContents(double tH, double eta,
     cumulativeStellarMassThroughIB(0.0),
     CuStarsOut(std::vector<double>(m.nx()+1,0.)), 
     CuGasOut(std::vector<double>(m.nx()+1,0.)),
+    fH2(std::vector<double>(m.nx()+1,0.5)),
+    G0(std::vector<double>(m.nx()+1,1.0)),
+    dampingFactors(std::vector<double>(m.nx()+1,0.3)),
     //FF(std::vector<double>(m.nx()+1,0.)),
     // DD(std::vector<double>(m.nx()+1,0.)),
     // LL(std::vector<double>(m.nx()+1,0.)),
@@ -274,10 +281,10 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 
 
 // Simplify things. Just put in exponential disks with constant velocity dispersions.
-// Set Q=Qf only when these simple initial tries yield Q<Qf.
+// Set Q=Qf only when these simple initial conditions yield Q<Qf.
 void DiskContents::Initialize(double fcool, double fg0,
         double sig0, double phi0, double Mh0,
-        double MhZs, double stScaleLength)
+        double MhZs, double stScaleLength, double zs)
 {
     StellarPop * initialStarsA = new StellarPop(mesh);
     StellarPop * initialStarsP = new StellarPop(mesh);
@@ -328,6 +335,10 @@ void DiskContents::Initialize(double fcool, double fg0,
     spsPassive.push_back(initialStarsP);
     bool fixedPhi0 = true;
     bool EnforceWhenQgtrQf = false;
+
+    // before we heat up the disk, update the rotation curve.
+    UpdateRotationCurve(MhZs, zs, 1.0e-10);
+
     EnforceFixedQ(fixedPhi0,EnforceWhenQgtrQf);
 
     initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
@@ -673,10 +684,6 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
     // Find the maximum value of the inverse of all such timescales. 
     double dmax=0.;
 
-
-
-
-
     for(unsigned int n=1; n<=nx; ++n) {
         if(fabs(dZDiskdt[n]/ZDisk[n]) > dmax) {
             dmax = fabs(dZDiskdt[n]/ZDisk[n]);
@@ -689,8 +696,10 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
             *whichCell=n;
         }
         if(sig[n] > sigth) {
-            if(fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth)) > dmax) {
-                dmax = fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth));
+//            if(fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth)) > dmax) {
+//                dmax = fabs(dsigdt[n]/sqrt(sig[n]*sig[n]-sigth*sigth));
+            if(fabs(dsigdt[n]/sig[n]) > dmax) {
+                dmax = fabs(dsigdt[n]/sig[n]);
                 *whichVar = 3;
                 *whichCell=n;
             }
@@ -704,10 +713,9 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
         }
 
         for(unsigned int i=0; i!=sa; ++i) {
-            if(fabs(dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol)
-                        /spsActive[i]->spcol[n]) > dmax) {
-                dmax=fabs(dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol)
-                        /spsActive[i]->spcol[n]);
+            double dcolst = dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol) + RfREC*colSFR[n];
+            if(fabs( dcolst /spsActive[i]->spcol[n]) > dmax) {
+                dmax=fabs( dcolst/spsActive[i]->spcol[n] );
                 *whichVar=6;
                 *whichCell=n;
             }
@@ -1067,7 +1075,7 @@ void DiskContents::EnforceFixedQ(bool fixedPhi0, bool EnforceWhenQgrtQf)
         // 1) EnforceWhenQgrtQf is true, in which case always enforce Q=Qf
         // or, 2) if we shouldn't enforce it always, only enforce it when Q<Qf
         // Basically, always set Q=Qf if Q<Qf, but not always if Q>Qf .
-        if(EnforceWhenQgrtQf || !EnforceWhenQgrtQf && Q(&rqp,&absc) < fixedQ) {
+        if(EnforceWhenQgrtQf || (!EnforceWhenQgrtQf && Q(&rqp,&absc) < fixedQ)) {
 
             F.params = &rqp;
             findRoot(F,&factor);
@@ -1139,15 +1147,33 @@ void DiskContents::ComputeGItorque(double ** tauvec, const double IBC, const dou
     }
 
     if(dbg.opt(18)) {
-        std::vector<int> overshoot(nx+1,0);
-        for(unsigned int n=1; n<=nx; ++n) {
-            if(tauvec[1][n]>=0.0 && (tauvec[1][n-1]<0.0 || tauvec[1][n+1]<0.0))
-                overshoot[n]=1;
+        std::vector<double> avgtorque(nx+1,0);
+        int halfWindow=1;
+        for(int n=1; n<=nx; ++n) {
+            double accumulated=0.0;
+            int counter = 0;
+            for(int nn=max(1,n-halfWindow);nn<=min(((int) nx),n+halfWindow);++nn) {
+                accumulated += tauvec[1][nn];
+                ++counter;
+            }
+            accumulated += 10.0*tauvec[1][n];
+            counter += 10;
+            avgtorque[n] = accumulated/((double) counter);
+
+
         }
         for(unsigned int n=1; n<=nx; ++n) {
-            if(overshoot[n]==1)
-                tauvec[1][n]=(tauvec[1][n-1]+tauvec[1][n+1])/3.0;
+            tauvec[1][n] = avgtorque[n];
         }
+//        std::vector<int> overshoot(nx+1,0);
+//        for(unsigned int n=1; n<=nx; ++n) {
+//            if(tauvec[1][n]>=0.0 && (tauvec[1][n-1]<0.0 || tauvec[1][n+1]<0.0))
+//                overshoot[n]=1;
+//        }
+//        for(unsigned int n=1; n<=nx; ++n) {
+//            if(overshoot[n]==1)
+//                tauvec[1][n]=(tauvec[1][n-1]+tauvec[1][n+1])/3.0;
+//        }
     }
 
     // Compute first derivatives and fluxes.
@@ -1348,61 +1374,290 @@ void DiskContents::DiffuseMetallicity(double dt,double km)
 }
 
 
-double DiskContents::ComputeH2Fraction(unsigned int n)
+// Note that the KMT09 model sets ch as below, but in the iterative model of K13, it's an input.
+double DiskContents::ComputeH2Fraction(double ch, double thisCol, double thisZ)
 {
-    // McKee & Krumholz 2009
-    ////  double ch = 3.1 * (1 + 3.1 * pow(ZDisk[n]/Z_Sol,.365)) / 4.1;
-    ////  double tauc = 0.066 * dim.coldensity(col[n]) * (ZDisk[n]/Z_Sol);
-    ////  double ss = log(1.+.6*ch+.01*ch*ch)/(0.6*tauc);
-    ////  double val = 1.0 - 0.75*ss/(1.+0.25*ss);
 
     // Krumholz & Dekel 2011
-    double Z0 = ZDisk[n]/Z_Sol;
-    if(dbg.opt(13)) Z0 = pow(10.0, 0.3 - .05*x[n]*dim.Radius/cmperkpc);
+    double Z0 = thisZ/Z_Sol;
+    // if(dbg.opt(13)) Z0 = pow(10.0, 0.3 - .05*x[n]*dim.Radius/cmperkpc);
     double clumping = 5.0;
-    double Sig0 = dim.col_cgs(col[n]);
-    double ch = 3.1 * (1.0 + 3.1*pow(Z0,0.365))/4.1;
+    double Sig0 = dim.col_cgs(thisCol);
+    //    double ch = 3.1 * (1.0 + 3.1*pow(Z0,0.365))/4.1;
     double tauc = 320.0 * clumping * Sig0 * Z0;
     double ss = log(1.0 + 0.6 * ch + .01*ch*ch)/(0.6*tauc);
     double val = 1.0 - 0.75 * ss/(1.0+0.25*ss);
-
     if(val<fH2Min ) val = fH2Min;
     if(val<0. || val>1.0 || val!=val)
         errormsg("Nonphysical H2 Fraction :" + str(val) + 
-                ", n,ch,tauc,ss,ZDisk,ZBulge,col= " +str(n)+
+                ", ch,tauc,ss,ZDisk,ZBulge,col= " +
                 " "+str(ch)+" "+str(tauc)+" "+str(ss)+" "
-                +str(ZDisk[n])+" "+str(ZBulge)+" "+str(col[n]));
+                +str(thisZ)+" "+str(ZBulge)+" "+str(thisCol));
     return val;
 }
-double DiskContents::ComputeColSFR()
+
+double DiskContents::ComputeRhoSD(unsigned int n, double Mh, double z)
 {
+    double r = x[n]*dim.Radius; // cm
+    return GetCos().rhoEinasto(n) + activeColSt(n)*dim.col_cgs(1.0) / hStars(n);
+
+}
+
+void DiskContents::ZeroDuDt()
+{
+    for(unsigned int n=1; n<=nx; ++n)
+        dudt[n] = 0.0;
+}
+
+void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
+{
+    std::vector<unsigned int> thin(nx+1,0.);
     for(unsigned int n=1; n<=nx; ++n) {
-        double fH2 = ComputeH2Fraction(n);
-        if(dbg.opt(10)) fH2=.03;
-        double valToomre = fH2 * 2.*M_PI*EPS_ff//*sqrt(
-            //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
-            * sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
-            * sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))
-            * sqrt(32.0 / (3.0*M_PI));
+        // initialize
+        dudt[n] = -uu[n]*sqrt(2.*(beta[n]+1.))/dt;
+        uu[n] = 0.0;
 
-        // constant SF depletion time.
-        double tdepConst = tDepH2SC; // in Ga
-        double valConst = fH2 * col[n] / (tdepConst * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
-
-
-        double val;
-        val = valToomre;
-        if(dbg.opt(19))
-            val = valConst;
-        if(!dbg.opt(7)) {
-            val = max(valConst, valToomre); // pick the shorter depletion time, i.e. higher SFR. 
+        if(hStars(n) > x[n]*dim.Radius * .1) { //
+            thin[n] = 0;
+        }
+        else {
+            thin[n]=1;
         }
 
-        if(val < 0 || val!=val)
-            errormsg("Error computing colSFR:  n, val, fH2, col, sig   "
-                    +str(n)+" "+str(val)+" "+str(ComputeH2Fraction(n))+" "+str(col[n])
-                    +" "+str(sig[n]));
-        colSFR[n]=val;
+    }
+
+    for(unsigned int n=1; n<=nx; ++n) {
+        double haloContrib;
+        double bulgeContrib;
+        double thinDiskContrib = 0.0;
+        double thickDiskContrib = 0.0;
+        for(unsigned int nn=1; nn<=nx; ++nn) {
+            // if(n!=nn && n!=nn-1 && n!=nn+1)
+                thinDiskContrib += (activeColSt(nn)*((double) thin[nn])+col[nn])*mesh.summandTabulated(n,nn);
+        }
+        thinDiskContrib *= 2.0*M_PI*x[n]*dim.chi();
+        for(unsigned int nn=1; nn<=n; ++nn) {
+                thickDiskContrib += activeColSt(nn)*((double) (1-thin[nn]))*mesh.area(nn);
+        }
+        thickDiskContrib *= dim.chi()/x[n];
+        bulgeContrib = MBulge/x[n] * 2.0*M_PI*dim.chi();
+        haloContrib = G*GetCos().MrEinasto(n)*MSol/(x[n]*dim.Radius*dim.vphiR*dim.vphiR);
+//        std::cout << "n, halo contribution: "<<n<<" "<<haloContrib/(haloContrib+uu[n]) << " "<<uu[n]<<" "<<haloContrib<<" "<<GetCos().MrEinasto(x[n]*dim.Radius, Mh, z)/Mh << std::endl;
+        uu[n] = sqrt(haloContrib+bulgeContrib+thickDiskContrib+thinDiskContrib);
+    }
+    for(unsigned int n=2; n<=nx-1; ++n) {
+        beta[n] = log(uu[n+1]/uu[n-1])/log(x[n+1]/x[n-1]);
+    }
+    beta[1]=beta[2];
+    beta[nx]=beta[nx-1];
+    for(unsigned int n=2; n<=nx-1; ++n) {
+        betap[n] = (beta[n+1]-beta[n-1])/(x[n+1]-x[n-1]);
+    }
+    betap[1]=0.0;
+    betap[nx]=0.0;
+
+    for(unsigned int n=1; n<=nx; ++n) {
+        dudt[n] += uu[n]*sqrt(2.*(beta[n]+1.))/dt;
+    }
+    
+}
+
+// return the scale height of the stellar disk in cm
+double DiskContents::hStars(unsigned int n)
+{
+    double sigz = activeSigStZ(n);
+    return sigz*sigz*dim.vphiR*dim.vphiR/(M_PI*G*((col[n]+activeColSt(n))*dim.col_cgs(1.0)));
+}
+
+
+double DiskContents::ComputeColSFRapprox(double Mh, double z)
+ {
+     double colConv = dim.col_cgs(1.0);
+     double thirdTermConv = 32.0* 0.33 * 5.0 * 0.5 * 8.0e5*8.0e5 / (M_PI*G);
+ //    double tSC = tDepH2SC*1.0e9*speryear; // seconds
+     double colGMCcubed = pow(85.0*MSol / (cmperpc*cmperpc), 3.0);
+     for(unsigned int n=1; n<=nx; ++n) {
+         double tff = pow(M_PI,.25)/sqrt(8.0) * sig[n]*dim.vphiR / (G*pow(colGMCcubed * col[n]*dim.MdotExt0/(dim.vphiR*dim.Radius),0.25));
+         double tToomre = 1.0 / (2.*M_PI
+             * sqrt(M_PI)*dim.chi()*col[n]/sig[n]
+             * sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))
+             * sqrt(32.0 / (3.0*M_PI))) *2.0*M_PI*dim.Radius/dim.vphiR; // seconds
+         double tdyn = min(tToomre,tff);
+         double nCNM_2p_perG0p_1 = 2.30 *4.1 / (1.0+3.1*pow(ZDisk[n]/Z_Sol, 0.365)); // n/(10/cc)  --- this won't change during the iterations
+         double colHI = (col[n])*colConv;
+         double RH2 = 1.0;
+         double rhosd = ComputeRhoSD(n, Mh, z);
+         double thirdTerm =  thirdTermConv * rhosd / (colHI*colHI);
+         double nCNM_Hydro_1_HIdom = M_PI*G*colHI*colHI/20.0 * (1.0 + 2.0*RH2 + sqrt((1.0+2.0*RH2)*(1.0+2.0*RH2) + thirdTerm)) / (11.0*( kB )*243.0);
+         double n1;
+
+         double tdepHD = 3.0*tdyn/(2.0*EPS_ff) + 22.0*speryear*1.0e9/(5.0*nCNM_Hydro_1_HIdom*ZDisk[n]/Z_Sol);
+         double chGuess = 7.2/nCNM_2p_perG0p_1;
+         double tdep2p = tdyn/(ComputeH2Fraction(chGuess, col[n], ZDisk[n]) * EPS_ff);
+
+         double colSF;
+         if(tdep2p < tdepHD) {
+              colSF = col[n]*colConv/tdep2p;
+         }
+         else {
+              colSF = col[n]*colConv/tdepHD;
+         }
+         colSFR[n] = colSF / (dim.MdotExt0  / ( 2.0*M_PI* dim.Radius*dim.Radius)); // convert back to code units
+         G0[n] = colSF / (2.5e-3 *MSol / (cmperpc*cmperpc*1.0e6*speryear));
+         fH2[n] = tdyn*colSF/(colHI*EPS_ff);
+ 
+ 
+     }
+     return -1;
+ 
+ }
+
+
+double DiskContents::ComputeColSFR(double Mh, double z)
+{
+    // According to Krumholz (2013), here's what we should be doing to get things right.
+    // We have the following equations:
+    //  nCNM = max(nCNM_2p, nCNM_hydro)
+    //  chi = 7.2 G0p/n1
+    //  fH2 = (formula above)
+    //  G0p = colSFR / colSFR0
+    //  colSFR = fH2*epsff*col/tDyn
+    //
+    // Now, 
+    //  Guess a value for G0p.
+    //  Solve for fH2
+    //  Solve for colSFR
+    //  Adjust G0p and iterate.
+    
+
+    double colConv = dim.col_cgs(1.0);
+    double thirdTermConv = 32.0* 0.33 * 5.0 * 0.5 * 8.0e5*8.0e5 / (M_PI*G);
+//    double tSC = tDepH2SC*1.0e9*speryear; // seconds
+    double colGMCcubed = pow(85.0*MSol / (cmperpc*cmperpc), 3.0);
+    for(unsigned int n=1; n<=nx; ++n) {
+        double tff = pow(M_PI,.25)/sqrt(8.0) * sig[n]*dim.vphiR / (G*pow(colGMCcubed * col[n]*dim.MdotExt0/(dim.vphiR*dim.Radius),0.25));
+        double tToomre = 1.0 / (2.*M_PI
+            * sqrt(M_PI)*dim.chi()*col[n]/sig[n]
+            * sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))
+            * sqrt(32.0 / (3.0*M_PI))) *2.0*M_PI*dim.Radius/dim.vphiR; // seconds
+        double tdyn = min(tToomre,tff);
+        double nCNM_2p_perG0p_1 = 2.30 *4.1 / (1.0+3.1*pow(ZDisk[n]/Z_Sol, 0.365)); // n/(10/cc)  --- this won't change during the iterations
+        double nCNM_Hydro_1;
+        double n1;
+        int nIter = 0; // number of guesses of G0p.
+        bool continueFlag1 = true;
+        bool continueFlag2;
+        double colSF;
+        double rhosd = ComputeRhoSD(n, Mh, z);
+        double chGuess = 7.2/nCNM_2p_perG0p_1;
+
+        double fH2_currentIteration=fH2[n];
+//        double fH2_currentIteration = ComputeH2Fraction( chGuess, col[n], ZDisk[n]);
+        double fH2_proposed;
+        double fH2_nextIteration;
+
+        double G0p_previous = G0[n];
+        double G0p_currentIteration = G0[n];
+        double G0p_proposed;
+        double G0p_nextIteration;
+        double damp = min(dampingFactors[n]*1.5,.5);
+        while(continueFlag1 || continueFlag2) {
+            // For this value of G0p, we need to solve for fH2. This again requires iteration. Take an initial guess.
+//            double chGuess = 7.2/nCNM_2p_perG0p_1;
+//            fH2Guess = ComputeH2Fraction( chGuess, col[n], ZDisk[n] );
+            continueFlag2 = true;
+            int nIter2 = 0;
+            while(continueFlag2) {
+                double colH2 = fH2_currentIteration* col[n] *colConv;
+                double colHI = (col[n] - colH2)*colConv;
+                double RH2 = colH2/colHI;
+                double thirdTerm =  thirdTermConv * rhosd / (colHI*colHI);
+                // dimensionless:  n/(10/cc)
+                nCNM_Hydro_1 = M_PI*G*colHI*colHI/20.0 * (1.0 + 2.0*RH2 + sqrt((1.0+2.0*RH2)*(1.0+2.0*RH2) + thirdTerm)) / (11.0*( kB )*243.0);
+                n1 = max(nCNM_2p_perG0p_1*G0p_currentIteration, nCNM_Hydro_1);
+                chGuess = 7.2*G0p_currentIteration/n1;
+                fH2_proposed = ComputeH2Fraction(chGuess, col[n], ZDisk[n]);
+                //continueFlag2 = (fabs((newfH2Guess - fH2Guess)/newfH2Guess ) > 1.0e-3);
+                fH2_nextIteration = exp( 0.5 * log(fH2_currentIteration) + 0.5* log(fH2_proposed) );
+                continueFlag2 = (fabs((fH2_proposed- fH2_currentIteration)/fH2_currentIteration) > 1.0e-3);
+                fH2_currentIteration = fH2_nextIteration;
+                ++nIter2;
+            }
+            // }
+            // Now we know fH2. Thus we can guess:
+            colSF = fH2_currentIteration*EPS_ff*colConv*col[n]/tdyn;  // g/s/cm^2
+            G0p_proposed = colSF/ (2.5e-3 * MSol / (cmperpc*cmperpc*1.0e6*speryear));
+            G0p_nextIteration = exp((1.0-damp)*log(G0p_currentIteration) + (damp)*log(G0p_proposed));
+            // are we oscillating?
+            if( (G0p_nextIteration-G0p_currentIteration) * (G0p_currentIteration - G0p_previous) < 0.0 ) {
+                damp*=.5;
+            }
+            else {
+                // 1-damp_new -> .83*(1-damp_old)
+                // damp_new = 1 - .83*(1-damp_old)
+                // damp = 1.0 - 0.83*(1.0-damp);
+            }
+            // G0p_nextIteration = .95*G0p_currentIteration + .05*G0p_proposed;
+            continueFlag1 = (fabs((G0p_proposed- G0p_currentIteration)/G0p_currentIteration) > 1.0e-2);
+//            if(nIter++>1000) {
+            if((n==199 && fH2_currentIteration>.1 && !continueFlag1) || nIter++>5000) {
+                std::cerr << "*****" << std::endl;
+                std::cerr << "nIter, nIter2, n, damp: " << nIter << " "<<nIter2<<" "<< n<<" "<<damp<<std::endl;
+                // std::cerr << "colH2, colHI: " << colH2 << " " << colHI << std::endl;
+                std::cerr << "n1, hydro, cnm, rhosd: " << n1 <<" "<<nCNM_Hydro_1<<" "<<nCNM_2p_perG0p_1*G0p_currentIteration <<" "<<rhosd<<std::endl;
+                std::cerr << "rhon, rhohydro, rhocnm, rhosd: " << n1*mH*10.0 <<" "<<nCNM_Hydro_1*mH*10.0<<" "<<nCNM_2p_perG0p_1*G0p_currentIteration*mH*10.0 <<" "<<rhosd<<std::endl;
+                std::cerr << "fH2_current, fH2_proposed, fH2_next (prop-old)/old" << std::endl;
+                std::cerr << fH2_currentIteration<<" "<<fH2_proposed<<" "<<fH2_nextIteration<<" "<<(fH2_proposed-fH2_currentIteration)/fH2_currentIteration<<std::endl;
+                std::cerr << "G0p_current, G0p_proposed, G0p_next (prop-old)/old" << std::endl;
+                std::cerr << G0p_currentIteration<<" "<<G0p_proposed<<" "<<G0p_nextIteration<<" "<<(G0p_proposed-G0p_currentIteration)/G0p_currentIteration<<std::endl;
+                std::cerr << "*****" << std::endl;
+//                errormsg("Too many iterations computing fH2 -- top layer");
+            }
+//            G0p = G0p + (newG0p-G0p)/10.0; // only take half a step
+          G0p_previous = G0p_currentIteration;
+          G0p_currentIteration = G0p_nextIteration;
+
+        }
+        colSFR[n] = colSF / (dim.MdotExt0  / ( 2.0*M_PI* dim.Radius*dim.Radius)); // convert back to code units
+        G0[n] = G0p_currentIteration;
+        fH2[n] = fH2_currentIteration;
+
+//        // Approx Star formation law according to Krumholz (2013)
+//        if(!dbg.opt()){
+//            // Compute each of the three timescales.
+//            double tdep_hd_gas = 3.1 /pow(col0,.25) + 360.0 /(Zp*col0*col0); // in Gyr
+//            double tdep_hd_st = 3.1/pow(col0,.25) + 100.0 / (Zp*sqrt(rhosd)*col0); // in Gyr
+//            double tdep_2p = 3.1/(ComputeH2Fraction(n)*pow(col0,.25)); // in Gyr
+//        }
+//        // Star formation law used in F13.
+//        else {
+//            double fH2 = ComputeH2Fraction(n);
+//            if(dbg.opt(10)) fH2=.03;
+//            double valToomre = fH2 * 2.*M_PI*EPS_ff//*sqrt(
+//                //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
+//                * sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
+//                * sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))
+//                * sqrt(32.0 / (3.0*M_PI));
+//
+//            // constant SF depletion time.
+//            double tdepConst = tDepH2SC; // in Ga
+//            double valConst = fH2 * col[n] / (tdepConst * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
+//
+//
+//            double val;
+//            val = valToomre;
+//            if(dbg.opt(19))
+//                val = valConst;
+//            if(!dbg.opt(7)) {
+//                val = max(valConst, valToomre); // pick the shorter depletion time, i.e. higher SFR. 
+//            }
+//
+//            if(val < 0 || val!=val)
+//                errormsg("Error computing colSFR:  n, val, fH2, col, sig   "
+//                        +str(n)+" "+str(val)+" "+str(ComputeH2Fraction(n))+" "+str(col[n])
+//                        +" "+str(sig[n]));
+//            colSFR[n]=val;
+//        }
     }
     return -1;
 }
@@ -1608,7 +1863,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         // We start with terms related to obvious source terms, i.e. the terms which 
         // appear in the continuity equation unrelated to transport through the disk.
         if(!dbg.opt(4)) {
-            FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n];
+            FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n] - dQdu[n]*dudt[n];
             // Now we add the contribution from the changing velocity dispersion
             if(sigth<=sig[n]) {
                 double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
@@ -1663,7 +1918,8 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         // Forget all of the contributions to forcing we just computed, and
         // set it to an exponential.
         if(dbg.opt(4)) {
-    	  FF[n] = exp((fixedQ-QQ)*uu[n] / (x[n]));
+          double faster = 1.0;
+    	  FF[n] = expm1((fixedQ-QQ)*uu[n]*faster / (x[n]));
 
         }
 
@@ -1856,7 +2112,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         //dcol_stdt = -2.*M_PI*(col_st[n]*ddx(yy,n,x) + ddx(col_st,n,x)*yy[n] 
         //  + col_st[n]*yy[n]/x[n]) + RfREC*colSFR[n];
         vrg = (tauvec[2][n]+tauvecMRI[2][n]) / (2.*M_PI*x[n]*uu[n]*col[n]*(1.+beta[n]));
-        fh2 = ComputeH2Fraction(n);
+        fh2 = fH2[n]; //ComputeH2Fraction(n);
         //    taupp = (H[n] - h1[n]*tauvec[2][n] - h0[n]*tauvec[1][n])/h2[n];
         taupp = d2taudx2[n];
         if(mrq<=0) mrq=1.;
@@ -1865,6 +2121,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         Mt = lambdaT*lambdaT*col[n];
         Mts.push_back(Mt);
         double yy = tauvecStar[2][n]/(2.0*M_PI*x[n]*col_st[n]*uu[n]*(1+beta[n]));
+        double dcolst = dSMigdt(n,tauvecStar,(*this),spsActive[0]->spcol) + RfREC*colSFR[n];
   
         // actually this might not be the correct definition:
         //alpha = (-tauvec[2][nx])* dim.chi()/(3. * sig[n]*sig[n]*sig[n]);
@@ -1873,7 +2130,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(x[n]);wrt.push_back(tauvec[1][n]);wrt.push_back(tauvec[2][n]);  // 1..3
         wrt.push_back(col[n]);wrt.push_back(sig[n]);wrt.push_back(col_st[n]);         // 4..6
         wrt.push_back(sig_stR[n]);wrt.push_back(dcoldt[n]);wrt.push_back(dsigdt[n]);   // 7..9
-        wrt.push_back(0);wrt.push_back(dsig_stdt);wrt.push_back(currentQ);    // 10..12
+        wrt.push_back(dcolst);wrt.push_back(dsig_stdt);wrt.push_back(currentQ);    // 10..12
         wrt.push_back(dZDiskdtAdv[n]);wrt.push_back(MdotiPlusHalfMRI[n]*dim.MdotExt0*speryear/MSol);wrt.push_back(beta[n]);   // 13..15
         wrt.push_back(uu[n]);wrt.push_back(col[n]/(col[n]+col_st[n]));wrt.push_back(temp2); // 16..18
         wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
@@ -2040,6 +2297,8 @@ void DiskContents::ComputePartials()
             double thickStars = 0.8 + 0.7 * sigStZ/sigStR;
             // Q_RW = 1./(W/Qst + 1./Qg) if Qst>Qg   or  1./(1./Qst + W/Qg) otherwise
 
+            double uTimesfb = uu[n]*sqrt(2.*(beta[n]+1.));
+
             if(Qst*thickStars>Qg*thickGas) {
                 dQdS[n] = -(2./3.)/(Qg*col[n]*pow((2./3.)/Qg + 2.0*sig[n]/(Qst/sigStR  * (sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0));
 
@@ -2052,6 +2311,8 @@ void DiskContents::ComputePartials()
                     pow(2./(3.*Qg)  + 2*sig[n]*sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0);
 
                 spsActive[0]->dQdsZ[n] = 1.4 * sig[n] / (Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars*thickStars*pow(2./(3.*Qg) + 2.0*sig[n]*sigStR/(Qst*(sig[n]*sig[n]+sigStR*sigStR)*thickStars),2.0));
+
+                dQdu[n] = 1.0/(W/(Qst*thickStars/uu[n]) + 1.0/(Qg*thickGas/uu[n]));
             }
 
             else {
@@ -2066,6 +2327,7 @@ void DiskContents::ComputePartials()
                 spsActive[0]->dQdsZ[n] = 0.7/(Qst*sigStR*thickStars*thickStars*pow((4./3.)*sigStR*sig[n]/(Qg*(sig[n]*sig[n]+sigStR*sigStR)) + 1.0/(Qst*thickStars),2.0));
 
 
+                dQdu[n] = 1.0/(1.0/(Qst*thickStars/uTimesfb) + W/(Qg*thickGas/uTimesfb));
 
 
 
@@ -2079,7 +2341,9 @@ void DiskContents::ComputePartials()
                 errormsg(std::string("Error computing partials:  dQdS,dQds,dQdSst,dQdsst  ")
                         +std::string("Qst,Qg   W,rs  ")+str(dQdS[n])+spc+str(dQds[n])+spc
                         +str(spsActive[0]->dQdS[n])+spc+str(spsActive[0]->dQdsR[n])
-                        +spc+spc+str(Qst)+spc+str(Qg)+spc+spc+str(W)+spc+str(rs));
+                        +spc+spc+str(Qst)+spc+str(Qg)+spc+spc+str(W)+spc+str(rs) 
+                        +std::string("  col, sig, uu, beta: ")+str(col[n])+spc+str(sig[n])
+                        +spc+str(uu[n])+spc+str(beta[n])+spc+std::string("n=")+str(n));
             }
 
         }

@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
     const double ZIGM =              as.Set(.002,"Z of IGM in absolute units");
     const double yREC =              as.Set(.054,"yield - mass of metals produced per gas mass locked in stars");
 
-    as.~ArgumentSetter();
+    as.WriteOut();
 
     // Make an object to deal with basic cosmological quantities.9
     // Omega_Lambda = .734, H0 = 2.29e-18 s^-1
@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
     double H0 = 2.29e-18;
     double sigma8 = 0.796;
 
-    Cosmology cos(OmegaMatter, OmegaLambda, H0 , sigma8, zrelax);
+    Cosmology cos(OmegaMatter, OmegaLambda, H0 , sigma8, zrelax, nx);
 
     Debug dbg(Experimental);
 
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
 
 
     // Done reading in arguments. Write out a comment file containing all of the arguments.
-    as2.~ArgumentSetter();
+    as2.WriteOut();
 
 
     // If we're recording the convergence of the initial conditions, copy the comment file we just wrote out.
@@ -213,6 +213,7 @@ int main(int argc, char **argv) {
     Dimensions dim(radius,vphiR,mdot0);
     FixedMesh mesh(beta0,BulgeRadius/dim.d(1.0),nRotCurve,xmin,minSigSt,nx);
     double MhZs = accr.MhOfZ(zrelax)*Mh0; // this is in units of solar masses
+    cos.UpdateProfile(MhZs, zrelax, mesh.x(), dim.Radius);
 
     AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength/(radius/cmperkpc),width);
 
@@ -225,7 +226,7 @@ int main(int argc, char **argv) {
         // double sig0 = 8.0/220.0; 
         double sig0 = sigth;
         double stScaleLengthA = accScaleLength * pow(MhZs/Mh0,alphaAccProf);
-        disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA);
+        disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax);
 
         Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
                 zstart,NActive,NPassive,alphaMRI,
@@ -271,4 +272,5 @@ int main(int argc, char **argv) {
         result = sim.runToConvergence(1.0e10, true, filename,zstart,200);
     }
 
+    return 0;
 }

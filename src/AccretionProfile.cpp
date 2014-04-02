@@ -30,9 +30,9 @@ AccretionProfile::AccretionProfile(FixedMesh & theMesh,
     return;
 }
 
-void AccretionProfile::UpdateProfile(double MhOverMh0)
+void AccretionProfile::UpdateProfile(double r200)
 {
-    currentRadialScale = radialScale*pow(MhOverMh0,alpha);
+    currentRadialScale = radialScale*r200;
     if(alpha != 0.0 || profile[1]<0.0) {
         // The following few lines are only relevant for Gaussian profiles,
         // although since they only need to be evaluated once (not for every cell),
@@ -52,8 +52,6 @@ void AccretionProfile::UpdateProfile(double MhOverMh0)
             double nD = ((double) n);
             double xlo = mesh.x(nD-0.5);
             double xhi = mesh.x(nD+0.5);
-            double xb = mesh.x(0.5 + ((double) nx));
-
 
             if(whichProfile == 0) { // exponential
                 profile[n] = (( (currentRadialScale +xlo)*exp(-xlo/currentRadialScale)
@@ -89,7 +87,7 @@ void AccretionProfile::UpdateProfile(double MhOverMh0)
                 profile[n] = 2.0/((xlo+xhi)*(xhi-xlo)) * // ~ 1/area of this cell
                     fraction * 1.0/(1.0-currentFracOuter);
             }
-            if(profile[n]<0.0) errormsg("Negative accretion profile! This could mean you've selected an invalid/unsupported accretion profile "+str(n)+" "+str(profile[n])+" "+str(fraction)+" "+str(currentFracOuter) +" "+ str(currentRadialScale)+" "+str(normalization)+"   "+str(radialScale)+" "+str(MhOverMh0)+" "+str(alpha));
+            if(profile[n]<0.0) errormsg("Negative accretion profile! This could mean you've selected an invalid/unsupported accretion profile "+str(n)+" "+str(profile[n])+" "+str(fraction)+" "+str(currentFracOuter) +" "+ str(currentRadialScale)+" "+str(normalization)+"   "+str(radialScale)+" "+str(r200)+" "+str(alpha));
         }
     }
 

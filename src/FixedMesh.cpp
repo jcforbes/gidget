@@ -8,6 +8,8 @@
 #include <gsl/gsl_sf_hyperg.h>
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_integration.h>
+#include <gsl/gsl_sf_ellint.h>
+#include <gsl/gsl_sf_bessel.h>
 
 double psiIntegrand(double xp, void * params)
 {
@@ -18,7 +20,39 @@ double psiIntegrand(double xp, void * params)
 double sign(double a) {
     if(a>0.0)
         return 1;
+    return -1;
 }
+
+
+double summand(double xnm, double xnp, double xj)
+{
+   gsl_mode_t mode = GSL_PREC_DOUBLE; // since we're only evaluating this once, we can probably afford the high precision.
+   if(xj > xnp) {
+        return (2.0/M_PI) * ( gsl_sf_ellint_Ecomp(xnm/xj ,mode) 
+                             -gsl_sf_ellint_Ecomp(xnp/xj, mode)
+                             -gsl_sf_ellint_Kcomp(xnm/xj, mode) // check this!
+                             +gsl_sf_ellint_Kcomp(xnp/xj, mode) );
+   }
+   else if(xj < xnm) {
+        return (2.0/(M_PI*xj)) * ( xnm*gsl_sf_ellint_Ecomp(xj/xnm, mode)
+                                  -xnp*gsl_sf_ellint_Ecomp(xj/xnp, mode) 
+                                  -xnm*gsl_sf_ellint_Kcomp(xj/xnm, mode)
+                                  +xnp*gsl_sf_ellint_Kcomp(xj/xnp, mode));
+   }
+   else if(xnm<=xj && xj<=xnp) {
+        return (2.0/(M_PI*xj)) * ( xj*gsl_sf_ellint_Ecomp(xnm/xj, mode)
+                                 -xnp*gsl_sf_ellint_Ecomp(xj/xnp, mode)
+                                 - xj*gsl_sf_ellint_Kcomp(xnm/xj, mode)
+                                 +xnp*gsl_sf_ellint_Kcomp(xj/xnp, mode) );
+   }
+   else {
+       std::cerr << "Strange circumstance in summand()." << std::endl;
+       return 0;
+   }
+}
+
+
+
 
 
 FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, double mst, unsigned int nnx):
@@ -29,6 +63,7 @@ FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, 
     u1pbiPlusHalf(std::vector<double>(nnx+1,0.)),
     uuv(std::vector<double>(nnx+1,0.)),// psiv(std::vector<double>(nnx+1,0.)),
     areas(std::vector<double>(nnx+1,0.)),
+    sumTab(std::vector<std::vector<double> >()),
     stored(false),PsiInitialized(false)
 {
   psi1 = 0.0;
@@ -39,6 +74,7 @@ FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, 
  
   xiPlusHalf[0] = x(0.5);
   u1pbiPlusHalf[0] = uu(x(0.5)) * (1.0 + beta(x(0.5)));
+  sumTab.push_back(std::vector<double>(nnx+1,0.));
   for(unsigned int n=1; n<=nxc; ++n) {
     xv[n] = x(((double) n));
     xiPlusHalf[n] = x(((double) n) + 0.5);
@@ -50,9 +86,24 @@ FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, 
     betav[n] = beta(xv[n]);
     betapv[n] = betap(xv[n]);
     x_gsl[n-1] = xv[n];
+    sumTab.push_back(std::vector<double>(nnx+1,0.));
   }
 
 
+}
+void FixedMesh::storeSummand()
+{
+    for(unsigned int n=1; n<=nxc; ++n) {
+        for(unsigned int nn=1; nn<=nxc; ++nn) {
+            sumTab[n][nn] =  summand(xPlusHalf(nn-1), xPlusHalf(nn), x(n));
+        }
+    }
+
+}
+
+double FixedMesh::summandTabulated(unsigned int n, unsigned int nn)
+{
+    return sumTab[n][nn];
 }
 
 double FixedMesh::u1pbPlusHalf(unsigned int i)
@@ -114,15 +165,15 @@ bool FixedMesh::InitializePsi()
 
 FixedMesh::~FixedMesh()
 {
-  delete[] x_gsl;
-
-  if(PsiInitialized) {
-    delete[] x_HR_GSL;
-    delete[] psi_HR_GSL;
-
-    gsl_spline_free(spline_psi);
-    gsl_interp_accel_free(accel_psi);
-  }
+//  delete[] x_gsl;
+//
+//  if(PsiInitialized) {
+//    delete[] x_HR_GSL;
+//    delete[] psi_HR_GSL;
+//
+//    gsl_spline_free(spline_psi);
+//    gsl_interp_accel_free(accel_psi);
+//  }
 }
 double FixedMesh::x(unsigned int n)
 {
@@ -212,6 +263,7 @@ unsigned int FixedMesh::necessaryN()
   }
   // hopefully mm=1000 is enough!
   errormsg("The given minsigst "+str(minsigst)+" requires prohibitively high resolution.");
+  return 0;
 }
 
 

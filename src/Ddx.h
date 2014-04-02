@@ -51,5 +51,7 @@ double ddx(T & arr, unsigned int n, std::vector<double>& x, bool zeroSecondDeriv
     else
       return left; 
   }
+  errormsg("Unexpected input to ddx in Ddx.h");
+  return 0;
 };
 

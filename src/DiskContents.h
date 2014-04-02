@@ -82,13 +82,23 @@ class DiskContents {
           std::vector<double>& LL, std::vector<double>& FF, std::vector<double>& MdotiPlusHalf);
 //  void TauPrimeFromTau(double**);
 
-  // At a given cell, compute the fraction of gas which is 
-  // in H2, i.e. what fraction of the gas is available to 
-  // form stars. This is an analytic approximation.
-  double ComputeH2Fraction(unsigned int n);
+  // Compute the H2 fraction given a value of chi, column density, and metallicity.
+  // This is one part of the approximation in Krumholz (2013). Most of the algorithm is
+  // implemented in ComputeColSFR.
+  double ComputeH2Fraction(double ch, double thisCol, double thisZ);
+
+  void ZeroDuDt();
+  void UpdateRotationCurve(double Mh, double z, double dt);
+
+  // the scale height of the stellar disk in cm
+  double hStars(unsigned int n); 
+
+  // Find the density in g/cc from stars + dark matter
+  double ComputeRhoSD(unsigned int n, double Mh, double z);
 
   // Compute the star formation rate in every cell
-  double ComputeColSFR();
+  double ComputeColSFR(double Mh, double z);
+  double ComputeColSFRapprox(double Mh, double z);
 
   // Compute the loss in column density experienced by 
   // cell n due to outflows. (Simple mass loading factor 
@@ -172,7 +182,7 @@ class DiskContents {
 
   void Initialize(double fcool, double fg0,
                   double sig0, double tempRatio, double Mh0,
-                  double MhZs, double stScaleLength);
+                  double MhZs, double stScaleLength, double zs);
 
   // Is one of the current stellar populations 'currently forming'
   //, i.e. since stars are binned by age, is the age of stars 
@@ -220,8 +230,10 @@ class DiskContents {
  private:
   std::vector<double> col,sig; // gas column density and velocity dispersion
   std::vector<double> dQdS,dQds; // partial derivatives dQ/dS and dQ/ds
+  std::vector<double> dQdu,dudt; // necessary for computing the forcing term coming from a changing rotation curve
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
+  std::vector<double> dSdtMig;
   std::vector<double> dZDiskdtDiff, dZDiskdtAdv; // components of the metallicity time derivative
   std::vector<double> dMZdt, MZ;
 //  std::vector<double> colZ, dcolZdt;
@@ -261,6 +273,9 @@ class DiskContents {
 //    yy,    // inward velocity of stars
     betap; //d(beta)/dx 
 
+  std::vector<double> fH2, G0, dampingFactors; // arrays solved during ComputeColSFR(): the H2 fraction by mass and the radiation field in solar neighborhood units
+  
+  
 //  std::vector<double>
 //    LL,UU,DD,FF; // coefficients of the torque equation
 

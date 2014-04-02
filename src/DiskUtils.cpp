@@ -212,6 +212,7 @@ double varQ(double sv, void * p)
   }
   else {
     errormsg("Q: variable out of range");
+    val = 0.0;
   }
   return val;
 }

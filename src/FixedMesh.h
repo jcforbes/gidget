@@ -23,11 +23,14 @@ class FixedMesh {
   double u1pbPlusHalf(unsigned int);
   double dlnx() { return dlnxc;};
   double xmin() { return xminc;};
+  double summandTabulated(unsigned int n, unsigned nn);
   unsigned int nx() { return nxc;};
   unsigned int necessaryN();
   double n(unsigned int index,unsigned int neff);
   bool InitializePsi();
+  void storeSummand();
  private:
+  std::vector<std::vector<double> > sumTab;
   std::vector<double> xv;
 //  std::vector<double> psiv;
   std::vector<double> uuv;

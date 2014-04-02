@@ -1,6 +1,6 @@
-LDFLAGS		=  -O3 -L/home/jforbes/gsl/lib -lgsl -lgslcblas -lm
-CFLAGS		=  -O3 -I/home/jforbes/gsl/include -c 
-CC		= g++ 
+LDFLAGS		= -O3  -lgsl -lgslcblas -lm 
+CFLAGS		= -O3 -c 
+CC		= g++
 EXECUTABLE=../bin/gidget
 
 SOURCES := $(wildcard *.cpp)

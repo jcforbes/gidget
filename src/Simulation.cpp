@@ -89,10 +89,10 @@ int Simulation::runToConvergence(const double fCondition,
                      ctrSF4(4.,4.2,.4,.45),     ctrSF25(25.,25.2,.4,.45),
                      outSF4(4.,4.2,.9,.95),     outSF25(25.,25.2,.9,.95); 
 
-    const double dtfloor=1.e-12; 
+    const double dtfloor=1.e-15; 
     // Initialize some variables which will change as the simulation progresses:
     // time (outer orbits), redshift, and timestep
-    double t=0., z=zrelax, dt=dtfloor*100, dtPrev = 1.0;
+    double t=0., z=zrelax, dt=dtfloor*10, dtPrev = 1.0;
 
     int whichVar,whichCell; // store which variable and which cell limits the time step.
 
@@ -138,7 +138,7 @@ int Simulation::runToConvergence(const double fCondition,
         double previous = (t-dt) * 2.0*M_PI*dim.Radius/dim.vphiR - t0;
 
         double NOUT = ((double) Noutputs);
-        bool timeOut = ((floor(NOUT*previous/duration) < floor(NOUT*present/duration) && present>0.0 || step == 1) && writeOut ) ;
+        bool timeOut = (((floor(NOUT*previous/duration) < floor(NOUT*present/duration) && present>0.0) || step == 1) && writeOut ) ;
 
         if(!cosmologyOn)
             timeOut= (((floor(25.0*(t-dt)) < floor(25.0*t)) || step<2) && writeOut);
@@ -155,7 +155,15 @@ int Simulation::runToConvergence(const double fCondition,
             std::cout << "Writing out file "<<writeIndex<<" at t = "<<present/(speryear*1.0e9)<<" Gyr, z= "<<z<<std::endl;
         }
 
-        theDisk.ComputeColSFR();
+        if(step <5 || step%2000==0) {
+            theDisk.GetCos().UpdateProfile(accr.MhOfZ(z)*accr.GetMh0(), z, theDisk.GetMesh().x(), dim.Radius);
+            theDisk.UpdateRotationCurve(accr.MhOfZ(z)*accr.GetMh0(), z, dt);
+        }
+        else 
+            theDisk.ZeroDuDt();
+
+        theDisk.ComputeColSFRapprox(accr.MhOfZ(z) * accr.GetMh0(),z);
+        // theDisk.ComputeColSFR(accr.MhOfZ(z) * accr.GetMh0(),z);
 
         if(dbg.opt(6)) {
             for(unsigned int i=0; i!=theDisk.passive().size(); ++i) {
@@ -177,6 +185,7 @@ int Simulation::runToConvergence(const double fCondition,
         if(cosmologyOn) AccRate = accr.AccOfZ(z);
         else AccRate = 1.;
         
+        accProf.UpdateProfile(theDisk.GetCos().r200(accr.MhOfZ(z)*accr.GetMh0(), z)/dim.Radius);
         accProf.UpdateProfile(accr.MhOfZ(z));
 
         // Given the user's freedom to specify the accretion history, make sure
@@ -317,14 +326,14 @@ int Simulation::runToConvergence(const double fCondition,
         errormsg("Unexpected number of outputs! "+str(writeIndex)+" vs "+str(Noutputs+2));
 
     // de-allocate memory
-    for(unsigned int k=1; k<=2; ++k) {
-        delete tauvec[k];
-        delete tauvecStar[k];
-        delete tauvecMRI[k];
-    }
-    delete[] tauvec;
-    delete[] tauvecStar;
-    delete[] tauvecMRI;
+//    for(unsigned int k=1; k<=2; ++k) {
+//        delete tauvec[k];
+//        delete tauvecStar[k];
+//        delete tauvecMRI[k];
+//    }
+//    delete[] tauvec;
+//    delete[] tauvecStar;
+//    delete[] tauvecMRI;
 
 
     // Tell the caller why the run halted.

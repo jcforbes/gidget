@@ -13,6 +13,7 @@ class ArgumentSetter {
      - return that value. If there was no provided value in argv, use the default, def
      - write a line in the comment file of the form "name: value" */
   double Set(double def,std::string name);
+  void WriteOut(); // take the collected arguments and write them out.
  private:
   int argc, arg;
   char ** argv;

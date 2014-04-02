@@ -542,10 +542,54 @@ if __name__ == "__main__":
     rg01.irregularVary('alphaAccretionProfile',1./3.)
     rg01.irregularVary('deltaOmega',.1)
 
-    rh01 = NewSetOfExperiments(rg01,"rh01")
-    rh01[0].vary('mu',.1,5,20,1)
-#    rh01.irregularVary('mu',[.1,.7,1.3])
+    rg01t=NewSetOfExperiments(rg01,'rg01t',N=1)
+    rg01t[0].irregularVary('dbg',2+2**4)
 
+    rg01t2=NewSetOfExperiments(rg01t,'rg01t2',N=1)
+    rg01t2[0].irregularVary('TOL',1.0e-3)
+
+    rg01t3=NewSetOfExperiments(rg01t2,'rg01t3',N=1)
+    rg01t3[0].vary('mu',0.1,10.0,3,1)
+
+    rg01t4=NewSetOfExperiments(rg01t3,'rg01t4',N=1) # turn off disk contrib to rot curve, fix stellar scale height error
+    rg01t4[0].irregularVary('fH2Min',1.0e-10)
+    rg01t4[0].irregularVary('TOL',1.0e-4)
+    rg01t4[0].irregularVary('NPassive',3)
+
+    rg01t5=NewSetOfExperiments(rg01t4,'rg01t5',N=1) # now with exponential forcing
+
+    rg01t6=NewSetOfExperiments(rg01t5,'rg01t6',N=1) # now using approx. prescription for calculating fH2 and SFR.
+
+    rg01t7=NewSetOfExperiments(rg01t6,'rg01t7',N=1) # now using no updates to rot. curve. In theory this should be very similar
+    # to the results we had before, in terms of speed, etc.
+
+    rg01t8=NewSetOfExperiments(rg01t7,'rg01t8',N=1) # add in some smoothing out of the torques because the sims are very slow
+    rg01t8[0].irregularVary('dbg',2+2**4+2**18)
+
+    rg01t9=NewSetOfExperiments(rg01t8,'rg01t9',N=1) # allow the stars a longer time to reach Qlim
+    rg01t9[0].irregularVary('tauHeat',30)
+
+    rg01t10=NewSetOfExperiments(rg01t7,'rg01t10',N=1) # allow the stars a long time to reach Qlim, AND do not include smoothing
+    rg01t10[0].irregularVary('tauHeat',50)
+
+    rg01t11=NewSetOfExperiments(rg01t7,'rg01t11',N=1) # try the opposite -- immediate equlibration
+    rg01t11[0].irregularVary('tauHeat',.0001)
+
+    rg01t12=NewSetOfExperiments(rg01t7,'rg01t12',N=1)
+    rg01t12[0].irregularVary('tauHeat',100000)
+
+    rg01t13=NewSetOfExperiments(rg01t7,'rg01t13',N=1) # try taking out the exponential approach to Qfixed, return to exact forcing eq.
+    rg01t13[0].irregularVary('dbg',2)
+
+    rg01t14=NewSetOfExperiments(rg01t13,'rg01t14',N=1) # exact Q>=Qfixed. Only update rot. curve @ first time step, then leave it there the whole sim.
+    rg01t14[0].irregularVary('dbg',2)
+
+
+    rg01t15=NewSetOfExperiments(rg01t14,'rg01t15',N=1) # exact Q>=Qfixed. Try again update rotation curve frequently.
+    rg01t15[0].irregularVary('dbg',2)
+
+    rg01t16=NewSetOfExperiments(rg01t15,'rg01t16',N=1) # exact Q>=Qfixed. Bug fixed in rot. curve
+    rg01t16[0].irregularVary('dbg',2)
 
 
     # Vary the scale length of the accretion.
@@ -554,6 +598,97 @@ if __name__ == "__main__":
     rg02[0].vary('R',l045*.10*7,l045*.67*7,5,0,3)
     rg02[1].vary('accScaleLength',l045*.73,l045*2.1,10,0,3)
     rg02[1].vary('R',l045*.73*7,l045*2.1*7,10,0,3)
+
+
+    rh02=NewSetOfExperiments(rg01,'rh02')[0]
+    rh02.vary('accScaleLength',1,10,12,1,3)
+    rh02.vary('R',5,50,12,1,3)
+    rh02.irregularVary('mu',1.0)
+    rh02.irregularVary('alphaMRI',0.02)
+
+    rh03=NewSetOfExperiments(rh02,'rh03')[0]
+    rh03.vary('xmin',.02/(1.0*l045),.02/(9*l045),12,1,3)
+    #rh03.vary('nx',200,200*(40/3),12,1,3)
+
+
+    rh04=NewSetOfExperiments(rg01,'rh04')[0]
+    rh04.vary('alphaMRI',.01,1,10,1)
+
+    rh05=NewSetOfExperiments(rg01,'rh05')[0]
+    rh05.vary('fixedQ',1,3,10,0)
+
+    # Vary mass and accretion history
+    rh06=NewSetOfExperiments(rg01,'rh06')[0]
+    rh06.vary('vphiR',220.0*(.01)**(1.0/3.0), 220.0*(10.0)**(1.0/3.0), 300, 1, 17)
+    rh06.vary('accScaleLength',7.0*(.01)**(1.0/3.0), 7.0*(10.0)**(1./3.), 300, 1, 17)
+    rh06.vary('mu',1.0*(.01)**(-1.0/3.0),1.0*(10.0)**(-1./3.),300,1,17)
+    rh06.vary('R',50.0*(.01)**(1.0/3.0), 60.0*(10.0)**(1./3.), 300, 1, 17)
+    rh06Mh0 = rh06.vary('Mh0',1.0e10,1.0e13,300,1,17)
+    rh06.vary('whichAccretionHistory',3000,3299,300,0,17)
+    rh06.irregularVary('alphaMRI',0.02)
+    rh06.irregularVary('dbg',2+2**3) 
+    rh06.irregularVary('deltaOmega',0.1)
+    rh06.irregularVary('b',0)
+
+    # Vary mass, accretion history, and scale length
+    rh07=NewSetOfExperiments(rh06,'rh07')[0]
+    rh07.irregularVary('accScaleLength',GetScaleLengths(300,Mh0=rh06Mh0,scatter=0.3,multiple=7.0/l045), 17)
+    rh07.irregularVary('R',GetScaleLengths(300,Mh0=rh06Mh0,scatter=0.3,multiple=60.0/l045), 17)
+    rh07.irregularVary('b',0.0) # formerly b=3 kpc! That setup caused 68/300 models to fail (!)
+
+    rh07x=NewSetOfExperiments(rh07,'rh07x')[0]
+    rh07x.irregularVary('fg0',.999999999999)
+
+    rh07y=NewSetOfExperiments(rh07x,'rh07y')[0]
+    rh07y.irregularVary('ZIGM',.00002)
+
+    rh07z=NewSetOfExperiments(rh07y,'rh07z')[0]
+    rh07z.irregularVary('fH2Min',.001)
+
+    rh07q=NewSetOfExperiments(rh07y,'rh07q')[0]
+    rh07q.irregularVary('fH2Min',.0001)
+
+
+    # Vary mass but nothing else
+    rh08=NewSetOfExperiments(rh06,'rh08')[0]
+    rh08.irregularVary('whichAccretionHistory',0)
+
+    rh09=NewSetOfExperiments(rg01,'rh09',N=3)
+    # no star formation! - rg36d
+    rh09[1].irregularVary('epsff',0)
+    rh09[1].irregularVary('tDepH2SC',1000000000.0)
+    rh09[1].irregularVary('fH2Min',0.03)
+    rh09[2].irregularVary('dbg',2+2**12) # no GI - rg36e
+
+    # Vary mass and scale length, but not accretion history
+    rh10=NewSetOfExperiments(rh07,'rh10')[0]
+    rh10.irregularVary('whichAccretionHistory',0)
+
+    # Vary mu
+    rh11=NewSetOfExperiments(rg01,"rh11")[0]
+    rh11.vary('mu',.5,10,12,1)
+
+    rh12=NewSetOfExperiments(rg01,'rh12')[0]
+    rh12.vary('whichAccretionHistory',1200,1499,300,0)
+    rh12.irregularVary('alphaMRI',.05)
+
+    rh13=NewSetOfExperiments(rg01,'rh13')[0]
+    rh13.vary('zquench',.1,1.9,5,0)
+    rh13.irregularVary('alphaMRI',.05)
+
+    rh14=NewSetOfExperiments(rh12,'rh14')[0]
+    rh14.irregularVary('b',0)
+
+    # Make some attempts to bring sims into aggreement with R Genzel.
+    rh16=NewSetOfExperiments(rg01,'rh16')[0]
+    rh16.vary('fixedQ',1.3,2.5,3,0)
+    rh16.vary('b',0,3,3,0)
+    rh16.vary('vphiR',150,300,4,0)
+    rh16.vary('eta',.1,10.0,3,1)
+    rh16.vary('innerPowerLaw',-.5,.5,2,0,14)
+    rh16.irregularVary('softening',[-2,2],14)
+    rh16.vary('alphaAccretionProfile',1./3.,3,3,1)
+
 
     # Vary the metal diffusion constant 
     rg03=NewSetOfExperiments(rg01,"rg03",N=2)
@@ -644,6 +779,9 @@ if __name__ == "__main__":
     rg15=NewSetOfExperiments(rg01,"rg15",N=2)
     rg15[0].vary('xiREC',-0.3,-0.1,3,0)
     rg15[1].vary('xiREC',0.1,1.0,5,0)
+
+    rh15=NewSetOfExperiments(rg01,"rh15")[0]
+    rh15.vary('xiREC',0,.6,7,0)
 
     # Vary Qlim
     rg16=NewSetOfExperiments(rg01,"rg16",N=2)
@@ -767,6 +905,7 @@ if __name__ == "__main__":
     rg36[7].irregularVary('alphaAccretionProfile',1) #h
     rg36[8].irregularVary('dbg',2+2**12+2**13), #i
 
+
     # Same as rg36 but with a larger computational domain
     rg36x=NewSetOfExperiments(rg36,"rg36x")
     [rg36x[i].irregularVary("R",60) for i in range(len(rg36x))]
@@ -808,6 +947,25 @@ if __name__ == "__main__":
 
     rh45=NewSetOfExperiments(rh40,"rh45")[0]
     rh45.irregularVary('alphaMRI',0)
+
+    rh46=NewSetOfExperiments(rh40,"rh46")[0]
+    rh46.irregularVary('b',1.0)
+    rh46.irregularVary('innerPowerLaw',0.25)
+
+    rh48=NewSetOfExperiments(rh40,"rh48")[0]
+    rh48.irregularVary('mu',0.5)
+
+    # Study dwarfs
+    rh47=NewSetOfExperiments(rg01,"rh47")[0]
+    Mh = 1.0e10
+    rh47.irregularVary('Mh0',Mh)
+    rh47.irregularVary('b',0)
+    rh47.irregularVary("R",GetScaleLengths(1,Mh0=[Mh],scatter=1.0e-10,multiple=4.1))
+    rh47.irregularVary('vphiR',220.0*(Mh/1.0e12)**(1.0/3.0))
+    rh47.irregularVary('accScaleLength',GetScaleLengths(1,Mh0=[Mh],scatter=1.0e-10,multiple=0.7))
+    rh47.irregularVary('mu',0.5*(Mh/1.0e12)**(-1.0/3.0))
+    rh47.vary('whichAccretionHistory',1000,1019,20,0)
+
 
 
     # Now vary halo mass with some other parameters expected to scale along with it. 

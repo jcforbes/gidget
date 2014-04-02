@@ -6,6 +6,9 @@ import cleanup
 
 
 def makeThePlots(args):
+    if args.time is False and args.radial is False and args.scaled is False and args.mass==0 and args.balance is False:
+        print "Warning: you did not ask me to produce any plots! Use python plots.py -h to look at the options available."
+    print "plots.py in makeThePlots: args.models: ",args.models
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)

@@ -4,6 +4,7 @@ import struct
 import glob
 import os
 import random
+from behroozi import *
 from cosmolopy import *
 from math import pi,log,sinh,sin,cos,sqrt,log10
 #from bitstring import Bits
@@ -27,15 +28,17 @@ gperH = 1.008*1.66053892e-24
 
 #RedBlueCM = cm = plt.get_cmap('RdBu')
 
-cm = plt.get_cmap('jet')
+#cm = plt.get_cmap('gist_rainbow')
+cm = plt.get_cmap('winter_r')
 
 outward = [0,1,-1,2,-2,3,-3,4,-4]
 
 gidgetdir = '../'
 
 class RadialFunction:
-    def __init__(self,arr,name,cgsConv,sensibleConv,texString,inner=0,outer=0,log=True,theRange=None):
-        self.arr=arr
+    def __init__(self, arr, name, cgsConv=1.0, sensibleConv=1.0,
+            texString='', inner=0, outer=0, log=True, theRange=None):
+        self.arr=arr 
         self.name=name
         self.cgsConv=cgsConv
         self.sensibleConv = sensibleConv
@@ -134,7 +137,7 @@ class SingleModel:
             scalarMap.autoscale()
             cbar = plt.colorbar(scalarMap,ax=ax)
             cbar.set_label(colorby)
-            plt.plot(self.vars[rfx].sensible(ti), self.vars[rfy].sensible(ti),c=rgb[ti])
+            plt.plot(self.var[rfx].sensible(ti), self.var[rfy].sensible(ti),c=rgb[ti])
         plt.savefig(self.name+'_'+rfy+'_vs_'+rfx+'.png')
         plt.close(figure)
     def TwoDimSFR(self,filename,inclination,orientation,timeIndex):
@@ -310,6 +313,9 @@ class SingleModel:
         self.var['dcoldt'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,7]),'dcoldt',self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']*cmperkpc)**2.0), \
                 self.p['md0']/(2.0*pi*(self.p['R'])**2.0),r'$\partial \Sigma/\partial t$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)')
+        self.var['dcolstdt'] = RadialFunction( \
+                np.copy(self.dataCube[:,:,9]),'dcoldt',self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']*cmperkpc)**2.0), \
+                self.p['md0']/(2.0*pi*(self.p['R'])**2.0),r'$\partial \Sigma_*/\partial t$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)')
         self.var['colAccr'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,29]),'colAccr', \
                 self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']**2.0)*cmperkpc*cmperkpc),\
@@ -341,6 +347,12 @@ class SingleModel:
                 1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$',theRange=[3.0e8,1.0e12])
         self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H_2}}$',log=False,theRange=[0.0,1.0])
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',1.0,1.0,'Z')
+        self.var['vPhi'] = RadialFunction(np.copy(self.dataCube[:,:,15]),'vPhi',self.p['vphiR']*1.0e5,self.p['vphiR'], \
+                 r'$v_\phi$',log=False)
+        self.var['vrst'] = RadialFunction(np.copy(self.dataCube[:,:,34]),'vrst',self.p['vphiR']*1.0e5,self.p['vphiR'], \
+                 r'$v_{r,*}$',log=False)
+        self.var['vrg'] = RadialFunction(np.copy(self.dataCube[:,:,36]),'vrg',self.p['vphiR']*1.0e5,self.p['vphiR'], \
+                 r'$v_{r,g}$',log=False)
         self.var['NHI'] = RadialFunction(self.getData('col',cgs=True)*(1.0-self.getData('fH2'))*(1.0-self.getData('Z'))/gperH,\
                 'NHI', 1.0,1.0,r'$N_{\mathrm{HI}}$ (cm$^{-2}$)',theRange=[1.0e19,3.0e21])
         self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
@@ -373,7 +385,7 @@ class SingleModel:
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
         self.var['efficiency'] = TimeFunction( \
-                self.var['mstar'].cgs()/self.var['Mh'].cgs(), 'efficiency',1.0,1.0,r'$M_*/M_h$')
+                self.var['mstar'].cgs()/self.var['Mh'].cgs(), 'efficiency',1.0,1.0,r'$M_*/M_h$',log=True)
         self.var['fg'] = TimeFunction( \
                 self.var['mgas'].cgs() / (self.var['mgas'].cgs()+self.var['mstar'].cgs()), \
                 'fg',1.0,1.0,r'$f_g$')
@@ -394,6 +406,9 @@ class SingleModel:
         mg = self.getData('col',cgs=True)*self.getData('dA',cgs=True)
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z'),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', 1.0, 1.0, r'Z_g')
+        self.var['fH2Integrated'] = TimeFunction( \
+                np.sum(mg*self.var['fH2'].cgs(),axis=1)/np.sum(mg,axis=1), \
+                'fH2Integrated',1.0,1.0,r'f_{\mathrm{H}_2}')
         mJeansMask = np.zeros(np.shape(self.var['sig'].sensible()),dtype=float)
         mJeansMask[self.var['fH2'].sensible()>0.1] = 1.0
         self.var['MJeans'] = RadialFunction( \
@@ -648,7 +663,7 @@ class Experiment:
                 else:
                     cbar.set_label(colorby)
                 normColors = (colors - float(overallColorRange[0]))/ float(overallColorRange[1]-overallColorRange[0])
-                theRGB = plt.cm.jet(normColors)
+                theRGB = cm(normColors)
                 lwnorm = 1.0 + log10(float(len(self.models)))
                 for k,model in enumerate(self.models):
                     try:
@@ -680,12 +695,16 @@ class Experiment:
         if(colorby is None):
             colorby='Mh0'
 
+
         overallX,_,overallXLog,overallXRange = self.constructQuantity(xvar)
         colors,_,log,overallColorRange = self.constructQuantity(colorby)
         if(log):
             colors=np.log10(colors)
             overallColorRange = np.log10(overallColorRange)
         for i,v in enumerate(variables):
+            if((xvar=='Mh' and v=='efficiency') or (xvar=='Mh' and v=='mstar')):
+                b = behroozi()
+                b.readSmmr()
             dirname = 'movie_'+self.name+'_'+v+'_cb'+colorby+'_vs'+xvar
             if(not os.path.exists(dirname)):
                 os.makedirs(dirname)
@@ -703,7 +722,7 @@ class Experiment:
                 if(log):
                     colorLoc = np.log10(colorLoc)
 
-                sc = ax.scatter(overallX[:,ti],overallVar[:,ti],c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                sc = ax.scatter(overallX[:,ti],overallVar[:,ti],c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
                 cbar = plt.colorbar(sc,ax=ax)
                 if(log):
                     cbar.set_label(r'$\log_{10}$'+colorby)
@@ -712,14 +731,18 @@ class Experiment:
                 if(prev>0):
                     for k in range(max(ti-prev,0),ti):
                         #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
-                        ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                        ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
+                z=model.getData('z')
+                if(xvar=='Mh' and v=='efficiency'):
+                    b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
+                elif (xvar=='Mh' and v=='mstar'):
+                    b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1],eff=False)
                 ax.set_xlim(overallXRange[0],overallXRange[1])
                 ax.set_ylim(overallRange[0],overallRange[1])
                 if(overallLog):
                     ax.set_yscale('log')
                 if(overallXLog):
                     ax.set_xscale('log')
-                z=model.getData('z')
                 dispz = "%.3f" % z[ti]
                 plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
                 plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
@@ -763,7 +786,7 @@ class Experiment:
             lwnorm = 1.0 + log10(float(len(self.models)))
             for j,model in enumerate(self.models):
                 #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
-                sc = ax.scatter(model.getData('t'),theVar[j],c=(colors[j]),lw=0.1/lwnorm,s=10.0/lwnorm,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                sc = ax.scatter(model.getData('t'),theVar[j],c=(colors[j]),lw=0.1/lwnorm,s=10.0/lwnorm,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
                     
             cbar = plt.colorbar(sc,ax=ax)
             if(log):
@@ -882,6 +905,7 @@ class Experiment:
     def storeMS(self):
         allResiduals = []
         msParams = []
+        print "Loop over z. self.models: ",self.models
         for z in self.models[0].var['z'].sensible():
             params,residuals = self.fitMS(self.msCoords(z))
             allResiduals.append(residuals)

@@ -6,7 +6,7 @@ class AccretionProfile {
     public:
         AccretionProfile(FixedMesh& mesh, int whichProfile, double alpha, Debug& dbg, double rs, double width);
         std::vector<double> & GetProfile() { return profile; };
-        void UpdateProfile(double MhOverMh0);
+        void UpdateProfile(double r200);
         double fInner();
         double fOuter();
     private:

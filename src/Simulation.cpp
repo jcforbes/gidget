@@ -89,7 +89,7 @@ int Simulation::runToConvergence(const double fCondition,
                      ctrSF4(4.,4.2,.4,.45),     ctrSF25(25.,25.2,.4,.45),
                      outSF4(4.,4.2,.9,.95),     outSF25(25.,25.2,.9,.95); 
 
-    const double dtfloor=1.e-15; 
+    const double dtfloor=1.e-25; 
     // Initialize some variables which will change as the simulation progresses:
     // time (outer orbits), redshift, and timestep
     double t=0., z=zrelax, dt=dtfloor*10, dtPrev = 1.0;
@@ -155,7 +155,9 @@ int Simulation::runToConvergence(const double fCondition,
             std::cout << "Writing out file "<<writeIndex<<" at t = "<<present/(speryear*1.0e9)<<" Gyr, z= "<<z<<std::endl;
         }
 
-        if(step <5 || step%2000==0) {
+        // This step is kind of expensive, so only do it as frequently as we need to.
+        bool updateRotationCurve = (step<5 || (step%10)==0);
+        if(updateRotationCurve) {
             theDisk.GetCos().UpdateProfile(accr.MhOfZ(z)*accr.GetMh0(), z, theDisk.GetMesh().x(), dim.Radius);
             theDisk.UpdateRotationCurve(accr.MhOfZ(z)*accr.GetMh0(), z, dt);
         }
@@ -164,6 +166,7 @@ int Simulation::runToConvergence(const double fCondition,
 
         theDisk.ComputeColSFRapprox(accr.MhOfZ(z) * accr.GetMh0(),z);
         // theDisk.ComputeColSFR(accr.MhOfZ(z) * accr.GetMh0(),z);
+        theDisk.ComputeMassLoadingFactor(accr.MhOfZ(z) * accr.GetMh0());
 
         if(dbg.opt(6)) {
             for(unsigned int i=0; i!=theDisk.passive().size(); ++i) {
@@ -185,8 +188,9 @@ int Simulation::runToConvergence(const double fCondition,
         if(cosmologyOn) AccRate = accr.AccOfZ(z);
         else AccRate = 1.;
         
-        accProf.UpdateProfile(theDisk.GetCos().r200(accr.MhOfZ(z)*accr.GetMh0(), z)/dim.Radius);
-        accProf.UpdateProfile(accr.MhOfZ(z));
+        double r200 = theDisk.GetCos().r200(accr.MhOfZ(z)*accr.GetMh0(), z)/dim.Radius;
+        accProf.UpdateProfile(r200);
+        // accProf.UpdateProfile(accr.MhOfZ(z));
 
         // Given the user's freedom to specify the accretion history, make sure
         // the accretion rate remains non-negative.
@@ -245,7 +249,7 @@ int Simulation::runToConvergence(const double fCondition,
         // and whichCell tells us which cell is limiting the timestep. Both of these values
         // are printed every 5000 timesteps (see below).
         dtPrev = dt;
-        if(step>1)
+//        if(step>1)
             dt = theDisk.ComputeTimeStep(z,&whichVar,&whichCell,tauvecStar,MdotiPlusHalfStar); 
 
         // Every time step, check whether each of the convergence checks has a value

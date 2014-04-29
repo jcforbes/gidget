@@ -173,39 +173,30 @@ int main(int argc, char **argv) {
     as2.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
     as2.Set(attempts,"Attempts to generate Neistein08");
     // This is where we'll store a record of all the possiblities of dbg.opt
-    as2.Set(dbg.opt(0), "Preemptively set torque = 0 when F<0");
-    as2.Set(dbg.opt(1), "Dont increase accr rate to account for matter falling outside domain");
-    as2.Set(dbg.opt(2), "Record IC generation (only relevant if dbg 5)");
-    as2.Set(dbg.opt(3), "Neistein & Dekel (2008)"); // check this
-    as2.Set(dbg.opt(4), "dQ/dt ~ exp(Delta Q)");
-    as2.Set(dbg.opt(5), "Old initialization (powerlaw), relaxation");
+    as2.Set(dbg.opt(0), "Use constant mass loading factor instead of Lagos13");
+    as2.Set(dbg.opt(1), "Dont increase accr rate to account for matter accreting outside domain");
+    as2.Set(dbg.opt(2), "No longer used");
+    as2.Set(dbg.opt(3), "Neistein & Dekel (2008) instead of Neistein+ (2010)"); // check this
+    as2.Set(dbg.opt(4), "dQ/dt ~ exp(Delta Q) - 1 instead of 0");
+    as2.Set(dbg.opt(5), "No longer used");
     as2.Set(dbg.opt(6), "Stellar recycling");
-    as2.Set(dbg.opt(7), "Toomre SFR");
+    as2.Set(dbg.opt(7), "No longer used");
     as2.Set(dbg.opt(8), "Like Bouche, but use prescription from Dekel13 WMAP5 cosmology" );
     as2.Set(dbg.opt(9), "not minmod in ddx(sig)");
-    as2.Set(dbg.opt(10),"pretend fH2=.03 always"); 
+    as2.Set(dbg.opt(10),"No longer used"); 
     as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 
     as2.Set(dbg.opt(12), "Artificially set GI torque=0 everywhere");
-    as2.Set(dbg.opt(13), "Artificially set fH2 as if [Z/Zsun] = 0.3-.05*(r/kpc)");
+    as2.Set(dbg.opt(13), "No longer used");
     as2.Set(dbg.opt(14), "For lognormal acc history, bursts uniform in time (otherwise uniform in z)");
     as2.Set(dbg.opt(15), "If whichAccretionHistory is 0, use the average from NMD instead of Bouche");
     as2.Set(dbg.opt(16), "Newly formed stars have full gas velocity dispersion instead of turbulent component only");
     as2.Set(dbg.opt(17), "upstream");
     as2.Set(dbg.opt(18), "overshoot");
-    as2.Set(dbg.opt(19), "tdep=2Gyr");
+    as2.Set(dbg.opt(19), "No longer used");
 
 
     // Done reading in arguments. Write out a comment file containing all of the arguments.
     as2.WriteOut();
-
-
-    // If we're recording the convergence of the initial conditions, copy the comment file we just wrote out.
-    if(dbg.opt(2) && dbg.opt(5)) {
-        std::ifstream  src((filename+"_comment.txt").c_str());
-        std::ofstream  dst((filename+"_icgen_comment.txt").c_str());
-
-        dst << src.rdbuf();
-    }
 
 
 
@@ -214,63 +205,24 @@ int main(int argc, char **argv) {
     FixedMesh mesh(beta0,BulgeRadius/dim.d(1.0),nRotCurve,xmin,minSigSt,nx);
     double MhZs = accr.MhOfZ(zrelax)*Mh0; // this is in units of solar masses
     cos.UpdateProfile(MhZs, zrelax, mesh.x(), dim.Radius);
+    double r200 = cos.r200(MhZs,zrelax); // this will be in cm
 
-    AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength/(radius/cmperkpc),width);
+    AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength ,width);
 
-    // don't relax the disk!
-    if(!dbg.opt(5)) {
-        DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
-                TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-                thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-			  minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
-        // double sig0 = 8.0/220.0; 
-        double sig0 = sigth;
-        double stScaleLengthA = accScaleLength * pow(MhZs/Mh0,alphaAccProf);
-        disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax);
+    DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
+            TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
+            thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
+          minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
+    // double sig0 = 8.0/220.0; 
+    double sig0 = sigth;
+    double stScaleLengthA = accScaleLength*r200/cmperkpc; // accScaleLength * pow(MhZs/Mh0,alphaAccProf);
+    disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax);
 
-        Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
-                zstart,NActive,NPassive,alphaMRI,
-                sigth,disk,accr,dbg,dim,accProf);
-        int result = sim.runToConvergence(1.0e10, true, filename,zrelax,Noutputs);
+    Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
+            zstart,NActive,NPassive,alphaMRI,
+            sigth,disk,accr,dbg,dim,accProf);
+    int result = sim.runToConvergence(1.0e10, true, filename,zrelax,Noutputs);
 
-    }
-
-    // This section hasn't been used in a while and only really makes sense under certain conditions:
-    if(dbg.opt(5)) {
-        //// Evolve a disk where the stars do not do anything and Mdot_ext=Mdot_ext,0.
-        DiskContents diskIC(1.0e30,eta,sigth,0.0,Qlim, // need Qlim to successfully set initial statevars
-                TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-                thick, false,Qinit,kappaMetals,NActive,NPassive,minSigSt,
-			    RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
-        if(stScaleLength<0.0)  diskIC.Initialize(tempRatio,fg0);
-        else diskIC.Initialize(.6, fg0, tempRatio*50.0/220.0, Mh0, MhZs, stScaleLength);
-
-
-
-
-        Simulation simIC(300.0,1000000,
-                false, nx,TOL,
-                zstart,NActive,NPassive,
-                alphaMRI,sigth,
-                diskIC,accr,dbg,dim,accProf);
-        int result = simIC.runToConvergence(1, dbg.opt(2), filename+"_icgen",zstart,200); // set false-> true to debug initial condition generator
-        if(result!=5) // The simulation converges when the time step reaches 1*TOL.
-            errormsg("Initial Condition generator failed to converge, code "+str(result));
-
-
-        // Now evolve a disk where the stars evolve as they should using the previous simulation's end condition
-        DiskContents disk(tauHeat,eta,sigth,epsff,Qlim,
-                TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
-                thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-			  minSigSt, RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
-        disk.Initialize(simIC.GetInitializer(), stScaleLength < 0.0); // if we're using an exponential disk, don't mess with the initial conditions of the stellar disk when enforcing Q=Q_f, i.e. do not keep a fixed phi0.
-        Simulation sim(tmax,stepmax,
-                cosmologyOn,nx,TOL,
-                zstart,NActive,NPassive,
-                alphaMRI,sigth,
-                disk,accr,dbg,dim,accProf);
-        result = sim.runToConvergence(1.0e10, true, filename,zstart,200);
-    }
 
     return 0;
 }

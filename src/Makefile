@@ -1,5 +1,5 @@
 LDFLAGS		= -O3  -lgsl -lgslcblas -lm 
-CFLAGS		= -O3 -c 
+CFLAGS		= -O3  -c 
 CC		= g++
 EXECUTABLE=../bin/gidget
 

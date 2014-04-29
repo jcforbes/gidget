@@ -9,10 +9,13 @@ def makeThePlots(args):
     if args.time is False and args.radial is False and args.scaled is False and args.mass==0 and args.balance is False:
         print "Warning: you did not ask me to produce any plots! Use python plots.py -h to look at the options available."
     print "plots.py in makeThePlots: args.models: ",args.models
+    balanceArgs=[]
+    if(args.balance):
+        balanceArgs=['colTr','colAccr','colsfr','dcoldt','MassLoadingFactor','Mdot']
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
-        theExp.read()
+        theExp.read(args.vsr+balanceArgs)
         theExp.storeMS()
         theExp.assignIndices()
         for i,rankby in enumerate(args.rankby):
@@ -34,8 +37,14 @@ def makeThePlots(args):
             if len(args.mass)!=0:
                 for xv in args.mass:
                     theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],xvar=xv,prev=args.prev,colorby=cb)
+        if(args.percentiles):
+            per = [2.5, 16, 50, 84, 97.5]
+            if(args.radial):
+                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per)
+            if(args.scaled):
+                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per,scaleR=True)
         if(args.balance):
-            balance(theExp.models,timeIndex=range(1,202,stepsize)+[201],name=modelName,sortby=args.colorby[0])
+            balance(theExp.models,timeIndex=range(1,202,stepsize)+[201],name=modelName,sortby=args.colorby[0],logR=args.logR)
 
 
 
@@ -62,6 +71,7 @@ if __name__=='__main__':
     parser.add_argument('--rbz',type=float,nargs='+',default=[],help='Sort at a particular redshift (use -1 to keep the full time information)')
     parser.add_argument('--logR',dest='logR',action='store_true',help="Use logarithmic radial coordinate in plots vs. r")
     parser.set_defaults(logR=False)
+    parser.add_argument('--percentiles',dest='percentiles',action='store_true',help="In radial plots overplot percentiles.")
     args = parser.parse_args()
 
     weNeed = len(args.rankby) - len(args.rbz) 

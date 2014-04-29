@@ -92,6 +92,7 @@ class DiskContents {
 
   // the scale height of the stellar disk in cm
   double hStars(unsigned int n); 
+  double hGas(unsigned int n); 
 
   // Find the density in g/cc from stars + dark matter
   double ComputeRhoSD(unsigned int n, double Mh, double z);
@@ -103,7 +104,7 @@ class DiskContents {
   // Compute the loss in column density experienced by 
   // cell n due to outflows. (Simple mass loading factor 
   // prescription)
-  double dSdtOutflows(unsigned int n);
+  void ComputeMassLoadingFactor(double Mh);
 
   // Compute the time rate of change of the velocity 
   // dispersion of stellar population sp.
@@ -233,6 +234,7 @@ class DiskContents {
   std::vector<double> dQdu,dudt; // necessary for computing the forcing term coming from a changing rotation curve
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
   std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
+  std::vector<double> mBubble,ColOutflows, MassLoadingFactor;
   std::vector<double> dSdtMig;
   std::vector<double> dZDiskdtDiff, dZDiskdtAdv; // components of the metallicity time derivative
   std::vector<double> dMZdt, MZ;
@@ -305,10 +307,7 @@ class DiskContents {
     EPS_ff, // star formation efficiency per free fall time
     Qlim, // Q below which transient spirals heat the stellar disk
     thickness, // correction to Q owing to finite thickness
-
-    // ratio of rate at which mass is ejected from a given cell 
-    // to the star formation rate in that cell
-    MassLoadingFactor,
+    constMassLoadingFactor, 
 
     tDepH2SC,
     fH2Min,

@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <math.h>
+#include <iostream>
 
 #include "FixedMesh.h"
 #include "Debug.h"
@@ -33,7 +34,8 @@ AccretionProfile::AccretionProfile(FixedMesh & theMesh,
 void AccretionProfile::UpdateProfile(double r200)
 {
     currentRadialScale = radialScale*r200;
-    if(alpha != 0.0 || profile[1]<0.0) {
+    if(true) {
+    //if(alpha != 0.0 || profile[1]<0.0) {
         // The following few lines are only relevant for Gaussian profiles,
         // although since they only need to be evaluated once (not for every cell),
         // they're up here.
@@ -43,10 +45,16 @@ void AccretionProfile::UpdateProfile(double r200)
 //        normalization = currentRadialScale*M_PI + exp(-currentRadialScale*currentRadialScale / (2.0*sigma*sigma)) * sqrt(2.0*M_PI)*sigma + currentRadialScale*M_PI*erf(currentRadialScale/(sqrt(2.0)*sigma));
         normalization = exp(-currentRadialScale*currentRadialScale/(2.0*sigma*sigma))*sqrt(2.0*M_PI)*sigma + currentRadialScale*M_PI*(1.0 + erf(currentRadialScale / (sqrt(2.0)*sigma)));
 
-        double currentFracOuter = fOuter();
 
-	if(dbg.opt(1))
-            currentFracOuter = 0.0;
+
+        // We have two options when the requested accretion profile includes material beyond the domain.
+        // We can either make sure the total mass accreted is correct, in which case we need to artificially increase 
+        //   the mass flowing into the computational domain
+        // OR we take the accretion profile as ordained by the user and ignore whatever falls outside of that. 
+        // We take the second option if dbg.opt(1) is set. Hopefully the user has designed thing so that it doesn't matter either way
+        double currentFracOuter = fOuter();
+        if(dbg.opt(1))
+                currentFracOuter = 0.0;
 
         for(unsigned int n=1; n<=nx; ++n) {
             double nD = ((double) n);
@@ -89,6 +97,7 @@ void AccretionProfile::UpdateProfile(double r200)
             }
             if(profile[n]<0.0) errormsg("Negative accretion profile! This could mean you've selected an invalid/unsupported accretion profile "+str(n)+" "+str(profile[n])+" "+str(fraction)+" "+str(currentFracOuter) +" "+ str(currentRadialScale)+" "+str(normalization)+"   "+str(radialScale)+" "+str(r200)+" "+str(alpha));
         }
+        // std::cout << "UpdateProfile ratio: "<<profile[30]/profile[15]<<std::endl;
     }
 
 }

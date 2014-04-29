@@ -33,7 +33,7 @@ def getSubplots(N):
         return col,row
 
 
-def balance(models, timeIndex=None, name=None, sortby=None):
+def balance(models, timeIndex=None, name=None, sortby=None, logR=False):
     ts = len(models[0].getData('t'))
     if(timeIndex is None):
         timeIndex = range(1,ts)
@@ -70,7 +70,7 @@ def balance(models, timeIndex=None, name=None, sortby=None):
             col = i-row*ncols
             colAccr = model.getData('colAccr',timeIndex=ti,cgs=True)
             colTr = model.getData('colTr',timeIndex=ti,cgs=True)
-            colSFR = model.getData('colsfr',timeIndex=ti,cgs=True)*(model.p['mu']+model.p['RfREC'])
+            colSFR = model.getData('colsfr',timeIndex=ti,cgs=True)*(model.var['MassLoadingFactor'].sensible(timeIndex=ti)+model.p['RfREC'])
             dcoldt = model.getData('dcoldt',timeIndex=ti,cgs=True)
             shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
             colsfrBound = np.clip(colTr,None,0)/shareNorm
@@ -106,6 +106,9 @@ def balance(models, timeIndex=None, name=None, sortby=None):
 
             theAx.set_xlim(np.min(r),np.max(r))
             theAx.set_ylim(-1.0,1.0)
+
+            if logR:
+                theAx.set_xscale('log')
         
             dispsb = "%.3e" % model.p[sortby]
 

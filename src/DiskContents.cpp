@@ -17,6 +17,7 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_spline.h>
+#include <gsl/gsl_sf_erf.h>
 
 #include <iostream>
 #include <fstream>
@@ -123,10 +124,9 @@ DiskContents::DiskContents(double tH, double eta,
     dim(d), mesh(m), dbg(ddbg),
     XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
     cos(c),tauHeat(tH),sigth(sflr),
-    EPS_ff(epsff),ETA(eta),
+    EPS_ff(epsff),ETA(eta),constMassLoadingFactor(mlf),
     //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
     //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
-    MassLoadingFactor(mlf),
     spsActive(std::vector<StellarPop*>(0)),
     spsPassive(std::vector<StellarPop*>(0)),
     dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(ZIGM),
@@ -159,6 +159,9 @@ DiskContents::DiskContents(double tH, double eta,
     dZDiskdt(std::vector<double>(m.nx()+1,0.)),
     dMZdt(std::vector<double>(m.nx()+1,0.)),
     colSFR(std::vector<double>(m.nx()+1,0.)),
+    ColOutflows(std::vector<double>(m.nx()+1,0.)),
+    MassLoadingFactor(std::vector<double>(m.nx()+1,0.)),
+    mBubble(std::vector<double>(m.nx()+1,0.)),
     keepTorqueOff(std::vector<int>(m.nx()+1,0)),
     diffused_dcoldt(std::vector<double>(m.nx()+1,0.)),
     //yy(std::vector<double>(m.nx()+1,0.)),
@@ -589,7 +592,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         }
 
         dcoldt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n]- MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n])
-            -RfREC * colSFR[n] - dSdtOutflows(n) + accProf[n]*AccRate;
+            -RfREC * colSFR[n] - ColOutflows[n] + accProf[n]*AccRate;
 
         dsigdtPrev[n] = dsigdt[n];
         double ddxSig = ddx(sig,n,x,true,!dbg.opt(9));
@@ -623,6 +626,9 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             // do nothing, these terms are zero.
         }
 
+        if(sig[n] > 10.0) {
+            std::cout << "Large sig! n, sig, dsigdt, dsigdtCool " <<n<<" "<<sig[n]<<" "<<dsigdt[n]<<" "<<dsigdtCool[n]<< std::endl;
+        }
 
         //    colSFR[n] = dSSFdt(n);
         dZDiskdtAdv[n] =  -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n]  * dlnZdx *tauvec[2][n] ;
@@ -636,7 +642,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             Znm1=ZDisk[n-1];
         else
             Znm1=ZBulge; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
-        double mu = dSdtOutflows(n)/colSFR[n];
+        double mu = MassLoadingFactor[n]; //dSdtOutflows(n)/colSFR[n];
         double Zej = ZDisk[n] + xiREC * yREC*RfREC / max(mu, 1.0-RfREC);
         dMZdt[n] = 
                     accProf[n]*AccRate*Z_IGM *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
@@ -910,7 +916,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     if(MdotiPlusHalf[0] < -1.0e-10 || MdotiPlusHalfMRI[0] < -1.0e-10 || MdotiPlusHalfStar[0] < -1.0e-10 || fracAccInner*AccRate < -1.0e-10)
         errormsg("Nonphysical mass flux at inner boundary.");
 
-    double reduce = RfREC/(RfREC+dSdtOutflows(1)/colSFR[1]);
+    double reduce = RfREC/(RfREC+MassLoadingFactor[1]);
     double MGasIn = dt*PosOnly(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0]);
     double MStarsIn = dt*PosOnly(MdotiPlusHalfStar[0]);
     double MGasAcc = dt*fracAccInner*AccRate;
@@ -1374,13 +1380,13 @@ void DiskContents::DiffuseMetallicity(double dt,double km)
 }
 
 
-// Note that the KMT09 model sets ch as below, but in the iterative model of K13, it's an input.
+// Note that the KMT09 model sets ch as in the commented line below,
+//  but in the iterative model of K13, it's an input.
 double DiskContents::ComputeH2Fraction(double ch, double thisCol, double thisZ)
 {
 
     // Krumholz & Dekel 2011
     double Z0 = thisZ/Z_Sol;
-    // if(dbg.opt(13)) Z0 = pow(10.0, 0.3 - .05*x[n]*dim.Radius/cmperkpc);
     double clumping = 5.0;
     double Sig0 = dim.col_cgs(thisCol);
     //    double ch = 3.1 * (1.0 + 3.1*pow(Z0,0.365))/4.1;
@@ -1469,6 +1475,11 @@ double DiskContents::hStars(unsigned int n)
     return sigz*sigz*dim.vphiR*dim.vphiR/(M_PI*G*((col[n]+activeColSt(n))*dim.col_cgs(1.0)));
 }
 
+// return the scale height of the gas disk in cm.
+double DiskContents::hGas(unsigned int n)
+{
+    return dim.Radius* sig[n]*sig[n]/(dim.chi()*M_PI*(col[n] + sig[n]/activeSigStZ(n) * activeColSt(n)));
+}
 
 double DiskContents::ComputeColSFRapprox(double Mh, double z)
  {
@@ -1621,60 +1632,52 @@ double DiskContents::ComputeColSFR(double Mh, double z)
         colSFR[n] = colSF / (dim.MdotExt0  / ( 2.0*M_PI* dim.Radius*dim.Radius)); // convert back to code units
         G0[n] = G0p_currentIteration;
         fH2[n] = fH2_currentIteration;
-
-//        // Approx Star formation law according to Krumholz (2013)
-//        if(!dbg.opt()){
-//            // Compute each of the three timescales.
-//            double tdep_hd_gas = 3.1 /pow(col0,.25) + 360.0 /(Zp*col0*col0); // in Gyr
-//            double tdep_hd_st = 3.1/pow(col0,.25) + 100.0 / (Zp*sqrt(rhosd)*col0); // in Gyr
-//            double tdep_2p = 3.1/(ComputeH2Fraction(n)*pow(col0,.25)); // in Gyr
-//        }
-//        // Star formation law used in F13.
-//        else {
-//            double fH2 = ComputeH2Fraction(n);
-//            if(dbg.opt(10)) fH2=.03;
-//            double valToomre = fH2 * 2.*M_PI*EPS_ff//*sqrt(
-//                //      uu[n]*col[n]*col[n]*col[n]*dim.chi()/(sig[n]*x[n]));
-//                * sqrt(M_PI)*dim.chi()*col[n]*col[n]/sig[n]
-//                * sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))
-//                * sqrt(32.0 / (3.0*M_PI));
-//
-//            // constant SF depletion time.
-//            double tdepConst = tDepH2SC; // in Ga
-//            double valConst = fH2 * col[n] / (tdepConst * 1.0e9 * speryear * dim.vphiR/ (2.0*M_PI*dim.Radius));
-//
-//
-//            double val;
-//            val = valToomre;
-//            if(dbg.opt(19))
-//                val = valConst;
-//            if(!dbg.opt(7)) {
-//                val = max(valConst, valToomre); // pick the shorter depletion time, i.e. higher SFR. 
-//            }
-//
-//            if(val < 0 || val!=val)
-//                errormsg("Error computing colSFR:  n, val, fH2, col, sig   "
-//                        +str(n)+" "+str(val)+" "+str(ComputeH2Fraction(n))+" "+str(col[n])
-//                        +" "+str(sig[n]));
-//            colSFR[n]=val;
-//        }
     }
     return -1;
 }
-double DiskContents::dSdtOutflows(unsigned int n)
+void DiskContents::ComputeMassLoadingFactor(double Mh)
 {
-    return colSFR[n]*MassLoadingFactor;
+    double theCurrentMLF = pow(Mh/1.0e12, -2.0/3.0);
+    for(unsigned int n=1; n<=nx; ++n) {
+        double hg = hGas(n); // gas scale height in cm
+        double fr = 1.5;
+        mBubble[n] = (1.0-fH2[n]) * M_PI * (fr*fr - 1.0/3.0) * col[n] * hg*hg * dim.col_cgs(1.0) / MSol; // Msun
+        double mGMC = 1.0e7; // solar masses
+        double tauGMC = 30.0e6 * speryear / dim.t_cgs(1.0)  ; // dimensionless
+        double rMerge = 67.0 * cmperpc *
+            pow(.1*mGMC*.01,.032) * pow(0.5* col[n]*dim.col_cgs(1.0) / (hg * mH), -0.37) * pow(sig[n]*dim.vphiR/1.0e6,-0.4);
+        // mBubble[n] * fH2[n]*col[n]*2pirdr/mGMC > (1-fH2)*2pirdr*col => more mass in bubbles than in ISM!
+        // => mBubble[n] * fH2[n]/mGMC > (1-fH2) => more mass in bubbles than in ISM!
+        if(mBubble[n] > (1-fH2[n])*mGMC/fH2[n] ) {
+            mBubble[n] = (1.0-fH2[n])*mGMC/fH2[n];
+        }
+        double pConfined = 0.0; 
+        if(rMerge < hg) {
+            double x = 1.0 - rMerge/hg;
+            //double cdf = .5 * (1.0 + gsl_sf_erf(x/sqrt(2.0)));
+            //pConfined = 2.0*cdf - 1.0;
+            pConfined = x;
+        }
+        if(pConfined<0.0 || pConfined>1.0)
+            errormsg("probability not between 0 and 1");
+        if(dbg.opt(0)) {
+//            ColOutflows[n] = constMassLoadingFactor*colSFR[n];
+            ColOutflows[n] = theCurrentMLF*colSFR[n];
+        }
+        else {
+            ColOutflows[n] = (1-1.0/fr) * mBubble[n] *fH2[n]*col[n]/(tauGMC * mGMC) * (1.0 - pConfined)
+                + colSFR[n]*constMassLoadingFactor; // dimensionless
+        }
+        if(ColOutflows[n] < 0.0)
+            errormsg("Negative outflow column...");
+        MassLoadingFactor[n] = ColOutflows[n]/colSFR[n];
+//        if(MassLoadingFactor[n] > 1.0/(EPS_ff * fH2[n])) {
+//            MassLoadingFactor[n] = 1.0/(EPS_ff* fH2[n]);
+//            ColOutflows[n] = colSFR[n]*MassLoadingFactor[n];
+//        }
+    }
 }
 
-//double DiskContents::dmdtCosOuter(double AccRate)
-//{
-    // The output of this function only matters when dbg.opt(8) is set, i.e. exp accretion.
-    // In that case, we would like no matter to appear at the outer edge of the disk.
-//    return 0.0;
-
-    //    double xb = mesh.x(.5 + ((double) nx));
-    //    return AccRate *  (1.0 + xb/accScaleLength)*exp(-xb/accScaleLength);
-//}
 
 
 // The only place this function is used is in computing the coefficient for the torque equation which requires
@@ -1863,7 +1866,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         // We start with terms related to obvious source terms, i.e. the terms which 
         // appear in the continuity equation unrelated to transport through the disk.
         if(!dbg.opt(4)) {
-            FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*dSdtOutflows(n) - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n] - dQdu[n]*dudt[n];
+            FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*ColOutflows[n] - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n] - dQdu[n]*dudt[n];
             // Now we add the contribution from the changing velocity dispersion
             if(sigth<=sig[n]) {
                 double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
@@ -1923,15 +1926,11 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
 
         }
 
-        if(dbg.opt(0) && FF[n] < 0.0)  {
-          FF[n]=0.0;
-        }
-
 
         // When this cell is stable, set the torque equal to zero. This may imply a non-zero
         // mass flux if tau' is nonzero, in which case mass may flow into this cell, but that's
         // exactly what we want to happen.
-        if(QQ>fixedQ && !dbg.opt(0)) {
+        if( QQ>fixedQ ) {
             FF[n]=0.0;
             UU[n]=0.0;
             DD[n]=1.0;
@@ -2146,6 +2145,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
         wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52
         wrt.push_back(dcoldtIncoming[n]); wrt.push_back(dcoldtOutgoing[n]); // 53..54
+        wrt.push_back(MassLoadingFactor[n]); // 55
         
         if(n==1 ) {
             int ncol = wrt.size();

@@ -1,4 +1,5 @@
 from readoutput import *
+import pdb
 import math
 
 def isprime(N):
@@ -66,6 +67,7 @@ def balance(models, timeIndex=None, name=None, sortby=None, logR=False):
         
         for i,model in enumerate(stmodels):
             r = model.getData('r',timeIndex=ti)
+            rb = model.getData('rb',timeIndex=ti)
             row = int(i/ncols)
             col = i-row*ncols
             colAccr = model.getData('colAccr',timeIndex=ti,cgs=True)
@@ -73,28 +75,72 @@ def balance(models, timeIndex=None, name=None, sortby=None, logR=False):
             colSFR = model.getData('colsfr',timeIndex=ti,cgs=True)*(model.var['MassLoadingFactor'].sensible(timeIndex=ti)+model.p['RfREC'])
             dcoldt = model.getData('dcoldt',timeIndex=ti,cgs=True)
             shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
-            colsfrBound = np.clip(colTr,None,0)/shareNorm
+
+            colsfrBound = np.clip(colTr, -1, 0)/shareNorm
             bottomBound = -1.0*colSFR/shareNorm + colsfrBound
-            colTrBound = np.clip(colTr,0,None)/shareNorm
+            colTrBound = np.clip(colTr, 0, 1)/shareNorm
             upperBound = colTrBound + colAccr/shareNorm
+
             fullmdot = model.getData('Mdot',timeIndex=ti)
             mdot =fullmdot[0:-1]
             stagnation = fullmdot[1:]*mdot
 
-            lightblue = []
-            for i,stg in enumerate(stagnation):
-                lightblue.append(mdot[i]<=0.0 or stg<=0)
-            lightblue=np.array(lightblue)
+            mdSign = np.sign(fullmdot)
+            # positive Mdot => inwards
+            leftarrows=[]
+            rightarrows=[]
+            currentDirection = mdSign[0]
+            lastChange = 0
+            for k,el in enumerate(mdSign):
+                newDirection = currentDirection
+                if el==currentDirection:
+                    pass
+                elif currentDirection==1:
+                    leftarrows.append([lastChange,k])
+                    newDirection = el
+                    lastChange = k
+                elif currentDirection==-1:
+                    rightarrows.append([lastChange,k])
+                    newDirection = el
+                    lastChange = k
+                elif currentDirection==0:
+                    newDirection = el
+                    lastChange = k
+                else:
+                    print "Problem in balanceplots.py!"
+                    pdb.set_trace()
+                currentDirection = newDirection
+            if currentDirection==1:
+                leftarrows.append([lastChange,k])
+            if currentDirection==-1:
+                rightarrows.append([lastChange,k])
+
+
+            #lightblue = []
+            #for i,stg in enumerate(stagnation):
+            #    lightblue.append(mdot[i]<=0.0 or stg<=0)
+            #lightblue=np.array(lightblue)
 
             if(isinstance(ax,np.ndarray)):
                 theAx = ax[row,col]
             else:
                 theAx = ax
+
             theAx.fill_between(r,bottomBound,colsfrBound,facecolor='red')
-            theAx.fill_between(r,colsfrBound,colTrBound,facecolor='blue',where=mdot>0.0)
-            #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='Gray',where=mdot
-            theAx.fill_between(r,colsfrBound,colTrBound,facecolor='lightblue',where=lightblue)#(mdot<=0.0 or stagnation<=0) )
+            theAx.fill_between(r,colsfrBound,colTrBound,facecolor='blue')
+            #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='blue',where=mdot>0.0)
+            #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='lightblue',where=lightblue)#(mdot<=0.0 or stagnation<=0) )
             theAx.fill_between(r,colTrBound,upperBound,facecolor='orange')
+            for la in leftarrows:
+                delt = rb[la[1]] - rb[la[0]]
+                theAx.arrow(rb[la[1]],.96, -delt*.9,0, head_width=.05, head_length=.1*delt, fc="DarkSlateGray", ec="DarkSlateGray",lw=3)
+            for ra in rightarrows:
+                delt = rb[ra[1]] - rb[ra[0]]
+                theAx.arrow(rb[ra[0]],.96, delt*.9,0, head_width=.05, head_length=.1*delt, fc="DarkGray", ec="DarkGray",lw=2)
+
+
+            for kk in range(len(r)):
+                assert np.abs(upperBound[kk] - bottomBound[kk] - 1.0) < 1.0e-5
 
             #ax[row,col].plot(r,dcoldt/shareNorm,'yellow',lw=2)
 

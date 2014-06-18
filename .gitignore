@@ -4,5 +4,12 @@ TMP*
 src/*.o
 *~
 *.swp
+*.swo
 analysis/r*
-
+analysis/mcmc*
+*.pyc
+bin/gidget
+py/*.dat
+py/r*
+py/mcmc*
+!py/*.py

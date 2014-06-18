@@ -16,6 +16,7 @@ def makeThePlots(args):
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
         theExp.read(args.vsr+balanceArgs)
+        nts = int(theExp.models[0].p['Noutputs']+1)
         theExp.storeMS()
         theExp.assignIndices()
         for i,rankby in enumerate(args.rankby):
@@ -28,23 +29,23 @@ def makeThePlots(args):
             if(args.time):
                 theExp.timePlot(colorby=cb)
             if(args.radial):
-                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,colorby=cb,logR=args.logR)
+                theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=cb,logR=args.logR)
             if(args.scaled):
-                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,scaleR=True,colorby=cb,logR=args.logR)
+                theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,scaleR=True,colorby=cb,logR=args.logR)
             #if(args.mass):
             #    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],prev=args.prev,colorby=cb)
             #    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],xvar='Mh',prev=args.prev,colorby=cb)
             if len(args.mass)!=0:
                 for xv in args.mass:
-                    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],xvar=xv,prev=args.prev,colorby=cb)
+                    theExp.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar=xv,prev=args.prev,colorby=cb)
         if(args.percentiles):
             per = [2.5, 16, 50, 84, 97.5]
             if(args.radial):
-                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per)
+                theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per)
             if(args.scaled):
-                theExp.radialPlot(timeIndex=range(1,202,stepsize)+[201],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per,scaleR=True)
+                theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per,scaleR=True)
         if(args.balance):
-            balance(theExp.models,timeIndex=range(1,202,stepsize)+[201],name=modelName,sortby=args.colorby[0],logR=args.logR)
+            balance(theExp.models,timeIndex=range(1,nts+1,stepsize)+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR)
 
 
 

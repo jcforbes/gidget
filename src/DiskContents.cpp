@@ -109,7 +109,7 @@ void DiskContents::store(Initializer& in)
 DiskContents::DiskContents(double tH, double eta,
         double sflr,double epsff,
         double ql,double tol,
-        bool aq, double mlf, 
+        bool aq, double mlf, double mlfScal,
         Cosmology& c,Dimensions& d,
         FixedMesh& m, Debug& ddbg,
         double thk, bool migP,
@@ -125,6 +125,7 @@ DiskContents::DiskContents(double tH, double eta,
     XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
     cos(c),tauHeat(tH),sigth(sflr),
     EPS_ff(epsff),ETA(eta),constMassLoadingFactor(mlf),
+    mlfScaling(mlfScal),
     //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
     //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
     spsActive(std::vector<StellarPop*>(0)),
@@ -1637,7 +1638,7 @@ double DiskContents::ComputeColSFR(double Mh, double z)
 }
 void DiskContents::ComputeMassLoadingFactor(double Mh)
 {
-    double theCurrentMLF = pow(Mh/1.0e12, -2.0/3.0);
+    double theCurrentMLF = constMassLoadingFactor*pow(Mh/1.0e12, mlfScaling);
     for(unsigned int n=1; n<=nx; ++n) {
         double hg = hGas(n); // gas scale height in cm
         double fr = 1.5;

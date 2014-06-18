@@ -4,14 +4,13 @@ import struct
 import glob
 import os
 import random
+import copy
 from behroozi import *
 from scipy.interpolate import interp1d
 from cosmolopy import *
 from math import pi,log,sinh,sin,cos,sqrt,log10
 #from bitstring import Bits
 import pyfits
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mpcolors
 import matplotlib.cm as cmx
@@ -36,7 +35,7 @@ cmPer = plt.get_cmap('spring')
 
 outward = [0,1,-1,2,-2,3,-3,4,-4]
 
-gidgetdir = '../'
+gidgetdir = '/Users/jforbes/gidget/'
 
 class RadialFunction:
     def __init__(self, arr, name, cgsConv=1.0, sensibleConv=1.0,
@@ -253,14 +252,27 @@ class SingleModel:
             paramnames = ['nx','eta','epsff','tauHeat','analyticQ', \
                     'cosmologyOn','xmin','NActive','NPassive','vphiR', \
                     'R','gasTemp','Qlim','fg0','phi0', \
-                    'zstart','tmax','stepmax','TOL','mu', \
-                    'b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory', \
-                    'alphaMRI','thickness','migratePassive','fixedQ','kappaMetals', \
+                    'zstart','tmax','stepmax','TOL','muNorm', \
+                    'muScaling','b','innerPowerLaw','softening', \
+                    'diskScaleLength','whichAccretionHistory','alphaMRI' \
+                    ,'thickness','migratePassive','fixedQ','kappaMetals', \
                     'Mh0','minSigSt','NChanges','dbg','accScaleLength', \
                     'zquench','zrelax','xiREC','RfREC','deltaOmega', \
-                    'Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling', \
-                    'fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile', \
+                    'Noutputs','accNorm','accAlphaZ','accAlphaMh', \
+                    'accCeiling','fscatter','invMassRatio','fcool', \
+                    'whichAccretionProfile','alphaAccretionProfile', \
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC']
+#            paramnames = ['nx','eta','epsff','tauHeat','analyticQ', \
+#                    'cosmologyOn','xmin','NActive','NPassive','vphiR', \
+#                    'R','gasTemp','Qlim','fg0','phi0', \
+#                    'zstart','tmax','stepmax','TOL','mu', \
+#                    'b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory', \
+#                    'alphaMRI','thickness','migratePassive','fixedQ','kappaMetals', \
+#                    'Mh0','minSigSt','NChanges','dbg','accScaleLength', \
+#                    'zquench','zrelax','xiREC','RfREC','deltaOmega', \
+#                    'Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling', \
+#                    'fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile', \
+#                    'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC']
             params=[]
             for k,line in enumerate(lines):
                 cloc = line.find(':')
@@ -448,7 +460,7 @@ class SingleModel:
                 /np.log(self.var['colAccr'].sensible(locIndex=1)/self.var['colAccr'].sensible(locIndex=2))
         if(rAcc[0] < 0): # we're not using an exponential profile apparently!
             rAccInd = np.argmax(self.var['colAccr'].sensible()*self.var['r'].sensible(), axis=1)
-            rAcc = self.var['r'].sensible(locIndex=rAccInd)
+            rAcc = self.var['r'].sensible(timeIndex=range(self.nt),locIndex=rAccInd)
 #        self.var['scaleRadius'] = TimeFunction( \
 #                self.p['accScaleLength']*np.power(self.var['Mh'].sensible()/self.p['Mh0'],self.p['alphaAccretionProfile']), \
 #                'accScaleLength',cmperkpc,1.0,r'$r_\mathrm{acc}$ (kpc)',log=False)
@@ -457,7 +469,7 @@ class SingleModel:
         self.var['lambda'] = TimeFunction( self.getData('scaleRadius')/np.power(self.getData('Mh'),1.0/3.0), \
                 'lambda', 1.0,1.0,r'$\lambda$')
         self.var['rx'] = RadialFunction( \
-                np.array([self.var['r'].sensible(ti)/self.var['scaleRadius'].sensible(ti) for ti in range(self.nt)]), \
+                np.array([self.var['r'].sensible(ti)/self.var['scaleRadius'].sensible(timeIndex=ti) for ti in range(self.nt)]), \
                 'rx',1.0,1.0,r'r/r$_{acc}$',log=False)
         self.var['sfr'] = TimeFunction( \
                 self.var['mdotBulgeG'].sensible()*self.p['RfREC']/(self.p['RfREC']+self.var['MassLoadingFactor'].inner()) \
@@ -544,6 +556,11 @@ class SingleModel:
         self.var['equilibrium'] = RadialFunction( \
                 dcoldt/shareNorm, 'equilibrium', 1.0, 1.0, r'Equilibrium',log=False)
 
+        eqnorm = dcoldt*self.var['dA'].cgs()
+        self.var['integratedEquilibrium'] = TimeFunction( \
+                np.sum(self.var['equilibrium'].cgs()*eqnorm,axis=1)/np.sum(eqnorm,axis=1), \
+                'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False)
+
         theKeys = self.var.keys()
         whitelist = ['rb','r','dA','rx','dr'] + keepOnly
         for key in theKeys:
@@ -600,15 +617,22 @@ class SingleModel:
         failures=[]
         for timeIndex in range(len(self.var['z'].sensible())):
             doneFlag = 0
-            scaleRadius =  self.p['R']*.3 #self.var['scaleRadius'].sensible(timeIndex)
+            scaleRadius =  self.var['scaleRadius'].sensible(timeIndex)
             for i in range(maxTries):
                 f=1.5
                 ind,theMin = Nearest(r,scaleRadius*f)
+                if ind>(len(r)-1) or ind <0:
+                    ind = len(r)-2
                 logcol = np.log10(self.var['colst'].cgs(timeIndex))
                 slope = float(maxTries/2.0-i)/float(maxTries/2.0) * (logcol[ind]-logcol[ind-1])/(r[ind]-r[ind-1])
                 yguess = logcol[ind] + (r[:]-r[ind])*slope
                 fail = (yguess[0:ind] - logcol[0:ind]).clip(min=0)
-                failflag = np.max(fail) > 0
+                if len(fail)==0:
+                    print "ind: ",ind
+                    print "r,scaleRadius*f: ",r,scaleRadius*f
+                    failflag = True
+                else:
+                    failflag = np.max(fail) > 0
                 if(not failflag):
                     theFit = np.power(10.0,logcol[ind] + (r[:]-r[ind])*slope)
                     excess = self.var['dA'].cgs(timeIndex)*(np.power(10.0,logcol) - theFit).clip(min=0)
@@ -675,7 +699,7 @@ class Experiment:
                 pass
         self.fn = fnames
         if(len(fnames)==0):
-            raise ValueError("No models found in experiment "+name)
+            raise ValueError("No models found in experiment "+name+" using key "+fnameKey)
     def merge(self,expt):
         '''Merge two experiments - essentially just append two lists of models. '''
         self.fn = self.fn + expt.fn # concatenate the lists of models
@@ -744,10 +768,10 @@ class Experiment:
             indVar = 'r'
             if(scaleR):
                 indVar='rx'
-                rRange=[0,4.0]
-            else:
-                allR,_,_,_ = self.constructQuantity(indVar)
-                rRange = [np.min(allR),np.max(allR)]
+            allR,_,_,_ = self.constructQuantity(indVar)
+            rRange = [np.min(allR),np.max(allR)]
+            if(scaleR):
+                rRange=[0,4]
 
             dirname = 'movie_'+self.name+'_'+v+'_cb'+colorby+'_vs'+indVar
             #dirname = self.name+'_'+v+'_cb'+colorby+'_vs'+indVar
@@ -779,7 +803,7 @@ class Experiment:
 
 
             for ti in timeIndex:
-                fig,ax = plt.subplots(1,1,figsize=(4,3))
+                fig,ax = plt.subplots(1,1)
                 theVar,varFail,varLog,varRange = self.constructQuantity(v,ti)
                 r,rFail,rLog,_ = self.constructQuantity(indVar,ti)
                 #rx,rxFail,rxLog,_ = self.constructQuantity('rx',ti)
@@ -850,6 +874,7 @@ class Experiment:
             ##makeMovies(self.name+'_'+v+'_cb'+colorby+'_vs'+indVar)
             makeMovies(dirname[7:])
             #pipe.terminate()
+
     def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0):
         if(yvar is None):
             variables = self.models[0].getTimeFunctions()
@@ -900,6 +925,38 @@ class Experiment:
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
                 elif (xvar=='Mh' and v=='mstar'):
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1],eff=False)
+
+                # Moster
+                def Moster(Mh, mparams):
+                    M10, M11, N10, N11, beta10, beta11, gamma10, gamma11 = mparams
+                    logM1z = M10 + M11*z[ti]/(z[ti]+1.0)
+                    Nz = N10 + N11*z[ti]/(z[ti]+1.0)
+                    betaz = beta10 + beta11*z[ti]/(z[ti]+1.0)
+                    gammaz = gamma10 + gamma11*z[ti]/(z[ti]+1.0)
+                    M1 = np.power(10.0, logM1z)
+                    eff = 2.0*Nz / (np.power(Mh/M1,-betaz) + np.power(Mh/M1,gammaz))
+                    return eff
+                central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
+                unc =     np.array([0.236, 0.353, 0.0058, 0.0069, 0.153, 0.225, 0.059, 0.173])
+                logMhs = np.linspace(np.log10(overallXRange[0]), np.log10(overallXRange[1]), num=100)
+                Mhs = np.power(10.0, logMhs)
+                eff = Moster(Mhs,central)
+                for i in range(len(unc)):
+                    theseParams = copy.copy(central)
+                    theseParams[i] = theseParams[i]+unc[i]
+                    eff = np.vstack([eff, Moster(Mhs, theseParams)])
+                    theseParams = copy.copy(central)
+                    theseParams[i] = theseParams[i]-unc[i]
+                    eff = np.vstack([eff, Moster(Mhs, theseParams)])
+                effM = np.min(eff, axis=0)
+                effP = np.max(eff, axis=0)
+                if(xvar=='Mh' and (v=='efficiency' or v=='mstar')):
+                    if v=='efficiency':
+                        ax.fill_between(Mhs, effM, effP, alpha=.1)
+                    if v=='mstar':
+                        ax.fill_between(Mhs, effM*Mhs, effP*Mhs,alpha=.1)
+
+
                 ax.set_xlim(overallXRange[0],overallXRange[1])
                 ax.set_ylim(overallRange[0],overallRange[1])
                 if(overallLog):
@@ -1054,7 +1111,7 @@ class Experiment:
             theRange[1] = np.max(theRange[1])
 
         if(log):
-            if(theRange[1]/theRange[0] < 20.0):
+            if(theRange[1]/theRange[0] < 10.0):
                 log=False
 
         return construction,failures,log,theRange

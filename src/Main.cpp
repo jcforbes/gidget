@@ -80,7 +80,8 @@ int main(int argc, char **argv) {
     const double tmax =              as.Set(1000,"Maximum Time (outer orbits)");
     const unsigned int stepmax=      as.Set(10000000,"Maximum Number of Steps");
     const double TOL =               as.Set(.0001,"TOL (outer orbits)");
-    const double MassLoadingFactor=  as.Set(1,"Mass Loading Factor");
+    const double MassLoadingFactor=  as.Set(1,"Mass Loading Factor prefactor");
+    const double MassLoadingScaling =as.Set(-2./3.,"Mass Loading Factor halo mass scaling");
     const double BulgeRadius      =  as.Set(0,"Velocity Curve Turnover Radius (kpc)");
     const double beta0            =  as.Set(.5,"Index of the inner power law part of the rot curve");
     const double nRotCurve        =  as.Set(2.0,"Sharpness of transition from flat to inner powerlaw rot curve");
@@ -210,7 +211,7 @@ int main(int argc, char **argv) {
     AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength ,width);
 
     DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
-            TOL,analyticQ,MassLoadingFactor,cos,dim,mesh,dbg,
+            TOL,analyticQ,MassLoadingFactor,MassLoadingScaling,cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
           minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
     // double sig0 = 8.0/220.0; 

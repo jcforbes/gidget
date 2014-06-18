@@ -63,11 +63,11 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,5000.0,int(1e9),1.0e-3,1.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,1.0,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,0.0,0.54,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002,.054]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,5000.0,int(1e9),1.0e-3,1.0,-2.0/3.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,1.0,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,0.0,0.54,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002,.054]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','mu','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','xiREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','muNorm','muScaling','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','xiREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -77,7 +77,8 @@ class experiment:
 	self.covariables=np.zeros(len(self.p),int)
 
         # store the location of various expected subdirectories in the gidget distribution.
-        self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
+        #self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
+        self.base = '/Users/jforbes/gidget'
         self.src=self.base+'/src'
         self.analysis=self.base+'/analysis'
         self.bin=self.base+'/bin'
@@ -572,8 +573,8 @@ if __name__ == "__main__":
     re06[0].irregularVary('mu',0.0)
     re06[0].irregularVary('ZIGM',.00002)
     re06[0].irregularVary('whichAccretionProfile', 2)
-    re06[0].irregularVary('widthAccretionProfile', 0.3)
-    re06[0].irregularVary('dbg',2**4+2**1)
+    re06[0].irregularVary('widthAccretionProfile', 0.6)
+    re06[0].irregularVary('dbg',2**4+2**1+2**0)
 
     # Adding some stochasticity before messing around with previous expt.
     re07=NewSetOfExperiments(re01,'re07')
@@ -605,6 +606,42 @@ if __name__ == "__main__":
     re09=NewSetOfExperiments(re08[0],'re09')
     re09[0].irregularVary('dbg',2**4+2**1+2**0+2**12)
 
+    # Modified the code to use mu = .5 (Mh/10^12)^(-2/3)
+    re10=NewSetOfExperiments(re08[0],'re10')
+    re10[0].irregularVary('accCeiling',0.6)
+    re10[0].vary('R',15,100,9,1,4)
+    re10[0].irregularVary('accScaleLength',0.1)
+    re10[0].vary('fcool',0.05/2,0.05,9,1,4)
+    #re10[0].irregularVary('accNorm',.1)
+    #re10[0].irregularVary('dbg',2**4+2**1+2**0+2**
+
+    # sample to study MS.
+    re11=NewSetOfExperiments(re01,'re11')
+    re11[0].vary('whichAccretionHistory',-300,-101,200,0,4)
+    re11[0].vary('R', 15, 100, 200, 1, 4)
+    re11[0].vary('fcool', 0.05/2, 0.05, 200, 1, 4)
+    re11[0].vary('Mh0',1.0e10, 1.0e13, 200, 1, 4)
+    re11[0].vary('mu', 22, .21, 200, 1, 4)
+    re11[0].irregularVary('fscatter', .45)
+    re11[0].irregularVary('NChanges', list(np.random.binomial(40,.25,size=200)) ,4)
+    re11[0].irregularVary('accCeiling',0.6)
+    re11[0].irregularVary('accScaleLength',0.1)
+    re11[0].irregularVary('NPassive',1)
+    re11[0].irregularVary('zstart',[4.99],3)
+    re11[0].irregularVary('zrelax',[5.0],3)
+    re11[0].irregularVary('fg0',.9999)
+    re11[0].irregularVary('alphaMRI',0)
+    re11[0].irregularVary('ZIGM',.00002)
+    re11[0].irregularVary('dbg',2**4+2**1+2**0)
+
+    # more reasonable ZIGM - are galaxies more in equilibrium?
+    re12=NewSetOfExperiments(re10[0], 're12')
+    re12[0].irregularVary('ZIGM',.002)
+    re12[0].irregularVary('accCeiling',0.4)
+    re12[0].irregularVary('accScaleLength',0.1)
+
+    # MW progenitors
+    re13=NewSetOfExperiments(re01[0], 're13')
 
     successTables=[]
 

@@ -2,6 +2,7 @@ import sys
 import copy
 import emcee
 import pickle
+import triangle
 from mpi4py import MPI
 from emcee.utils import MPIPool
 import numpy as np
@@ -113,6 +114,7 @@ def lnprior(emceeParams):
 
 def lnlikelihood(emceeParams):
     # Set up the experiment
+
     experToRun, name = emceeParameterSpaceToGidgetExperiment(emceeParams)
 
     # Run the experiment.
@@ -135,14 +137,19 @@ def lnlikelihood(emceeParams):
             lo, hi, mid = efficiency(Mh, zs[ti])
             eff = model.var['mstar'].sensible(timeIndex=ti)/Mh
             logdist = np.abs(np.log(eff/mid)/np.log(hi/mid))
-            accum += -0.5 * logdist*logdist
+            accum += -0.5 * logdist*logdist - np.log(np.log(hi/mid))
+
+
 
     return accum        
 
     
 
 def lnProb(emceeParams):
-    return lnlikelihood(emceeParams) + lnprior(emceeParams)
+    pr = lnprior(emceeParams)
+    if np.isfinite(pr):
+        return lnlikelihood(emceeParams) + pr
+    return pr
 
 
 # Formula from Moster, assuming no correlation bewteen parameters.
@@ -179,8 +186,6 @@ def run(N):
     #p00 = np.array([1.5, 0.01, .5, .5, -2./3., 2, .05, .01, .30959, .38, -.25, .7, .5, 1, .002])
     p00 = np.array([ .5, .5, -2./3., .05, .30959, .38, -.25, .7, .01 ])
 
-
-
     p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
 
     restart = {}
@@ -190,7 +195,6 @@ def run(N):
     restart['prob'] = None
     restart['iterationCounter'] = 0
     restart['mcmcRunCounter'] = 0
-
 
     updateRestart(fn,restart)
 
@@ -205,21 +209,30 @@ def run(N):
         pool.wait()
         sys.exit(0)
 
-
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnProb, pool=pool)
-    pos, prob, state = sampler.run_mcmc(restart['currentPosition'], N, rstate0=restart['state'], lnprob0=restart['prob'])
+    #pos, prob, state = sampler.run_mcmc(restart['currentPosition'], N, rstate0=restart['state'], lnprob0=restart['prob'])
 
-    restart['acor'] = sampler.acor[:] # autocorr length for each param (ndim)
-    restart['accept'] = sampler.acceptance_fraction[:]  # acceptance frac for each walker.
-    restart['currentPosition'] = pos # same shape as p0: nwalkers x ndim
-    restart['state'] = state # random number generator state
-    restart['prob'] = prob # nwalkers x dim
-    if restart['chain'] is None:
-        restart['chain'] = sampler.chain # nwalkers x niterations x ndim
-    else:
-        restart['chain'] = np.concatenate((restart['chain'], sampler.chain), axis=1)
-    
-    saveRestart(fn,restart)
+    for result in sampler.sample(restart['currentPosition'], iterations=N, lnprob0=restart['prob'], rstate0=restart['state']):
+
+        pos, prob, state = result
+
+        restart['acor'] = sampler.acor[:] # autocorr length for each param (ndim)
+        restart['accept'] = sampler.acceptance_fraction[:]  # acceptance frac for each walker.
+        restart['currentPosition'] = pos # same shape as p0: nwalkers x ndim
+        restart['state'] = state # random number generator state
+        restart['prob'] = prob # nwalkers x dim
+        if restart['chain'] is None:
+            restart['chain'] = sampler.chain # nwalkers x niterations x ndim
+        else:
+            print np.shape(restart['chain']), np.shape(sampler.chain[:,-1,:]), np.shape(sampler.chain)
+            print restart['mcmcRunCounter'], restart['iterationCounter']
+            #restart['chain'] = np.concatenate((restart['chain'], sampler.chain[:,-1,:]), axis=1)
+            print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(pos)
+            restart['chain'] = np.concatenate((restart['chain'], np.zeros((nwalkers, 1, ndim))))
+            restart['chain'][:, -1, :] = copy.copy(pos)
+
+        
+        saveRestart(fn,restart)
 
     pool.close()
 
@@ -239,6 +252,21 @@ def tracePlots(chain, fn):
     plt.savefig(fn+'.png')
 
 
+def printRestart(restart):
+    ''' Print quick summary info about the current state of the sampler. '''
+    print "restart info: "
+    print " current shape of chain: (nwalkers x niterations x ndim) ",np.shape(restart['chain'])
+    print " autocorrelation lengths for each parameter: ",restart['acor']
+    print " acceptance rate for each walker: ",restart['accept']
+
+def trianglePlot(restart,fn,burnIn=0):
+    shape = np.shape(restart['chain'])
+    ndim = shape[2]
+    trifig = triangle.corner(restart['chain'][:,burnIn:,:].reshape((-1,ndim)), \
+             labels=[r'$f_{g,0}$',r'$\mu_0$',r'$\alpha_\mu$', r'$r_\mathrm{acc}/r_\mathrm{vir}$', \
+             r'$\epsilon_0$',r'$\alpha_z$',r'$\alpha_{M_h}$',r'$\epsilon_\mathrm{max}$',r'$f_\mathrm{cool}$'])
+    trifig.savefig(fn)
+
 def saveRestart(fn,restart):
     with open(fn,'wb') as f:
         print "checkpoint to "+fn
@@ -251,10 +279,12 @@ def updateRestart(fn,restart):
             restart.update(tmp_dict)
 
 
-run(200)
+run(10)
 
 restart={}
 updateRestart(chainDirRel+'.pickle', restart)
+printRestart(restart)
+trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=50)
 tracePlots(restart['chain'], chainDirRel+'_trace')
 
 

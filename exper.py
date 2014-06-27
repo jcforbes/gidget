@@ -20,6 +20,7 @@ import random
 t0=time.time()
 allModels={} # a global dictionary of all experiments created.
 allProcs=[] # a global list of all processes we've started
+allStartTimes=[] # a global list of the start times of all of these processes
 
 def HowManyStillRunning(procs):
     ''' Given a list of processes created with subprocess.Popen, (each of which
@@ -322,12 +323,13 @@ class experiment:
         return (cmds,stdo,stde,expDirs)
 
 
-    def localRun(self,nproc,startAt):
+    def localRun(self,nproc,startAt,maxTime=3600):
         ''' Run the specified experiment on this machine,
         using no more than nproc processors, and starting
         at the "startAt"th run in the experiment '''
         self.generatePl()
         procs=[]
+        startTimes=[]
         ctr=0
         binary=self.bin+'/gidget'
         expDir=self.analysis+'/'+self.expName #directory for output files
@@ -352,6 +354,8 @@ class experiment:
                     os.chdir(expDir)
                     procs.append(subprocess.Popen([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]],stdout=stdo,stderr=stde))
                     allProcs.append(procs[-1])
+                    startTimes.append(time.time())
+                    allStartTimes.append(time.time())
                     nPrinted=True
 
             # we've started a process off and running, but there are
@@ -360,6 +364,18 @@ class experiment:
             # is willing to let run at once, so let's check what
             # our processes are up to:
             while True:
+
+                # Check whether each process has exceeded the max time:
+                for k,proc in enumerate(procs):
+                    if proc.poll()==None:
+                        # The process is still running.
+                        if(time.time() - startTimes[k] > maxTime):
+                            print "WARNING: process has reached maximum allowed time of ",maxTime," seconds! Sending the kill signal."
+                            print " If you're sure the process should be running longer, increase the maxTime argument of localRun."
+                            print " Usually a run this long means something has gone horribly wrong."
+                            proc.kill()
+
+
                 nStillRunning=HowManyStillRunning(allProcs)
     
                 # if our processors are all booked, wait a minute and try again
@@ -373,20 +389,6 @@ class experiment:
                 # If there are no more runs, we're done!
                 else:
                     break
-##        # now all of our processes have been sent off
-##        nPrev = 0
-##        while True:
-##            nStillRunning=HowManyStillRunning(allProcs)
-##            # has anything changed since the last time we checked?
-##            if(nStillRunning == nPrev and nStillRunning != 0):
-##                # do nothing except wait a little bit
-##                time.sleep(5)
-##            else:
-##                nPrev=nStillRunning
-##                if(nPrev == 0):
-##                    break # we're done!
-##                print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
-##        print "Local run complete!"
 
 
 def LocalRun(runBundle,nproc):

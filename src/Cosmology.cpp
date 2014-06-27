@@ -108,8 +108,8 @@ double Cosmology::alphaEinasto(double Mh, double z)
 double Cosmology::cEinasto(double Mh, double z)
 {
     double m = log10(Mh * h() / 1.0e12);
-    double b = -0.130 + 0.029*z;
-    double a = 0.459 + (0.977 - 0.459)*exp(-0.490 * pow(z, 1.303));
+    double b = -0.101 + 0.026*z;
+    double a = 0.520 + (0.905 - 0.520)*exp(-0.617 * pow(z, 1.21));
     return pow(10, a+b*m);
 }
 

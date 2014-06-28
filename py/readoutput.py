@@ -621,13 +621,16 @@ class SingleModel:
             for i in range(maxTries):
                 f=1.5
                 ind,theMin = Nearest(r,scaleRadius*f)
-                if ind>(len(r)-1) or ind <0:
+                if ind>(len(r)-1):
                     ind = len(r)-2
+                elif ind<3:
+                    ind = len(r)/4
                 logcol = np.log10(self.var['colst'].cgs(timeIndex))
                 slope = float(maxTries/2.0-i)/float(maxTries/2.0) * (logcol[ind]-logcol[ind-1])/(r[ind]-r[ind-1])
                 yguess = logcol[ind] + (r[:]-r[ind])*slope
                 fail = (yguess[0:ind] - logcol[0:ind]).clip(min=0)
                 if len(fail)==0:
+                    print "Something odd has happened in computeMBulge."
                     print "ind: ",ind
                     print "r,scaleRadius*f: ",r,scaleRadius*f
                     failflag = True

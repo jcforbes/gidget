@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
         errmgLine.push_back("NPassive, \nvphiR (km/s), \nradius (kpc), \ngasTemp (K), \nQlim, \n");
         errmgLine.push_back("fg0, \ntempRatio (sig_*/sig_g), \nzstart, \ntmax, \nstepmax, \n");
         errmgLine.push_back("TOL (t_orb),\nMassLoadingFactor, \nBulgeRadius (kpc), \n");
-        errmgLine.push_back("stDiskScale (kpc, or -1 for powerlaw),\nwhichAccretionHistory,\nalphaMRI");
+        errmgLine.push_back("stDiskScale ( -1 for powerlaw),\nwhichAccretionHistory,\nalphaMRI");
         errmgLine.push_back(", \nthick,\nmigratePassive,\nQinit,\nkappaMetals,\nMh0,\nminSigSt,\nnchanges");
         errmgLine.push_back("CAUTION: this message may be out of date, so check Main.cpp");
         std::string msg="";
@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
     const double minSigSt =          as.Set(1.0,"Minimum stellar velocity dispersion (km/s)")*1.e5/vphiR; 
     const double NChanges =          as.Set(6,"The number of times the lognormal accretion history should draw a new value.");
     const unsigned int Experimental= as.Set(0,"Debug parameter");
-    const double accScaleLength    = as.Set(2.0,"Accretion ScaleLength (kpc)");
+    const double accScaleLength    = as.Set(.05,"Accretion ScaleLength (fraction of Vir radius)");
 
     const double zquench =           as.Set(-1.0,"Redshift at which accretion shuts off.");
     const double zrelax =            as.Set(zstart+1.0,"Redshift at which to start the relaxation of the disk");
@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
     as2.Set(mdot0/MSol*speryear,"Initial Accretion (MSol/yr)");
     as2.Set(attempts,"Attempts to generate Neistein08");
     // This is where we'll store a record of all the possiblities of dbg.opt
-    as2.Set(dbg.opt(0), "Use constant mass loading factor instead of Lagos13");
+    as2.Set(dbg.opt(0), "Use constant mass loading factor instead of Lagos13"); // recommended
     as2.Set(dbg.opt(1), "Dont increase accr rate to account for matter accreting outside domain");
     as2.Set(dbg.opt(2), "No longer used");
     as2.Set(dbg.opt(3), "Neistein & Dekel (2008) instead of Neistein+ (2010)"); // check this

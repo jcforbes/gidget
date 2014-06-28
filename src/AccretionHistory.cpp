@@ -1,3 +1,4 @@
+#include "Errors.h"
 #include "AccretionHistory.h"
 #include "Cosmology.h"
 #include "Dimensions.h"
@@ -59,6 +60,9 @@ double AccretionHistory::GenerateOscillatingAccretionHistory(double amp, double 
     }
     file.close();
     InitializeGSLObjs(redshifts,tabulatedAcc,masses);
+    if (MdotExt0<=0)
+        errormsg("Generating an oscillating accretion history has produced negative mdot.");
+
     return MdotExt0;
 }
 
@@ -85,6 +89,8 @@ double AccretionHistory::GenerateConstantAccretionHistory(double rate, double zs
     }
     file.close();
     InitializeGSLObjs(redshifts,tabulatedAcc,masses);
+    if (MdotExt0<=0)
+        errormsg("Generating a constant accretion history has produced negative mdot.");
     return MdotExt0;
 }
 
@@ -224,6 +230,8 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
 
     file.close();
     InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
+    if( MdotExt0<=0)
+        errormsg("Generating a lognormal accretion history has produced negative mdot.");
     return MdotExt0;
 
 
@@ -252,6 +260,8 @@ double AccretionHistory::GenerateNeistein08(double zst, Cosmology& cos,
         ++(*nattempts);
     }
     gsl_rng_free(r);
+    if( mdotext0<=0 )
+        errormsg("Generating a neistein08 accretion history has produced negative mdot.");
 
     return mdotext0;
 }
@@ -307,6 +317,8 @@ double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
 
     linear=true;
     InitializeGSLObjs(zs,avgMdots,avgMh);
+    if( avgMdotExt0<=0 )
+        errormsg("Avg NMD10 accr. history has produced negative mdot0");
     return avgMdotExt0;
 }
 
@@ -508,6 +520,8 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
     double val = normalization * pow(1.0+z, alpha_z) * pow(Mh, alpha_Mh);
     if(val > ceiling) val=ceiling;
     if(z<zquench) val = 0.0;
+    if (val<0)
+        errormsg("Efficiency less than zero!");
     return val;
 }
 
@@ -583,6 +597,8 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
 
     file.close();
     InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
+    if( MdotExt0<=0 )
+        errormsg("Bouche accr. history has produced negative mdot0");
     return MdotExt0;
 }
 

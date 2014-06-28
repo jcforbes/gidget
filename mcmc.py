@@ -45,6 +45,15 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     # unpack emceeParams
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
     fg0, muNorm, muScaling, accScaleLength, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool = emceeParams
+
+    # if any of the following assertions fail, you should probably adjust / check the prior
+    assert fg0>=0
+    assert fg0<=1.0
+    assert muNorm>=0
+    assert accScaleLength>=0
+    assert accCeiling<=1 and accCeiling>=0
+    assert 0<=fcool and fcool<=1
+
     # Create experiment
     basename = chainDirRel+'_'
     
@@ -53,8 +62,8 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     procCounter+=1
 
     # Set up a range of masses and computational domains
-    thisExper.vary('Mh0', 1.0e10, 5.0e11, 4, 1, 4)
-    thisExper.vary('R', 10, 50, 4, 1, 4)
+    thisExper.vary('Mh0', 1.0e10, 5.0e11, 3, 1, 4)
+    thisExper.vary('R', 10*accScaleLength/.05, 50*accScaleLength/.05, 3, 1, 4)
 
     # Set up some common parameters.
     thisExper.irregularVary('dbg', 2**4+2**1+2**0)
@@ -123,7 +132,7 @@ def lnlikelihood(emceeParams):
     output = readoutput.Experiment(name)
     output.read()
 
-    if(len(output.models) < 4):
+    if(len(output.models) < 3):
         print "WARNING: setting likelihood to zero because ",len(output.models)," of the 4 models produced sensible results"
         return -np.inf
 
@@ -184,7 +193,7 @@ def run(N):
     ndim =  9 # 15
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
     #p00 = np.array([1.5, 0.01, .5, .5, -2./3., 2, .05, .01, .30959, .38, -.25, .7, .5, 1, .002])
-    p00 = np.array([ .5, .5, -2./3., .05, .30959, .38, -.25, .7, .01 ])
+    p00 = np.array([ .9, .1, -1., .08, .50959, .38, -.25, .7, .01 ])
 
     p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
 
@@ -227,9 +236,8 @@ def run(N):
             print np.shape(restart['chain']), np.shape(sampler.chain[:,-1,:]), np.shape(sampler.chain)
             print restart['mcmcRunCounter'], restart['iterationCounter']
             #restart['chain'] = np.concatenate((restart['chain'], sampler.chain[:,-1,:]), axis=1)
-            print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(pos)
-            restart['chain'] = np.concatenate((restart['chain'], np.zeros((nwalkers, 1, ndim))))
-            restart['chain'][:, -1, :] = copy.copy(pos)
+            print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(np.expand_dims(pos,1))
+            restart['chain'] = np.concatenate((restart['chain'], np.expand_dims(pos, 1)),axis=1)
 
         
         saveRestart(fn,restart)
@@ -279,7 +287,7 @@ def updateRestart(fn,restart):
             restart.update(tmp_dict)
 
 
-run(10)
+run(30)
 
 restart={}
 updateRestart(chainDirRel+'.pickle', restart)

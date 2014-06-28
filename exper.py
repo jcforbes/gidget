@@ -532,10 +532,10 @@ if __name__ == "__main__":
     re01.irregularVary('nx',200)
     re01.irregularVary('kappaMetals',1.0)
     re01.irregularVary('xiREC',0.0)
-    re01.irregularVary('mu',1)
+    re01.irregularVary('muNorm',1)
 
     re02=NewSetOfExperiments(re01,'re02')
-    re02[0].irregularVary('mu',[.1,1,10])
+    re02[0].irregularVary('muNorm',[.1,1,10])
 
     re03=NewSetOfExperiments(re01,'re03')
     re03[0].irregularVary('accScaleLength', [.01,.03,.1])
@@ -547,14 +547,14 @@ if __name__ == "__main__":
     re04[0].irregularVary('accScaleLength',[.01,.031,.1,.25],4)
     re04[0].irregularVary('R',[15,20,35,40],4)
     re04[0].irregularVary('alphaMRI',0)
-    re04[0].irregularVary('mu',0.0)
+    re04[0].irregularVary('muNorm',0.0)
 
     re05=NewSetOfExperiments(re01,'re05')
     re05[0].irregularVary('zstart',[4.9],3)
     re05[0].irregularVary('zrelax',[5.0],3)
     re05[0].irregularVary('accScaleLength',[.01,.031,.1],4)
     re05[0].irregularVary('R',[15,30,45],4)
-    re05[0].irregularVary('mu',[.1,1,10])
+    re05[0].irregularVary('muNorm',[.1,1,10])
     re05[0].irregularVary('eta',[.5,4.5])
     re05[0].irregularVary('fixedQ',[1.3,2.0,3.0])
     re05[0].irregularVary('fcool',[.1,.9])
@@ -572,7 +572,7 @@ if __name__ == "__main__":
     re06[0].irregularVary('fg0',.9999)
     re06[0].irregularVary('fcool',.05)
     re06[0].irregularVary('alphaMRI',0)
-    re06[0].irregularVary('mu',0.0)
+    re06[0].irregularVary('muNorm',0.0)
     re06[0].irregularVary('ZIGM',.00002)
     re06[0].irregularVary('whichAccretionProfile', 2)
     re06[0].irregularVary('widthAccretionProfile', 0.6)
@@ -588,7 +588,7 @@ if __name__ == "__main__":
     re07[0].vary('R',5,50,200,1,4)
     re07[0].vary('whichAccretionHistory',-300,-101,0,4)
     re07[0].irregularVary('alphaMRI',0)
-    re07[0].irregularVary('mu',0.0)
+    re07[0].irregularVary('muNorm',0.0)
 
     # Use params from toy model.
     re08=NewSetOfExperiments(re01,'re08')
@@ -601,7 +601,7 @@ if __name__ == "__main__":
     re08[0].irregularVary('fg0',.9999)
     re08[0].irregularVary('fcool',.05)
     re08[0].irregularVary('alphaMRI',0)
-    re08[0].vary('mu',22,.21,9,1,4)
+    re08[0].vary('muNorm',22,.21,9,1,4)
     re08[0].irregularVary('ZIGM',.00002)
     re08[0].irregularVary('dbg',2**4+2**1+2**0)
 
@@ -623,7 +623,7 @@ if __name__ == "__main__":
     re11[0].vary('R', 15, 100, 200, 1, 4)
     re11[0].vary('fcool', 0.05/2, 0.05, 200, 1, 4)
     re11[0].vary('Mh0',1.0e10, 1.0e13, 200, 1, 4)
-    re11[0].vary('mu', 22, .21, 200, 1, 4)
+    re11[0].vary('muNorm', 22, .21, 200, 1, 4)
     re11[0].irregularVary('fscatter', .45)
     re11[0].irregularVary('NChanges', list(np.random.binomial(40,.25,size=200)) ,4)
     re11[0].irregularVary('accCeiling',0.6)
@@ -643,7 +643,15 @@ if __name__ == "__main__":
     re12[0].irregularVary('accScaleLength',0.1)
 
     # MW progenitors
-    re13=NewSetOfExperiments(re01[0], 're13')
+    #re13=NewSetOfExperiments(re01[0], 're13')
+
+    # 
+    re14=NewSetOfExperiments(re01, 're14')
+    re14[0].irregularVary('xmin', [.00031, .001, .0031, .01, .031])
+    re14[0].irregularVary('zstart',[4.95],3)
+    re14[0].irregularVary('zrelax',[5.0],3)
+    re14[0].irregularVary('dbg',2**4+2**1+2**0)
+
 
     successTables=[]
 

@@ -296,15 +296,13 @@ void DiskContents::Initialize(double fcool, double fg0,
     double xd = stScaleLength/dim.d(1.0);
     // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
     // fcool of the baryons have cooled to form a disk.
-//    double S0 = 0.17 * fcool * MhZs*MSol / (dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
     // This is a correction, to account for the fact that for scale lengths >~ the radius of the disk,
     // most of this mass will fall off the edge of the grid. We want to put that mass back into the grid.
-    // dmdtCosOuter(1.0) is the fraction of the accretion which occurs outside the outer radius of the disk.
     double xouter = mesh.x(.5 + ((double) nx));
     double xinner = mesh.x(.5);
-//    double fOuter =   (1.0 + xb/xd)*exp(-xb/xd);
-//     S0 *= 1.0 / (1.0 - fOuter);
-//    double S0 = 0.17*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*xd*(xd-exp(-xb/xd)*(xd+xb))*dim.MdotExt0*dim.Radius);
+    xinner = 0.0; // don't change the column density depending on inner edge
+    xouter = 1000.0;
+    double dummy = -exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner);
     double S0 = 0.17*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
 
     for(unsigned int n=1; n<=nx; ++n) {
@@ -326,8 +324,10 @@ void DiskContents::Initialize(double fcool, double fg0,
 
 
     }
+    // XXXXXXXXXXXXXXX
+    ComputeMassLoadingFactor(MhZs);
 
-    MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA->spcol[1]); // dimensionless!
+    MBulge = M_PI*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!
     initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
     initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
 
@@ -1671,11 +1671,19 @@ void DiskContents::ComputeMassLoadingFactor(double Mh)
         }
         if(ColOutflows[n] < 0.0)
             errormsg("Negative outflow column...");
-        MassLoadingFactor[n] = ColOutflows[n]/colSFR[n];
+
+        if(colSFR[n]>0)
+            MassLoadingFactor[n] = ColOutflows[n]/colSFR[n];
+        else
+            MassLoadingFactor[n] = theCurrentMLF;
+
+
 //        if(MassLoadingFactor[n] > 1.0/(EPS_ff * fH2[n])) {
 //            MassLoadingFactor[n] = 1.0/(EPS_ff* fH2[n]);
 //            ColOutflows[n] = colSFR[n]*MassLoadingFactor[n];
 //        }
+        if(MassLoadingFactor[n]!=MassLoadingFactor[n] || MassLoadingFactor[n]<0)
+            errormsg("Problem computing MLF");
     }
 }
 

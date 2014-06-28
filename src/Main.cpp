@@ -168,6 +168,9 @@ int main(int argc, char **argv) {
                 deltaOmega, zrelax,fscatter)*MSol/speryear;
     }
 
+    if(mdot0<=0)
+        errormsg("Negative mdot0! The model does not know what you mean by negative accretion.");
+
     ArgumentSetter as2(0,argv,filename+"_aux.txt");
     // Note that the following line does nothing but put a line in the comment file to
     // record MdotExt0 for this run.

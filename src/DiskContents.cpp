@@ -923,7 +923,9 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     double MGasAcc = dt*fracAccInner*AccRate;
     double MIn = MGasIn*reduce + MStarsIn + MGasAcc*reduce;
     //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
-    ZBulge = (ZBulge*MBulge + (yREC+ ZDisk[1])*MGasIn + (yREC+ Z_IGM)*MGasAcc + spsActive[0]->spZ[1]*MStarsIn)/(MBulge+MIn);
+    ZBulge = (ZBulge*MBulge + (yREC+ ZDisk[1])*MGasIn*reduce + (yREC+ Z_IGM)*MGasAcc*reduce + spsActive[0]->spZ[1]*MStarsIn)/(MBulge+MIn);
+    double dummy = spsActive[0]->spZ[1]*MStarsIn;
+    double dummy2 = spsActive[0]->spZ[1];
     if(ZBulge <= 0.0 || ZBulge >1.0) {
       errormsg(std::string("Nonphysical ZBulge- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulge)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDisk[1])+" "+str(fracAccInner*(AccRate)));
     }

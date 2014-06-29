@@ -2,7 +2,6 @@ import sys
 import copy
 import emcee
 import pickle
-import triangle
 from mpi4py import MPI
 from emcee.utils import MPIPool
 import numpy as np
@@ -15,7 +14,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chainDirRel = 'mcmcChain04'
+chainDirRel = 'mcmcChain05'
 chainDir = '/Users/jforbes/gidget/analysis/'+chainDirRel
 
 procCounter=0
@@ -189,7 +188,7 @@ def efficiency(thisMh, z):
 
 def run(N):
     fn = chainDirRel+'.pickle'
-    nwalkers = 50
+    nwalkers = 500
     ndim =  9 # 15
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
     #p00 = np.array([1.5, 0.01, .5, .5, -2./3., 2, .05, .01, .30959, .38, -.25, .7, .5, 1, .002])
@@ -292,7 +291,7 @@ run(30)
 restart={}
 updateRestart(chainDirRel+'.pickle', restart)
 printRestart(restart)
-trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=50)
+#trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=50)
 tracePlots(restart['chain'], chainDirRel+'_trace')
 
 

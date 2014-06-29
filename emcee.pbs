@@ -1,0 +1,11 @@
+#PBS -S /bin/bash
+#PBS -q hyper
+#PBS -N gidget
+#PBS -l nodes=2:ppn=64
+#PBS -l walltime=72:00:00
+
+cd $PBS_O_WORKDIR
+
+module load python/2.7
+mpirun -n 64 python2.7 mcmc.py 1>>shell.out 2>>err.out
+

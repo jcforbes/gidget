@@ -119,7 +119,8 @@ def lnprior(emceeParams):
     accum += lnGammaDensity(muNorm, 1, 1)
     accum += lnNormalDensity(muScaling, -.5, 3.0)
 #    accum += lnGammaDensity(fixedQ-1.0, 2, 2)
-    accum += lnBetaDensity(accScaleLength, .05, .95)
+    #accum += lnBetaDensity(accScaleLength, .5, 9.5)
+    accum += lnLogNormalDensity(accScaleLength, np.log(.05), np.log(2)**2.0)
 #    accum += lnBetaDensity(xiREC, .1, .9)
     accum += lnGammaDensity(accNorm, 0.3, 1)
     accum += lnNormalDensity(accAlphaZ, 0.38, 0.5)
@@ -136,7 +137,7 @@ def sampleFromPrior():
     return [sampleFromBetaDensity(1.0,0.1), # fg0
     sampleFromGammaDensity(1.0, 1.0), # muNorm
     sampleFromNormalDensity(-.5, 3.0), # muScaling
-    sampleFromBetaDensity(.05,.95), # accScaleLength
+    sampleFromLogNormalDensity(np.log(.05),np.log(2)**2.0), # accScaleLength
     sampleFromGammaDensity(0.3, 1), # accNorm
     sampleFromNormalDensity(0.38, 0.5), # accAlphaZ
     sampleFromNormalDensity(-0.25, 0.5), # accAlphaMh

@@ -79,7 +79,7 @@ class experiment:
 
         # store the location of various expected subdirectories in the gidget distribution.
         #self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
-        self.base = '/Users/jforbes/gidget'
+        self.base = '/pfs/jforbes/gidget'
         self.src=self.base+'/src'
         self.analysis=self.base+'/analysis'
         self.bin=self.base+'/bin'

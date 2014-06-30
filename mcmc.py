@@ -15,7 +15,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chainDirRel = 'mcmcChain04'
+chainDirRel = 'mcmcChain06'
 chainDir = '/Users/jforbes/gidget/analysis/'+chainDirRel
 
 procCounter=0
@@ -35,6 +35,18 @@ def lnLogNormalDensity(theta, mean, var):
     return -np.log(theta) - 0.5*(np.log(theta) - mean)**2.0/var
 def lnNormalDensity(theta, mean, var):
     return -0.5*(theta-mean)**2.0/var
+
+def sampleFromBetaDensity(a,b):
+    assert a>0 and b>0
+    return np.random.beta(a,b)
+def sampleFromGammaDensity(a,b):
+    assert a>0 and b>0
+    return np.random.gamma(a,1.0/b) # numpy's definition of the gamma uses e^{-x/scale}/scale^a
+def sampleFromLogNormalDensity(mean,var):
+    return np.exp(sampleFromNormalDensity(mean,var))
+def sampleFromNormalDensity(mean,var):
+    return np.random.normal(mean,np.sqrt(var))
+
 
 # Define the base experiment we want.
 def emceeParameterSpaceToGidgetExperiment(emceeParams):
@@ -121,6 +133,18 @@ def lnprior(emceeParams):
         return -np.inf
     return accum
 
+def sampleFromPrior():
+    return [sampleFromBetaDensity(1.0,0.1), # fg0
+    sampleFromGammaDensity(1.0, 1.0), # muNorm
+    sampleFromNormalDensity(-.5, 3.0), # muScaling
+    sampleFromBetaDensity(.05,.95), # accScaleLength
+    sampleFromGammaDensity(0.3, 1), # accNorm
+    sampleFromNormalDensity(0.38, 0.5), # accAlphaZ
+    sampleFromNormalDensity(-0.25, 0.5), # accAlphaMh
+    sampleFromBetaDensity( 1.0, 1.0 ), # accCeiling
+    sampleFromBetaDensity( 1.0, 1.0 )] #fcool
+
+
 def lnlikelihood(emceeParams):
     # Set up the experiment
 
@@ -189,13 +213,14 @@ def efficiency(thisMh, z):
 
 def run(N):
     fn = chainDirRel+'.pickle'
-    nwalkers = 50
+    nwalkers = 500
     ndim =  9 # 15
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
-    #p00 = np.array([1.5, 0.01, .5, .5, -2./3., 2, .05, .01, .30959, .38, -.25, .7, .5, 1, .002])
-    p00 = np.array([ .9, .1, -1., .08, .50959, .38, -.25, .7, .01 ])
 
-    p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
+    #p00 = np.array([ .9, .1, -1., .08, .50959, .38, -.25, .7, .01 ])
+    #p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
+
+    p0 = [sampleFromPrior() for i in range(nwalkers)]
 
     restart = {}
     restart['currentPosition'] = p0
@@ -287,7 +312,7 @@ def updateRestart(fn,restart):
             restart.update(tmp_dict)
 
 
-run(30)
+run(10)
 
 restart={}
 updateRestart(chainDirRel+'.pickle', restart)

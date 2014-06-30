@@ -237,8 +237,7 @@ def run(N):
     restart['iterationCounter'] += N
     restart['mcmcRunCounter'] += 1
 
-    #pool = MPIPool(comm=comm, loadbalance=True)
-    pool = MPIPool(comm=comm)
+    pool = MPIPool(comm=comm, loadbalance=True)
     if not pool.is_master():
         pool.wait()
         sys.exit(0)

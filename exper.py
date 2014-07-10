@@ -373,6 +373,8 @@ class experiment:
                             print "WARNING: process has reached maximum allowed time of ",maxTime," seconds! Sending the kill signal."
                             print " If you're sure the process should be running longer, increase the maxTime argument of localRun."
                             print " Usually a run this long means something has gone horribly wrong."
+                            with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','a') as stde:
+                                stde.write('Reached max allowed time '+str(maxTime)+'\n')
                             proc.kill()
 
 

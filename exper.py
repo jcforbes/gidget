@@ -79,7 +79,7 @@ class experiment:
 
         # store the location of various expected subdirectories in the gidget distribution.
         #self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
-        self.base = '/Users/jforbes/gidget'
+        self.base = '/pfs/jforbes/gidget'
         self.src=self.base+'/src'
         self.analysis=self.base+'/analysis'
         self.bin=self.base+'/bin'
@@ -373,6 +373,8 @@ class experiment:
                             print "WARNING: process has reached maximum allowed time of ",maxTime," seconds! Sending the kill signal."
                             print " If you're sure the process should be running longer, increase the maxTime argument of localRun."
                             print " Usually a run this long means something has gone horribly wrong."
+                            with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','a') as stde:
+                                stde.write('Reached max allowed time '+str(maxTime)+'\n')
                             proc.kill()
 
 

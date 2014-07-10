@@ -2,7 +2,6 @@ import sys
 import copy
 import emcee
 import pickle
-import triangle
 from mpi4py import MPI
 from emcee.utils import MPIPool
 import numpy as np
@@ -22,11 +21,11 @@ procCounter=0
 runNumber = 0
 
 def lnBetaDensity(theta, a,b):
-    if theta<0 or theta>1:
+    if theta<=0 or theta>=1:
         return -np.inf
     return (a-1.0)*np.log(theta) + (b-1.0)*np.log(1.0-theta)
 def lnGammaDensity(theta, a,b):
-    if theta<0:
+    if theta<=0:
         return -np.inf
     return (a-1.0)*np.log(theta) - b*theta
 def lnLogNormalDensity(theta, mean, var):
@@ -152,13 +151,14 @@ def lnlikelihood(emceeParams):
     experToRun, name = emceeParameterSpaceToGidgetExperiment(emceeParams)
 
     # Run the experiment.
-    experToRun.localRun(1,0)
+    print "Evaluating likelihood for params ",emceeParams
+    experToRun.localRun(1,0,maxTime = 3000)
 
     output = readoutput.Experiment(name)
     output.read()
 
     if(len(output.models) < 3):
-        print "WARNING: setting likelihood to zero because ",len(output.models)," of the 4 models produced sensible results"
+        print "WARNING: setting likelihood to zero because ",len(output.models)," of the 3 models produced sensible results"
         return -np.inf
 
     model0 = output.models[0]
@@ -247,7 +247,9 @@ def run(N):
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnProb, pool=pool)
     #pos, prob, state = sampler.run_mcmc(restart['currentPosition'], N, rstate0=restart['state'], lnprob0=restart['prob'])
 
+    counter = 0
     for result in sampler.sample(restart['currentPosition'], iterations=N, lnprob0=restart['prob'], rstate0=restart['state']):
+        print "Beginning iteration number ",counter," of ",N
 
         pos, prob, state = result
 
@@ -267,6 +269,7 @@ def run(N):
 
         
         saveRestart(fn,restart)
+        counter+=1
 
     pool.close()
 
@@ -316,14 +319,16 @@ def updateRestart(fn,restart):
             tmp_dict = pickle.load(f)
             restart.update(tmp_dict)
 
+if __name__=="__main__":
+    run(20)
 
-#run(10)
+    #run(10)
 
-restart={}
-updateRestart(chainDirRel+'.pickle', restart)
-printRestart(restart)
-trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
-tracePlots(restart['chain'], chainDirRel+'_trace')
+    restart={}
+    updateRestart(chainDirRel+'.pickle', restart)
+    printRestart(restart)
+    trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
+    tracePlots(restart['chain'], chainDirRel+'_trace')
 
 
 

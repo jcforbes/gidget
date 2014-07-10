@@ -35,7 +35,7 @@ cmPer = plt.get_cmap('spring')
 
 outward = [0,1,-1,2,-2,3,-3,4,-4]
 
-gidgetdir = '/Users/jforbes/gidget/'
+gidgetdir = '/pfs/jforbes/gidget/'
 
 class RadialFunction:
     def __init__(self, arr, name, cgsConv=1.0, sensibleConv=1.0,

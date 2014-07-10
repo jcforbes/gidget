@@ -158,7 +158,8 @@ double npow(double x,double ex)
 double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& cos,
                     double scatter, double Nchanges,
                     bool writeOut, double zquench,
-                    double Mh0, unsigned int seed, std::string fn, bool constInTime)
+                    double Mh0, unsigned int seed, std::string fn, bool constInTime,
+                    bool readIn, std::string fnIn)
 {
     gsl_rng * r = gsl_rng_alloc(gsl_rng_taus);
     gsl_rng_set(r,seed);
@@ -167,6 +168,8 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     double Mh012 = Mh0*1.0e-12;
     linear = true;
     std::ofstream file;
+    std::ifstream inputRandomFactors;
+    if(readIn) inputRandomFactors.open(fnIn.c_str());
     if(writeOut) file.open(fn.c_str());
     unsigned int N=1000; 
     if(Nchanges > N/100) N=100*Nchanges;
@@ -194,8 +197,15 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         double present = cos.lbt(z); // lookback time (in seconds) of the current redshift.
         double next = cos.lbt(z+dz); // this will be a larger number, i.e. a number further back in time.
         bool drawNewNumber = (floor(Nchanges * present/duration) < floor(Nchanges * next/duration) && z<zstart && constInTime) || (floor(Nchanges * z/zstart) < floor(Nchanges * (z+dz)/zstart) && z<zstart && !constInTime) || (z-zstart)*(z+dz-zstart) <= 0.0;
-        if(drawNewNumber) {
+        if(drawNewNumber && !readIn) {
             x = gsl_ran_gaussian(r,1.0);
+        }
+        else if(drawNewNumber && readIn) {
+            std::string line;
+            bool readFlag = getline(inputRandomFactors, line);
+            if !readFlag
+                errormsg("Failed to read in random factor!");
+            x = atof(line.c_str());
         }
         // Set dMh such that the average accretion rate == the value given above by dMh.
         currentAccretionRate = exp(log(dMh*1.0e12)-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
@@ -228,7 +238,8 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     reverse(tabulatedAcc.begin(), tabulatedAcc.end());
     reverse(haloMass.begin(),haloMass.end());
 
-    file.close();
+    if(writeOut) file.close();
+    if(readIn) inputRandomFactors.close();
     InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
     if( MdotExt0<=0)
         errormsg("Generating a lognormal accretion history has produced negative mdot.");

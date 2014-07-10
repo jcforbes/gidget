@@ -1426,7 +1426,8 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
         dudt[n] = -uu[n]*sqrt(2.*(beta[n]+1.))/dt;
         uu[n] = 0.0;
 
-        if(hStars(n) > x[n]*dim.Radius * .1) { //
+        // If the scale height is larger than the radius, the thin disk approximation makes little sense.
+        if(hStars(n) > x[n]*dim.Radius * 0.5) { 
             thin[n] = 0;
         }
         else {

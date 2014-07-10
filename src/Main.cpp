@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
     else if(whichAccretionHistory<0 ) {
         bool constInTime = dbg.opt(14);
         mdot0=MSol/speryear * accr.GenerateLogNormal(zstart, zrelax, cos, 
-              fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,filename+"_LogNormal.dat",constInTime);
+              fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,filename+"_LogNormal.dat",constInTime,true,filename+"_inputRandomFactors.txt");
         //      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,0.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
     }
     else {

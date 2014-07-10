@@ -15,7 +15,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chainDirRel = 'mcmcChain06'
+chainDirRel = 'mcmcChain06h'
 chainDir = '/Users/jforbes/gidget/analysis/'+chainDirRel
 
 procCounter=0
@@ -281,7 +281,7 @@ def tracePlots(chain, fn):
         i = np.mod(dim, nr)
         j = ( dim -i )/nr
         for walker in range(np.shape(chain)[0]):
-            ax[i,j].plot(chain[walker,:,dim])
+            ax[i,j].plot(chain[walker,:,dim],alpha=.3,ls='--')
 
     plt.savefig(fn+'.png')
 
@@ -294,11 +294,15 @@ def printRestart(restart):
     print " acceptance rate for each walker: ",restart['accept']
 
 def trianglePlot(restart,fn,burnIn=0):
+    shp = np.shape(restart['chain'])
+    prs = shp[0]*(shp[1]-burnIn)*shp[2]
+    prior = [sampleFromPrior() for i in range(prs)]
     shape = np.shape(restart['chain'])
     ndim = shape[2]
     trifig = triangle.corner(restart['chain'][:,burnIn:,:].reshape((-1,ndim)), \
              labels=[r'$f_{g,0}$',r'$\mu_0$',r'$\alpha_\mu$', r'$r_\mathrm{acc}/r_\mathrm{vir}$', \
              r'$\epsilon_0$',r'$\alpha_z$',r'$\alpha_{M_h}$',r'$\epsilon_\mathrm{max}$',r'$f_\mathrm{cool}$'])
+    trifigPrior = triangle.corner(prior, color='red', fig=trifig,plot_datapoints=False)
     trifig.savefig(fn)
 
 def saveRestart(fn,restart):
@@ -313,12 +317,12 @@ def updateRestart(fn,restart):
             restart.update(tmp_dict)
 
 
-run(10)
+#run(10)
 
 restart={}
 updateRestart(chainDirRel+'.pickle', restart)
 printRestart(restart)
-trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=50)
+trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
 tracePlots(restart['chain'], chainDirRel+'_trace')
 
 

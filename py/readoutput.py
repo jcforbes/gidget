@@ -503,8 +503,9 @@ class SingleModel:
         self.var['tDepH2Radial'] = RadialFunction( \
                 self.var['fH2'].cgs()*self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepH2Radial',\
                 1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF}$')
-        mbulge,_,fcentral = self.computeMBulge()
+        mbulge,_,fcentral,scaleLengths = self.computeMBulge()
         self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
+        self.var['scaleLength'] = TimeFunction(scaleLengths, 'scaleLength', cmperkpc, 1.0, r'$r_\mathrm{scale}$')
         self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
                 'BT',1,1,r'Bulge to Total Ratio',log=False)
         self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
@@ -614,6 +615,7 @@ class SingleModel:
         r = self.var['r'].sensible(0) # Only valid if the grid is fixed!
         mb=[]
         fc=[]
+        rs=[]
         failures=[]
         for timeIndex in range(len(self.var['z'].sensible())):
             doneFlag = 0
@@ -651,13 +653,15 @@ class SingleModel:
             # At this point we've either succeeded(doneFlag=1) or failed (doneFlag=0)
             if(doneFlag==1):
                 mb.append(excessL+centralExcess)
+                rs.append(-1.0/slope)
                 fc.append(centralExcess/(excessL+centralExcess))
                 failures.append(0)
             else:
                 mb.append(0)
+                rs.append(0)
                 failures.append(1)
         # End loop over time.
-        return np.array(mb)/gpermsun,failures,fc
+        return np.array(mb)/gpermsun,failures,fc,rs
     def quantityAt(self,radius,key,timeIndex):
         '''Given a radius (in kpc), find which annulus we're in. We need to handle a couple edge cases,
         namely the radius is within the inner edge, or the radius is beyond the outer edge of the 

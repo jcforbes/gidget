@@ -33,7 +33,7 @@ double GenerateLogNormal(double zstart,double zrelax, Cosmology& cos,
                     double scatter, double Nchanges,
                     bool writeOut, double zquench,
                     double Mh0, unsigned int seed, std::string fn,
-                    bool constInTime);
+                    bool constInTime, bool readIn, std::string fnIn);
 
 double GenerateAverageNMD10(double zst, Cosmology& cos,
         std::string fn, bool writeOut, unsigned long int seed,

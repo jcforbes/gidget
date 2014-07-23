@@ -18,7 +18,7 @@ rank = comm.Get_rank()
 
 
 #chainDirRel = 'mcmcChain10'
-chainDirRel = 'maximize10'
+chainDirRel = 'mcmcIndFromMax01'
 analysisDir = os.environ['GIDGETDIR']+'/analysis/'
 chainDir = analysisDir+chainDirRel
 
@@ -66,7 +66,7 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
 
 
     # unpack emceeParams
-    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale= emceeParams
+    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF = emceeParams
     #fg0, muNorm, muScaling, accScaleLength, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool = emceeParams
 
     # if any of the following assertions fail, you should probably adjust / check the prior
@@ -129,13 +129,14 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     thisExper.irregularVary('fcool',fcool)
     thisExper.irregularVary('kappaMetals',kappaMetals)
     thisExper.irregularVary('ZIGM',ZIGM)
+    thisExper.irregularVary('concentrationRandomFactor',conRF)
 
     thisExper.irregularVary('whichAccretionHistory', -344)
     return thisExper, name
 
 
 def lnprior(emceeParams):
-    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale = emceeParams
+    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF = emceeParams
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
     #fg0, muNorm, muScaling, accScaleLength, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool = emceeParams
     accum = 0.0
@@ -143,7 +144,7 @@ def lnprior(emceeParams):
     accum += lnLogNormalDensity(epsff, np.log(0.01), np.log(3)**2.0)
     accum += lnBetaDensity(fg0, 1.0, 1.0)
     accum += lnGammaDensity(muNorm, 1, 1)
-    accum += lnNormalDensity(muScaling, -.5, 3.0)
+    accum += lnNormalDensity(muScaling, -.5, 3.0**2.0)
     #accum += lnGammaDensity(fixedQ-1.0, 2, 2)
     accum += lnLogNormalDensity(fixedQ, np.log(2.0), np.log(3.0)**2.0)
     #accum += lnBetaDensity(accScaleLength, .5, 9.5)
@@ -163,6 +164,7 @@ def lnprior(emceeParams):
         accum += lnNormalDensity(x, 0, 1)
     accum += lnLogUniformDensity(fscatter, .001, 10)
     accum += lnLogNormalDensity(obsScale, 0, np.log(2.0)**2.0)
+    accum += lnNormalDensity(conRF, 0, 0.5**2.0) # dex.
     if not np.isfinite(accum):
         return -np.inf
     return accum
@@ -176,7 +178,7 @@ def sampleFromPrior():
             sampleFromLogNormalDensity( np.log(0.01), np.log(3.0)**2.0), # epsff
             sampleFromBetaDensity(1.0,1.0), # fg0
             sampleFromGammaDensity(1.0, 1.0), # muNorm
-            sampleFromNormalDensity(-.5, 3.0), # muScaling
+            sampleFromNormalDensity(-.5, 3.0**2.0), # muScaling
             sampleFromLogNormalDensity( np.log(2.0), np.log(3.0)**2.0), # fixedQ
             sampleFromLogNormalDensity(np.log(.05),np.log(10.0)**2.0), # accScaleLength
             sampleFromBetaDensity(0.1, 0.9), # xiREC
@@ -196,12 +198,13 @@ def sampleFromPrior():
             sampleFromNormalDensity(0,1), #x7
             sampleFromNormalDensity(0,1), #x8
             sampleFromNormalDensity(0,1), #x9
-            sampleFromLogNormalDensity( 0, np.log(2.0)**2.0) ] # obsScale
+            sampleFromLogNormalDensity( 0, np.log(2.0)**2.0),  # obsScale
+            sampleFromNormalDensity(0,0.5) ] # concentrationRandomFactor
 
 
 def lnlikelihood(emceeParams):
     # Set up the experiment
-    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale= emceeParams
+    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF= emceeParams
 
     experToRun, name = emceeParameterSpaceToGidgetExperiment(emceeParams)
 
@@ -301,16 +304,14 @@ def lnProb(emceeParams):
 
 
 
-def run(N):
+def run(N, p00=None, nwalkers=500):
     fn = chainDirRel+'.pickle'
-    nwalkers = 2000
-    ndim =  25
-    #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
+    ndim =  26
 
-    #p00 = np.array([ .9, .1, -1., .08, .50959, .38, -.25, .7, .01 ])
-    #p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
-
-    p0 = [sampleFromPrior() for i in range(nwalkers)]
+    if p00 is not None:
+        p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
+    else:
+        p0 = [sampleFromPrior() for i in range(nwalkers)]
 
     restart = {}
     restart['currentPosition'] = p0
@@ -320,7 +321,9 @@ def run(N):
     restart['iterationCounter'] = 0
     restart['mcmcRunCounter'] = 0
 
-    updateRestart(fn,restart)
+    # Read in our past progress UNLESS we've been given a new starting location.
+    if p00 is None:
+        updateRestart(fn,restart)
 
     if restart['chain'] is not None:
         # This may save some time if you change something and forget to delete the .pickle file.
@@ -399,7 +402,7 @@ def trianglePlot(restart,fn,burnIn=0):
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9 = emceeParams
     labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$",r"$\alpha_\mu$",r"Q",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
             r"$\xi$", r"$f_\mathrm{cool}$", r"$\kappa_Z$", r"$Z_\mathrm{IGM}$", r"$M_{h,0}$", r"$\alpha_\mathrm{MRI}$", r"$\sigma$", \
-            r"$x_0$",r"$x_1$",r"$x_2$",r"$x_3$",r"$x_4$",r"$x_5$",r"$x_6$",r"$x_7$",r"$x_8$",r"$x_9$",r'Error scaling']
+            r"$x_0$",r"$x_1$",r"$x_2$",r"$x_3$",r"$x_4$",r"$x_5$",r"$x_6$",r"$x_7$",r"$x_8$",r"$x_9$",r'Error scaling',r'c offset']
     trifig = triangle.corner(restart['chain'][:,burnIn:,:].reshape((-1,ndim)), \
              labels=labels)
     trifigPrior = triangle.corner(prior, color='red', fig=trifig,plot_datapoints=False)
@@ -438,14 +441,16 @@ if __name__=="__main__":
     #x0[11] /= 1.0e12
     #maximumPosteriorProb(x0)
 
-    run(3)
+    run(2,nwalkers=5000) # First take a couple steps with a huge number of walkers to try to find something resembling the maximum.
     
+    # Load in the resulting chain:
     restart={}
     updateRestart(chainDirRel+'.pickle', restart)
     printRestart(restart)
     #trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
     #tracePlots(restart['chain'], chainDirRel+'_trace')
 
+    # Find the maximum among all models sampled so far.
     allProbs = restart['allProbs'].flatten()
     index = np.argmax(allProbs)
     print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
@@ -454,12 +459,20 @@ if __name__=="__main__":
     xmax = restart['chain'][indices[0],indices[1],:]
     print "Favorite coordinates: ", xmax
 
-    #pdb.set_trace()
+    # Now use xmax as p00 in a new chain
+    shutil.move(chainDirRel+'.pickle', chainDirRel+'_initial.pickle')
 
-    xmax[11]  /= 1.0e12
+    run(20, nwalkers=1024) # now do the real chain initialized from a hopefully-reasonable location.
+
+
+
+
+    ##pdb.set_trace()
+
+    #xmax[11]  /= 1.0e12
     
-    print "Starting a new maximization procedure at this location!"
-    maximumPosteriorProb(xmax)
+    #print "Starting a new maximization procedure at this location!"
+    #maximumPosteriorProb(xmax)
 
 
 

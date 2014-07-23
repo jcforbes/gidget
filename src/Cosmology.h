@@ -4,9 +4,9 @@
 class Cosmology {
  public:  
   // Define a cosmology given Omega_m, Omega_l (at z=0) the Hubble Constant and a starting redshift.
-  Cosmology(double omm,double oml,double h0, double sigma8, double zs, unsigned int nx)
+  Cosmology(double omm,double oml,double h0, double sigma8, double zs, unsigned int nx, double crf)
     :OmM(omm),OmL(oml),H0(h0),zstart(zs),OmK(1.-OmM-OmL),s8(sigma8),
-     rho(std::vector<double>(nx+1,0.)), mEinasto(std::vector<double>(nx+1,0.)){};  
+     rho(std::vector<double>(nx+1,0.)), mEinasto(std::vector<double>(nx+1,0.)),concentrationRandomFactor(crf){};  
   Cosmology operator=(const Cosmology&);
   double lbt(double z); // compute lookback time given a redshift
   double zLBT(double lbTime); // compute redshift given a lookback time (in seconds)
@@ -17,6 +17,7 @@ class Cosmology {
   double OmegaL() const {return OmL;} 
   double OmegaK() const {return OmK;} 
   double Hubble() const {return H0;} 
+  double crf() const {return concentrationRandomFactor;}
   double zs() const {return zstart;} 
   std::vector<double> GetRho() const {return rho;}
   double sigma8() const { return s8;} 
@@ -41,6 +42,7 @@ class Cosmology {
 
  private:
   const double OmM, OmL, OmK, H0, zstart, s8;
+  const double concentrationRandomFactor; // A factor which allows a constant multiplicative offset in the concentration of a galaxy.
   std::vector<double> rho;
   std::vector<double> mEinasto;
 };

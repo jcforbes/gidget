@@ -182,6 +182,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     double currentAccretionRate;
     double z,dz;
     double x=0.0;
+    int rfcounter=0; // debugging 
 
     // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
     // Otherwise, loop over redshift from zstart to z=0.
@@ -196,21 +197,24 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
 //        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
         double present = cos.lbt(z); // lookback time (in seconds) of the current redshift.
         double next = cos.lbt(z+dz); // this will be a larger number, i.e. a number further back in time.
-        bool drawNewNumber = (floor(Nchanges * present/duration) < floor(Nchanges * next/duration) && z<zstart && constInTime) || (floor(Nchanges * z/zstart) < floor(Nchanges * (z+dz)/zstart) && z<zstart && !constInTime) || (z-zstart)*(z+dz-zstart) <= 0.0;
+        bool drawNewNumber = (floor((Nchanges-1) * present/duration) < floor((Nchanges-1) * next/duration) && z<zstart && constInTime) || (floor((Nchanges-1) * z/zstart) < floor((Nchanges-1) * (z+dz)/zstart) && z<zstart && !constInTime);// || (z-zstart)*(z+dz-zstart) <= 0.0;
         if(drawNewNumber && !readIn) {
             x = gsl_ran_gaussian(r,1.0);
         }
         else if(drawNewNumber && readIn) {
+            std::cout << "Attempting to read in random factor "<<rfcounter<<std::endl;
+            ++rfcounter;
             std::string line;
             bool readFlag = getline(inputRandomFactors, line);
             if (!readFlag)
                 errormsg("Failed to read in random factor!");
             x = atof(line.c_str());
+            std::cout << "Successfully read in x = "<<x<<" at z="<<z<<std::endl;
         }
         // Set dMh such that the average accretion rate == the value given above by dMh.
-        currentAccretionRate = exp(log(dMh*1.0e12)-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
+        currentAccretionRate = dMh*1.0e12 * exp(-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
         
-        if(z>zstart) currentAccretionRate = dMh*1.0e12;
+        if(z>zstart) currentAccretionRate = dMh*1.0e12; // above zstart don't include any stochasticity
         MdotExt = currentAccretionRate * epsin(z,Mh,cos,zquench)*.17;
 
         if((z-zstart)*(z+dz-zstart)<=0.0)// always set MdotExt0 to be MdotExt at z=2
@@ -227,10 +231,12 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         redshifts.push_back(z); 
 
         if(MdotExt < 1.0e-10)
-            errormsg("Very low Mdot.");
+            errormsg("Very low Mdot. If you're sure it's fine edit line 233ish of AccretionHistory.cpp");
+        if(MdotExt > 1.0e6)
+            errormsg("Very large Mdot. If you're sure it's fine edit line 235ish of AccretionHistory.cpp");
 
         tabulatedAcc.push_back(MdotExt);
-        if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
+        if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<" "<<std::endl;
     }
 
         // 
@@ -350,7 +356,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     // but we don't want other functions of the cosmology to use MR cosmology
     // So, we will use hisCos to generate the histories, but simCos in the rest of the simulation.
     // If !dbg.opt(3), both will be the same (presumably WMAP5)
-    Cosmology MR(0.25, 0.75, 2.36576888e-18, 0.9, zrelax, 10); // Millenium run cosmology, use arbitrary number for nx
+    Cosmology MR(0.25, 0.75, 2.36576888e-18, 0.9, zrelax, 10, 0.0); // Millenium run cosmology, use arbitrary number for nx, concentration random factor
     Cosmology simCos(cos); // 
     Cosmology hisCos(MR);
     if(!dbg.opt(3))
@@ -531,8 +537,8 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
     double val = normalization * pow(1.0+z, alpha_z) * pow(Mh, alpha_Mh);
     if(val > ceiling) val=ceiling;
     if(z<zquench) val = 0.0;
-    if (val<0)
-        errormsg("Efficiency less than zero!");
+    if (val<0 || val>1)
+        errormsg("Nonphysical accretion efficiency!");
     return val;
 }
 

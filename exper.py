@@ -64,11 +64,11 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,5000.0,int(1e9),1.0e-3,1.0,-2.0/3.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,1.0,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,0.0,0.54,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002,.054]
+        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,5000.0,int(1e9),1.0e-3,1.0,-2.0/3.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,1.0,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,0.0,0.54,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002,.054,0.0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','muNorm','muScaling','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','xiREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC']
+        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','muNorm','muScaling','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','xiREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC','concentrationRandomFactor']
         self.keys={}
         ctr=0
         for n in self.names:
@@ -79,7 +79,7 @@ class experiment:
 
         # store the location of various expected subdirectories in the gidget distribution.
         #self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
-        self.base = '/pfs/jforbes/gidget'
+        self.base = os.environ['GIDGETDIR']
         self.src=self.base+'/src'
         self.analysis=self.base+'/analysis'
         self.bin=self.base+'/bin'
@@ -323,7 +323,7 @@ class experiment:
         return (cmds,stdo,stde,expDirs)
 
 
-    def localRun(self,nproc,startAt,maxTime=3600):
+    def localRun(self,nproc,startAt,maxTime=3600,overwrite=False):
         ''' Run the specified experiment on this machine,
         using no more than nproc processors, and starting
         at the "startAt"th run in the experiment '''
@@ -333,12 +333,14 @@ class experiment:
         ctr=0
         binary=self.bin+'/gidget'
         expDir=self.analysis+'/'+self.expName #directory for output files
-        if(os.path.exists(expDir) and startAt == 0):
+        #if(os.path.exists(expDir) and startAt == 0 and not overwrite):
+        #print "dbg: ",startAt,overwrite,glob.glob(expDir+'/*comment.txt'),os.path.exists(expDir)
+        if( len(glob.glob(expDir+'/*comment.txt'))!=0 and startAt == 0 and not overwrite ):
             print "************"
             print "This directory already contains output. CANCELLING this run!"
             print
             return
-        elif(os.path.exists(expDir) and startAt != 0):
+        elif(os.path.exists(expDir) and (startAt != 0 or overwrite or len(glob.glob(expDir+'/*comment.txt'))==0)):
             pass # let the user overwrite whatever runs they so desire.
         else:
             os.mkdir(expDir)
@@ -654,6 +656,14 @@ if __name__ == "__main__":
     re14[0].irregularVary('zrelax',[5.0],3)
     re14[0].irregularVary('dbg',2**4+2**1+2**0)
 
+
+    re15 = NewSetOfExperiments(re01,'re15')
+    re15[0].irregularVary('zstart',[4.95],3)
+    re15[0].irregularVary('zrelax',[5.0],3)
+    re15[0].irregularVary('dbg',2**4+2**1+2**0)
+    re15[0].irregularVary('Mh0',[1.0e11,1.0e12,1.0e13,1.0e14])
+    re15[0].irregularVary('accScaleLength',[.01,.03,.05,.1,.2])
+    re15[0].irregularVary('concentrationRandomFactor',[-.3,-.1,0.0,.1,.3])
 
     successTables=[]
 

@@ -203,7 +203,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         else if(drawNewNumber && readIn) {
             std::string line;
             bool readFlag = getline(inputRandomFactors, line);
-            if !readFlag
+            if (!readFlag)
                 errormsg("Failed to read in random factor!");
             x = atof(line.c_str());
         }

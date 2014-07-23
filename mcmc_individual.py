@@ -16,7 +16,7 @@ rank = comm.Get_rank()
 
 
 chainDirRel = 'mcmcChain10'
-chainDir = '/Users/jforbes/gidget/analysis/'+chainDirRel
+chainDir = '/pfs/jforbes/gidget/analysis/'+chainDirRel
 
 procCounter=0
 runNumber = 0
@@ -192,7 +192,7 @@ def lnlikelihood(emceeParams):
     experToRun, name = emceeParameterSpaceToGidgetExperiment(emceeParams)
 
     # Run the experiment.
-    experToRun.localRun(1,0,maxTime=600)
+    experToRun.localRun(1,0,maxTime=3600)
 
     output = readoutput.Experiment(name)
     output.read(keepOnly=['vPhi','colst'])
@@ -290,7 +290,7 @@ def lnProb(emceeParams):
 def run(N):
     fn = chainDirRel+'.pickle'
     nwalkers = 500
-    ndim =  27
+    ndim =  25
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
 
     #p00 = np.array([ .9, .1, -1., .08, .50959, .38, -.25, .7, .01 ])
@@ -395,13 +395,14 @@ def updateRestart(fn,restart):
             restart.update(tmp_dict)
 
 
-run(10)
+if __name__=="__main__":
+    run(30)
 
-restart={}
-updateRestart(chainDirRel+'.pickle', restart)
-printRestart(restart)
-trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
-tracePlots(restart['chain'], chainDirRel+'_trace')
+    restart={}
+    updateRestart(chainDirRel+'.pickle', restart)
+    printRestart(restart)
+    trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=5)
+    tracePlots(restart['chain'], chainDirRel+'_trace')
 
 
 

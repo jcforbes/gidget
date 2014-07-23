@@ -1,11 +1,13 @@
 #PBS -S /bin/bash
 #PBS -q hyper
-#PBS -N ch05
-#PBS -l nodes=3:ppn=32
+#PBS -N ch06
+#PBS -m abe
+#PBS -M johncforbes@gmail.com
+#PBS -l nodes=4:ppn=32
 #PBS -l walltime=72:00:00
 
 cd $PBS_O_WORKDIR
 
 module load python/2.7
-mpirun -n 96 python2.7 mcmc.py 1>>shell.out 2>>err.out
+mpirun -n 128 python2.7 mcmc.py 1>>shell.out 2>>err.out
 

@@ -6,7 +6,7 @@
 
 Cosmology Cosmology::operator=(const Cosmology& c)
 {
-    Cosmology toReturn(c.OmegaM(),c.OmegaL(),c.Hubble(), c.sigma8(), c.zs(), c.GetRho().size());
+    Cosmology toReturn(c.OmegaM(),c.OmegaL(),c.Hubble(), c.sigma8(), c.zs(), c.GetRho().size(), c.crf());
     return toReturn;
 }
 
@@ -110,7 +110,7 @@ double Cosmology::cEinasto(double Mh, double z)
     double m = log10(Mh * h() / 1.0e12);
     double b = -0.101 + 0.026*z;
     double a = 0.520 + (0.905 - 0.520)*exp(-0.617 * pow(z, 1.21));
-    return pow(10, a+b*m);
+    return pow(10, a+b*m + concentrationRandomFactor);
 }
 
 // r in cm

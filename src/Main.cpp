@@ -118,6 +118,8 @@ int main(int argc, char **argv) {
     const double tDepH2SC =          as.Set(2.0,"Depletion time (Gyr)");
     const double ZIGM =              as.Set(.002,"Z of IGM in absolute units");
     const double yREC =              as.Set(.054,"yield - mass of metals produced per gas mass locked in stars");
+    const double concentrationRandomFactor= as.Set(0.0, "Constant multiplicative offset from Mh-c relation (dex)");
+
 
     as.WriteOut();
 
@@ -128,7 +130,7 @@ int main(int argc, char **argv) {
     double H0 = 2.29e-18;
     double sigma8 = 0.796;
 
-    Cosmology cos(OmegaMatter, OmegaLambda, H0 , sigma8, zrelax, nx);
+    Cosmology cos(OmegaMatter, OmegaLambda, H0 , sigma8, zrelax, nx, concentrationRandomFactor);
 
     Debug dbg(Experimental);
 

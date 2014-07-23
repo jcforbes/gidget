@@ -629,6 +629,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
 
         if(sig[n] > 10.0) {
             std::cout << "Large sig! n, sig, dsigdt, dsigdtCool " <<n<<" "<<sig[n]<<" "<<dsigdt[n]<<" "<<dsigdtCool[n]<< std::endl;
+            errormsg("Very large velocity dispersion. Thin disk approximation definitely makes no sense here.");
         }
 
         //    colSFR[n] = dSSFdt(n);

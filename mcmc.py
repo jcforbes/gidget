@@ -1,6 +1,7 @@
 import sys
 import copy
 import emcee
+import triangle
 import pickle
 from mpi4py import MPI
 from emcee.utils import MPIPool
@@ -13,9 +14,10 @@ import matplotlib.pyplot as plt
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-
 chainDirRel = 'mcmcChain06h'
-chainDir = '/Users/jforbes/gidget/analysis/'+chainDirRel
+analysisDir = os.environ['GIDGETDIR']+'/analysis/'
+chainDir = analysisDir+chainDirRel
+
 
 procCounter=0
 runNumber = 0
@@ -320,7 +322,7 @@ def updateRestart(fn,restart):
             restart.update(tmp_dict)
 
 if __name__=="__main__":
-    run(20)
+    #run(20)
 
     #run(10)
 

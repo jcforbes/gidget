@@ -1,3 +1,4 @@
+import pdb
 import sys
 import copy
 import emcee
@@ -10,13 +11,16 @@ import exper
 import readoutput
 import os, glob
 import matplotlib.pyplot as plt
+import scipy.optimize
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chainDirRel = 'mcmcChain10'
-chainDir = '/Users/jforbes/gidget/analysis/'+chainDirRel
+#chainDirRel = 'mcmcChain10'
+chainDirRel = 'maximize10'
+analysisDir = os.environ['GIDGETDIR']+'/analysis/'
+chainDir = analysisDir+chainDirRel
 
 procCounter=0
 runNumber = 0
@@ -77,13 +81,21 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     
     name = basename+str(runNumber).zfill(3)+'_'+str(rank).zfill(5)+'_'+str(procCounter).zfill(5)
     thisExper = exper.experiment(copy.copy(name))
+
+    # We need to put the random factors for the accretion history into a file for gidget to read.
+    directory = chainDir[0:-len(chainDirRel)]+'/'+name+'/'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    np.savetxt(directory+name+'_inputRandomFactors.txt', [x0,x1,x2,x3,x4,x5,x6,x7,x8,x9]  )
+
     procCounter+=1
 
     # Set up a range of masses and computational domains
     thisExper.irregularVary('Mh0', Mh0)
     #thisExper.irregularVary('R', 50*accScaleLength/.05 *(Mh0/1.0e12)**(1.0/3.0) )
-    thisExper.irregularVary('R', 60.0)
-    thisExper.irregularVary('xmin', .001)
+    thisExper.irregularVary('R', 30.0)
+    thisExper.irregularVary('xmin', .01)
+    thisExper.irregularVary('TOL', 1.0e-3)
     thisExper.irregularVary('NChanges', 10)
 
     # Set up some common parameters.
@@ -91,6 +103,7 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     thisExper.irregularVary('alphaMRI', alphaMRI)
     thisExper.irregularVary('zstart',4.99)
     thisExper.irregularVary('zrelax',5.0)
+    thisExper.irregularVary('NPassive',2)
     thisExper.irregularVary('Noutputs',10)
 
     #thisExper.irregularVary('eta',1.5)
@@ -117,6 +130,7 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     thisExper.irregularVary('kappaMetals',kappaMetals)
     thisExper.irregularVary('ZIGM',ZIGM)
 
+    thisExper.irregularVary('whichAccretionHistory', -344)
     return thisExper, name
 
 
@@ -125,13 +139,13 @@ def lnprior(emceeParams):
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
     #fg0, muNorm, muScaling, accScaleLength, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool = emceeParams
     accum = 0.0
-    accum += lnLogNormalDensity(eta, np.log(1.5), np.log(2)**2.0)
-    accum += lnLogNormalDensity(epsff, np.log(0.01), np.log(2)**2.0)
-    accum += lnBetaDensity(fg0, 1.0, 0.1)
+    accum += lnLogNormalDensity(eta, np.log(1.5), np.log(3)**2.0)
+    accum += lnLogNormalDensity(epsff, np.log(0.01), np.log(3)**2.0)
+    accum += lnBetaDensity(fg0, 1.0, 1.0)
     accum += lnGammaDensity(muNorm, 1, 1)
     accum += lnNormalDensity(muScaling, -.5, 3.0)
     #accum += lnGammaDensity(fixedQ-1.0, 2, 2)
-    accum += lnLogNormalDensity(fixedQ, np.log(2.0), np.log(2.0)**2.0)
+    accum += lnLogNormalDensity(fixedQ, np.log(2.0), np.log(3.0)**2.0)
     #accum += lnBetaDensity(accScaleLength, .5, 9.5)
     accum += lnLogNormalDensity(accScaleLength, np.log(.05), np.log(10)**2.0)
     accum += lnBetaDensity(xiREC, .1, .9)
@@ -140,13 +154,13 @@ def lnprior(emceeParams):
     #accum += lnNormalDensity(accAlphaMh, -.25, 0.5) 
     #accum += lnBetaDensity(accCeiling, 1.0, 1.0)
     accum += lnBetaDensity(fcool, 1.0, 1.0 )
-    accum += lnLogNormalDensity(kappaMetals, 0, np.log(2)**2.0 )
+    accum += lnLogNormalDensity(kappaMetals, 0, np.log(3)**2.0 )
     #accum += lnBetaDensity(ZIGM, 2, 998)
     accum += lnLogNormalDensity(ZIGM, np.log(.0002), np.log(10.0)**2.0 )
-    accum += lnLogNormalDensity(Mh0, np.log(1.0e12), np.log(2)**2.0 )
+    accum += lnLogNormalDensity(Mh0, np.log(1.0e12), np.log(3)**2.0 )
     accum += lnBetaDensity(alphaMRI, 1, 100)
     for x in [x0,x1,x2,x3,x4,x5,x6,x7,x8,x9]:
-        accum += lnNormalDensity(x, 0, fscatter)
+        accum += lnNormalDensity(x, 0, 1)
     accum += lnLogUniformDensity(fscatter, .001, 10)
     accum += lnLogNormalDensity(obsScale, 0, np.log(2.0)**2.0)
     if not np.isfinite(accum):
@@ -158,30 +172,30 @@ def sampleFromPrior():
     r=np.sqrt(np.random.uniform())
     phi=np.random.uniform()*2.0*np.pi
     return [ \
-            sampleFromLogNormalDensity( np.log(1.5), np.log(2)**2.0), # eta
-            sampleFromLogNormalDensity( np.log(0.01), np.log(2)**2.0), # epsff
-            sampleFromBetaDensity(1.0,0.1), # fg0
+            sampleFromLogNormalDensity( np.log(1.5), np.log(3.0)**2.0), # eta
+            sampleFromLogNormalDensity( np.log(0.01), np.log(3.0)**2.0), # epsff
+            sampleFromBetaDensity(1.0,1.0), # fg0
             sampleFromGammaDensity(1.0, 1.0), # muNorm
             sampleFromNormalDensity(-.5, 3.0), # muScaling
-            sampleFromLogNormalDensity( np.log(2.0), np.log(2.0)**2.0), # fixedQ
-            sampleFromLogNormalDensity(np.log(.05),np.log(10)**2.0), # accScaleLength
+            sampleFromLogNormalDensity( np.log(2.0), np.log(3.0)**2.0), # fixedQ
+            sampleFromLogNormalDensity(np.log(.05),np.log(10.0)**2.0), # accScaleLength
             sampleFromBetaDensity(0.1, 0.9), # xiREC
             sampleFromBetaDensity( 1.0, 1.0 ), #fcool
-            sampleFromLogNormalDensity( 0, np.log(2)**2.0), # kappaMetals
+            sampleFromLogNormalDensity( 0, np.log(2.0)**2.0), # kappaMetals
             sampleFromLogNormalDensity( np.log(.0002), np.log(10.0)**2.0), # ZIGM
-            sampleFromLogNormalDensity( np.log(1.0e12), np.log(2.0)**2.0), # Mh0
+            sampleFromLogNormalDensity( np.log(1.0e12), np.log(3.0)**2.0), # Mh0
             sampleFromBetaDensity(1, 100), # alphaMRI
             fscatter,
-            sampleFromNormalDensity(0,fscatter), #x0
-            sampleFromNormalDensity(0,fscatter), #x1
-            sampleFromNormalDensity(0,fscatter), #x2
-            sampleFromNormalDensity(0,fscatter), #x3
-            sampleFromNormalDensity(0,fscatter), #x4
-            sampleFromNormalDensity(0,fscatter), #x5
-            sampleFromNormalDensity(0,fscatter), #x6
-            sampleFromNormalDensity(0,fscatter), #x7
-            sampleFromNormalDensity(0,fscatter), #x8
-            sampleFromNormalDensity(0,fscatter), #x9
+            sampleFromNormalDensity(0,1), #x0
+            sampleFromNormalDensity(0,1), #x1
+            sampleFromNormalDensity(0,1), #x2
+            sampleFromNormalDensity(0,1), #x3
+            sampleFromNormalDensity(0,1), #x4
+            sampleFromNormalDensity(0,1), #x5
+            sampleFromNormalDensity(0,1), #x6
+            sampleFromNormalDensity(0,1), #x7
+            sampleFromNormalDensity(0,1), #x8
+            sampleFromNormalDensity(0,1), #x9
             sampleFromLogNormalDensity( 0, np.log(2.0)**2.0) ] # obsScale
 
 
@@ -192,7 +206,7 @@ def lnlikelihood(emceeParams):
     experToRun, name = emceeParameterSpaceToGidgetExperiment(emceeParams)
 
     # Run the experiment.
-    experToRun.localRun(1,0,maxTime=600)
+    experToRun.localRun(1,0,maxTime=3600)
 
     output = readoutput.Experiment(name)
     output.read(keepOnly=['vPhi','colst'])
@@ -289,8 +303,8 @@ def lnProb(emceeParams):
 
 def run(N):
     fn = chainDirRel+'.pickle'
-    nwalkers = 500
-    ndim =  27
+    nwalkers = 2000
+    ndim =  25
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
 
     #p00 = np.array([ .9, .1, -1., .08, .50959, .38, -.25, .7, .01 ])
@@ -307,6 +321,12 @@ def run(N):
     restart['mcmcRunCounter'] = 0
 
     updateRestart(fn,restart)
+
+    if restart['chain'] is not None:
+        # This may save some time if you change something and forget to delete the .pickle file.
+        restartedShape = np.shape(restart['chain'])
+        assert restartedShape[0] == nwalkers
+        assert restartedShape[1] == ndim
 
     global runNumber
     runNumber = restart['mcmcRunCounter']
@@ -330,15 +350,17 @@ def run(N):
         restart['accept'] = sampler.acceptance_fraction[:]  # acceptance frac for each walker.
         restart['currentPosition'] = pos # same shape as p0: nwalkers x ndim
         restart['state'] = state # random number generator state
-        restart['prob'] = prob # nwalkers x dim
+        restart['prob'] = prob # nwalkers x __
         if restart['chain'] is None:
             restart['chain'] = np.expand_dims(sampler.chain[:,0,:],1) # nwalkers x niterations x ndim
+            restart['allProbs'] = np.expand_dims(prob,1)  # nwalkers x niterations
         else:
             print np.shape(restart['chain']), np.shape(sampler.chain[:,-1,:]), np.shape(sampler.chain)
             print restart['mcmcRunCounter'], restart['iterationCounter']
             #restart['chain'] = np.concatenate((restart['chain'], sampler.chain[:,-1,:]), axis=1)
             print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(np.expand_dims(pos,1))
             restart['chain'] = np.concatenate((restart['chain'], np.expand_dims(pos, 1)),axis=1)
+            restart['allProbs'] = np.concatenate((restart['allProbs'], np.expand_dims(prob, 1)),axis=1)
 
         
         saveRestart(fn,restart)
@@ -394,14 +416,51 @@ def updateRestart(fn,restart):
             tmp_dict = pickle.load(f)
             restart.update(tmp_dict)
 
+def maximumPosteriorProb(x0):
+    #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale= emceeParams
+    def toMinimize(x):
+        xx = copy.deepcopy(x)
+        xx[11] = xx[11]*1.0e12
+        prob = lnProb(xx)
+        print "Found ln prob = ",prob
+        print "From x = ",x
+        if not np.isfinite(prob) or prob<-1.0e30:
+            prob=-1.0e30
+        return -prob
+    result = scipy.optimize.minimize(toMinimize, x0)
+    print result
+    return result
 
-run(10)
+if __name__=="__main__":
 
-restart={}
-updateRestart(chainDirRel+'.pickle', restart)
-printRestart(restart)
-trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
-tracePlots(restart['chain'], chainDirRel+'_trace')
+    ##x0 = [1.5, 0.01, .99, .5, -2./3., 2, .03, .01, .1, 1.0, .002, 1.0, 0.01, .45, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0]
+    #x0 = sampleFromPrior()
+    #x0[11] /= 1.0e12
+    #maximumPosteriorProb(x0)
+
+    run(3)
+    
+    restart={}
+    updateRestart(chainDirRel+'.pickle', restart)
+    printRestart(restart)
+    #trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
+    #tracePlots(restart['chain'], chainDirRel+'_trace')
+
+    allProbs = restart['allProbs'].flatten()
+    index = np.argmax(allProbs)
+    print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
+    print allProbs[index]
+    indices = np.unravel_index(index, np.shape(restart['allProbs']))
+    xmax = restart['chain'][indices[0],indices[1],:]
+    print "Favorite coordinates: ", xmax
+
+    #pdb.set_trace()
+
+    xmax[11]  /= 1.0e12
+    
+    print "Starting a new maximization procedure at this location!"
+    maximumPosteriorProb(xmax)
+
 
 
 

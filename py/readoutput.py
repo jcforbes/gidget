@@ -35,7 +35,7 @@ cmPer = plt.get_cmap('spring')
 
 outward = [0,1,-1,2,-2,3,-3,4,-4]
 
-gidgetdir = '/pfs/jforbes/gidget/'
+gidgetdir = os.environ['GIDGETDIR']+'/'
 
 class RadialFunction:
     def __init__(self, arr, name, cgsConv=1.0, sensibleConv=1.0,
@@ -148,7 +148,7 @@ class SetOfStellarPops:
 
 class TimeFunction:
     def __init__(self,arr,name,cgsConv=1.0,sensibleConv=1.0,texString='No label provided',log=True,theRange=None):
-        self.arr = arr
+        self.arr = np.array(arr)
         self.name = name
         self.cgsConv = cgsConv
         self.sensibleConv = sensibleConv
@@ -261,7 +261,8 @@ class SingleModel:
                     'Noutputs','accNorm','accAlphaZ','accAlphaMh', \
                     'accCeiling','fscatter','invMassRatio','fcool', \
                     'whichAccretionProfile','alphaAccretionProfile', \
-                    'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC']
+                    'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC', \
+                    'concentrationRandomFactor']
 #            paramnames = ['nx','eta','epsff','tauHeat','analyticQ', \
 #                    'cosmologyOn','xmin','NActive','NPassive','vphiR', \
 #                    'R','gasTemp','Qlim','fg0','phi0', \
@@ -284,7 +285,7 @@ class SingleModel:
         for par in self.p.keys():
             self.pLog[par] = True # set all parameters to be logarithmic by default
         # except for the following
-        for par in ['xiREC','b','innerPowerLaw','zrelax','zstart','zquench']:
+        for par in ['xiREC','b','innerPowerLaw','zrelax','zstart','zquench','concentrationRandomFactor','accAlphZ','accAlphaMh']:
             self.pLog[par] = False
         auxparams=[]
         with open(self.path+'_aux.txt','r') as aux:
@@ -350,12 +351,12 @@ class SingleModel:
 
         self.var['step'] = TimeFunction( \
                 np.copy(self.evarray[:,0]), \
-                'step',1,1,'Number of Steps')
+                'step',1,1,'Number of Steps',log=False)
         self.var['t'] = TimeFunction(\
                 np.copy(self.evarray[:,1]),'t', \
                 2.0*pi*cmperkpc*self.p['R']/(1.0e5*self.p['vphiR']) ,\
                 2.0*pi*cmperkpc*self.p['R']/(1.0e5*self.p['vphiR']*speryear*1.0e9), \
-                'Time since zstart (Gyr)')
+                'Time since zstart (Gyr)',log=False)
         self.nt = len(self.evarray[:,1])
         self.var['z'] = TimeFunction(np.copy(self.evarray[:,9]),'z',1,1,'z')
         self.var['r'] = RadialFunction( \
@@ -659,6 +660,7 @@ class SingleModel:
             else:
                 mb.append(0)
                 rs.append(0)
+                fc.append(0)
                 failures.append(1)
         # End loop over time.
         return np.array(mb)/gpermsun,failures,fc,rs
@@ -690,6 +692,15 @@ def Nearest(arr,val):
     index = (np.abs(arr-val)).argmin()
     return index,arr[index]
 
+def reachedRedshiftZero(fn):
+    ''' Read in the last few lines of the standard output and check whether the code successfully reached redshift zero.
+        This can be used to check whether a model has finshed successfully, or whether it's either still running or exited early.'''
+    with open(fn+'_stdo.txt','r') as f:
+        f.seek(-200, 2)
+        lastFewLines = f.read(200)
+        return 'Reached redshift zero' in lastFewLines
+
+
 class Experiment:
     def __init__(self,name):
         '''Collect every model in every experiment matching name. '''
@@ -700,7 +711,11 @@ class Experiment:
         self.models=[]
         for i,fn in enumerate(fnames):
             fnames[i] = fn[:-12] #
-            if(os.stat(fnames[i]+'_stde_aux.txt')[6]==0):
+            # Only include a model if it has not left an error message AND if it has reached redshift zero.
+            # The former should be a subset of the latter.
+            # I recently added the latter to allow the analysis of large experiments which are still running,
+            #    excluding the models that are running as all models are read in.
+            if(os.stat(fnames[i]+'_stde_aux.txt')[6]==0) and reachedRedshiftZero(fnames[i]):
                 self.models.append(SingleModel(fnames[i]))
             else:
                 pass
@@ -808,6 +823,10 @@ class Experiment:
                 #plotModels = np.random.choice(plotModels,size=10,replace=False)
                 plotModels = [random.choice(plotModels) for qq in range(10)]
 
+            if v=='vPhi':
+                rotCurve = np.loadtxt('../Bhattacharjee2014.txt',skiprows=15)
+                rc = rotCurve[51:101, 2:5]
+
 
             for ti in timeIndex:
                 fig,ax = plt.subplots(1,1)
@@ -824,12 +843,16 @@ class Experiment:
                 ax.set_xlabel(model.get(indVar).texString)
                 ax.set_ylabel(model.get(v).texString)
                 sc = ax.scatter(r[:,0],theVar[:,0],c=colors,cmap=cm,vmin=overallColorRange[0],vmax=overallColorRange[1],lw=0,s=4)
-                if counter==0:
-                    cbar = plt.colorbar(sc,ax=ax)
-                    if(log):
-                        cbar.set_label(r'$\log_{10}$'+colorby)
-                    else:
-                        cbar.set_label(colorby)
+                if v=='vPhi':
+                    ax.errorbar(rc[:,0], rc[:,1], yerr=rc[:,2],color='k',lw=3)
+                if v=='colst':
+                    ax.errorbar([8.3], [38.0], yerr=[4.0],color='k')
+                #if counter==0:
+                cbar = plt.colorbar(sc,ax=ax)
+                if(log):
+                    cbar.set_label(r'$\log_{10}$'+colorby)
+                else:
+                    cbar.set_label(colorby)
                 normColors = (colors - float(overallColorRange[0]))/ float(overallColorRange[1]-overallColorRange[0])
                 theRGB = cm(normColors)
                 lwnorm = 1.0 + log10(float(len(self.models)))
@@ -1019,6 +1042,18 @@ class Experiment:
             zind = [Nearest(z,zl)[0] for zl in zs]
             correspondingTs = [t[zi] for zi in zind]
             lwnorm = 1.0 + log10(float(len(self.models)))
+
+            if v=='BT':
+                ax.errorbar([t[-1]*.97], [0.150 + (0.028-0.019)/2.0], yerr=[.028],color='k',lw=3)
+            if v=='sfr':
+                ax.errorbar([t[-1]*.97], [1.65], yerr=[0.19],color='k',lw=3)
+            if v=='mstar':
+                ax.errorbar([t[-1]*.97], [6.08e10], yerr=[1.14e10],color='k',lw=3)
+            if v=='scaleLength':
+                ax.errorbar([t[-1]*.97], [2.15], yerr=[0.14],color='k',lw=3)
+
+                
+
             for j,model in enumerate(self.models):
                 #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
                 if(len(model.getData('t')) != len(theVar[j])):
@@ -1097,17 +1132,23 @@ class Experiment:
         construction = np.array(construction)
         #theRange = np.percentile(construction,(.2,99.8))
         if log:
-            sgn = np.sign(construction)
-            npmax = np.max(construction)
-            if(npmax>0):
-                minAllowed = np.min(construction[sgn==1])
-            else:
-                minAllowed = npmax*1.0e-7
-            construction[sgn!=1] = minAllowed
+            try:
+                sgn = np.sign(construction)
+                npmax = np.max(construction)
+                if(npmax>0):
+                    minAllowed = np.min(construction[sgn==1])
+                else:
+                    minAllowed = npmax*1.0e-7
+                construction[sgn!=1] = minAllowed
+            except:
+                pdb.set_trace() # Something is going wrong in the above and I don't know what!
         if nameIsParam:
             theRange = [np.min(construction),np.max(construction)]
         elif self.models[0].get(name).theRange is None:
-            theRange = [np.min(construction),np.max(construction)]
+            try:
+                theRange = [np.min(construction),np.max(construction)]
+            except:
+                pdb.set_trace()
         else:
             theRange= self.models[0].get(name).theRange
 

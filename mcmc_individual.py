@@ -306,16 +306,7 @@ def lnProb(emceeParams):
 
 def run(N, p00=None, nwalkers=500):
     fn = chainDirRel+'.pickle'
-<<<<<<< HEAD
-    nwalkers = 500
-    ndim =  25
-    #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
-
-    #p00 = np.array([ .9, .1, -1., .08, .50959, .38, -.25, .7, .01 ])
-    #p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
-=======
     ndim =  26
->>>>>>> 71a9830e92e29d90982ec78e921d58accadea9c4
 
     if p00 is not None:
         p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]

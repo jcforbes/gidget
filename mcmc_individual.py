@@ -1,3 +1,4 @@
+import shutil
 import pdb
 import sys
 import copy
@@ -18,7 +19,7 @@ rank = comm.Get_rank()
 
 
 #chainDirRel = 'mcmcChain10'
-chainDirRel = 'mcmcIndFromMax01'
+chainDirRel = 'mcmcIndFromMax02'
 analysisDir = os.environ['GIDGETDIR']+'/analysis/'
 chainDir = analysisDir+chainDirRel
 
@@ -328,8 +329,9 @@ def run(N, p00=None, nwalkers=500):
     if restart['chain'] is not None:
         # This may save some time if you change something and forget to delete the .pickle file.
         restartedShape = np.shape(restart['chain'])
+        print restartedShape, nwalkers, ndim
         assert restartedShape[0] == nwalkers
-        assert restartedShape[1] == ndim
+        assert restartedShape[2] == ndim
 
     global runNumber
     runNumber = restart['mcmcRunCounter']
@@ -381,7 +383,8 @@ def tracePlots(chain, fn):
         i = np.mod(dim, nr)
         j = ( dim -i )/nr
         for walker in range(np.shape(chain)[0]):
-            ax[i,j].plot(chain[walker,:,dim],alpha=.3,ls='--')
+            if np.random.uniform(0,1) < 1.0e-3: # print every thousand-ish
+                ax[i,j].plot(chain[walker,:,dim],alpha=.3,ls='--')
 
     plt.savefig(fn+'.png')
 
@@ -403,9 +406,10 @@ def trianglePlot(restart,fn,burnIn=0):
     labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$",r"$\alpha_\mu$",r"Q",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
             r"$\xi$", r"$f_\mathrm{cool}$", r"$\kappa_Z$", r"$Z_\mathrm{IGM}$", r"$M_{h,0}$", r"$\alpha_\mathrm{MRI}$", r"$\sigma$", \
             r"$x_0$",r"$x_1$",r"$x_2$",r"$x_3$",r"$x_4$",r"$x_5$",r"$x_6$",r"$x_7$",r"$x_8$",r"$x_9$",r'Error scaling',r'c offset']
+
     trifig = triangle.corner(restart['chain'][:,burnIn:,:].reshape((-1,ndim)), \
              labels=labels)
-    trifigPrior = triangle.corner(prior, color='red', fig=trifig,plot_datapoints=False)
+    trifigPrior = triangle.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig)
     trifig.savefig(fn)
 
 def saveRestart(fn,restart):
@@ -441,14 +445,22 @@ if __name__=="__main__":
     #x0[11] /= 1.0e12
     #maximumPosteriorProb(x0)
 
-    run(2,nwalkers=5000) # First take a couple steps with a huge number of walkers to try to find something resembling the maximum.
+    xmax = [  1.65513740e+00,   1.48901222e-02,   4.16536362e-01,   1.47648169e+00,
+             -1.89256167e-02,   2.61430452e+00,   6.91524490e-03,   3.19210057e-02,
+              5.43699341e-01,   2.18900245e+00,   3.26680422e-05,   1.23144143e+12,
+              7.41721728e-03,   2.97664659e-03,   1.00254762e+00,  -7.73690253e-01,
+             -4.04853927e-01,  -1.84838373e+00,  -4.47083465e-01,   1.36789494e-01,
+             -8.46508322e-01,   4.17355813e-01,  -2.43255337e-01,   1.53598702e+00,
+              4.47703558e+00,   5.92558508e-01] # Manually add this from an initial run of ~5 iterations over 5000 walkers starting from samples of the prior.
+
+    #run(100,nwalkers=1024, p00=None) 
     
     # Load in the resulting chain:
     restart={}
     updateRestart(chainDirRel+'.pickle', restart)
     printRestart(restart)
-    #trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
-    #tracePlots(restart['chain'], chainDirRel+'_trace')
+    trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
+    tracePlots(restart['chain'], chainDirRel+'_trace')
 
     # Find the maximum among all models sampled so far.
     allProbs = restart['allProbs'].flatten()
@@ -460,11 +472,9 @@ if __name__=="__main__":
     print "Favorite coordinates: ", xmax
 
     # Now use xmax as p00 in a new chain
-    shutil.move(chainDirRel+'.pickle', chainDirRel+'_initial.pickle')
+    #shutil.move(chainDirRel+'.pickle', chainDirRel+'_initial.pickle')
 
-    run(20, nwalkers=1024) # now do the real chain initialized from a hopefully-reasonable location.
-
-
+    #run(20, nwalkers=1024, p00=xmax) # now do the real chain initialized from a hopefully-reasonable location.
 
 
     ##pdb.set_trace()
@@ -473,13 +483,4 @@ if __name__=="__main__":
     
     #print "Starting a new maximization procedure at this location!"
     #maximumPosteriorProb(xmax)
-
-
-
-
-
-
-
-
-
 

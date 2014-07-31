@@ -865,7 +865,7 @@ class Experiment:
                         # a unique fill between each quantile
                         for k in range(len(percentiles)-1):
                             #ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=cmPer(percentiles[k]/100.0))
-                            ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=cmPer(float(k+.5)/float(len(percentiles))))
+                            ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=cmPer(float(k+.5)/float(len(percentiles))),alpha=0.3)
                     else:
                         # symmetric fills around the central quantile.
                         v2 = (len(percentiles)-1)/2
@@ -1000,7 +1000,7 @@ class Experiment:
                 plt.close(fig)
             makeMovies(dirname[7:])
 
-    def timePlot(self,variables=None,colorby=None):
+    def timePlot(self,variables=None,colorby=None,perc=None):
         if(variables is None):
             variables = self.models[0].getTimeFunctions()
         time,fail,log,_ = self.constructQuantity('t')
@@ -1052,7 +1052,9 @@ class Experiment:
             if v=='scaleLength':
                 ax.errorbar([t[-1]*.97], [2.15], yerr=[0.14],color='k',lw=3)
 
-                
+            allData = np.zeros( (len(self.models), self.models[0].nt) )
+            if perc is not None:
+                qvecs = np.percentile(np.array(theVar), perc, axis=0)
 
             for j,model in enumerate(self.models):
                 #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
@@ -1068,6 +1070,23 @@ class Experiment:
                                 vmin=overallColorRange[0],
                                 vmax=overallColorRange[1],
                                 cmap=cm)
+
+
+            # fill in some percentiles
+            if(perc is not None):
+                if(len(perc) < len(self.models)):
+                    if(len(perc) % 2 == 0):
+                        # a unique fill between each quantile
+                        for k in range(len(perc)-1):
+                            ax.fill_between(t, qvecs[k,:], qvecs[k+1,:], facecolor=cmPer(float(k+.5)/float(len(perc))),alpha=0.3)
+                    else:
+                        # symmetric fills around the central quantile.
+                        v2 = (len(perc)-1)/2
+                        for k in range(v2):
+                            col = cmPer(float(k+.5)/float(v2+.5))
+                            ax.fill_between(t, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
+                            ax.fill_between(t, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
+
                     
             cbar = plt.colorbar(sc,ax=ax)
             if(log):

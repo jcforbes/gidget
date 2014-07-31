@@ -28,6 +28,9 @@ def makeThePlots(args):
         for cb in args.colorby:
             if(args.time):
                 theExp.timePlot(colorby=cb)
+                if(args.percentiles):
+                    per = [2.5, 16, 50, 84, 97.5]
+                    theExp.timePlot(colorby=cb, perc=per)
             if(args.radial):
                 theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=cb,logR=args.logR)
             if(args.scaled):

@@ -11,15 +11,18 @@ import numpy as np
 import exper
 import readoutput
 import os, glob
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import scipy.optimize
+import time
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
 #chainDirRel = 'mcmcChain10'
-chainDirRel = 'mcmcIndFromMax02'
+chainDirRel = 'mcmcIndFromMax03'
 analysisDir = os.environ['GIDGETDIR']+'/analysis/'
 chainDir = analysisDir+chainDirRel
 
@@ -67,7 +70,7 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
 
 
     # unpack emceeParams
-    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF = emceeParams
+    eta, epsff, fg0, muNorm, muMhScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF, muHgScaling = emceeParams
     #fg0, muNorm, muScaling, accScaleLength, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool = emceeParams
 
     # if any of the following assertions fail, you should probably adjust / check the prior
@@ -118,7 +121,8 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     thisExper.irregularVary('epsff',epsff)
     thisExper.irregularVary('fg0',fg0)
     thisExper.irregularVary('muNorm',muNorm)
-    thisExper.irregularVary('muScaling',muScaling)
+    thisExper.irregularVary('muMhScaling',muMhScaling)
+    thisExper.irregularVary('muHgScaling',muHgScaling)
     thisExper.irregularVary('fixedQ',fixedQ)
     thisExper.irregularVary('accScaleLength',accScaleLength)
     thisExper.irregularVary('xiREC',xiREC)
@@ -137,7 +141,7 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
 
 
 def lnprior(emceeParams):
-    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF = emceeParams
+    eta, epsff, fg0, muNorm, muMhScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF, muHgScaling = emceeParams
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool, kappaMetals, ZIGM = emceeParams
     #fg0, muNorm, muScaling, accScaleLength, accNorm, accAlphaZ, accAlphaMh, accCeiling, fcool = emceeParams
     accum = 0.0
@@ -145,7 +149,8 @@ def lnprior(emceeParams):
     accum += lnLogNormalDensity(epsff, np.log(0.01), np.log(3)**2.0)
     accum += lnBetaDensity(fg0, 1.0, 1.0)
     accum += lnGammaDensity(muNorm, 1, 1)
-    accum += lnNormalDensity(muScaling, -.5, 3.0**2.0)
+    accum += lnNormalDensity(muMhScaling, -.5, 3.0**2.0)
+    accum += lnNormalDensity(muHgScaling, 0.0, 2.0**2.0)
     #accum += lnGammaDensity(fixedQ-1.0, 2, 2)
     accum += lnLogNormalDensity(fixedQ, np.log(2.0), np.log(3.0)**2.0)
     #accum += lnBetaDensity(accScaleLength, .5, 9.5)
@@ -179,7 +184,7 @@ def sampleFromPrior():
             sampleFromLogNormalDensity( np.log(0.01), np.log(3.0)**2.0), # epsff
             sampleFromBetaDensity(1.0,1.0), # fg0
             sampleFromGammaDensity(1.0, 1.0), # muNorm
-            sampleFromNormalDensity(-.5, 3.0**2.0), # muScaling
+            sampleFromNormalDensity(-.5, 3.0**2.0), # muMhScaling
             sampleFromLogNormalDensity( np.log(2.0), np.log(3.0)**2.0), # fixedQ
             sampleFromLogNormalDensity(np.log(.05),np.log(10.0)**2.0), # accScaleLength
             sampleFromBetaDensity(0.1, 0.9), # xiREC
@@ -200,17 +205,20 @@ def sampleFromPrior():
             sampleFromNormalDensity(0,1), #x8
             sampleFromNormalDensity(0,1), #x9
             sampleFromLogNormalDensity( 0, np.log(2.0)**2.0),  # obsScale
-            sampleFromNormalDensity(0,0.5) ] # concentrationRandomFactor
+            sampleFromNormalDensity(0,0.5),  # concentrationRandomFactor
+            sampleFromNormalDensity(0.0, 2.0**2.0) ] # muHgScaling
 
 
 def lnlikelihood(emceeParams):
     # Set up the experiment
-    eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF= emceeParams
+    eta, epsff, fg0, muNorm, muMhScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsScale, conRF, muHgScaling= emceeParams
 
     experToRun, name = emceeParameterSpaceToGidgetExperiment(emceeParams)
 
     # Run the experiment.
+    time0 = time.clock()
     experToRun.localRun(1,0,maxTime=3600)
+    time1 = time.clock()
 
     output = readoutput.Experiment(name)
     output.read(keepOnly=['vPhi','colst'])
@@ -292,6 +300,7 @@ def lnlikelihood(emceeParams):
     accum += -0.5*((mean-BT)/0.028)**2.0
 
     
+    print "With params ",emceeParams," we get BT=",BT," sfr=",sfr,' rScale=',rScale,' mstar=',mstar," and total lnlikelihood = ",accum, " requring a model runtime of ",(time1-time0)/60.0,"minutes"
 
     return accum        
 
@@ -307,7 +316,7 @@ def lnProb(emceeParams):
 
 def run(N, p00=None, nwalkers=500):
     fn = chainDirRel+'.pickle'
-    ndim =  26
+    ndim =  27
 
     if p00 is not None:
         p0 = [p00*(1.0+0.2*np.random.randn( ndim )) for i in range(nwalkers)]
@@ -383,7 +392,7 @@ def tracePlots(chain, fn):
         i = np.mod(dim, nr)
         j = ( dim -i )/nr
         for walker in range(np.shape(chain)[0]):
-            if np.random.uniform(0,1) < 1.0e-3: # print every thousand-ish
+            if np.random.uniform(0,1) < 1.0e-2: # print every hundredth-ish
                 ax[i,j].plot(chain[walker,:,dim],alpha=.3,ls='--')
 
     plt.savefig(fn+'.png')
@@ -403,13 +412,23 @@ def trianglePlot(restart,fn,burnIn=0):
     shape = np.shape(restart['chain'])
     ndim = shape[2]
     #eta, epsff, fg0, muNorm, muScaling, fixedQ, accScaleLength, xiREC, fcool, kappaMetals, ZIGM, Mh0, alphaMRI, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9 = emceeParams
-    labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$",r"$\alpha_\mu$",r"Q",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
+    labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$",r"$\mu_{M_h}$",r"Q",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
             r"$\xi$", r"$f_\mathrm{cool}$", r"$\kappa_Z$", r"$Z_\mathrm{IGM}$", r"$M_{h,0}$", r"$\alpha_\mathrm{MRI}$", r"$\sigma$", \
-            r"$x_0$",r"$x_1$",r"$x_2$",r"$x_3$",r"$x_4$",r"$x_5$",r"$x_6$",r"$x_7$",r"$x_8$",r"$x_9$",r'Error scaling',r'c offset']
+            r"$x_0$",r"$x_1$",r"$x_2$",r"$x_3$",r"$x_4$",r"$x_5$",r"$x_6$",r"$x_7$",r"$x_8$",r"$x_9$",r'Error scaling',r'c offset', r'$\mu_{h_g}$']
 
-    trifig = triangle.corner(restart['chain'][:,burnIn:,:].reshape((-1,ndim)), \
-             labels=labels)
-    trifigPrior = triangle.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig)
+    sampleRed = restart['chain'][:,burnIn:,:].reshape((-1,ndim))
+
+    extents=[]
+    for i in range(np.shape(sampleRed)[1]):
+        mi = np.min(sampleRed[:,i])
+        ma = np.max(sampleRed[:,i])
+        if(mi==ma):
+            extents.append([mi-1,ma+1])
+        else:
+            extents.append([mi,ma])
+
+    trifig = triangle.corner(sampleRed, labels=labels, extents=extents)
+    trifigPrior = triangle.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig, extents=extents)
     trifig.savefig(fn)
 
 def saveRestart(fn,restart):
@@ -453,13 +472,13 @@ if __name__=="__main__":
              -8.46508322e-01,   4.17355813e-01,  -2.43255337e-01,   1.53598702e+00,
               4.47703558e+00,   5.92558508e-01] # Manually add this from an initial run of ~5 iterations over 5000 walkers starting from samples of the prior.
 
-    #run(100,nwalkers=1024, p00=None) 
-    
+    #run(100, nwalkers=1024, p00=None) 
+     
     # Load in the resulting chain:
     restart={}
     updateRestart(chainDirRel+'.pickle', restart)
     printRestart(restart)
-    trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=30)
+    trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=60)
     tracePlots(restart['chain'], chainDirRel+'_trace')
 
     # Find the maximum among all models sampled so far.

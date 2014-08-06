@@ -24,7 +24,7 @@ class DiskContents {
                double sigth,double epsff,
 	           double ql,double tol,
                bool aq, double mlf,
-               double mlfScal,
+               double mlfMhScal, double mlfHgScal,
                Cosmology&,Dimensions&,
                FixedMesh&,Debug&,
     	       double thk,bool migratePassive,
@@ -309,7 +309,8 @@ class DiskContents {
     Qlim, // Q below which transient spirals heat the stellar disk
     thickness, // correction to Q owing to finite thickness
     constMassLoadingFactor, 
-    mlfScaling,
+    mlfMhScaling,
+    mlfHgScaling,
 
     tDepH2SC,
     fH2Min,

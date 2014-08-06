@@ -253,7 +253,7 @@ class SingleModel:
                     'cosmologyOn','xmin','NActive','NPassive','vphiR', \
                     'R','gasTemp','Qlim','fg0','phi0', \
                     'zstart','tmax','stepmax','TOL','muNorm', \
-                    'muScaling','b','innerPowerLaw','softening', \
+                    'muMhScaling','b','innerPowerLaw','softening', \
                     'diskScaleLength','whichAccretionHistory','alphaMRI' \
                     ,'thickness','migratePassive','fixedQ','kappaMetals', \
                     'Mh0','minSigSt','NChanges','dbg','accScaleLength', \
@@ -262,7 +262,7 @@ class SingleModel:
                     'accCeiling','fscatter','invMassRatio','fcool', \
                     'whichAccretionProfile','alphaAccretionProfile', \
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC', \
-                    'concentrationRandomFactor']
+                    'concentrationRandomFactor','muHgScaling']
 #            paramnames = ['nx','eta','epsff','tauHeat','analyticQ', \
 #                    'cosmologyOn','xmin','NActive','NPassive','vphiR', \
 #                    'R','gasTemp','Qlim','fg0','phi0', \
@@ -1055,6 +1055,7 @@ class Experiment:
             allData = np.zeros( (len(self.models), self.models[0].nt) )
             if perc is not None:
                 qvecs = np.percentile(np.array(theVar), perc, axis=0)
+                qvecs = np.array(qvecs)
 
             for j,model in enumerate(self.models):
                 #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
@@ -1084,6 +1085,7 @@ class Experiment:
                         v2 = (len(perc)-1)/2
                         for k in range(v2):
                             col = cmPer(float(k+.5)/float(v2+.5))
+                            #pdb.set_trace()
                             ax.fill_between(t, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
                             ax.fill_between(t, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
 

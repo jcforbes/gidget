@@ -322,7 +322,7 @@ def updateRestart(fn,restart):
             restart.update(tmp_dict)
 
 if __name__=="__main__":
-    #run(20)
+    run(40)
 
     #run(10)
 

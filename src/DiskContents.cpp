@@ -109,7 +109,8 @@ void DiskContents::store(Initializer& in)
 DiskContents::DiskContents(double tH, double eta,
         double sflr,double epsff,
         double ql,double tol,
-        bool aq, double mlf, double mlfScal,
+        bool aq, double mlf, double mlfMhScal,
+        double mlfHgScal,
         Cosmology& c,Dimensions& d,
         FixedMesh& m, Debug& ddbg,
         double thk, bool migP,
@@ -125,7 +126,8 @@ DiskContents::DiskContents(double tH, double eta,
     XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
     cos(c),tauHeat(tH),sigth(sflr),
     EPS_ff(epsff),ETA(eta),constMassLoadingFactor(mlf),
-    mlfScaling(mlfScal),
+    mlfMhScaling(mlfMhScal),
+    mlfHgScaling(mlfHgScal),
     //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
     //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
     spsActive(std::vector<StellarPop*>(0)),
@@ -1642,7 +1644,7 @@ double DiskContents::ComputeColSFR(double Mh, double z)
 }
 void DiskContents::ComputeMassLoadingFactor(double Mh)
 {
-    double theCurrentMLF = constMassLoadingFactor*pow(Mh/1.0e12, mlfScaling);
+    double theCurrentMLF = constMassLoadingFactor*pow(Mh/1.0e12, mlfMhScaling);
     for(unsigned int n=1; n<=nx; ++n) {
         double hg = hGas(n); // gas scale height in cm
         double fr = 1.5;
@@ -1667,7 +1669,7 @@ void DiskContents::ComputeMassLoadingFactor(double Mh)
             errormsg("probability not between 0 and 1");
         if(dbg.opt(0)) {
 //            ColOutflows[n] = constMassLoadingFactor*colSFR[n];
-            ColOutflows[n] = theCurrentMLF*colSFR[n];
+            ColOutflows[n] = theCurrentMLF*colSFR[n] * pow(hg / (100.0 * cmperpc), mlfHgScaling);
         }
         else {
             ColOutflows[n] = (1-1.0/fr) * mBubble[n] *fH2[n]*col[n]/(tauGMC * mGMC) * (1.0 - pConfined)

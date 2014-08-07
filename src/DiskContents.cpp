@@ -2150,7 +2150,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
         wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
         wrt.push_back(Q_R);wrt.push_back(Q_WS);wrt.push_back(Q_RW);          // 25..27
-        wrt.push_back(verify);wrt.push_back(colSFR[n]);wrt.push_back(accProf[n]*accr.AccOfZ(z)); // 28..30
+        wrt.push_back(sig_stZ[n]);wrt.push_back(colSFR[n]);wrt.push_back(accProf[n]*accr.AccOfZ(z)); // 28..30
         wrt.push_back(dQdS[n]);wrt.push_back(dQds[n]);wrt.push_back(dQdSerr[n]); // 31..33
         wrt.push_back(dQdserr[n]);wrt.push_back(yy);wrt.push_back(torqueErr); // 34..36
         wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back((MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*dim.MdotExt0*speryear/MSol); // 37..39

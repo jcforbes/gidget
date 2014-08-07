@@ -64,7 +64,7 @@ def sampleFromLogUniformDensity(a,b):
 
 
 # Define the base experiment we want.
-def emceeParameterSpaceToGidgetExperiment(emceeParams):
+def emceeParameterSpaceToGidgetExperiment(emceeParams,name=None):
     global procCounter
     global runNumber
 
@@ -83,7 +83,8 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams):
     # Create experiment
     basename = chainDirRel+'_'
     
-    name = basename+str(runNumber).zfill(3)+'_'+str(rank).zfill(5)+'_'+str(procCounter).zfill(5)
+    if name is None:
+        name = basename+str(runNumber).zfill(3)+'_'+str(rank).zfill(5)+'_'+str(procCounter).zfill(5)
     thisExper = exper.experiment(copy.copy(name))
 
     # We need to put the random factors for the accretion history into a file for gidget to read.
@@ -299,8 +300,10 @@ def lnlikelihood(emceeParams):
     mean = 0.150 + (0.028 - 0.019)/2.0
     accum += -0.5*((mean-BT)/0.028)**2.0
 
+    maxColStIndex = np.argmax(model0.var['colst'](timeIndex=-1))
     
-    print "With params ",emceeParams," we get BT=",BT," sfr=",sfr,' rScale=',rScale,' mstar=',mstar," and total lnlikelihood = ",accum, " requring a model runtime of ",(time1-time0)/60.0,"minutes"
+    
+    print "With params ",emceeParams," we get BT=",BT," sfr=",sfr,' rScale=',rScale,' mstar=',mstar," and total lnlikelihood = ",accum, " requring a model runtime of ",(time1-time0)/60.0,"minutes. The maximum of ColSt is at ",maxColStIndex
 
     return accum        
 

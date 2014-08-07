@@ -331,6 +331,7 @@ class experiment:
         procs=[]
         startTimes=[]
         ctr=0
+        global allProcs
         binary=self.bin+'/gidget'
         expDir=self.analysis+'/'+self.expName #directory for output files
         #if(os.path.exists(expDir) and startAt == 0 and not overwrite):
@@ -381,6 +382,8 @@ class experiment:
 
 
                 nStillRunning=HowManyStillRunning(allProcs)
+                nStillRunning2=HowManyStillRunning(procs)
+                #print "dbg2",nStillRunning,nStillRunning2,expDir
     
                 # if our processors are all booked, wait a minute and try again
                 if(nStillRunning >= nproc):
@@ -665,6 +668,19 @@ if __name__ == "__main__":
     re15[0].irregularVary('accScaleLength',[.01,.03,.05,.1,.2])
     re15[0].irregularVary('concentrationRandomFactor',[-.3,-.1,0.0,.1,.3])
 
+
+    from mcmc_individual import emceeParameterSpaceToGidgetExperiment
+    favoriteParams =  [  1.43664807e+00,   1.80918119e-02,   7.32526115e-01,   0.41100415e+00,
+       9.80828375e-01,   2.00383560e+00,   1.07210095e-02,   1.03351044e-01,
+       8.65767387e-01,   1.04981623e+00,   3.56992583e-04,   0.81619026e+12,
+       5.60445702e-03,   2.31989546e-02,   7.35723019e-02,  -1.70468904e+00,
+      -9.05298188e-02,   1.69990506e-01,  -7.86422600e-01,  -3.12985599e-01,
+      -1.56559139e-01,   3.77554710e-02,   7.92302032e-01,  -1.27485951e-01,
+       2.82800974e+00,   4.65643688e-01,  -5.17488275e-01]
+    re16 = emceeParameterSpaceToGidgetExperiment(favoriteParams,'re16')[0]
+    re16.irregularVary("Noutputs",200)
+    allModels['re16']=re16
+
     successTables=[]
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
@@ -673,6 +689,7 @@ if __name__ == "__main__":
         matches = [aModel for aModel in sorted(allModels.keys()) if inputString in aModel]
         if(len(matches) != 0): 
             for model in matches: #if(model in allModels): 
+                print "dbg0",inputString,matches
                 if(not args.xgrid): #local run
                     allModels[model].localRun(args.nproc,args.start)
                 else: # write a file to run on the xgrid
@@ -685,6 +702,7 @@ if __name__ == "__main__":
     nPrev = 0
     while True:
         nStillRunning=HowManyStillRunning(allProcs)
+        print "dbg1 ",nStillRunning, nPrev,len(allProcs),allProcs
         # has anything changed since the last time we checked?
         if(nStillRunning == nPrev and nStillRunning != 0):
             # do nothing except wait a little bit

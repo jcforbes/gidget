@@ -399,9 +399,21 @@ class SingleModel:
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 r'$\Sigma_* (M_\odot\ pc^{-2})$', \
                 inner=self.evarray[:,3]*2.0*self.p['md0']*self.p['R']*kmperkpc/(speryear*self.p['vphiR']*self.var['rb'].sensible(None,0)**2.0 * pcperkpc**2.0 *colSensibleConv), theRange=[0.1,3.0e4])
+        self.var['sigstR'] = RadialFunction( \
+                np.copy(self.dataCube[:,:,6]*self.p['vphiR']), 'sigstR', \
+                1.0e5,1.0, r'$\sigma_{r,*}$ (km s$^{-1}$)',log=True)
+        self.var['sigstZ'] = RadialFunction( \
+                np.copy(self.dataCube[:,:,27]*self.p['vphiR']), 'sigstZ', \
+                1.0e5,1.0, r'$\sigma_{z,*}$ (km s$^{-1}$)',log=True)
+        self.var['hStars'] = RadialFunction( \
+                self.var['sigstZ'].cgs()*self.var['sigstZ'].cgs() / (np.pi*Gcgs*(self.var['col'].cgs()+self.var['colst'].cgs())), \
+                'hStars', cgsConv=1.0, sensibleConv=1.0/cmperpc, texString=r'$h_* (pc)$',log=True, theRange=[1.0,3000.0])
         self.var['sig'] =RadialFunction( \
                 np.copy(self.dataCube[:,:,4]*self.p['vphiR']),'sig', \
-                1.0e5,1.0, r'$\sigma$ (km s$^{-1}$',log=True)
+                1.0e5,1.0, r'$\sigma$ (km s$^{-1}$)',log=True)
+        self.var['hGas'] = RadialFunction( \
+                self.var['sig'].cgs()*self.var['sig'].cgs() / (np.pi*Gcgs*(self.var['col'].cgs()+ self.var['sig'].cgs()/self.var['sigstZ'].cgs()*self.var['colst'].cgs())), \
+                'hGas', cgsConv=1.0, sensibleConv=1.0/cmperpc, texString=r'$h_g (pc)$',log=True, theRange=[1.0,3000.0])
         self.var['maxsig'] = TimeFunction(np.amax(self.dataCube[:,:,4]*self.p['vphiR'],axis=1), \
                 'maxsig',1.0e5,1.0,r'$\max(\sigma)$',log=True)
         self.var['mdotBulgeG'] = TimeFunction(np.copy(self.evarray[:,8]),'mdotBulgeG', \
@@ -558,7 +570,7 @@ class SingleModel:
         self.var['equilibrium'] = RadialFunction( \
                 dcoldt/shareNorm, 'equilibrium', 1.0, 1.0, r'Equilibrium',log=False)
 
-        eqnorm = dcoldt*self.var['dA'].cgs()
+        eqnorm = shareNorm*self.var['dA'].cgs()
         self.var['integratedEquilibrium'] = TimeFunction( \
                 np.sum(self.var['equilibrium'].cgs()*eqnorm,axis=1)/np.sum(eqnorm,axis=1), \
                 'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False)
@@ -622,7 +634,7 @@ class SingleModel:
             doneFlag = 0
             scaleRadius =  self.var['scaleRadius'].sensible(timeIndex)
             for i in range(maxTries):
-                f=1.5
+                f=2.5
                 ind,theMin = Nearest(r,scaleRadius*f)
                 if ind>(len(r)-1):
                     ind = len(r)-2
@@ -654,7 +666,7 @@ class SingleModel:
             # At this point we've either succeeded(doneFlag=1) or failed (doneFlag=0)
             if(doneFlag==1):
                 mb.append(excessL+centralExcess)
-                rs.append(-1.0/slope)
+                rs.append(-1.0/slope/np.log(10.0))
                 fc.append(centralExcess/(excessL+centralExcess))
                 failures.append(0)
             else:
@@ -881,6 +893,8 @@ class Experiment:
                     model = self.models[k]
                     try:
                         ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm)
+                        if v=='colst':
+                            ax.plot(r[k], theVar[k][len(theVar[k])/2] *  np.exp( -r[k] / model.getData('scaleLength',timeIndex=ti)),ls='--')
                     except ValueError:
                         rr = model.getData('rb',ti)
                         if(scaleR):
@@ -1102,11 +1116,16 @@ class Experiment:
             ax2.set_xlabel(model.get('z').texString)
 
             ax.set_xlim(correspondingTs[-1],correspondingTs[0])
-            try:
-                ax.set_ylim(varRange[0],varRange[1])
-            except:
-                pdb.set_trace()
-            if model.get(v).log:
+
+            #### Take this out for now. Hopefully it's fine, and will let us see the errorbars when it's available.
+            #try:
+            #    ax.set_ylim(varRange[0],varRange[1])
+            #except:
+            #    pdb.set_trace()
+
+            #if model.get(v).log:
+            #    ax.set_yscale('log')
+            if varLog:
                 ax.set_yscale('log')
             ## ax2.set_xlim(zs[-1],zs[0])
 
@@ -1120,6 +1139,7 @@ class Experiment:
             except ValueError:
                 print "Caught ValueError while trying to plot variable ",v," colored by ",colorby
             plt.close(fig)
+        #### End of timePlot(self,variables=None,colorby=None,perc=None):
                 
     def constructQuantity(self,name,timeIndex=None,locIndex=None):
         '''Loop over our list of models and construct the corresponding list of the quantity name.
@@ -1184,6 +1204,8 @@ class Experiment:
                 log=False
 
         return construction,failures,log,theRange
+        ##### End of constructQuantity(self,name,timeIndex=None,locIndex=None):
+
     def modelClosestTo(self,mstar, sfr, z):
         '''Locate the model closest to these mstar, sfr, z coordinates as follows:
             - Find the nearest redshift to z in the grid of outputs - call it zCoarse

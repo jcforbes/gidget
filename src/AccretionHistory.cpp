@@ -187,8 +187,8 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
     // Otherwise, loop over redshift from zstart to z=0.
     for(unsigned int i=0; i<=N; ++i) {
-        z=((double) i)/((double) N) * (zrelax*1.1 - 0.0) -.005*zrelax;
-        dz = 1.0/((double) N) * (zrelax*1.1 - 0.0);
+        z=((double) i)/((double) N) * (zrelax*1.01 - 0.0) -.0005*zrelax;
+        dz = 1.0/((double) N) * (zrelax*1.01 - 0.0);
 
         // Use the Bouche formula to tell us the dark matter accretion rate
         double dMh = 34.0 * pow(Mh,1.14)*pow(1.0+z,2.4) * 1.0e-12; // in 10^12 Msol/yr
@@ -220,7 +220,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         if((z-zstart)*(z+dz-zstart)<=0.0)// always set MdotExt0 to be MdotExt at z=2
             MdotExt0= MdotExt;
 
-        haloMass.push_back(Mh); // solar masses
+        haloMass.push_back(Mh); // 10^12 solar masses
 
         if(true) { //z>zquench) {
             // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
@@ -236,7 +236,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
             errormsg("Very large Mdot. If you're sure it's fine edit line 235ish of AccretionHistory.cpp");
 
         tabulatedAcc.push_back(MdotExt);
-        if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<" "<<std::endl;
+        if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<" "<<x<<" "<<scatter<<" "<<epsin(z,Mh,cos,zquench)<<" "<<currentAccretionRate<<std::endl;
     }
 
         // 

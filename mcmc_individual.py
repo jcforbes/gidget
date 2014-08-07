@@ -98,7 +98,7 @@ def emceeParameterSpaceToGidgetExperiment(emceeParams,name=None):
     # Set up a range of masses and computational domains
     thisExper.irregularVary('Mh0', Mh0)
     #thisExper.irregularVary('R', 50*accScaleLength/.05 *(Mh0/1.0e12)**(1.0/3.0) )
-    thisExper.irregularVary('R', 30.0)
+    thisExper.irregularVary('R', 20.0)
     thisExper.irregularVary('xmin', .01)
     thisExper.irregularVary('TOL', 1.0e-3)
     thisExper.irregularVary('NChanges', 10)
@@ -303,7 +303,7 @@ def lnlikelihood(emceeParams):
     maxColStIndex = np.argmax(model0.var['colst'].sensible(timeIndex=-1))
     
     
-    print "With params ",emceeParams," we get BT=",BT," sfr=",sfr,' rScale=',rScale,' mstar=',mstar," and total lnlikelihood = ",accum, " requring a model runtime of ",(time1-time0)/60.0,"minutes. The maximum of ColSt is at ",maxColStIndex
+    print "With params ",emceeParams," we get BT=",BT," sfr=",sfr,' rScale=',rScale,' mstar=',np.log10(mstar)," and total lnlikelihood = ",accum, " requring a model runtime of ",(time1-time0)/60.0,"minutes. The maximum of ColSt is at ",maxColStIndex,", the number of time outputs is ",model0.nt,len(zs),zs[-1]
 
     return accum        
 

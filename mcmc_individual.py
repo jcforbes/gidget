@@ -300,7 +300,7 @@ def lnlikelihood(emceeParams):
     mean = 0.150 + (0.028 - 0.019)/2.0
     accum += -0.5*((mean-BT)/0.028)**2.0
 
-    maxColStIndex = np.argmax(model0.var['colst'](timeIndex=-1))
+    maxColStIndex = np.argmax(model0.var['colst'].sensible(timeIndex=-1))
     
     
     print "With params ",emceeParams," we get BT=",BT," sfr=",sfr,' rScale=',rScale,' mstar=',mstar," and total lnlikelihood = ",accum, " requring a model runtime of ",(time1-time0)/60.0,"minutes. The maximum of ColSt is at ",maxColStIndex

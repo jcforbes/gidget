@@ -22,7 +22,7 @@ rank = comm.Get_rank()
 
 
 #chainDirRel = 'mcmcChain10'
-chainDirRel = 'mcmcIndFromMax03'
+chainDirRel = 'mcmcIndFromMax04'
 analysisDir = os.environ['GIDGETDIR']+'/analysis/'
 chainDir = analysisDir+chainDirRel
 
@@ -475,7 +475,7 @@ if __name__=="__main__":
              -8.46508322e-01,   4.17355813e-01,  -2.43255337e-01,   1.53598702e+00,
               4.47703558e+00,   5.92558508e-01] # Manually add this from an initial run of ~5 iterations over 5000 walkers starting from samples of the prior.
 
-    #run(100, nwalkers=1024, p00=None) 
+    run(100, nwalkers=1024, p00=None) 
      
     # Load in the resulting chain:
     restart={}

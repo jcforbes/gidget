@@ -31,7 +31,7 @@
 int main(int argc, char **argv) { 
     void solvde(int itmax, double conv, double slowc, double scalv[], int indexv[],
             int ne, int nb, int m, double **y, double ***c, double **s,int*);
-    std::cout.precision(7);  
+    std::cout.precision(15);  
     if(argc<2) {
         std::vector<std::string> errmgLine(0);
         errmgLine.push_back("Need at least one argument (filename)-- All possible arguments are ");
@@ -130,6 +130,13 @@ int main(int argc, char **argv) {
     double OmegaLambda = 1.0 - OmegaMatter;
     double H0 = 2.29e-18;
     double sigma8 = 0.796;
+
+    // Planck!
+    sigma8 = 0.826;
+    OmegaLambda = 0.692;
+    OmegaMatter = 1.0-OmegaLambda;
+    H0 = 67.80*3.2407793e-20;
+
 
     Cosmology cos(OmegaMatter, OmegaLambda, H0 , sigma8, zrelax, nx, concentrationRandomFactor);
 

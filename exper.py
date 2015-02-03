@@ -356,6 +356,10 @@ class experiment:
                     #print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
                     os.chdir(expDir)
                     procs.append(subprocess.Popen([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]],stdout=stdo,stderr=stde))
+                    cmd = ''
+                    for el in tmpap:
+                        cmd+=str(el)+' '
+                    print "Using cmd: ",cmd
                     allProcs.append(procs[-1])
                     startTimes.append(time.time())
                     allStartTimes.append(time.time())
@@ -670,13 +674,12 @@ if __name__ == "__main__":
 
 
     from mcmc_individual import emceeParameterSpaceToGidgetExperiment
-    favoriteParams =  [  1.43664807e+00,   1.80918119e-02,   7.32526115e-01,   0.41100415e+00,
-       9.80828375e-01,   2.00383560e+00,   1.07210095e-02,   1.03351044e-01,
-       8.65767387e-01,   1.04981623e+00,   3.56992583e-04,   0.81619026e+12,
-       5.60445702e-03,   2.31989546e-02,   7.35723019e-02,  -1.70468904e+00,
-      -9.05298188e-02,   1.69990506e-01,  -7.86422600e-01,  -3.12985599e-01,
-      -1.56559139e-01,   3.77554710e-02,   7.92302032e-01,  -1.27485951e-01,
-       2.82800974e+00,   4.65643688e-01,  -5.17488275e-01]
+    favoriteParams = [  2.83269124e-01,   9.30881877e-03,   1.82351732e-01,   1.50469698e+00,
+               3.24674422e-01,   1.85339104e+00,   7.43781644e-03,   1.94868075e-01,
+                  4.05944370e+12,   1.38101233e-01,  -2.36399004e-01,  -5.50757004e-01,
+                     5.94584202e-01,  -6.06652441e-01,   8.88202578e+00,   3.92808177e-01,
+                       -2.84901649e+00]
+
     re16 = emceeParameterSpaceToGidgetExperiment(favoriteParams,'re16')[0]
     re16.irregularVary("Noutputs",200)
     allModels['re16']=re16

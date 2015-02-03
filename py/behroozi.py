@@ -6,9 +6,12 @@ import os
 import pdb
 
 
+gidgetdir = os.environ['GIDGETDIR']+'/'
+
 class behroozi:
     def __init__(self):
-        self.dir = '/Users/jforbes/behroozi/release-sfh_z0_z8_052913/'
+        #self.dir = '/Users/jforbes/behroozi/release-sfh_z0_z8_052913/'
+        self.dir = gidgetdir + '../behroozi/release-sfh_z0_z8_052913/'
     def readSmmr(self):
         zStr = ['0.10','1.00','2.00','3.00','4.00','5.00','6.00','7.00','8.00']
         self.smmr_z = np.array([0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])

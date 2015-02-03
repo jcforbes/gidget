@@ -96,8 +96,9 @@ class RadialFunction:
         else:
             print "Something has gone wrong in sensible"
     def atR(self, rNew, rVec, timeIndex, sensible=True):
-        if(len(rVec) != len(self.sensible(timeIndex=timeIndex))):
-            pdb.set_trace()
+        #if(len(rVec) != len(self.sensible(timeIndex=timeIndex))):
+        #    pdb.set_trace()
+        assert len(rVec) == len(self.sensible(timeIndex=timeIndex))
         if(sensible):
             f = interp1d(rVec,self.sensible(timeIndex=timeIndex),kind='linear',bounds_error=False)
         else:
@@ -130,19 +131,6 @@ def constructQuantiles(rVecs, varVecs, quantiles, ti):
 
 
 
-class SetOfStellarPops:
-    def __init__(self, age,startingAge,endingAge, col, sigR, sigZ, Zst, VarZst):
-        self.sz = np.shape(age)[0]
-        self.nx = np.shape(col)[2]
-        self.nsteps = np.shape(age)[1]
-        self.col = col  # col ~ (sz x nsteps x nx)
-        self.sigR = sigR
-        self.sigZ = sigZ
-        self.Zst = Zst
-        self.VarZst = VarZst
-        self.age = age # age ~ (sz, nsteps)
-        self.startingAge = startingAge
-        self.endingAge = endingAge
         
 
 
@@ -245,7 +233,7 @@ class SingleModel:
         return sums
             
 
-    def read(self, keepOnly=[], keepStars=False):
+    def read(self, keepOnly=[], keepStars=False, paramsOnly=False):
         with open(self.path+'_comment.txt','r') as comment:
             lines = comment.readlines()
             # paramnames - copied from exper.py's experiment class.
@@ -263,30 +251,17 @@ class SingleModel:
                     'whichAccretionProfile','alphaAccretionProfile', \
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC', \
                     'concentrationRandomFactor','muHgScaling']
-#            paramnames = ['nx','eta','epsff','tauHeat','analyticQ', \
-#                    'cosmologyOn','xmin','NActive','NPassive','vphiR', \
-#                    'R','gasTemp','Qlim','fg0','phi0', \
-#                    'zstart','tmax','stepmax','TOL','mu', \
-#                    'b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory', \
-#                    'alphaMRI','thickness','migratePassive','fixedQ','kappaMetals', \
-#                    'Mh0','minSigSt','NChanges','dbg','accScaleLength', \
-#                    'zquench','zrelax','xiREC','RfREC','deltaOmega', \
-#                    'Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling', \
-#                    'fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile', \
-#                    'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC']
             params=[]
-            for k,line in enumerate(lines):
-                cloc = line.find(':')
-                if(cloc != -1):
-                    params.append(float(line[cloc+1:-1]))
+            line = lines[-1] # get the last line
+            tmp = line.split() # split the line into a list of strings
+            for k,pname in enumerate(paramnames):
+                self.p[pname] = float(tmp[k+2]) # k=0 is the run name which we already have
+            #for k,line in enumerate(lines):
+            #    cloc = line.find(':')
+            #    if(cloc != -1):
+            #        params.append(float(line[cloc+1:-1]))
             for k,p in enumerate(params):
                 self.p[paramnames[k]] = p
-        self.pLog={}
-        for par in self.p.keys():
-            self.pLog[par] = True # set all parameters to be logarithmic by default
-        # except for the following
-        for par in ['xiREC','b','innerPowerLaw','zrelax','zstart','zquench','concentrationRandomFactor','accAlphZ','accAlphaMh']:
-            self.pLog[par] = False
         auxparams=[]
         with open(self.path+'_aux.txt','r') as aux:
             lines = aux.readlines()
@@ -296,6 +271,24 @@ class SingleModel:
                     auxparams.append(float(line[cloc+1:-1]))
         self.p['md0'] = auxparams[0]
         self.p['ND08attempts'] = auxparams[1]
+        irfs=[]
+        try:
+            with open(self.path+'_inputRandomFactors.txt','r') as irf:
+                # Record input random factors, if they exist, as x0, x1, ...
+                lines = irf.readlines()
+                for k,line in enumerate(lines):
+                    irfs.append('x'+str(k))
+                    self.p[irfs[-1]] = float(line)
+        except:
+            print "Failed to read in <path>_inputRandomFactors.txt"
+        self.pLog={}
+        for par in self.p.keys():
+            self.pLog[par] = True # set all parameters to be logarithmic by default
+        # except for the following
+        for par in ['xiREC','b','innerPowerLaw','zrelax','zstart','zquench','concentrationRandomFactor','accAlphZ','accAlphaMh','alphaAccretionProfile','whichAccretionHistory','whichAccretionProfile','concentrationRandomFactor','muHgScaling','ND08attempts']+irfs:
+            self.pLog[par] = False
+        if paramsOnly:
+            return
         with open(self.path+'_evolution.dat','r') as evolution:
             ncolev, =struct.unpack('i',evolution.read(4))
             self.ncolev=ncolev
@@ -314,7 +307,6 @@ class SingleModel:
             self.dataCube = np.array(dataCube)
         if keepStars:
             with open(self.path+'_stars.dat','r') as stars:
-                hyperCube=[]
                 for i in range(self.nsteps):
                     NABp1, = struct.unpack('i', stars.read(4)) # NAgeBins+1
                     sz, = struct.unpack('i', stars.read(4)) # sps.size()
@@ -339,15 +331,43 @@ class SingleModel:
                         sigZ[j,i,:] = np.fromstring(stars.read(8*nnx))
                         Zst[j,i,:] = np.fromstring(stars.read(8*nnx))
                         VarZst[j,i,:] = np.fromstring(stars.read(8*nnx))
-                self.stellarPops = SetOfStellarPops( age,startingAge,endingAge, col, sigR, sigZ, Zst, VarZst)
 
-
-            
         # Alright, at this point we've read in the critical data.
         # Let's try to store it in a more comprehensible manner.
         # Keep in mind that self.dataCube ~ (timestep, nx, var)
         # And self.evarray ~ (timestep, var)
         self.var={}
+        starList=[]
+        if keepStars:
+            for j in range(NABp1):
+                stj=str(j).zfill(2)
+                self.var['colst'+stj] = RadialFunction( copy.deepcopy(col[j]), 'colst'+stj, \
+                    self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
+                    self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
+                    r'$\Sigma_{*,'+stj+'} (M_\odot\ pc^{-2})$',theRange=[0.5,3000])
+                self.var['sigstR'+stj] = RadialFunction( \
+                        np.copy(sigR[j]*self.p['vphiR']), 'sigstR'+stj, \
+                        1.0e5,1.0, r'$\sigma_{r,*,'+stj+'}$ (km s$^{-1}$)',log=True)
+                self.var['sigstZ'+stj] = RadialFunction( \
+                        np.copy(sigZ[j]*self.p['vphiR']), 'sigstZ'+stj, \
+                        1.0e5,1.0, r'$\sigma_{z,*,'+stj+'}$ (km s$^{-1}$)',log=True)
+                self.var['Zst'+stj] = RadialFunction( \
+                        np.copy(Zst[j]),'Zst'+stj,cgsConv=1.0,sensibleConv=1.0/.02, \
+                        texString=r'$Z_{*,'+stj+'} (Z_\odot)$')
+                self.var['VarZst'+stj] = RadialFunction( \
+                        np.copy(np.sqrt(VarZst[j])),'VarZst'+stj, \
+                        cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_{*,'+stj+'} (Z_\odot)$')
+                self.var['ageSt'+stj] = TimeFunction( \
+                        np.copy(age[j]), 'ageSt'+stj, \
+                        cgsConv = speryear, texString='Age (Gyr)',log=False)
+                self.var['startingAgeSt'+stj] = TimeFunction( \
+                        np.copy(startingAge[j]), 'startingAgeSt'+stj, \
+                        cgsConv = speryear, texString='Age (Gyr)',log=False)
+                self.var['endingAgeSt'+stj] = TimeFunction( \
+                        np.copy(endingAge[j]), 'endingAgeSt'+stj, \
+                        cgsConv = speryear, texString='Age (Gyr)',log=False)
+                starList = starList + [ 'colst'+stj, 'sigstR'+stj, 'sigstZ'+stj, 'Zst'+stj, 'VarZst'+stj, 'ageSt'+stj, 'startingAgeSt'+stj, 'endingAgeSt'+stj ]
+
 
         self.var['step'] = TimeFunction( \
                 np.copy(self.evarray[:,0]), \
@@ -361,7 +381,7 @@ class SingleModel:
         self.var['z'] = TimeFunction(np.copy(self.evarray[:,9]),'z',1,1,'z')
         self.var['r'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,0]),'r', \
-                self.p['R']*cmperkpc,self.p['R'],'r (kpc)')
+                self.p['R']*cmperkpc,self.p['R'],'r (kpc)',log=False)
         dlnx=-log(self.p['xmin'])/(self.p['nx']-1.0)
         nxI = int(self.p['nx'])
         # This assumes the grid is fixed and logarithmic. If the code is modified so that
@@ -381,7 +401,7 @@ class SingleModel:
 #                (self.p['R']*cmperkpc)**2.0,self.p['R']**2.0,'$\Delta$A (kpc$^2$)')
         self.var['MassLoadingFactor'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,54]),'MassLoadingFactor', \
-                1.0,1.0, r'$\dot{\Sigma}_{out}/\dot{\Sigma}_*^{SF}$')
+                1.0,1.0, r'$\dot{\Sigma}_{out}/\dot{\Sigma}_*^{SF}$', theRange=[0.1,100.0])
         self.var['dA'] = RadialFunction( \
                 pi*(np.power(self.getData('rb',locIndex=range(1,nxI+1),cgs=True),2.0) \
                 - np.power(self.getData('rb',locIndex=range(nxI),cgs=True),2.0)), \
@@ -410,19 +430,19 @@ class SingleModel:
                 'hStars', cgsConv=1.0, sensibleConv=1.0/cmperpc, texString=r'$h_* (pc)$',log=True, theRange=[1.0,3000.0])
         self.var['sig'] =RadialFunction( \
                 np.copy(self.dataCube[:,:,4]*self.p['vphiR']),'sig', \
-                1.0e5,1.0, r'$\sigma$ (km s$^{-1}$)',log=True)
+                1.0e5,1.0, r'$\sigma$ (km s$^{-1}$)',log=True, theRange=[5.0,110.0])
         self.var['hGas'] = RadialFunction( \
                 self.var['sig'].cgs()*self.var['sig'].cgs() / (np.pi*Gcgs*(self.var['col'].cgs()+ self.var['sig'].cgs()/self.var['sigstZ'].cgs()*self.var['colst'].cgs())), \
                 'hGas', cgsConv=1.0, sensibleConv=1.0/cmperpc, texString=r'$h_g (pc)$',log=True, theRange=[1.0,3000.0])
         self.var['maxsig'] = TimeFunction(np.amax(self.dataCube[:,:,4]*self.p['vphiR'],axis=1), \
-                'maxsig',1.0e5,1.0,r'$\max(\sigma)$',log=True)
+                'maxsig',1.0e5,1.0,r'$\max(\sigma)$',log=True, theRange=[5,110])
         self.var['mdotBulgeG'] = TimeFunction(np.copy(self.evarray[:,8]),'mdotBulgeG', \
-                self.p['md0']*gpermsun/speryear,self.p['md0'],r'$\dot{M}_\mathrm{Gas to Bulge}$')
+                self.p['md0']*gpermsun/speryear,self.p['md0'],r'$\dot{M}_{\mathrm{Bulge}\ \mathrm{(gas)}} (M_\odot/yr)$', theRange=[1.0e-7,100])
         self.var['mdotAccr'] = TimeFunction( \
                 self.evarray[:,19],'mdotAccr',gpermsun/speryear,1.0,r'$\dot{M}_{ext}$')
         self.var['feedingEfficiency'] = TimeFunction( \
                 self.var['mdotBulgeG'].sensible()/self.evarray[:,19],'feedingEfficiency', \
-                1.0,1.0,r'$\dot{M}_\mathrm{bulge}/\dot{M}_{ext}$')
+                1.0,1.0,r'$\dot{M}_\mathrm{bulge}/\dot{M}_{ext}$', theRange=[1.0e-7,10.0])
         self.var['dcoldt'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,7]),'dcoldt',self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']*cmperkpc)**2.0), \
                 self.p['md0']/(2.0*pi*(self.p['R'])**2.0),r'$\partial \Sigma/\partial t$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)')
@@ -434,21 +454,33 @@ class SingleModel:
                 self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']**2.0)*cmperkpc*cmperkpc),\
                 self.p['md0']/(2.0*pi*self.p['R']**2.0), \
                 r'$\dot{\Sigma}_{cos} (M_\odot\ yr^{-1}\ kpc^{-2})$', \
-                inner=2.0*(self.evarray[:,20])*self.p['RfREC']/((self.p['RfREC']+self.var['MassLoadingFactor'].inner())*np.power(internalR[:,0]-self.dataCube[:,0,0]*dlnx,2.0)) )
+                inner=2.0*(self.evarray[:,20])*self.p['RfREC']/((self.p['RfREC']+self.var['MassLoadingFactor'].inner())*np.power(internalR[:,0]-self.dataCube[:,0,0]*dlnx,2.0)), \
+                theRange = [1.0e-5,1.0])
         mdotCodeUnits = np.column_stack((self.evarray[:,8],np.copy(self.dataCube[:,:,38])/self.p['md0']))
         self.var['Mdot'] = RadialFunction( \
                 mdotCodeUnits, 'Mdot', \
                 self.p['md0']*gpermsun/speryear, \
-                self.p['md0'],r'$\dot{M}$ (M$_\odot$ yr$^{-1}$)',log=False)
+                self.p['md0'],r'$\dot{M}$ (M$_\odot$ yr$^{-1}$)',log=False, theRange=[-5,5])
         self.var['colTr'] = RadialFunction( \
                 (self.var['Mdot'].cgs(locIndex=range(1,nxI+1))-self.var['Mdot'].cgs(locIndex=range(nxI)))/self.var['dA'].cgs(), \
-                'colTr',1.0, speryear*cmperkpc**2.0/gpermsun, r'$\dot{\Sigma}_{tr}$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)',log=False)
+                'colTr',1.0, speryear*cmperkpc**2.0/gpermsun, r'$\dot{\Sigma}_{tr}$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)',log=False, theRange=[-10,10])
         self.var['colsfr'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,28]),'colsfr', \
                 self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']**2.0)*cmperkpc*cmperkpc),\
                 self.p['md0']/(2.0*pi*self.p['R']**2.0), \
                 r'$\dot{\Sigma}_*^{SF} (M_\odot\ yr^{-1}\ kpc^{-2})$', \
                 inner=2.0*(self.evarray[:,8]+self.evarray[:,20])*self.p['RfREC']/((self.p['RfREC']+self.var['MassLoadingFactor'].inner())*np.power(internalR[:,0]-self.dataCube[:,0,0]*dlnx,2.0)) , theRange = [1.0e-5,10.0])
+        self.var['colOut'] = RadialFunction( \
+                self.var['colsfr'].sensible()*self.var['MassLoadingFactor'].sensible(), 'colOut', \
+                cgsConv = gpermsun/speryear/cmperkpc**2, sensibleConv=1.0,
+                inner = self.var['colsfr'].inner()*self.var['MassLoadingFactor'].inner(), texString=r'$\dot{\Sigma}_\mathrm{out}$', theRange=[1.0e-5, 10.0])
+        self.var['colTrPerAccr'] = RadialFunction( np.abs(self.var['colTr'].cgs())/self.var['colAccr'].cgs(), 'colTrPerAccr', \
+                texString=r'$|\dot{\Sigma}_{tr}|/\dot{\Sigma}_{accr}$', theRange=[1.0e-5,10.0])
+        self.var['colOutPerAccr'] = RadialFunction( self.var['colOut'].cgs()/self.var['colAccr'].cgs(), 'colOutPerAccr', \
+                texString=r'$\dot{\Sigma}_{out}/\dot{\Sigma}_{accr}$', theRange=[1.0e-5, 10.0])
+        self.var['colSfrPerAccr'] = RadialFunction( self.var['colsfr'].cgs()/self.var['colAccr'].cgs(), 'colSfrPerAccr', \
+                texString=r'$\dot{\Sigma}_{out}/\dot{\Sigma}_{accr}$', theRange=[1.0e-5, 10.0])
+
         self.var['Q'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,11]),'Q',1.0,1.0,r'Q',theRange=[1.0,10.0])
         self.var['Qg'] = RadialFunction( \
@@ -458,10 +490,19 @@ class SingleModel:
         self.var['tDepRadial'] = RadialFunction( \
                 self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepRadial',\
                 1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$',theRange=[3.0e8,1.0e12])
-        self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H_2}}$',log=False,theRange=[0.0,1.0])
+        self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H}_2}$',log=False,theRange=[0.0,1.0])
+        self.var['colH2']= RadialFunction(np.copy(self.dataCube[:,:,47]) * self.var['col'].sensible(),'colH2', \
+                cgsConv = gpermsun*cmperpc**2, texString=r'$\Sigma_{\mathrm{H}_2}$',log=True,theRange=[0.1,3000.0])
+        self.var['colHI']= RadialFunction((1.0-np.copy(self.dataCube[:,:,47])) * self.var['col'].sensible(),'colHI', \
+                cgsConv = gpermsun*cmperpc**2, texString=r'$\Sigma_{\mathrm{HI}}$',log=True,theRange=[0.1,3000.0])
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$')
         self.var['vPhi'] = RadialFunction(np.copy(self.dataCube[:,:,15]),'vPhi',self.p['vphiR']*1.0e5,self.p['vphiR'], \
                  r'$v_\phi$',log=False)
+        self.var['vOverSigGas'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sig'].sensible(),'vOverSigGas',texString=r'$v_\phi/\sigma$',log=True)
+        self.var['vOverSigStR'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sigstR'].sensible(),'vOverSigStR',texString=r'$v_\phi/\sigma_{*,r}$',log=True)
+        self.var['vOverSigStZ'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sigstZ'].sensible(),'vOverSigStZ',texString=r'$v_\phi/\sigma_{*,z}$',log=True)
+        self.var['spEnergy'] = RadialFunction(np.sqrt(np.power(self.var['vPhi'].sensible(),2.0) + 1.5*np.power(self.var['sig'].sensible(),2.0)), 'spEnergy', sensibleConv=1.0, cgsConv=1.0e5, texString=r'$\sqrt{v_\phi^2 + 1.5 \sigma^2}$')
+
         self.var['vrst'] = RadialFunction(np.copy(self.dataCube[:,:,34]),'vrst',self.p['vphiR']*1.0e5,self.p['vphiR'], \
                  r'$v_{r,*}$',log=False)
         self.var['vrg'] = RadialFunction(np.copy(self.dataCube[:,:,36]),'vrg',self.p['vphiR']*1.0e5,self.p['vphiR'], \
@@ -487,43 +528,43 @@ class SingleModel:
         self.var['sfr'] = TimeFunction( \
                 self.var['mdotBulgeG'].sensible()*self.p['RfREC']/(self.p['RfREC']+self.var['MassLoadingFactor'].inner()) \
                 +np.sum( self.var['dA'].sensible()*self.var['colsfr'].sensible(), 1 ), \
-                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)')
+                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)', theRange=[0.01,100.0])
         self.var['sfrPerAccr'] = TimeFunction( \
-                self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$')
+                self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$', theRange=[1.0e-3,10.0])
         self.var['mCentral'] = TimeFunction( \
                 self.evarray[:,3], 'mCentral',
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
-                r'$M_\mathrm{center}\ (M_\odot)$')
+                r'$M_\mathrm{center}\ (M_\odot)$', theRange=[3.0e7, 5.0e10])
         self.var['mgas']=TimeFunction( \
                 np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
-                1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)')
+                1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
         self.var['tdep']=TimeFunction( \
-                self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_{dep}$ (yr)',theRange=[3.0e8,1.0e12])
+                self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_{dep}$ (yr)',theRange=[1.0e8,3.0e10])
         self.var['mstar'] = TimeFunction( \
                 self.var['mCentral'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
-                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
         self.var['efficiency'] = TimeFunction( \
                 self.var['mstar'].cgs()/self.var['Mh'].cgs(), 'efficiency',1.0,1.0,r'$M_*/M_h$',log=True)
         self.var['fg'] = TimeFunction( \
                 self.var['mgas'].cgs() / (self.var['mgas'].cgs()+self.var['mstar'].cgs()), \
-                'fg',1.0,1.0,r'$f_g$')
+                'fg',1.0,1.0,r'$f_g$', log=False)
         self.var['fgRadial'] = RadialFunction( \
                 self.var['col'].cgs()/(self.var['col'].cgs()+self.var['colst'].cgs()), \
-                'fgRadial',1.0,1.0,r'$f_g = \Sigma/(\Sigma_*+\Sigma)$')
+                'fgRadial',1.0,1.0,r'$f_g = \Sigma/(\Sigma_*+\Sigma)$', log=False)
 
         self.var['tDepH2Radial'] = RadialFunction( \
                 self.var['fH2'].cgs()*self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepH2Radial',\
-                1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF}$')
+                1.0, 1.0/speryear, r'$t_{\mathrm{dep},H_2}\ \mathrm{(yr)}$', theRange=[3.0e8,1.0e11])
         mbulge,_,fcentral,scaleLengths = self.computeMBulge()
-        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
+        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$',theRange=[3.0e7,5.0e10])
         self.var['scaleLength'] = TimeFunction(scaleLengths, 'scaleLength', cmperkpc, 1.0, r'$r_\mathrm{scale}$')
         self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
                 'BT',1,1,r'Bulge to Total Ratio',log=False)
         self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
         self.var['sSFR'] = TimeFunction(self.getData('sfr',cgs=True)/self.getData('mstar',cgs=True) , \
-                'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)')
+                'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)', theRange=[1.0e-2,1.0e2])
         mg = self.getData('col',cgs=True)*self.getData('dA',cgs=True)
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z',cgs=True),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_g (Z_\odot)$')
@@ -532,7 +573,7 @@ class SingleModel:
                 'sfZ',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$ weighted by SFR')
         self.var['fH2Integrated'] = TimeFunction( \
                 np.sum(mg*self.var['fH2'].cgs(),axis=1)/np.sum(mg,axis=1), \
-                'fH2Integrated',1.0,1.0,r'f_{\mathrm{H}_2}')
+                'fH2Integrated',1.0,1.0,r'$f_{\mathrm{H}_2}$',theRange=[0,1], log=False)
         self.var['vPhiGas'] = TimeFunction( \
                 np.sum(self.var['vPhi'].cgs() * self.var['dA'].cgs() * self.var['col'].cgs(),axis=1)/self.var['mgas'].cgs(),
                 'vPhiGas',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'Gas mass weighted $v_\phi$', log=True)
@@ -541,7 +582,7 @@ class SingleModel:
                 'vPhiGas',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'Stellar mass weighted $v_\phi$', log=True)
         self.var['integratedMLF'] = TimeFunction( \
                 np.sum(self.var['MassLoadingFactor'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs(),axis=1)/self.var['sfr'].cgs(),
-                'integratedMLF',cgsConv=1.0,sensibleConv=1.0,texString=r'Mass loading factor')
+                'integratedMLF',cgsConv=1.0,sensibleConv=1.0,texString=r'Mass loading factor', theRange=[0.03, 50.0])
         mJeansMask = np.zeros(np.shape(self.var['sig'].sensible()),dtype=float)
         mJeansMask[self.var['fH2'].sensible()>0.1] = 1.0
         self.var['MJeans'] = RadialFunction( \
@@ -553,6 +594,10 @@ class SingleModel:
                 np.power(self.var['sig'].cgs(),4.0)/(Gcgs**2.0 *self.var['col'].cgs()), \
                 'MJeansUnmasked', 1.0, 1.0/gpermsun, r'2D Jeans Mass ($M_\odot$)', \
                 theRange=[1.0e5,1.0e9])
+        mja = np.sum(self.var['MJeansUnmasked'].sensible()*self.var['colsfr'].cgs()*self.var['dA'].cgs(),axis=1)/np.sum(self.var['colsfr'].cgs()*self.var['dA'].cgs(), axis=1)
+        self.var['MJeansAvg'] = TimeFunction( mja, \
+                'MJeansAvg', cgsConv = gpermsun, texString=r'$M_{Jeans}\ (M_\odot)$', theRange=[1.0e5, 1.0e9])
+                
         self.var['centralDensity'] = TimeFunction(  \
             self.TotalWithinR(self.var['dA'].cgs()*self.var['colst'].cgs(),self.var['mCentral'].cgs(),1.0)/(gpermsun*np.pi),
             'centralDensity',gpermsun/cmperkpc**2.0,1.0,r'Average $\Sigma_*$ with $r<1$ kpc')
@@ -576,7 +621,7 @@ class SingleModel:
                 'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False)
 
         theKeys = self.var.keys()
-        whitelist = ['rb','r','dA','rx','dr'] + keepOnly
+        whitelist = ['rb','r','dA','rx','dr'] + keepOnly + starList
         for key in theKeys:
             if(isinstance(self.var[key],RadialFunction) and not (key in whitelist)):
                 del self.var[key]
@@ -742,11 +787,11 @@ class Experiment:
         for i,model in enumerate(self.models):
             model.p['experIndex'] = float(i)
             model.pLog['experIndex'] = False
-    def read(self, keepOnly=[]):
+    def read(self, keepOnly=[],paramsOnly=False,keepStars=False):
         ''' Read in every model in the experiment. '''
         n=0
         for model in self.models:
-            model.read(keepOnly)
+            model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars)
             n+=1
             if(n % 50 == 0):
                 print "Reading in model ",n," of ",len(self.models)
@@ -787,7 +832,7 @@ class Experiment:
             
 
 
-    def radialPlot(self,timeIndex=None,variables=None,colorby=None,percentiles=None,logR=False,scaleR=False):
+    def radialPlot(self,timeIndex=None,variables=None,colorby=None,percentiles=None,logR=False,scaleR=False,movie=True):
         ''' Plot quantities vs radius. '''
         if(variables is None):
             variables = self.models[0].getRadialFunctions()
@@ -804,6 +849,7 @@ class Experiment:
                 indVar='rx'
             allR,_,_,_ = self.constructQuantity(indVar)
             rRange = [np.min(allR),np.max(allR)]
+            allRb,_,_,_ = self.constructQuantity('rb')
             if(scaleR):
                 rRange=[0,4]
 
@@ -833,15 +879,18 @@ class Experiment:
             plotModels = range(len(self.models))
             if(percentiles is not None and len(self.models) > 10):
                 #plotModels = np.random.choice(plotModels,size=10,replace=False)
-                plotModels = [random.choice(plotModels) for qq in range(10)]
+                #plotModels = [random.choice(plotModels) for qq in range(3)]
+                plotModels = []
 
             if v=='vPhi':
                 rotCurve = np.loadtxt('../Bhattacharjee2014.txt',skiprows=15)
                 rc = rotCurve[51:101, 2:5]
 
-
-            for ti in timeIndex:
+            if not movie:
                 fig,ax = plt.subplots(1,1)
+            for ti in timeIndex:
+                if movie:
+                    fig,ax = plt.subplots(1,1)
                 theVar,varFail,varLog,varRange = self.constructQuantity(v,ti)
                 r,rFail,rLog,_ = self.constructQuantity(indVar,ti)
                 #rx,rxFail,rxLog,_ = self.constructQuantity('rx',ti)
@@ -859,32 +908,65 @@ class Experiment:
                     ax.errorbar(rc[:,0], rc[:,1], yerr=rc[:,2],color='k',lw=3)
                 if v=='colst':
                     ax.errorbar([8.3], [38.0], yerr=[4.0],color='k')
+                ## The following is from Nakanishi & Sofue (2006), errorbars included.
+                if v=='colH2':
+                    vx = np.arange(11)+0.5
+                    vxe = np.zeros(11)+0.5
+                    vy = [26.7, 6.0, 3.5, 3.5, 4.6, 3.9, 2.8, 1.9, 0.9, 0.5, 0.3]
+                    vye = [20.3, 5.4, 1.8, 1.6, 2.0, 2.0, 1.4, 1.0, 0.7, 0.4, 0.2]
+                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3)
+                ## The following HI data are from Nakanishi & Sofue (2003) -- errorbars are not specified
+                if v=='colHI':
+                    vy = [1.85, .54, 1.84, 1.81, 1.86, 1.5, 2.6, 4.5, 4.25, 4.0, 4.25, 4.31, 3.6, 2.8, 2.0, 1.4, 1.05, .8, .7, .6, .5, .38, .25, .16, .1]
+                    vx = np.arange(25)+0.5
+                    vxe = vx*0+0.5
+                    vy = np.array([1.79665, 0.591, 1.775, 1.746, 1.818, 1.488, 2.608, 4.510, 4.301, 4.114, 4.309, 4.388, 3.691, 2.780, 2.055, 1.431, 1.072, 0.821, 0.641, 0.498, 0.390, 0.311, 0.246, 0.189, 0.160])
+                    vye = vy*0.1
+                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3)
+                if v=='hGas':
+                    vx = np.array([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0, 19.0, 21.0, 23.0, 25.0])
+                    vy = np.array([103.448, 142.241, 161.638, 183.190, 316.810, 349.138, 441.810, 497.844, 685.345, 862.069, 928.879, 935.345, 939.655])
+                    vxe = vx*0+1.0
+                    vye = vy*0.1
+                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3)
                 #if counter==0:
-                cbar = plt.colorbar(sc,ax=ax)
-                if(log):
-                    cbar.set_label(r'$\log_{10}$'+colorby)
-                else:
-                    cbar.set_label(colorby)
+                if movie:
+                    cbar = plt.colorbar(sc,ax=ax)
+                    if(log):
+                        cbar.set_label(r'$\log_{10}$'+colorby)
+                    else:
+                        cbar.set_label(colorby)
                 normColors = (colors - float(overallColorRange[0]))/ float(overallColorRange[1]-overallColorRange[0])
                 theRGB = cm(normColors)
                 lwnorm = 1.0 + log10(float(len(self.models)))
 
+                if movie:
+                    thisCM = cmPer
+                else:
+                    thisCM = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]
+                    thisCM = thisCM[counter]
                 # fill in some percentiles
                 if(percentiles is not None and len(percentiles) < len(self.models)):
-                    rr, qVecs = constructQuantiles(allR, [model.var[v] for model in self.models], percentiles, ti)
+                    try:
+                        rr, qVecs = constructQuantiles(allR, [model.var[v] for model in self.models], percentiles, ti)
+                    except:
+                        rr, qVecs = constructQuantiles(allRb, [model.var[v] for model in self.models], percentiles, ti)
                     qVecs=np.array(qVecs)
+                    np.clip(qVecs, overallRange[0], overallRange[1], out=qVecs)
                     if(len(percentiles) % 2 == 0):
                         # a unique fill between each quantile
                         for k in range(len(percentiles)-1):
                             #ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=cmPer(percentiles[k]/100.0))
-                            ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=cmPer(float(k+.5)/float(len(percentiles))),alpha=0.3)
+                            ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(percentiles))),alpha=0.3)
                     else:
                         # symmetric fills around the central quantile.
                         v2 = (len(percentiles)-1)/2
                         for k in range(v2):
-                            col = cmPer(float(k+.5)/float(v2+.5))
-                            ax.fill_between(rr, qVecs[k,:], qVecs[(k+1),:], facecolor=col)
-                            ax.fill_between(rr, qVecs[(-k-2),:], qVecs[(-k-1),:], facecolor=col)
+                            col = thisCM(float(k+.5)/float(v2+.5))
+                            ax.fill_between(rr, qVecs[k,:], qVecs[(k+1),:], facecolor=col, alpha=0.2)
+                            ax.fill_between(rr, qVecs[(-k-2),:], qVecs[(-k-1),:], facecolor=col, alpha=0.2)
+                            ax.plot( rr, qVecs[k,:], lw=2*k+1, color=thisCM(1.0) )
+                            ax.plot( rr, qVecs[(-k-1),:], lw=2*k+1, color=thisCM(1.0) )
                             #print "dbg perc: ",v,k,ti
                             #print "dbg perc: ",rr[0],rr[-1],qVecs[k,0],qVecs[k,-1],qVecs[(k+1),0],qVecs[(k+1),-1]
                             #print "dbg perc: ",rr[0],rr[-1],qVecs[(-k-2),0],qVecs[(-k-2),-1],qVecs[(-k-1),0],qVecs[(-k-1),-1]
@@ -908,20 +990,288 @@ class Experiment:
                     ax.set_yscale('log')
                 if(logR):
                     ax.set_xscale('log')
-                z=model.getData('z')
-                dispz = "%.3f" % z[ti]
-                plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
-                plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
-                #plt.savefig(pipe.stdin, format='png')
+                if movie:
+                    z=model.getData('z')
+                    dispz = "%.3f" % z[ti]
+                    plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
+                    plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
+                    #plt.savefig(pipe.stdin, format='png')
+                    plt.close(fig)
                 counter = counter+1
-                plt.close(fig)
+            if not movie:
+                plt.savefig(dirname[6:]+'.png')
+            plt.close(fig)
             ##makeMovies(self.name+'_'+v+'_cb'+colorby+'_vs'+indVar)
-            makeMovies(dirname[7:])
+            if movie:
+                makeMovies(dirname[6:])
             #pipe.terminate()
 
-    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0):
+    def plotAgeFuncs(self):
+        ''' Plot properties of the stellar population'''
+        dirname = self.name+'_age-velocity-dispersion'
+        # First we need to identify the fields we're interested in.
+        vars = sorted(self.models[0].var.keys()) # Get everything
+        cols = []
+        sigRs = []
+        sigZs = []
+        Zs = []
+        VZs = []
+        ages =[]
+        startingAges=[]
+        endingAges=[]
+        N=100 # meh.
+        for i in range(N):
+            sti = str(i).zfill(2)
+            if 'colst'+sti in vars:
+                cols.append('colst'+sti)
+            if 'sigstR'+sti in vars:
+                sigRs.append('sigstR'+sti)
+            if 'sigstZ'+sti in vars:
+                sigZs.append('sigstZ'+sti)
+            if 'Zst'+sti in vars:
+                Zs.append('Zst'+sti)
+            if 'VarZst'+sti in vars:
+                VZs.append('VarZst'+sti)
+            if 'ageSt'+sti in vars:
+                ages.append('ageSt'+sti)
+            if 'stargingAgeSt'+sti in vars:
+                startingAges.append('startingAgeSt'+sti)
+            if 'endingAgeSt'+sti in vars:
+                endingAges.append('endingAgeSt'+sti)
+        # Now we'll make some plots.
+
+        # First up, the age-velocity dispersion correlation at 8.3 kpc.
+        fig,ax = plt.subplots()
+        for i in range(len(sigRs)):
+            theSigRs = []
+            theSigZs = []
+            theAges = []
+            for j,model in enumerate(self.models):
+                r= model.var['r'].sensible(timeIndex=-1)
+                theSigRs.append( model.var[ sigRs[i] ].atR([8.3], r, -1)  )
+                theSigZs.append( model.var[ sigZs[i] ].atR([8.3], r, -1)  )
+                theAges.append( model.var[ ages[i] ].sensible(timeIndex=-1) )
+            ax.errorbar( [np.mean(theAges)], [np.mean(theSigRs)], xerr=[np.std(theAges)], yerr=[np.std(theSigRs)], ecolor='blue')
+            ax.errorbar( [np.mean(theAges)], [np.mean(theSigZs)], xerr=[np.std(theAges)], yerr=[np.std(theSigZs)], ecolor='red')
+        ax.set_xlabel( 'Age (yr)' )
+        ax.set_ylabel( r'$\sigma_*$ (km/s)' )
+        plt.savefig( self.name+'_age-vel-disp.png' )
+        plt.close(fig)
+
+
+        # Next up, the age-metallicity correlation at 8.3 kpc.
+        fig,ax = plt.subplots()
+        for i in range(len(sigRs)):
+            theZs = []
+            theAges = []
+            for j,model in enumerate(self.models):
+                r= model.var['r'].sensible(timeIndex=-1)
+                theZs.append( model.var[ Zs[i] ].atR([8.3], r, -1)  )
+                theAges.append( model.var[ ages[i] ].sensible(timeIndex=-1) )
+            ax.errorbar( [np.mean(theAges)], [np.mean(theZs)], xerr=[np.std(theAges)], yerr=[np.std(theZs)], ecolor='red')
+        ax.set_yscale('log')
+        ax.set_xlabel( 'Age (yr)' )
+        ax.set_ylabel( r'$Z_*$' )
+        plt.savefig( self.name+'_age-Z.png' )
+        plt.close(fig)
+
+        # simple stuff: radial profiles of each quantity.
+        fig,ax = plt.subplots()
+        allR,_,_,_ = self.constructQuantity('r')
+        ti = -1
+        for i in range(len(sigRs)):
+            sti = str(i).zfill(2)
+            v = 'colst'+sti
+            thisCM = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]*20
+            thisCM = thisCM[i]
+            percentiles = [2.5, 16, 50, 84, 97.5]
+
+            # fill in some percentiles
+            rr, qVecs = constructQuantiles(allR, [model.var[v] for model in self.models], percentiles, ti)
+            qVecs=np.array(qVecs)
+            if(len(percentiles) % 2 == 0):
+                # a unique fill between each quantile
+                for k in range(len(percentiles)-1):
+                    ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(percentiles))),alpha=0.3)
+            else:
+                # symmetric fills around the central quantile.
+                v2 = (len(percentiles)-1)/2
+                for k in range(v2):
+                    col = thisCM(float(k+.5)/float(v2+.5))
+                    ax.fill_between(rr, qVecs[k,:], qVecs[(k+1),:], facecolor=col,alpha=0.3)
+                    ax.fill_between(rr, qVecs[(-k-2),:], qVecs[(-k-1),:], facecolor=col,alpha=0.3)
+                    ax.plot( rr, qVecs[k+1,:], lw=k, color=thisCM(1.0) )
+                    ax.plot( rr, qVecs[(-k-1),:], lw=k, color=thisCM(1.0) )
+        ax.set_yscale('log')
+        ax.set_ylim(0.5, 3.0e3)
+        ax.set_xlabel(r'r (kpc)')
+        ax.set_ylabel(r'$\Sigma_{*,i}\ (M_\odot/\mathrm{pc}^2)$')
+        plt.savefig( self.name+'_stcols_vsr.png' )
+
+
+
+        fig,ax = plt.subplots()
+        allR,_,_,_ = self.constructQuantity('r')
+        ti = -1
+        for i in range(len(sigRs)):
+            sti = str(i).zfill(2)
+            v = 'sigstR'+sti
+            thisCM = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]*20
+            thisCM = thisCM[i]
+            percentiles = [2.5, 16, 50, 84, 97.5]
+
+            # fill in some percentiles
+            rr, qVecs = constructQuantiles(allR, [model.var[v] for model in self.models], percentiles, ti)
+            qVecs=np.array(qVecs)
+            if(len(percentiles) % 2 == 0):
+                # a unique fill between each quantile
+                for k in range(len(percentiles)-1):
+                    ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(percentiles))),alpha=0.3)
+            else:
+                # symmetric fills around the central quantile.
+                v2 = (len(percentiles)-1)/2
+                for k in range(v2):
+                    col = thisCM(float(k+.5)/float(v2+.5))
+                    ax.fill_between(rr, qVecs[k,:], qVecs[(k+1),:], facecolor=col, alpha=0.3)
+                    ax.fill_between(rr, qVecs[(-k-2),:], qVecs[(-k-1),:], facecolor=col, alpha=0.3)
+                    ax.plot( rr, qVecs[k+1,:], lw=k, color=thisCM(1.0) )
+                    ax.plot( rr, qVecs[(-k-1),:], lw=k, color=thisCM(1.0) )
+        ax.set_xlabel(r'r (kpc)')
+        ax.set_ylabel(r'$\sigma_{*,R,i}\ (\mathrm{km}/\mathrm{s})$')
+        plt.savefig( self.name+'_sigstRs_vsr.png' )
+
+
+
+        fig,ax = plt.subplots()
+        allR,_,_,_ = self.constructQuantity('r')
+        ti = -1
+        for i in range(len(sigRs)):
+            sti = str(i).zfill(2)
+            v = 'sigstZ'+sti
+            thisCM = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]*20
+            thisCM = thisCM[i]
+            percentiles = [2.5, 16, 50, 84, 97.5]
+
+            # fill in some percentiles
+            rr, qVecs = constructQuantiles(allR, [model.var[v] for model in self.models], percentiles, ti)
+            qVecs=np.array(qVecs)
+            if(len(percentiles) % 2 == 0):
+                # a unique fill between each quantile
+                for k in range(len(percentiles)-1):
+                    ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(percentiles))),alpha=0.3)
+            else:
+                # symmetric fills around the central quantile.
+                v2 = (len(percentiles)-1)/2
+                for k in range(v2):
+                    col = thisCM(float(k+.5)/float(v2+.5))
+                    ax.fill_between(rr, qVecs[k,:], qVecs[(k+1),:], facecolor=col, alpha=0.3)
+                    ax.fill_between(rr, qVecs[(-k-2),:], qVecs[(-k-1),:], facecolor=col, alpha=0.3)
+                    ax.plot( rr, qVecs[k+1,:], lw=k, color=thisCM(1.0) )
+                    ax.plot( rr, qVecs[(-k-1),:], lw=k, color=thisCM(1.0) )
+        ax.set_xlabel(r'r (kpc)')
+        ax.set_ylabel(r'$\sigma_{*,Z,i}\ (\mathrm{km}/\mathrm{s})$')
+        plt.savefig( self.name+'_sigstZs_vsr.png' )
+
+
+        fig,ax = plt.subplots()
+        allR,_,_,_ = self.constructQuantity('r')
+        ti = -1
+        for i in range(len(sigRs)):
+            sti = str(i).zfill(2)
+            v = 'Zst'+sti
+            thisCM = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]*20
+            thisCM = thisCM[i]
+            percentiles = [2.5, 16, 50, 84, 97.5]
+
+            # fill in some percentiles
+            rr, qVecs = constructQuantiles(allR, [model.var[v] for model in self.models], percentiles, ti)
+            qVecs=np.array(qVecs)
+            if(len(percentiles) % 2 == 0):
+                # a unique fill between each quantile
+                for k in range(len(percentiles)-1):
+                    ax.fill_between(rr, qVecs[k,:], qVecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(percentiles))),alpha=0.3)
+            else:
+                # symmetric fills around the central quantile.
+                v2 = (len(percentiles)-1)/2
+                for k in range(v2):
+                    col = thisCM(float(k+.5)/float(v2+.5))
+                    ax.fill_between(rr, qVecs[k,:], qVecs[(k+1),:], facecolor=col, alpha=0.3)
+                    ax.fill_between(rr, qVecs[(-k-2),:], qVecs[(-k-1),:], facecolor=col, alpha=0.3)
+                    ax.plot( rr, qVecs[k+1,:], lw=k, color=thisCM(1.0) )
+                    ax.plot( rr, qVecs[(-k-1),:], lw=k, color=thisCM(1.0) )
+        ax.set_xlabel(r'r (kpc)')
+        ax.set_ylabel(r'$Z_{*,i}$')
+        ax.set_yscale('log')
+        plt.savefig( self.name+'_Zst_vsr.png' )
+
+
+
+
+#def plotPercentiles(
+
+    def hist1d(self,vars=None,timeIndex=None,movie=True):
+        model = self.models[0]
+        if timeIndex is None:
+            timeIndex=[1]
+            #timeIndex = range(1,model.nTimeSteps(),3)
+        if vars is None:
+            vars =  model.p.keys()
+
+        for i,var in enumerate(vars):
+
+            print "Making histogram for ",var
+            overallX,_,overallXLog,overallXRange = self.constructQuantity(var)
+            if(len(np.shape(overallX))==1):
+                overallX = np.tile(overallX, (self.models[0].nTimeSteps(),1)).T
+            dirname = 'movie_'+self.name+'_hist_'+var
+            if not movie:
+                fig,ax = plt.subplots()
+            counter=0
+            colors=['b','g','r','orange','purple','k']*10
+            for ti in timeIndex:
+                if movie:
+                    fig,ax = plt.subplots()
+                try:
+                    if overallXLog:
+                        h,e = np.histogram(np.log10(overallX[:,ti]), bins=80, density=True, range=overallXRange)
+                    else:
+                        h,e = np.histogram(overallX[:,ti], bins=80, density=True, range=overallXRange)
+                except:
+                    pdb.set_trace()
+
+                width = 0.3 * (e[1] - e[0])
+                center = (e[:-1] + e[1:]) / 2
+                ax.bar(center, h, align='center', width=width, color=colors[counter])
+
+                counter+=1
+                #ax.set_xlim(e[0],e[-1])
+                ax.set_ylim(0,np.max(h))
+                try:
+                    ax.set_xlabel(model.get(var).texString)
+                except:
+                    ax.set_xlabel(var)
+                if(overallXLog):
+                    try:
+                        ax.set_xlabel(r'$\log_{10}$' + model.get(var).texString)
+                    except:
+                        ax.set_xlabel(r'$\log_{10}$' +var)
+                if movie:
+                    dispz = "%.3f" % z[ti]
+                    plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
+                    plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
+                    plt.close(fig)
+            if movie: 
+                makeMovies(dirname[7:])
+            else:
+                plt.savefig(dirname[6:]+'.png')
+                plt.close(fig)
+
+
+    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True):
         if(yvar is None):
             variables = self.models[0].getTimeFunctions()
+        else:
+            variables = yvar
         if(timeIndex is None):
             timeIndex=range(1,self.models[0].nTimeSteps(),3)
         if(colorby is None):
@@ -930,6 +1280,10 @@ class Experiment:
 
         overallX,_,overallXLog,overallXRange = self.constructQuantity(xvar)
         colors,_,log,overallColorRange = self.constructQuantity(colorby)
+        # Make sure that the X variable is a 2-d array (model x time). If it's e.g. a 
+        # parameter, it will only have one dimension indexing the number of models.
+        if(len(np.shape(overallX))==1):
+            overallX = np.tile(overallX, (self.models[0].nTimeSteps(),1)).T
         if(log):
             colors=np.log10(colors)
             overallColorRange = np.log10(overallColorRange)
@@ -938,32 +1292,121 @@ class Experiment:
                 b = behroozi()
                 b.readSmmr()
             dirname = 'movie_'+self.name+'_'+v+'_cb'+colorby+'_vs'+xvar
-            if(not os.path.exists(dirname)):
+            if(not os.path.exists(dirname) and movie):
                 os.makedirs(dirname)
             print "Making movie : ",v," vs ",xvar
 
             overallVar,_,overallLog,overallRange = self.constructQuantity(v)
+
+
+            cmaps = [plt.cm.Blues, plt.cm.Greens, plt.cm.Reds, plt.cm.Purples, plt.cm.Greys]*10
             counter=0
-            for ti in timeIndex:
+            if not movie:
                 fig,ax = plt.subplots(1,1)
+
+            # As we did above for the X variable, make sure that the y-variable conforms to later
+            # expectations, i.e. a 2-d array (model x time)
+            if(len(np.shape(overallVar))==1):
+                overallVar = np.tile(overallVar, (self.models[0].nTimeSteps(),1)).T
+                
+            for ti in timeIndex:
+                if movie:
+                    fig,ax = plt.subplots(1,1)
                 model = self.models[0]
-                ax.set_xlabel(model.get(xvar).texString)
-                ax.set_ylabel(model.get(v).texString)
+                try:
+                    ax.set_xlabel(model.get(xvar).texString)
+                except:
+                    ax.set_xlabel(xvar)
+                try:
+                    ax.set_ylabel(model.get(v).texString)
+                except:
+                    ax.set_ylabel(v)
                 
                 colorLoc,_,_,_ = self.constructQuantity(colorby,timeIndex=ti)
                 if(log):
                     colorLoc = np.log10(colorLoc)
 
-                sc = ax.scatter(overallX[:,ti],overallVar[:,ti],c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
-                cbar = plt.colorbar(sc,ax=ax)
-                if(log):
-                    cbar.set_label(r'$\log_{10}$'+colorby)
+                if movie:
+                    lw=1
+                    s=30
                 else:
-                    cbar.set_label(colorby)
-                if(prev>0):
-                    for k in range(max(ti-prev,0),ti):
-                        #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
-                        ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
+                    lw=0
+                    s=1
+                nx = int(model.p['nx'])
+                if v == 'Mdot':
+                    nx+=1
+                if(len(np.shape(overallX[:,ti]))==2 and len(np.shape(overallVar[:,ti]))==2):
+                    # X and Y are 2D, so we have to flatten them, and adjust colorLoc.
+                    colorLoc = np.tile(colorLoc, (nx, 1)).T.flatten()
+                    xx = overallX[:,ti].flatten()
+                    yy = overallVar[:,ti].flatten()
+                elif(len(np.shape(overallX[:,ti]))==1 and len(np.shape(overallVar[:,ti]))==2):
+                    # Y is 2D but X is not, so we have to flatten them, and adjust colorLoc.
+                    colorLoc = np.tile(colorLoc, (nx, 1)).T.flatten()
+                    xx = np.tile(overallX[:,ti], (nx,1)).T.flatten()
+                    yy = overallVar[:,ti].flatten()
+                elif(len(np.shape(overallX[:,ti]))==2 and len(np.shape(overallVar[:,ti]))==1):
+                    # X is 2D but Y is not, so we have to flatten them, and adjust colorLoc.
+                    colorLoc = np.tile(colorLoc, (nx, 1)).T.flatten()
+                    xx = overallX[:,ti].flatten()
+                    yy = np.tile(overallVar[:,ti], (nx,1)).T.flatten()
+                else:
+                    xx=overallX[:,ti]
+                    yy=overallVar[:,ti]
+
+                if np.max(colorLoc)-np.min(colorLoc)<(overallColorRange[1]-overallColorRange[0])*0.1 and len(xx)>200:
+                    if(overallLog):
+                        yscale = 'log'
+                    else:
+                        yscale = 'linear'
+                    if(overallXLog):
+                        xscale = 'log'
+                    else:
+                        xscale = 'linear'
+
+                    histFlag = True
+                    if overallLog:
+                        if counter==0:
+                            try:
+                                assert overallRange[0]>0 and overallRange[1]>0
+                            except:
+                                pdb.set_trace()
+                            overallRange[0] = np.log10(overallRange[0])
+                            overallRange[1] = np.log10(overallRange[1])
+                        yy= np.log10(yy)
+                    if overallXLog:
+                        if counter==0 and i==0:
+                            try:
+                                assert overallXRange[0]>0 and overallXRange[1]>0
+                            except:
+                                pdb.set_trace()
+                            overallXRange[0] = np.log10(overallXRange[0])
+                            overallXRange[1] = np.log10(overallXRange[1])
+                        xx = np.log10(xx)
+                    weights=None
+                    if xvar=='r' and not overallXLog:
+                        weights=copy.deepcopy(xx)
+                    try:
+                        h, xe, ye = np.histogram2d(xx,yy, bins=30, range=[[overallXRange[0],overallXRange[1]],[overallRange[0],overallRange[1]]] , weights=weights, normed=True) 
+                    except:
+                        pdb.set_trace()
+                    print "hist min, max: ",np.min(h),np.max(h)
+                    #ax.imshow(np.log10(h.T+1.0), cmap=cmaps[counter], origin='lower', extent=( overallXRange[0],overallXRange[1],overallRange[0],overallRange[1] ), interpolation='gaussian', alpha=.8, aspect='auto')
+                    ax.contour(np.log10(1.0+h.T), extent=( overallXRange[0],overallXRange[1],overallRange[0],overallRange[1] ), cmap=cmaps[counter]  )
+                    #plt.hexbin( xx, yy, extent=, alpha = 1.0/float(len(timeIndex)), xscale='linear', yscale='linear', cmap=cmaps[counter] )
+                else:
+                    histFlag=False
+                    sc = ax.scatter(xx,yy,c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm,lw=lw,s=s)
+                    if movie or (not movie and counter==0):
+                        cbar = plt.colorbar(sc,ax=ax)
+                        if(log):
+                            cbar.set_label(r'$\log_{10}$'+colorby)
+                        else:
+                            cbar.set_label(colorby)
+                    if(prev>0 and movie):
+                        for k in range(max(ti-prev,0),ti):
+                            #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
+                            ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
                 z=model.getData('z')
                 if(xvar=='Mh' and v=='efficiency'):
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
@@ -971,50 +1414,55 @@ class Experiment:
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1],eff=False)
 
                 # Moster
-                def Moster(Mh, mparams):
-                    M10, M11, N10, N11, beta10, beta11, gamma10, gamma11 = mparams
-                    logM1z = M10 + M11*z[ti]/(z[ti]+1.0)
-                    Nz = N10 + N11*z[ti]/(z[ti]+1.0)
-                    betaz = beta10 + beta11*z[ti]/(z[ti]+1.0)
-                    gammaz = gamma10 + gamma11*z[ti]/(z[ti]+1.0)
-                    M1 = np.power(10.0, logM1z)
-                    eff = 2.0*Nz / (np.power(Mh/M1,-betaz) + np.power(Mh/M1,gammaz))
-                    return eff
-                central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
-                unc =     np.array([0.236, 0.353, 0.0058, 0.0069, 0.153, 0.225, 0.059, 0.173])
-                logMhs = np.linspace(np.log10(overallXRange[0]), np.log10(overallXRange[1]), num=100)
-                Mhs = np.power(10.0, logMhs)
-                eff = Moster(Mhs,central)
-                for i in range(len(unc)):
-                    theseParams = copy.copy(central)
-                    theseParams[i] = theseParams[i]+unc[i]
-                    eff = np.vstack([eff, Moster(Mhs, theseParams)])
-                    theseParams = copy.copy(central)
-                    theseParams[i] = theseParams[i]-unc[i]
-                    eff = np.vstack([eff, Moster(Mhs, theseParams)])
-                effM = np.min(eff, axis=0)
-                effP = np.max(eff, axis=0)
-                if(xvar=='Mh' and (v=='efficiency' or v=='mstar')):
-                    if v=='efficiency':
-                        ax.fill_between(Mhs, effM, effP, alpha=.1)
-                    if v=='mstar':
-                        ax.fill_between(Mhs, effM*Mhs, effP*Mhs,alpha=.1)
+                if not histFlag:
+                    def Moster(Mh, mparams):
+                        M10, M11, N10, N11, beta10, beta11, gamma10, gamma11 = mparams
+                        logM1z = M10 + M11*z[ti]/(z[ti]+1.0)
+                        Nz = N10 + N11*z[ti]/(z[ti]+1.0)
+                        betaz = beta10 + beta11*z[ti]/(z[ti]+1.0)
+                        gammaz = gamma10 + gamma11*z[ti]/(z[ti]+1.0)
+                        M1 = np.power(10.0, logM1z)
+                        eff = 2.0*Nz / (np.power(Mh/M1,-betaz) + np.power(Mh/M1,gammaz))
+                        return eff
+                    central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
+                    unc =     np.array([0.236, 0.353, 0.0058, 0.0069, 0.153, 0.225, 0.059, 0.173])
+                    logMhs = np.linspace(np.log10(overallXRange[0]), np.log10(overallXRange[1]), num=100)
+                    Mhs = np.power(10.0, logMhs)
+                    eff = Moster(Mhs,central)
+                    for i in range(len(unc)):
+                        theseParams = copy.copy(central)
+                        theseParams[i] = theseParams[i]+unc[i]
+                        eff = np.vstack([eff, Moster(Mhs, theseParams)])
+                        theseParams = copy.copy(central)
+                        theseParams[i] = theseParams[i]-unc[i]
+                        eff = np.vstack([eff, Moster(Mhs, theseParams)])
+                    effM = np.min(eff, axis=0)
+                    effP = np.max(eff, axis=0)
+                    if(xvar=='Mh' and (v=='efficiency' or v=='mstar')):
+                        if v=='efficiency':
+                            ax.fill_between(Mhs, effM, effP, alpha=.1)
+                        if v=='mstar':
+                            ax.fill_between(Mhs, effM*Mhs, effP*Mhs,alpha=.1)
 
 
                 ax.set_xlim(overallXRange[0],overallXRange[1])
                 ax.set_ylim(overallRange[0],overallRange[1])
-                if(overallLog):
+                if(overallLog and not histFlag):
                     ax.set_yscale('log')
-                if(overallXLog):
+                if(overallXLog and not histFlag):
                     ax.set_xscale('log')
-                dispz = "%.3f" % z[ti]
-                plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
-                plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
+                if movie:
+                    dispz = "%.3f" % z[ti]
+                    plt.text(0.7,0.9,'z='+dispz,transform=ax.transAxes)
+                    plt.savefig(dirname+'/frame_'+str(counter).zfill(4)+'.png')
+                    plt.close(fig)
                 counter+=1
-                plt.close(fig)
-            makeMovies(dirname[7:])
+            if movie: 
+                makeMovies(dirname[7:])
+            else:
+                plt.savefig(dirname[6:]+'.png')
 
-    def timePlot(self,variables=None,colorby=None,perc=None):
+    def timePlot(self,variables=None,colorby=None,perc=None,vsz=False):
         if(variables is None):
             variables = self.models[0].getTimeFunctions()
         time,fail,log,_ = self.constructQuantity('t')
@@ -1040,7 +1488,10 @@ class Experiment:
                 colors=np.log10(colors)
                 overallColorRange=np.log10(overallColorRange)
 
-            ax.set_xlabel(model.get('t').texString)
+            if vsz:
+                ax.set_xlabel(model.get('z').texString)
+            else:
+                ax.set_xlabel(model.get('t').texString)
             ax.set_ylabel(model.get(v).texString)
             z = model.getData('z')
             t = model.getData('t')
@@ -1057,66 +1508,87 @@ class Experiment:
             correspondingTs = [t[zi] for zi in zind]
             lwnorm = 1.0 + log10(float(len(self.models)))
 
+            if vsz:
+                xc = [.02]
+            else:
+                xc = [t[-1]*.99]
             if v=='BT':
-                ax.errorbar([t[-1]*.97], [0.150 + (0.028-0.019)/2.0], yerr=[.028],color='k',lw=3)
+                ax.errorbar(xc, [0.150 + (0.028-0.019)/2.0], yerr=[.028],color='k',lw=3)
             if v=='sfr':
-                ax.errorbar([t[-1]*.97], [1.65], yerr=[0.19],color='k',lw=3)
+                ax.errorbar(xc, [1.65], yerr=[0.19],color='k',lw=3)
             if v=='mstar':
-                ax.errorbar([t[-1]*.97], [6.08e10], yerr=[1.14e10],color='k',lw=3)
+                ax.errorbar(xc, [6.08e10], yerr=[1.14e10],color='k',lw=3)
             if v=='scaleLength':
-                ax.errorbar([t[-1]*.97], [2.15], yerr=[0.14],color='k',lw=3)
+                ax.errorbar(xc, [2.15], yerr=[0.14],color='k',lw=3)
 
             allData = np.zeros( (len(self.models), self.models[0].nt) )
             if perc is not None:
                 qvecs = np.percentile(np.array(theVar), perc, axis=0)
                 qvecs = np.array(qvecs)
 
-            for j,model in enumerate(self.models):
-                #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
-                if(len(model.getData('t')) != len(theVar[j])):
-                    # pdb.set_trace() -- looks like this situation occurs when bulge fraction calculation fails.
-                    pass
+            if perc is None:
+                for j,model in enumerate(self.models):
+                    #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
+                    if(len(model.getData('t')) != len(theVar[j])):
+                        # pdb.set_trace() -- looks like this situation occurs when bulge fraction calculation fails.
+                        pass
+                    else:
+                        if vsz:
+                            xx = model.getData('z')
+                        else:
+                            xx = model.getData('t')
+                        sc = ax.scatter(xx,
+                                    theVar[j],
+                                    c=(colors[j]),
+                                    lw=0.1/lwnorm,
+                                    s=10.0/lwnorm,
+                                    vmin=overallColorRange[0],
+                                    vmax=overallColorRange[1],
+                                    cmap=cm)
+                cbar = plt.colorbar(sc,ax=ax)
+                if(log):
+                    cbar.set_label(r'$\log_{10}$'+colorby)
                 else:
-                    sc = ax.scatter(model.getData('t'),
-                                theVar[j],
-                                c=(colors[j]),
-                                lw=0.1/lwnorm,
-                                s=10.0/lwnorm,
-                                vmin=overallColorRange[0],
-                                vmax=overallColorRange[1],
-                                cmap=cm)
+                    cbar.set_label(colorby)
 
+            if vsz:
+                xx = model.getData('z')
+            else:
+                xx = model.getData('t')
 
             # fill in some percentiles
+            np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
             if(perc is not None):
                 if(len(perc) < len(self.models)):
                     if(len(perc) % 2 == 0):
                         # a unique fill between each quantile
                         for k in range(len(perc)-1):
-                            ax.fill_between(t, qvecs[k,:], qvecs[k+1,:], facecolor=cmPer(float(k+.5)/float(len(perc))),alpha=0.3)
+                            ax.fill_between(xx, qvecs[k,:], qvecs[k+1,:], facecolor=cmPer(float(k+.5)/float(len(perc))),alpha=0.3)
                     else:
                         # symmetric fills around the central quantile.
                         v2 = (len(perc)-1)/2
                         for k in range(v2):
                             col = cmPer(float(k+.5)/float(v2+.5))
                             #pdb.set_trace()
-                            ax.fill_between(t, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
-                            ax.fill_between(t, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
+                            ax.fill_between(xx, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
+                            ax.fill_between(xx, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
+                            ax.plot( xx, qvecs[k,:], lw=k+1, color='k' )
+                            ax.plot( xx, qvecs[(-k-1),:], lw=k+1, color='k' )
 
                     
-            cbar = plt.colorbar(sc,ax=ax)
-            if(log):
-                cbar.set_label(r'$\log_{10}$'+colorby)
+
+            if vsz:
+                ax.set_xlim(zs[0],zs[-1])
+                ax.invert_xaxis()
             else:
-                cbar.set_label(colorby)
+                ax2 = ax.twiny()
+                ax2.set_xticks(correspondingTs)
+                ax2.set_xticklabels([str(zl) for zl in zs] , rotation=50, ha='center')
+                ax2.set_xlabel(model.get('z').texString)
 
-            ax2 = ax.twiny()
-            ax2.set_xticks(correspondingTs)
-            ax2.set_xticklabels([str(zl) for zl in zs] , rotation=50, ha='center')
-            ax2.set_xlabel(model.get('z').texString)
+                ax.set_xlim(correspondingTs[-1],correspondingTs[0])
 
-            ax.set_xlim(correspondingTs[-1],correspondingTs[0])
-
+            ax.set_ylim(varRange[0],varRange[1])
             #### Take this out for now. Hopefully it's fine, and will let us see the errorbars when it's available.
             #try:
             #    ax.set_ylim(varRange[0],varRange[1])
@@ -1135,13 +1607,120 @@ class Experiment:
 
             #plt.colorbar(sc,ax=ax)
             try:
-                plt.savefig(self.name+'_'+v+'_cb'+colorby+'.png')
+                if vsz:
+                    plt.savefig(self.name+'_vsz_'+v+'_cb'+colorby+'.png')
+                else:
+                    plt.savefig(self.name+'_vst_'+v+'_cb'+colorby+'.png')
+
             except ValueError:
                 print "Caught ValueError while trying to plot variable ",v," colored by ",colorby
             plt.close(fig)
         #### End of timePlot(self,variables=None,colorby=None,perc=None):
+    def customPlotPPD(self):
+        ''' Make a custom plot where we assume the experiment is composed of a sample from the posterior
+            predictive distribution.'''
+        # hg vs MLF
+        # r vs mInterior
+        # r vs rhoDM
+        # vcirc decomp??
+        # column density decomp
+        fig,ax = plt.subplots()
+        muNorms,_,_,_ = self.constructQuantity('muNorm')
+        muHgScaling,_,_,_ = self.constructQuantity('muHgScaling')
+        muMhScaling,_,_,_ = self.constructQuantity('muMhScaling')
+        hgs = np.power(10.0, np.linspace(1,3,50))
+        perc=[2.5, 16.0, 50.0, 86.0, 97.5]
+        cms = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]
+        for counter, Mh in enumerate([1.0e10, 1.0e11, 1.0e12]):
+            mus = []
+            for i in range(len(muNorms)):
+                mus.append( muNorms[i] * np.power(hgs/100.0, muHgScaling[i]) * np.power(Mh/1.0e12, muMhScaling[i]) )
+            qvecs = np.percentile(np.array(mus), perc, axis=0)
+            qvecs = np.array(qvecs)
+            xx = hgs
+            # fill in some percentiles
+            #np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
+            thisCM = cms[counter]
+            if(perc is not None):
+                if(len(perc) < len(self.models)):
+                    if(len(perc) % 2 == 0):
+                        # a unique fill between each quantile
+                        for k in range(len(perc)-1):
+                            ax.fill_between(xx, qvecs[k,:], qvecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(perc))),alpha=0.3)
+                    else:
+                        # symmetric fills around the central quantile.
+                        v2 = (len(perc)-1)/2
+                        for k in range(v2):
+                            col = thisCM(float(k+.5)/float(v2+.5))
+                            #pdb.set_trace()
+                            ax.fill_between(xx, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
+                            ax.fill_between(xx, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
+                            ax.plot( xx, qvecs[k,:], lw=k+1, color='k' )
+                            ax.plot( xx, qvecs[(-k-1),:], lw=k+1, color='k' )
+
+
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlabel(r'Gas Scale Height (pc)')
+        ax.set_ylabel(r'Local mass loading factor ($\dot{\Sigma}_\mathrm{out}/\dot{\Sigma}_*$)')
+        plt.savefig(self.name+'_hg_vs_mlf.png')
+        plt.close(fig)
+
+
+        fig,ax = plt.subplots()
+        Mhs = np.power(10.0, np.linspace(10,12,50))
+        perc=[2.5, 16.0, 50.0, 86.0, 97.5]
+        cms = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]
+        for counter, hg in enumerate([30,100,300]):
+            mus = []
+            for i in range(len(muNorms)):
+                mus.append( muNorms[i] * np.power(hg/100.0, muHgScaling[i]) * np.power(Mhs/1.0e12, muMhScaling[i]) )
+            qvecs = np.percentile(np.array(mus), perc, axis=0)
+            qvecs = np.array(qvecs)
+            xx = Mhs
+            # fill in some percentiles
+            #np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
+            thisCM = cms[counter]
+            if(perc is not None):
+                if(len(perc) < len(self.models)):
+                    if(len(perc) % 2 == 0):
+                        # a unique fill between each quantile
+                        for k in range(len(perc)-1):
+                            ax.fill_between(xx, qvecs[k,:], qvecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(perc))),alpha=0.3)
+                    else:
+                        # symmetric fills around the central quantile.
+                        v2 = (len(perc)-1)/2
+                        for k in range(v2):
+                            col = thisCM(float(k+.5)/float(v2+.5))
+                            #pdb.set_trace()
+                            ax.fill_between(xx, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
+                            ax.fill_between(xx, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
+                            ax.plot( xx, qvecs[k,:], lw=k+1, color='k' )
+                            ax.plot( xx, qvecs[(-k-1),:], lw=k+1, color='k' )
+
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlabel(r'Halo Mass ($M_\odot$)')
+        ax.set_ylabel(r'Local mass loading factor ($\dot{\Sigma}_\mathrm{out}/\dot{\Sigma}_*$)')
+        plt.savefig(self.name+'_Mh_vs_mlf.png')
+        plt.close(fig)
+
+        # Alright, here we're going to do something pretty expensive: reproduce the Z_* vs. r @ different heights from JYC's paper.
+        fig,ax = plt.subplots()
+        for i,model in enumerate(self.models):
+            rs = [3,5,7,9,11,13]
+            for j,r in enumerate(rs):
+                # For each of these we need to collect the Sigst's, sigst's, and Zst's.
+                # With the first two we compute the weights for the different Z bins.
+                pass
+        plt.savefig(self.name+'_Zsti_r_z.png')
+        plt.close(fig)
+
+        
+
+
                 
-    def constructQuantity(self,name,timeIndex=None,locIndex=None):
+    def constructQuantity(self,name,timeIndex=None,locIndex=None,flatten=False):
         '''Loop over our list of models and construct the corresponding list of the quantity name.
         name can be a key in model[i].p (parameters) or model[i].var (variables), including either
         time or radial functions.'''
@@ -1171,6 +1750,8 @@ class Experiment:
                 print "Couldn't find the requested variable! ",name
             failures.append(failure)
         construction = np.array(construction)
+        if flatten:
+            construction = construction.flatten()
         #theRange = np.percentile(construction,(.2,99.8))
         if log:
             try:
@@ -1191,7 +1772,7 @@ class Experiment:
             except:
                 pdb.set_trace()
         else:
-            theRange= self.models[0].get(name).theRange
+            theRange= copy.deepcopy(self.models[0].get(name).theRange)
 
         # If the arrays weren't all the same size from model to model, we have a problem.
         if(hasattr(theRange[0],"__len__")):
@@ -1200,8 +1781,19 @@ class Experiment:
             theRange[1] = np.max(theRange[1])
 
         if(log):
+            try:
+                assert theRange[0]>0 and theRange[1]>0
+            except:
+                pdb.set_trace()
             if(theRange[1]/theRange[0] < 10.0):
                 log=False
+
+        if theRange[0]==theRange[1]:
+            theRange[1]=theRange[0]+1.0
+            if theRange[0]>0:
+                theRange[0]=theRange[0]*0.9
+            else:
+                theRange[0]=theRange[0]-1.0
 
         return construction,failures,log,theRange
         ##### End of constructQuantity(self,name,timeIndex=None,locIndex=None):

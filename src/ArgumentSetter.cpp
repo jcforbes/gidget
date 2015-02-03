@@ -6,6 +6,7 @@
 ArgumentSetter::ArgumentSetter(int ac, char** av,std::string fn) :
   argc(ac), argv(av), arg(2), cmtfile((fn).c_str())
 { 
+  cmtfile.precision(15);
   cmtfile << "--------------" << std::endl;
   cmtfile << argv[1] << std::endl;
 }

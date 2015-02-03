@@ -17,6 +17,7 @@ def HowManyStillRunning(procs):
 
 
 def makeMovies(keyname = None):
+    print "running makeMovies in makeGidgetMovies.py with keyname ",keyname
     # What subdirectory are we in?
     subdirname = os.getcwd()[os.getcwd().rfind("/")+1:] # analysis typically
     # Find all the directories in which the IDL code has put frames for movies
@@ -41,7 +42,14 @@ def makeMovies(keyname = None):
         subprocess.call(["rm","-f",movieName])
         if(keyname is None):
             print "Producing movie #",ctr,"of",len(movieDirs)
-        procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-i",regstring,"-vcodec","qtrle",movieName],stderr=nulfp))
+        #print "processing movieDir ",movieDir
+        #print 'running ffmpeg with regstring ',regstring
+        #print 'to create movie ',movieName
+        try:
+            procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-i",regstring,"-vcodec","qtrle",movieName],stderr=nulfp))
+        except:
+            print "Did you forget to import ffmpeg?"
+            raise OSError
     #    procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-f","image2","-qscale","1","-i",regstring,movieName],stderr=nulfp))
     #    procs.append(subprocess.Popen(["ffmpeg","-f","image2","-qscale","0","-i",regstring,movieName]))
     #    pdb.set_trace()

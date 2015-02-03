@@ -15,8 +15,9 @@ def makeThePlots(args):
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
-        theExp.read(args.vsr+balanceArgs)
+        theExp.read(args.vsr+balanceArgs, keepStars=args.stellarPops)
         nts = int(theExp.models[0].p['Noutputs']+1)
+        tis = [nts/5,nts/2,nts]
         theExp.storeMS()
         theExp.assignIndices()
         for i,rankby in enumerate(args.rankby):
@@ -27,10 +28,13 @@ def makeThePlots(args):
         stepsize = args.step
         for cb in args.colorby:
             if(args.time):
-                theExp.timePlot(colorby=cb)
                 if(args.percentiles):
                     per = [2.5, 16, 50, 84, 97.5]
-                    theExp.timePlot(colorby=cb, perc=per)
+                    theExp.timePlot(colorby=cb, perc=per,vsz=False)
+                    theExp.timePlot(colorby=cb, perc=per,vsz=True)
+                else:
+                    theExp.timePlot(colorby=cb,vsz=False)
+                    theExp.timePlot(colorby=cb,vsz=True)
             if(args.radial):
                 theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=cb,logR=args.logR)
             if(args.scaled):
@@ -40,11 +44,36 @@ def makeThePlots(args):
             #    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],xvar='Mh',prev=args.prev,colorby=cb)
             if len(args.mass)!=0:
                 for xv in args.mass:
-                    theExp.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar=xv,prev=args.prev,colorby=cb)
+                    theExp.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar=xv,prev=args.prev,colorby=cb,movie=True)
+                    theExp.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar=xv,prev=0,colorby=cb,movie=False)
+        if len(args.mass)!=0 and args.snapshot:
+            for xv in args.mass:
+                theExp.ptMovie(timeIndex=tis,xvar=xv,prev=0,colorby='t',movie=False)
+                theExp.ptMovie(timeIndex=tis,xvar=xv,yvar=args.vsr,prev=0,colorby='t',movie=False)
+        if(args.radial and args.snapshot):
+            theExp.radialPlot(timeIndex=tis,variables=args.vsr,colorby='t',logR=args.logR,movie=False)
+        if(args.scaled and args.snapshot):
+            theExp.radialPlot(timeIndex=tis,variables=args.vsr,scaleR=True,colorby='t',logR=args.logR,movie=False)
+        if args.snapshot:
+            theExp.hist1d(timeIndex=tis, vars=None, movie=False)
+
+        # END loop over for cb in colorby
+        # OK, this is just a test..
+        #theExp.ptMovie(timeIndex=tis,xvar='colsfr',yvar=['MassLoadingFactor'],prev=0,colorby='t',movie=False)
+        #theExp.ptMovie(timeIndex=tis,xvar='hGas',yvar=['MassLoadingFactor'],prev=0,colorby='t',movie=False)
+        #theExp.ptMovie(timeIndex=tis,xvar='Mh',yvar=['MassLoadingFactor','mstar','fg','integratedMLF','integratedZ'],prev=0,colorby='t',movie=False)
+        #theExp.ptMovie(timeIndex=tis,xvar='x3',yvar=['MassLoadingFactor'],prev=0,colorby='t',movie=False)
+        #theExp.ptMovie(timeIndex=tis,xvar='colsfr',yvar=['colTr','colAccr','colOut'],prev=0,colorby='t',movie=False)
+        #theExp.ptMovie(timeIndex=tis,xvar='r',yvar=['col','colst','Z','vPhi','Q','MassLoadingFactor','hGas','colsfr','fH2','fgRadial','colTr','colAccr','colOut','equilibrium'],prev=0,colorby='t',movie=False)
+        if args.stellarPops:
+            theExp.plotAgeFuncs()
+        theExp.customPlotPPD()
         if(args.percentiles):
             per = [2.5, 16, 50, 84, 97.5]
             if(args.radial):
                 theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per)
+                if args.snapshot:
+                    theExp.radialPlot(timeIndex=tis,variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per,movie=False)
             if(args.scaled):
                 theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per,scaleR=True)
         if(args.balance):
@@ -68,7 +97,7 @@ if __name__=='__main__':
     #parser.add_argument('--mass',dest='mass',action='store_true',help="Make plots vs mstar")
     #parser.set_defaults(mass=False)
     parser.add_argument('--mass',type=str,nargs='+',default=[],help='List of x- variables to use in point movies. Eg. mstar, Mh, sSFR,...')
-    parser.add_argument('--colorby',type=str,nargs='+',default=['deltaMS','lambda','integratedZ'],help='List of variables to color points by in vs mstar plots. Default is deltaMS,lambda,integratedZ')
+    parser.add_argument('--colorby',type=str,nargs='+',default=['Mh0'],help='List of variables to color points by in vs mstar plots. Default is halo mass at z=0')
     parser.add_argument('--vsr',type=str,nargs='+',default=['colsfr','colst','NHI','sig','col','Z','fH2','Mdot','MJeans','ClumpMassPerDisk','tDepRadial','tDepH2Radial','Q','Qg','Qst','fgRadial','equilibrium'],help='List of variables to plot vs mstar. Default is colsfr,colst,NHI,sig,col,Z,fH2,Mdot,MJeans,ClumpMassPerDisk,tDepRadial,tDepH2Radial,Q,Qg,Qst,fgRadial,equilibrium')
     parser.add_argument('--prev',type=int,default=5,help='Number of previous points to plot in vsmstar movies.')
     parser.add_argument('--rankby',type=str,nargs='+',default=[],help='Sort the models according to these arguments.')
@@ -76,6 +105,8 @@ if __name__=='__main__':
     parser.add_argument('--logR',dest='logR',action='store_true',help="Use logarithmic radial coordinate in plots vs. r")
     parser.set_defaults(logR=False)
     parser.add_argument('--percentiles',dest='percentiles',action='store_true',help="In radial plots overplot percentiles.")
+    parser.add_argument('--snapshot',dest='snapshot',action='store_true',help="Produce 1d histograms of all parameters and time variables.")
+    parser.add_argument('--stellarPops',dest='stellarPops',action='store_true',help="Produce plots relating to the passive stellar pops")
     args = parser.parse_args()
 
     weNeed = len(args.rankby) - len(args.rbz) 

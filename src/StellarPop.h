@@ -6,6 +6,7 @@
 class DiskContents;
 class Cosmology;
 class FixedMesh;
+class Simulation;
 
 double ComputeVariance(double,double,double,double,double,double,double);
 
@@ -23,6 +24,7 @@ class StellarPop {
 //  bool IsForming() const { return isForming; }; // It's probably a bad idea to do things this way.
 
   friend class DiskContents;
+  friend class Simulation;
 
   // Add the contents of sp2 to the calling StellarPop in such a way that
   // Mass, Kinetic Energy, and Mass in Metals are conserved

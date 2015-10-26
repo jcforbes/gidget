@@ -64,11 +64,34 @@ class experiment:
         ''' All we need here is a name. This will be the directory containing and the prefix for
              all files created in all the GIDGET runs produced as part of this experiment.'''
         # fiducial model
-        self.p=[name,200,1.5,.01,4.0,1,1,.01,1,10,220.0,20.0,7000.0,2.5,.5,1.0,2.0,5000.0,int(1e9),1.0e-3,1.0,-2.0/3.0,0,.5,2.0,2.0,0,0.0,1.5,1,2.0,1.0,1.0e12,5.0,3.0,0,2.0,-1.0,2.5,0.0,0.54,0.1,200,.30959,0.38,-0.25,1.0,1.0,0.3,1.0,0,0.0,.1,.03,2.0,.002,.054,0.0,0.0]
+        self.p=[name,200,1.5,.01,4.0, \
+                1,1,.01,1,10, \
+                220.0,20.0,7000.0,2.5,.5, \
+                1.0,2.0,5000.0,int(1e9),1.0e-3, \
+                1.0,-2.0/3.0,0,.5,2.0, \
+                2.0,0,0.0,1.5,1, \
+                2.0,1.0,1.0e12,5.0,3.0, \
+                0,2.0,-1.0,2.5,0.0, \
+                0.54,0.1,200,.30959,0.38, \
+                -0.25,1.0,1.0,0.3,1.0, \
+                0,0.0,.1,.03,2.0, \
+                .002,.054,0.0,0.0]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
-        self.names=['name','nx','eta','epsff','tauHeat','analyticQ','cosmologyOn','xmin','NActive','NPassive','vphiR','R','gasTemp','Qlim','fg0','phi0','zstart','tmax','stepmax','TOL','muNorm','muMhScaling','b','innerPowerLaw','softening','diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive','fixedQ','kappaMetals','Mh0','minSigSt','NChanges','dbg','accScaleLength','zquench','zrelax','xiREC','RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ','accAlphaMh','accCeiling','fscatter','invMassRatio','fcool','whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC','concentrationRandomFactor','muHgScaling']
+        self.names=['name','nx','eta','epsff','tauHeat', \
+                'analyticQ','cosmologyOn','xmin','NActive','NPassive', \
+                'vphiR','R','gasTemp','Qlim','fg0', \
+                'phi0','zstart','tmax','stepmax','TOL', \
+                'muNorm','muColScaling','b','innerPowerLaw','softening', \
+                'diskScaleLength','whichAccretionHistory','alphaMRI','thickness','migratePassive', \
+                'fixedQ','kappaMetals','Mh0','minSigSt','NChanges', \
+                'dbg','accScaleLength','zquench','zrelax','xiREC', \
+                'RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ', \
+                'accAlphaMh','accCeiling','fscatter','invMassRatio','fcool', \
+                'whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC', \
+                'ZIGM','yREC','concentrationRandomFactor','muFgScaling']
+        assert len(self.p)==len(self.names)
         self.keys={}
         ctr=0
         for n in self.names:
@@ -323,7 +346,7 @@ class experiment:
         return (cmds,stdo,stde,expDirs)
 
 
-    def localRun(self,nproc,startAt,maxTime=3600,overwrite=False):
+    def localRun(self,nproc,startAt,maxTime=36000,overwrite=False):
         ''' Run the specified experiment on this machine,
         using no more than nproc processors, and starting
         at the "startAt"th run in the experiment '''
@@ -673,16 +696,104 @@ if __name__ == "__main__":
     re15[0].irregularVary('concentrationRandomFactor',[-.3,-.1,0.0,.1,.3])
 
 
-    from mcmc_individual import emceeParameterSpaceToGidgetExperiment
-    favoriteParams = [  2.83269124e-01,   9.30881877e-03,   1.82351732e-01,   1.50469698e+00,
-               3.24674422e-01,   1.85339104e+00,   7.43781644e-03,   1.94868075e-01,
-                  4.05944370e+12,   1.38101233e-01,  -2.36399004e-01,  -5.50757004e-01,
-                     5.94584202e-01,  -6.06652441e-01,   8.88202578e+00,   3.92808177e-01,
-                       -2.84901649e+00]
+    #from mcmc_individual import emceeParameterSpaceToGidgetExperiment
+    #favoriteParams = [  2.83269124e-01,   9.30881877e-03,   1.82351732e-01,   1.50469698e+00,
+    #           3.24674422e-01,   1.85339104e+00,   7.43781644e-03,   1.94868075e-01,
+    #              4.05944370e+12,   1.38101233e-01,  -2.36399004e-01,  -5.50757004e-01,
+    #                 5.94584202e-01,  -6.06652441e-01,   8.88202578e+00,   3.92808177e-01,
+    #                   -2.84901649e+00]
 
-    re16 = emceeParameterSpaceToGidgetExperiment(favoriteParams,'re16')[0]
-    re16.irregularVary("Noutputs",200)
-    allModels['re16']=re16
+    #re16 = emceeParameterSpaceToGidgetExperiment(favoriteParams,'re16')[0]
+    #re16.irregularVary("Noutputs",200)
+    #allModels['re16']=re16
+
+    # Barro plot...
+    re17=NewSetOfExperiments(re01,'re17')
+    re17[0].irregularVary('zstart',4.95)
+    re17[0].irregularVary('zrelax',5.0)
+    re17[0].irregularVary('dbg',2**4+2**1+2**0)
+    re17[0].vary('whichAccretionHistory',-300,-101,200,0,4)
+    re17[0].irregularVary('R', 10)
+    re17[0].irregularVary('fcool', .8)
+    re17[0].vary('Mh0',1.0e12, 1.0e13, 200, 1, 4)
+    re17[0].irregularVary('muNorm', 0.5)
+    re17[0].irregularVary('fscatter', .45)
+    re17[0].irregularVary('NChanges', list(np.random.binomial(40,.25,size=200)) ,4)
+    re17[0].irregularVary('accCeiling',0.6)
+    re17[0].irregularVary('accScaleLength',0.1)
+    re17[0].irregularVary('NPassive',1)
+    re17[0].irregularVary('eta',0.5)
+
+    re18=NewSetOfExperiments(re17,'re18')
+    re18[0].irregularVary('R',30)
+    re18[0].irregularVary('Noutputs',300)
+    re18[0].vary('Mh0',3.0e12, 1.0e13, 200, 1, 4)
+    re18[0].irregularVary('yREC',.02)
+    re18[0].irregularVary('kappaMetals',.5)
+
+    re19a=NewSetOfExperiments(re18,'re19a')
+    re19a[0].irregularVary('accScaleLength', .01)
+    re19a[0].irregularVary('R',10)
+
+    re19b=NewSetOfExperiments(re18,'re19b')
+    re19b[0].irregularVary('accScaleLength', .04)
+    re19b[0].irregularVary('R',20)
+
+    re19c=NewSetOfExperiments(re18,'re19c')
+    re19c[0].irregularVary('accScaleLength', .09)
+    re19c[0].irregularVary('R',30)
+
+    re20=NewSetOfExperiments(re01,'re20')
+    re20[0].irregularVary('Noutputs',600)
+    re20[0].irregularVary('zstart',3.95)
+    re20[0].irregularVary('zrelax',4.0)
+    re20[0].irregularVary('dbg',2**4+2**1+2**0 )
+    asls = np.array([.012,.027,.042,.057,.072])
+    re20[0].irregularVary('accScaleLength',list(asls), 5)
+    re20[0].irregularVary('R', list(asls * 20/0.012), 5)
+    re20[0].irregularVary('fcool', .8)
+    re20[0].irregularVary('Mh0', [1.0e13])
+    re20[0].irregularVary('muNorm', 1.5)
+    re20[0].irregularVary('muFgScaling', 0.4)
+    re20[0].irregularVary('muColScaling', 0)
+    re20[0].irregularVary('fscatter', .45)
+    re20[0].irregularVary('accCeiling',0.6)
+    re20[0].irregularVary('NPassive',1)
+    re20[0].irregularVary('eta',0.5)
+
+    re21=NewSetOfExperiments(re20,'re21')
+    re21[0].irregularVary('dbg', 2**4+2**1+2**0 + 2**12 )
+
+    re22=NewSetOfExperiments(re20,'re22')
+    re22[0].irregularVary('accScaleLength', list(asls*4), 5)
+    re22[0].irregularVary('fixedQ',1.5)
+    re22[0].irregularVary('whichAccretionProfile', 2)
+    re22[0].irregularVary('widthAccretionProfile', 0.5)
+    re22[0].irregularVary('TOL',1.0e-4)
+
+    re23=NewSetOfExperiments(re20,'re23')
+    re23[0].irregularVary('Qlim',.05)
+    re23[0].irregularVary('fixedQ',.05)
+
+    re30=NewSetOfExperiments(re20,'re30')
+    re30[0].irregularVary('Noutputs',600)
+    re30[0].irregularVary('zstart',3.95)
+    re30[0].irregularVary('zrelax',4.0)
+    re30[0].irregularVary('dbg',2**4+2**1+2**0 + 2**14 )
+    asls = np.array([.012,.027,.042,.057,.072])
+    re30[0].irregularVary('accScaleLength',.042 )
+    mhl = np.power(10.0, np.linspace(10,13,200))
+    re30[0].irregularVary('R', list(.042 * 20/0.012 * np.power(mhl/1.0e12,1.0/3.0) ), 6)
+    re30[0].irregularVary('fcool', .8)
+    re30[0].irregularVary('Mh0', list(mhl), 6)
+    re30[0].irregularVary('muNorm', list(1.5*np.power(mhl/1.0e12, -2.0/3.0)), 6)
+    re30[0].irregularVary('muFgScaling', 0.4)
+    re30[0].irregularVary('muColScaling', 0)
+    re30[0].irregularVary('fscatter', .45)
+    re30[0].irregularVary('accCeiling',0.6)
+    re30[0].irregularVary('NPassive',1)
+    re30[0].irregularVary('NChanges',30)
+    re30[0].irregularVary('eta',0.5)
 
     successTables=[]
 
@@ -705,7 +816,6 @@ if __name__ == "__main__":
     nPrev = 0
     while True:
         nStillRunning=HowManyStillRunning(allProcs)
-        print "dbg1 ",nStillRunning, nPrev,len(allProcs),allProcs
         # has anything changed since the last time we checked?
         if(nStillRunning == nPrev and nStillRunning != 0):
             # do nothing except wait a little bit

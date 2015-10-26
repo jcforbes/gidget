@@ -34,13 +34,195 @@ def getSubplots(N):
         return col,row
 
 
-def balance(models, timeIndex=None, name=None, sortby=None, logR=False):
+def budgetAM(models, timeIndex=None, name=None, sortby=None, ncols=None, nrows=None):
     ts = len(models[0].getData('t'))
     if(timeIndex is None):
         timeIndex = range(1,ts)
         timeIndex.append(ts-1)
     nmodels=len(models)
-    ncols,nrows = getSubplots(nmodels)
+    if ncols is None and nrows is None:
+        ncols,nrows = getSubplots(nmodels)
+    #sqr = int(math.ceil(sqrt(float(nmodels))))
+    dirname = ''
+    if(name is None):
+        if(len(models)<5):
+            for model in models:
+                dirname+=model.name+'_'
+        else:
+            dirname+=models[0].name+'_'+str(len(models))+'_'
+    else:
+        dirname+=name+'_'
+    dirname+='budgetAM'
+    if(not os.path.exists(dirname)):
+        os.makedirs(dirname)
+    if sortby is None or sortby not in models[0].p.keys():
+        sortby = 'Mh0'
+    stmodels = sorted(models, key=lambda sb: sb.p[sortby])
+    counter=0
+    lw = 4.0/(1.0+np.log10(nmodels))
+    fs = 20.0/(1.0+np.log10(nmodels))
+    fig,ax = plt.subplots(nrows,ncols,sharey=False,figsize=(16,12))
+    if(nrows==ncols and nrows==1):
+        ax=np.array([[ax]])
+    
+    for i,model in enumerate(stmodels):
+        t = model.getData('t')
+        z = model.getData('z')
+        row = int(i/ncols)
+        col = i-row*ncols
+        JStars = model.getData('JStars')
+        JH2 = model.getData('JH2')
+        JHI = model.getData('JHI')
+        #shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
+
+        bottomBound = JStars*0
+        starsBound = JStars
+        H2Bound = JStars+JH2
+        HIBound = JStars+JH2+JHI
+
+
+
+        if(isinstance(ax,np.ndarray)):
+            theAx = ax[row,col]
+        else:
+            theAx = ax
+
+        theAx.fill_between(t,bottomBound,starsBound,facecolor='red')
+        theAx.fill_between(t,starsBound,H2Bound,facecolor='blue')
+        #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='blue',where=mdot>0.0)
+        #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='lightblue',where=lightblue)#(mdot<=0.0 or stagnation<=0) )
+        theAx.fill_between(t,H2Bound,HIBound,facecolor='orange')
+
+
+
+        #ax[row,col].plot(r,dcoldt/shareNorm,'yellow',lw=2)
+
+
+        theAx.set_xlim(np.min(t),np.max(t))
+        #theAx.set_ylim(-1.0,1.0)
+
+    
+        dispsb = "%.3e" % model.p[sortby]
+
+        plt.text(.5,.9,sortby+'='+dispsb,transform=ax[row,col].transAxes,fontsize=fs)
+
+        if(row==nrows-1):
+            theAx.set_xlabel('t (Gyr)',fontsize=fs)
+        if(col==0):
+            theAx.set_ylabel(r'$J (M_\odot\ \mathrm{km}/\mathrm{s}\ \mathrm{kpc})$')
+        #ax[row,col].set_ylabel(r'Share of $\partial\Sigma/\partial t$')
+    
+    # end loop over models
+
+    #ax[0,0].set_title(r'Share of $\partial\Sigma/\partial t$',fontsize=fs)
+    plt.tight_layout()
+    plt.savefig(dirname+'_'+str(counter).zfill(4)+'.png')
+    plt.close(fig)
+    # end loop over time.
+
+
+
+
+def balanceAM(models, timeIndex=None, name=None, sortby=None, logR=False, ncols=None, nrows=None):
+    ts = len(models[0].getData('t'))
+    if(timeIndex is None):
+        timeIndex = range(1,ts)
+        timeIndex.append(ts-1)
+    nmodels=len(models)
+    if ncols is None and nrows is None:
+        ncols,nrows = getSubplots(nmodels)
+    #sqr = int(math.ceil(sqrt(float(nmodels))))
+    dirname = ''
+    if(name is None):
+        if(len(models)<5):
+            for model in models:
+                dirname+=model.name+'_'
+        else:
+            dirname+=models[0].name+'_'+str(len(models))+'_'
+    else:
+        dirname+=name+'_'
+    dirname+='balanceAM'
+    if(not os.path.exists(dirname)):
+        os.makedirs(dirname)
+    if sortby is None or sortby not in models[0].p.keys():
+        sortby = 'Mh0'
+    stmodels = sorted(models, key=lambda sb: sb.p[sortby])
+    counter=0
+    lw = 4.0/(1.0+np.log10(nmodels))
+    fs = 20.0/(1.0+np.log10(nmodels))
+    fig,ax = plt.subplots(nrows,ncols,sharey=False,figsize=(16,12))
+    if(nrows==ncols and nrows==1):
+        ax=np.array([[ax]])
+    
+    for i,model in enumerate(stmodels):
+        t = model.getData('t')
+        z = model.getData('z')
+        row = int(i/ncols)
+        col = i-row*ncols
+        JdotAccr = model.getData('JAccr',cgs=True)
+        JdotTrPlus = np.sum( np.clip(model.getData('colTr',cgs=True),0,np.inf) * model.getData('r',cgs=True) * model.getData('vPhi', cgs=True) * model.getData('dA', cgs=True), axis=1 )
+        JdotTrMinus = np.sum( np.clip(model.getData('colTr',cgs=True),-np.inf,0) * model.getData('r',cgs=True) * model.getData('vPhi', cgs=True) * model.getData('dA', cgs=True), axis=1 )
+        JdotSFR = model.getData('JSFR',cgs=True)*model.p['RfREC'] + model.getData('JOut',cgs=True)
+        #shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
+
+        sfrBound = np.clip(JdotTrMinus, -np.inf, 0)
+        bottomBound = -1.0*JdotSFR + sfrBound
+        trBound = np.clip(JdotTrPlus, 0, np.inf)
+        upperBound = trBound + JdotAccr
+
+
+        if(isinstance(ax,np.ndarray)):
+            theAx = ax[row,col]
+        else:
+            theAx = ax
+
+        theAx.fill_between(t,bottomBound,sfrBound,facecolor='red')
+        theAx.fill_between(t,sfrBound,trBound,facecolor='blue')
+        #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='blue',where=mdot>0.0)
+        #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='lightblue',where=lightblue)#(mdot<=0.0 or stagnation<=0) )
+        theAx.fill_between(t,trBound,upperBound,facecolor='orange')
+
+        theAx.plot(t,-upperBound, color='gray', lw=2, ls='--')
+
+
+        #ax[row,col].plot(r,dcoldt/shareNorm,'yellow',lw=2)
+
+
+        theAx.set_xlim(np.min(t),np.max(t))
+        #theAx.set_ylim(-1.0,1.0)
+
+    
+        dispsb = "%.3e" % model.p[sortby]
+
+        plt.text(.5,.9,sortby+'='+dispsb,transform=ax[row,col].transAxes,fontsize=fs)
+
+        if(row==nrows-1):
+            theAx.set_xlabel('t (Gyr)',fontsize=fs)
+        if(col==0):
+            theAx.set_ylabel(r'$\dot{J}_\mathrm{gas} (M_\odot/\mathrm{yr}\ \mathrm{km}/\mathrm{s}\ \mathrm{kpc})$')
+        #ax[row,col].set_ylabel(r'Share of $\partial\Sigma/\partial t$')
+    
+    # end loop over models
+
+    ax[0,0].set_title(r'Share of $\partial J/\partial t$',fontsize=fs)
+    plt.tight_layout()
+    plt.savefig(dirname+'_'+str(counter).zfill(4)+'.png')
+    plt.close(fig)
+    # end loop over time.
+
+
+
+
+
+
+def balance(models, timeIndex=None, name=None, sortby=None, logR=False, ncols=None, nrows=None):
+    ts = len(models[0].getData('t'))
+    if(timeIndex is None):
+        timeIndex = range(1,ts)
+        timeIndex.append(ts-1)
+    nmodels=len(models)
+    if (ncols is None and nrows is None) or ncols*nrows<nmodels:
+        ncols,nrows = getSubplots(nmodels)
     #sqr = int(math.ceil(sqrt(float(nmodels))))
     dirname = 'movie_'
     if(name is None):
@@ -76,9 +258,9 @@ def balance(models, timeIndex=None, name=None, sortby=None, logR=False):
             dcoldt = model.getData('dcoldt',timeIndex=ti,cgs=True)
             shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
 
-            colsfrBound = np.clip(colTr, -1, 0)/shareNorm
+            colsfrBound = np.clip(colTr/shareNorm, -1, 0)
             bottomBound = -1.0*colSFR/shareNorm + colsfrBound
-            colTrBound = np.clip(colTr, 0, 1)/shareNorm
+            colTrBound = np.clip(colTr/shareNorm, 0, 1)
             upperBound = colTrBound + colAccr/shareNorm
 
             fullmdot = model.getData('Mdot',timeIndex=ti)
@@ -133,10 +315,16 @@ def balance(models, timeIndex=None, name=None, sortby=None, logR=False):
             theAx.fill_between(r,colTrBound,upperBound,facecolor='orange')
             for la in leftarrows:
                 delt = rb[la[1]] - rb[la[0]]
-                theAx.arrow(rb[la[1]],.96, -delt*.9,0, head_width=.05, head_length=.1*delt, fc="DarkSlateGray", ec="DarkSlateGray",lw=3)
+                try:
+                    theAx.arrow(rb[la[1]],.96, -delt*.9,0, head_width=.05, head_length=.1*delt, fc="DarkSlateGray", ec="DarkSlateGray",lw=3)
+                except:
+                    print "Failed to draw left arrow"
             for ra in rightarrows:
                 delt = rb[ra[1]] - rb[ra[0]]
-                theAx.arrow(rb[ra[0]],.96, delt*.9,0, head_width=.05, head_length=.1*delt, fc="DarkGray", ec="DarkGray",lw=2)
+                try:
+                    theAx.arrow(rb[ra[0]],.96, delt*.9,0, head_width=.05, head_length=.1*delt, fc="DarkGray", ec="DarkGray",lw=2)
+                except:
+                    print "Failed to draw right arrow"
 
 
             for kk in range(len(r)):

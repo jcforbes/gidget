@@ -82,22 +82,33 @@ def non_increasing(L):
 
 def singleIteration(rho0s, sigsq, r,Mh,redshift,crf):
     ''' Run the scipy integrator and see what values we get for the surface density.'''
+    # Initial conditions: midplane densities and zero d rho/dz
     y0 = np.array(list(rho0s)+[0]*len(rho0s))
-    zs = np.linspace( 0, 1500.0, 100 )
+    # Set up grid on which we want to compute rho(z)
+    zs = np.linspace( 0, 5000.0, 10000 ) # integrate the solution to much greater heights
+    #   than we actually need. This is so that the column density we get in the end is accurate.
+    # Feed in the args ddz needs: the square velocity dispersions and the halo parameters
     args = tuple(list(sigsq) + [r,Mh,redshift,crf])
+    # Integrate using these IC's 
     y = scint.odeint(ddz, y0, zs, args=args, mxstep=50000, rtol=1.0e-13)
     cols =[]
+    # Now compute the resulting column densities
     for i in range(len(rho0s)):
         if non_increasing(y[:,i]):
             pos = y[:,i]>0
             xx = zs[pos]
             yy = y[:,i][pos]
             assert len(xx)==len(yy)
-            rhoInterp = interp1d( xx,yy, kind='linear')
-            coli, err =  scint.quad( rhoInterp, 0, 0.99*np.max(xx)) 
-            cols.append(coli)
+            try:
+                rhoInterp = interp1d( xx,yy, kind='linear')
+                coli, err =  scint.quad( rhoInterp, 0, 0.99*np.max(xx)) 
+                cols.append(coli)
+            except:
+                cols.append(0.0)
         else:
             cols.append(-100) # the solution is garbage and shouldn't be interpolated
+    # Return the column densities. The calling function will then adjust rho0s
+    #  until the column densities agree with the real column densities.
     return np.array(cols)
 
 def run(colsData, sigsq, r,Mh,redshift,crf):
@@ -118,6 +129,7 @@ def run(colsData, sigsq, r,Mh,redshift,crf):
 
 def weights(y,zs):
     shp = np.shape(y)
+    print "In weights, shape of y is ", shp
     cols = np.zeros( (shp[1]/2, 4) )
     zwindows = [ [0.15,0.25], [0.25,0.5], [0.5,1.0], [1.0,1.5] ]
     for i in range(shp[1]/2):
@@ -126,10 +138,15 @@ def weights(y,zs):
             coli, err = scint.quad( rhoInterp, zwindows[j][0]*1000.0, zwindows[j][1]*1000.0)
             if coli>0:
                 cols[i,j] = coli
+    print "In weights, shape of cols is ",np.shape(cols) 
+    # We want each window to be normalized to 1. I.e. each column in the matrix will tell us
+    #   what fraction of the mass in a given z-window is in each component
+    for i in range(4):
+        cols[:,i] = cols[:,i]/np.sum(cols[:,i])
     return cols
         
 
-def plot(y,zs, axIn=None):
+def plot(y,zs, axIn=None, ls='-'):
     if axIn is None:
         fig,ax = plt.subplots()
     else:
@@ -137,7 +154,7 @@ def plot(y,zs, axIn=None):
     shp = np.shape(y)
     colors=['k','r','b','g','orange','purple','lightblue','pink','grey']*5
     for i in range(shp[1]):
-        ax.plot( zs, y[:,i], color=colors[i], lw=i+1 )
+        ax.plot( zs, y[:,i], color=colors[i], lw=i+1, ls=ls )
     ax.set_xlabel('z (pc)')
     ax.set_ylabel(r'$\rho (M_\odot/\mathrm{pc}^3)$')
     ax.set_yscale('log')
@@ -145,6 +162,20 @@ def plot(y,zs, axIn=None):
     plt.savefig('rho_vs_z.png')
     if axIn is None:
         plt.close(fig)
+
+def anEstimate(sigsq, colData):
+    hGuessArr = []
+    zArr = np.linspace(0,1500, 1000)
+    y = np.zeros((1000,len(sigsq)*2))
+    for i in range(len(sigsq)):
+        fs = np.clip( np.sqrt(sigsq[i]/sigsq), 0, 1)
+        colEff = np.sum(colData*fs)
+        hGuessThis = sigsq[i]/(2.0*np.sqrt(2.0)*np.pi*G*colEff)
+        hGuessArr.append(hGuessThis)
+        rho0Guess = colData[i]/hGuessThis
+        y[:,i] = rho0Guess * np.power(1.0/np.cosh(zArr/hGuessThis),2.0)
+    return y,zArr
+
 
 def test0():
     z = 300
@@ -160,8 +191,13 @@ def test():
     colData = np.array([10.0, 30.0, 20.0, 20.0, 20.0])
     r, Mh, redshift, crf = (10.0, 1.0e12, 0, 3)
     y,zs = run(colData,  sigsq, r,Mh, redshift, crf)
-    plot(y,zs)
-    print "Weights: ",weights(y,zs)
+    yAn,zAn = anEstimate(sigsq,colData)
+    fig,ax = plt.subplots()
+    plot(y,zs,axIn=ax)
+    plot(yAn,zAn,axIn=ax, ls='--')
+    plt.close(fig)
+    print "WeightsNumerical: ",weights(y,zs)
+    print "WeightsAnalytic: ",weights(yAn,zAn)
 
 def test2():
     y,zs = run(np.array([.002, .02]), np.array([8, 20])*1.0e5 )

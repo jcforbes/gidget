@@ -10,12 +10,15 @@ def makeThePlots(args):
         print "Warning: you did not ask me to produce any plots! Use python plots.py -h to look at the options available."
     print "plots.py in makeThePlots: args.models: ",args.models
     balanceArgs=[]
+    AMargs=[]
     if(args.balance):
         balanceArgs=['colTr','colAccr','colsfr','dcoldt','MassLoadingFactor','Mdot']
+    if(args.angularMomentum):
+        AMargs = ['colTr','r','vPhi','dA']
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
-        theExp.read(args.vsr+balanceArgs, keepStars=args.stellarPops)
+        theExp.read(args.vsr+balanceArgs+AMargs, keepStars=args.stellarPops)
         nts = int(theExp.models[0].p['Noutputs']+1)
         tis = [nts/5,nts/2,nts]
         theExp.storeMS()
@@ -55,7 +58,8 @@ def makeThePlots(args):
         if(args.scaled and args.snapshot):
             theExp.radialPlot(timeIndex=tis,variables=args.vsr,scaleR=True,colorby='t',logR=args.logR,movie=False)
         if args.snapshot:
-            theExp.hist1d(timeIndex=tis, vars=None, movie=False)
+            pass
+            #theExp.hist1d(timeIndex=tis, vars=None, movie=False)
 
         # END loop over for cb in colorby
         # OK, this is just a test..
@@ -67,7 +71,6 @@ def makeThePlots(args):
         #theExp.ptMovie(timeIndex=tis,xvar='r',yvar=['col','colst','Z','vPhi','Q','MassLoadingFactor','hGas','colsfr','fH2','fgRadial','colTr','colAccr','colOut','equilibrium'],prev=0,colorby='t',movie=False)
         if args.stellarPops:
             theExp.plotAgeFuncs()
-        theExp.customPlotPPD()
         if(args.percentiles):
             per = [2.5, 16, 50, 84, 97.5]
             if(args.radial):
@@ -77,7 +80,13 @@ def makeThePlots(args):
             if(args.scaled):
                 theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per,scaleR=True)
         if(args.balance):
-            balance(theExp.models,timeIndex=range(1,nts+1,stepsize)+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR)
+            #balance(theExp.models,timeIndex=range(1,nts+1,stepsize)+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR, ncols=5, nrows=3)
+            balance(theExp.models,timeIndex=range(1,nts+1,stepsize)+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR, ncols=1, nrows=1)
+        #theExp.customPlotPPD( expensive=True)
+       # theExp.customPlotPPD( expensive=False)
+
+        if args.angularMomentum:
+            theExp.angularMomentumAnalysis()
 
 
 
@@ -94,11 +103,14 @@ if __name__=='__main__':
     parser.set_defaults(scaled=False)
     parser.add_argument('--balance',dest='balance',action='store_true',help="Make balance plots.")
     parser.set_defaults(balance=False)
+    parser.add_argument('--angularMomentum',dest='angularMomentum',action='store_true',help="Make some simple plots to try to understand angular momentum.")
+    parser.set_defaults(angularMomentum=False)
     #parser.add_argument('--mass',dest='mass',action='store_true',help="Make plots vs mstar")
     #parser.set_defaults(mass=False)
     parser.add_argument('--mass',type=str,nargs='+',default=[],help='List of x- variables to use in point movies. Eg. mstar, Mh, sSFR,...')
     parser.add_argument('--colorby',type=str,nargs='+',default=['Mh0'],help='List of variables to color points by in vs mstar plots. Default is halo mass at z=0')
-    parser.add_argument('--vsr',type=str,nargs='+',default=['colsfr','colst','NHI','sig','col','Z','fH2','Mdot','MJeans','ClumpMassPerDisk','tDepRadial','tDepH2Radial','Q','Qg','Qst','fgRadial','equilibrium'],help='List of variables to plot vs mstar. Default is colsfr,colst,NHI,sig,col,Z,fH2,Mdot,MJeans,ClumpMassPerDisk,tDepRadial,tDepH2Radial,Q,Qg,Qst,fgRadial,equilibrium')
+    oldVsrDefaults = ['colsfr','colst','NHI','sig','col','Z','fH2','Mdot','MJeans','ClumpMassPerDisk','tDepRadial','tDepH2Radial','Q','Qg','Qst','fgRadial','equilibrium','colHI','colH2','vPhi','colTrPerAccr','hGas','hStars','sigstR','sigstZ', 'JColGas', 'JColStars']
+    parser.add_argument('--vsr',type=str,nargs='+',default=oldVsrDefaults,help='List of variables to plot vs mstar. Default is '+repr(oldVsrDefaults))
     parser.add_argument('--prev',type=int,default=5,help='Number of previous points to plot in vsmstar movies.')
     parser.add_argument('--rankby',type=str,nargs='+',default=[],help='Sort the models according to these arguments.')
     parser.add_argument('--rbz',type=float,nargs='+',default=[],help='Sort at a particular redshift (use -1 to keep the full time information)')

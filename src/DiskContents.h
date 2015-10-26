@@ -24,7 +24,7 @@ class DiskContents {
                double sigth,double epsff,
 	           double ql,double tol,
                bool aq, double mlf,
-               double mlfMhScal, double mlfHgScal,
+               double mlfColScal, double mlfFgScal,
                Cosmology&,Dimensions&,
                FixedMesh&,Debug&,
     	       double thk,bool migratePassive,
@@ -105,7 +105,7 @@ class DiskContents {
   // Compute the loss in column density experienced by 
   // cell n due to outflows. (Simple mass loading factor 
   // prescription)
-  void ComputeMassLoadingFactor(double Mh);
+  void ComputeMassLoadingFactor(double Mh, std::vector<double>& colst);
 
   // Compute the time rate of change of the velocity 
   // dispersion of stellar population sp.
@@ -309,8 +309,8 @@ class DiskContents {
     Qlim, // Q below which transient spirals heat the stellar disk
     thickness, // correction to Q owing to finite thickness
     constMassLoadingFactor, 
-    mlfMhScaling,
-    mlfHgScaling,
+    mlfColScaling,
+    mlfFgScaling,
 
     tDepH2SC,
     fH2Min,

@@ -1,14 +1,14 @@
 #PBS -S /bin/bash
 #PBS -q hyper
-#PBS -N chm13
+#PBS -N chm23
 #PBS -m abe
 #PBS -M johncforbes@gmail.com
-#PBS -l nodes=4:ppn=32
+#PBS -l nodes=6:ppn=32
 #PBS -l walltime=96:00:00
 #PBS -j oe
 
 cd $PBS_O_WORKDIR
 
 module load python
-mpirun -n 128 python2.7 mcmc_individual.py > estd.$PBS_JOBID.out
+mpirun -n 192 python2.7 mcmc_y.py > estd.$PBS_JOBID.out
 

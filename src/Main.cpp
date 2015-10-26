@@ -80,8 +80,8 @@ int main(int argc, char **argv) {
     const double tmax =              as.Set(1000,"Maximum Time (outer orbits)");
     const unsigned int stepmax=      as.Set(10000000,"Maximum Number of Steps");
     const double TOL =               as.Set(.0001,"TOL (outer orbits)");
-    const double MassLoadingFactor=  as.Set(1,"Mass Loading Factor prefactor");
-    const double MassLoadingMhScaling =as.Set(-2./3.,"Mass Loading Factor halo mass scaling");
+    const double MassLoadingFactor=  as.Set(13.0,"Mass Loading Factor prefactor");
+    const double MassLoadingColScaling =as.Set(-1.15,"Mass Loading Factor scaling with column density (normalized at 1 Msun/pc^2)");
     const double BulgeRadius      =  as.Set(0,"Velocity Curve Turnover Radius (kpc)");
     const double beta0            =  as.Set(.5,"Index of the inner power law part of the rot curve");
     const double nRotCurve        =  as.Set(2.0,"Sharpness of transition from flat to inner powerlaw rot curve");
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
     const double ZIGM =              as.Set(.002,"Z of IGM in absolute units");
     const double yREC =              as.Set(.054,"yield - mass of metals produced per gas mass locked in stars");
     const double concentrationRandomFactor= as.Set(0.0, "Constant multiplicative offset from Mh-c relation (dex)");
-    const double MassLoadingHgScaling=as.Set(0.0, "Scaling of the mass loading factor with the gas scale height");
+    const double MassLoadingFgScaling=as.Set(0.16, "Scaling of the mass loading factor with the gas fraction");
 
 
     as.WriteOut();
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(10),"No longer used"); 
     as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 
     as2.Set(dbg.opt(12), "Artificially set GI torque=0 everywhere");
-    as2.Set(dbg.opt(13), "No longer used");
+    as2.Set(dbg.opt(13), "Print out rotation curve info at n==nx");
     as2.Set(dbg.opt(14), "For lognormal acc history, bursts uniform in time (otherwise uniform in z)");
     as2.Set(dbg.opt(15), "If whichAccretionHistory is 0, use the average from NMD instead of Bouche");
     as2.Set(dbg.opt(16), "Newly formed stars have full gas velocity dispersion instead of turbulent component only");
@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
     AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength ,width);
 
     DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
-            TOL,analyticQ,MassLoadingFactor,MassLoadingMhScaling,MassLoadingHgScaling,
+            TOL,analyticQ,MassLoadingFactor,MassLoadingColScaling,MassLoadingFgScaling,
             cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
           minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);

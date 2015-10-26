@@ -25,9 +25,10 @@ def moveFiles(keyname=None):
     epss = glob.glob(base+'eps')
     mpgs = glob.glob(base+'mpg')
     movs = glob.glob(base+'mov')
+    gifs = glob.glob(base+'gif')
     pngs = glob.glob(base+'png')
 
-    allFiles = pdfs+epss+mpgs+pngs+movs
+    allFiles = pdfs+epss+mpgs+pngs+movs+gifs
 
     ldirs = GetDirnames(allFiles)
 

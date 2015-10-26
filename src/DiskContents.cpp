@@ -109,8 +109,8 @@ void DiskContents::store(Initializer& in)
 DiskContents::DiskContents(double tH, double eta,
         double sflr,double epsff,
         double ql,double tol,
-        bool aq, double mlf, double mlfMhScal,
-        double mlfHgScal,
+        bool aq, double mlf, double mlfColScal,
+        double mlfFgScal,
         Cosmology& c,Dimensions& d,
         FixedMesh& m, Debug& ddbg,
         double thk, bool migP,
@@ -126,8 +126,8 @@ DiskContents::DiskContents(double tH, double eta,
     XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
     cos(c),tauHeat(tH),sigth(sflr),
     EPS_ff(epsff),ETA(eta),constMassLoadingFactor(mlf),
-    mlfMhScaling(mlfMhScal),
-    mlfHgScaling(mlfHgScal),
+    mlfColScaling(mlfColScal),
+    mlfFgScaling(mlfFgScal),
     //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
     //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
     spsActive(std::vector<StellarPop*>(0)),
@@ -310,6 +310,8 @@ void DiskContents::Initialize(double fcool, double fg0,
     for(unsigned int n=1; n<=nx; ++n) {
         ZDisk[n] = Z_IGM;
         initialStarsA->spcol[n] = S0*(1-fg0)*exp(-x[n]/xd);
+        if(initialStarsA->spcol[n] < S0*(1-fg0)*1.0e-8)
+            initialStarsA->spcol[n] = S0*(1-fg0)*1.0e-8; // floor the initial value to avoid very small timesteps
         initialStarsA->spsigR[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spsigZ[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spZ[n] = Z_IGM;
@@ -322,12 +324,14 @@ void DiskContents::Initialize(double fcool, double fg0,
         initialStarsP->spZV[n] = initialStarsA->spZV[n];
 
         col[n] = S0*fg0*exp(-x[n]/xd);
+        if(col[n] < S0*fg0*1.0e-8)
+            col[n] = S0*fg0*1.0e-8; // floor the initial value to avoid very small timesteps
         sig[n] = max(sig0, sigth);
 
 
     }
     // XXXXXXXXXXXXXXX
-    ComputeMassLoadingFactor(MhZs);
+    ComputeMassLoadingFactor(MhZs, initialStarsA->spcol);
 
     MBulge = M_PI*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!
     initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
@@ -1457,6 +1461,10 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
         haloContrib = G*GetCos().MrEinasto(n)*MSol/(x[n]*dim.Radius*dim.vphiR*dim.vphiR);
 //        std::cout << "n, halo contribution: "<<n<<" "<<haloContrib/(haloContrib+uu[n]) << " "<<uu[n]<<" "<<haloContrib<<" "<<GetCos().MrEinasto(x[n]*dim.Radius, Mh, z)/Mh << std::endl;
         uu[n] = sqrt(haloContrib+bulgeContrib+thickDiskContrib+thinDiskContrib);
+
+        if(n==nx && dbg.opt(13)) {
+            std::cout << "Debug vrot "<< haloContrib<<" "<<bulgeContrib<<" "<<thinDiskContrib<<" "<<thickDiskContrib <<std::endl;
+        }
     }
     for(unsigned int n=2; n<=nx-1; ++n) {
         beta[n] = log(uu[n+1]/uu[n-1])/log(x[n+1]/x[n-1]);
@@ -1642,9 +1650,10 @@ double DiskContents::ComputeColSFR(double Mh, double z)
     }
     return -1;
 }
-void DiskContents::ComputeMassLoadingFactor(double Mh)
+void DiskContents::ComputeMassLoadingFactor(double Mh, std::vector<double>& colst)
 {
-    double theCurrentMLF = constMassLoadingFactor*pow(Mh/1.0e12, mlfMhScaling);
+    double theCurrentMLF = constMassLoadingFactor; // *pow(Mh/1.0e12, mlfMhScaling);
+    double col0 = 1.0 * dim.MdotExt0/(dim.vphiR*dim.Radius) * cmperpc*cmperpc/MSol; // 1 Msun/pc^2 in code units
     for(unsigned int n=1; n<=nx; ++n) {
         double hg = hGas(n); // gas scale height in cm
         double fr = 1.5;
@@ -1669,7 +1678,7 @@ void DiskContents::ComputeMassLoadingFactor(double Mh)
             errormsg("probability not between 0 and 1");
         if(dbg.opt(0)) {
 //            ColOutflows[n] = constMassLoadingFactor*colSFR[n];
-            ColOutflows[n] = theCurrentMLF*colSFR[n] * pow(hg / (100.0 * cmperpc), mlfHgScaling);
+            ColOutflows[n] = theCurrentMLF*colSFR[n] * pow(col[n] / col0, mlfColScaling) * pow(col[n]/(col[n]+colst[n]), mlfFgScaling);
         }
         else {
             ColOutflows[n] = (1-1.0/fr) * mBubble[n] *fH2[n]*col[n]/(tauGMC * mGMC) * (1.0 - pConfined)

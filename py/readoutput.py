@@ -5,6 +5,8 @@ import glob
 import os
 import random
 import copy
+import verticalProfile
+import halo
 from behroozi import *
 from scipy.interpolate import interp1d
 from cosmolopy import *
@@ -30,12 +32,36 @@ gperH = 1.008*1.66053892e-24
 #RedBlueCM = cm = plt.get_cmap('RdBu')
 
 #cm = plt.get_cmap('gist_rainbow')
-cm = plt.get_cmap('winter_r')
+cm = plt.get_cmap('gnuplot_r')
 cmPer = plt.get_cmap('spring')
 
 outward = [0,1,-1,2,-2,3,-3,4,-4]
 
 gidgetdir = os.environ['GIDGETDIR']+'/'
+
+
+
+def filledPlots(qvecs, perc, thisCM, ax, xx):
+
+    if(perc is not None):
+        if(len(perc) % 2 == 0):
+            # a unique fill between each quantile
+            for k in range(len(perc)-1):
+                ax.fill_between(xx, qvecs[k,:], qvecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(perc))),alpha=0.3)
+        else:
+            # symmetric fills around the central quantile.
+            v2 = (len(perc)-1)/2
+            for k in range(v2):
+                col = thisCM(float(k+.5)/float(v2+.5))
+                #pdb.set_trace()
+                ax.fill_between(xx, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
+                ax.fill_between(xx, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
+                ax.plot( xx, qvecs[k,:], lw=k+1, color='k' )
+                ax.plot( xx, qvecs[(-k-1),:], lw=k+1, color='k' )
+
+
+
+
 
 class RadialFunction:
     def __init__(self, arr, name, cgsConv=1.0, sensibleConv=1.0,
@@ -231,7 +257,6 @@ class SingleModel:
                 theSum += radialQuantity[ti,ri]
             sums[ti] = theSum
         return sums
-            
 
     def read(self, keepOnly=[], keepStars=False, paramsOnly=False):
         with open(self.path+'_comment.txt','r') as comment:
@@ -241,7 +266,7 @@ class SingleModel:
                     'cosmologyOn','xmin','NActive','NPassive','vphiR', \
                     'R','gasTemp','Qlim','fg0','phi0', \
                     'zstart','tmax','stepmax','TOL','muNorm', \
-                    'muMhScaling','b','innerPowerLaw','softening', \
+                    'muColScaling','b','innerPowerLaw','softening', \
                     'diskScaleLength','whichAccretionHistory','alphaMRI' \
                     ,'thickness','migratePassive','fixedQ','kappaMetals', \
                     'Mh0','minSigSt','NChanges','dbg','accScaleLength', \
@@ -250,7 +275,7 @@ class SingleModel:
                     'accCeiling','fscatter','invMassRatio','fcool', \
                     'whichAccretionProfile','alphaAccretionProfile', \
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC', \
-                    'concentrationRandomFactor','muHgScaling']
+                    'concentrationRandomFactor','muFgScaling']
             params=[]
             line = lines[-1] # get the last line
             tmp = line.split() # split the line into a list of strings
@@ -281,11 +306,21 @@ class SingleModel:
                     self.p[irfs[-1]] = float(line)
         except:
             print "Failed to read in <path>_inputRandomFactors.txt"
+        irfYs=[]
+        try:
+            with open(self.path+'_inputRandomFactorsY.txt','r') as irfY:
+                # Record input random factors, if they exist, as y0, y1, ...
+                lines = irfY.readlines()
+                for k,line in enumerate(lines):
+                    irfYs.append('y'+str(k))
+                    self.p[irfYs[-1]] = float(line)
+        except:
+            print "Failed to read in <path>_inputRandomFactorsY.txt"
         self.pLog={}
         for par in self.p.keys():
             self.pLog[par] = True # set all parameters to be logarithmic by default
         # except for the following
-        for par in ['xiREC','b','innerPowerLaw','zrelax','zstart','zquench','concentrationRandomFactor','accAlphZ','accAlphaMh','alphaAccretionProfile','whichAccretionHistory','whichAccretionProfile','concentrationRandomFactor','muHgScaling','ND08attempts']+irfs:
+        for par in ['xiREC','b','innerPowerLaw','zrelax','zstart','zquench','concentrationRandomFactor','accAlphZ','accAlphaMh','alphaAccretionProfile','whichAccretionHistory','whichAccretionProfile','concentrationRandomFactor','muFgScaling','ND08attempts','muColScaling']+irfs+irfYs:
             self.pLog[par] = False
         if paramsOnly:
             return
@@ -378,7 +413,7 @@ class SingleModel:
                 2.0*pi*cmperkpc*self.p['R']/(1.0e5*self.p['vphiR']*speryear*1.0e9), \
                 'Time since zstart (Gyr)',log=False)
         self.nt = len(self.evarray[:,1])
-        self.var['z'] = TimeFunction(np.copy(self.evarray[:,9]),'z',1,1,'z')
+        self.var['z'] = TimeFunction(np.copy(self.evarray[:,9]),'z',1,1,'z',log=False)
         self.var['r'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,0]),'r', \
                 self.p['R']*cmperkpc,self.p['R'],'r (kpc)',log=False)
@@ -492,12 +527,61 @@ class SingleModel:
                 1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$',theRange=[3.0e8,1.0e12])
         self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H}_2}$',log=False,theRange=[0.0,1.0])
         self.var['colH2']= RadialFunction(np.copy(self.dataCube[:,:,47]) * self.var['col'].sensible(),'colH2', \
-                cgsConv = gpermsun*cmperpc**2, texString=r'$\Sigma_{\mathrm{H}_2}$',log=True,theRange=[0.1,3000.0])
+                cgsConv = gpermsun/cmperpc**2, texString=r'$\Sigma_{\mathrm{H}_2}$',log=True,theRange=[0.1,3000.0])
         self.var['colHI']= RadialFunction((1.0-np.copy(self.dataCube[:,:,47])) * self.var['col'].sensible(),'colHI', \
-                cgsConv = gpermsun*cmperpc**2, texString=r'$\Sigma_{\mathrm{HI}}$',log=True,theRange=[0.1,3000.0])
+                cgsConv = gpermsun/cmperpc**2, sensibleConv=1, texString=r'$\Sigma_{\mathrm{HI}}$',log=True,theRange=[0.1,3000.0])
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$')
         self.var['vPhi'] = RadialFunction(np.copy(self.dataCube[:,:,15]),'vPhi',self.p['vphiR']*1.0e5,self.p['vphiR'], \
-                 r'$v_\phi$',log=False)
+                 r'$v_\phi$ (km/s)',log=False)
+        self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
+        self.var['mCentral'] = TimeFunction( \
+                self.evarray[:,3], 'mCentral',
+                self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
+                self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
+                r'$M_\mathrm{center}\ (M_\odot)$', theRange=[3.0e7, 5.0e10])
+        self.var['mstar'] = TimeFunction( \
+                self.var['mCentral'].sensible() + 
+                np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
+
+
+        rAcc = -(self.var['r'].sensible(locIndex=1) - self.var['r'].sensible(locIndex=2)) \
+                /np.log(self.var['colAccr'].sensible(locIndex=1)/self.var['colAccr'].sensible(locIndex=2))
+        if(rAcc[0] < 0): # we're not using an exponential profile apparently!
+            rAccInd = np.argmax(self.var['colAccr'].sensible()*self.var['r'].sensible(), axis=1)
+            rAcc = self.var['r'].sensible(timeIndex=range(self.nt),locIndex=rAccInd)
+#        self.var['scaleRadius'] = TimeFunction( \
+#                self.p['accScaleLength']*np.power(self.var['Mh'].sensible()/self.p['Mh0'],self.p['alphaAccretionProfile']), \
+#                'accScaleLength',cmperkpc,1.0,r'$r_\mathrm{acc}$ (kpc)',log=False)
+        self.var['scaleRadius'] = TimeFunction( \
+                rAcc, 'scaleRadius', cgsConv=cmperkpc, texString=r'$r_\mathrm{acc}$',log=False)
+
+
+
+        mbulge,_,fcentral,scaleLengths = self.computeMBulge()
+        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$',theRange=[3.0e7,5.0e10])
+        self.var['scaleLength'] = TimeFunction(scaleLengths, 'scaleLength', cmperkpc, 1.0, r'$r_\mathrm{scale}$')
+        self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
+                'BT',1,1,r'Bulge to Total Ratio',log=False)
+        self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
+
+
+        cos = halo.Cosmology()
+        vPhiDM = np.zeros((len(self.var['Mh'].sensible()), len(self.var['r'].sensible(timeIndex=0))))
+        vPhiBulge = np.zeros((len(self.var['Mh'].sensible()), len(self.var['r'].sensible(timeIndex=0))))
+        for i in range(len(self.var['Mh'].sensible())):
+            thisHalo = halo.halo(self.var['Mh'].sensible(timeIndex=i),self.var['z'].sensible(timeIndex=i),cos,0) 
+            for j in range(len(self.var['r'].sensible(timeIndex=0))):
+                vPhiDM[i,j] = np.sqrt( Gcgs * thisHalo.mInterior(self.var['r'].sensible(timeIndex=0,locIndex=j)) / self.var['r'].cgs(timeIndex=0,locIndex=j) )
+                vPhiBulge[i,j] = np.sqrt( Gcgs * self.var['mBulge'].cgs(timeIndex=i)*self.var['fCentral'].sensible(timeIndex=i) / self.var['r'].cgs(timeIndex=0,locIndex=j) )
+
+        self.var['vPhiDM'] = RadialFunction(np.copy(vPhiDM),'vPhiDM', cgsConv=1.0, sensibleConv=1.0e-5, \
+                 texString=r'$v_{\phi,\mathrm{DM}}$ (km/s)',log=False)
+        self.var['vPhiBulge'] = RadialFunction(np.copy(vPhiBulge), 'vPhiBulge', cgsConv=1.0, sensibleConv=1.0e-5, \
+                 texString=r'$v_{\phi, \mathrm{bulge}}$ (km/s)',log=False)
+        self.var['vPhiDisk'] = RadialFunction( np.sqrt( np.power(self.var['vPhi'].cgs(),2.0) - np.power(self.var['vPhiDM'].cgs(),2.0) - np.power(self.var['vPhiBulge'].cgs(),2.0)), 'vPhiDisk', cgsConv=1.0, sensibleConv=1.0e-5, texString=r'$v_{\phi, \mathrm{disk}} (km/s)$', log=False)
+
+
         self.var['vOverSigGas'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sig'].sensible(),'vOverSigGas',texString=r'$v_\phi/\sigma$',log=True)
         self.var['vOverSigStR'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sigstR'].sensible(),'vOverSigStR',texString=r'$v_\phi/\sigma_{*,r}$',log=True)
         self.var['vOverSigStZ'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sigstZ'].sensible(),'vOverSigStZ',texString=r'$v_\phi/\sigma_{*,z}$',log=True)
@@ -509,17 +593,6 @@ class SingleModel:
                  r'$v_{r,g}$',log=False)
         self.var['NHI'] = RadialFunction(self.getData('col',cgs=True)*(1.0-self.getData('fH2'))*(1.0-self.getData('Z',cgs=True))/gperH,\
                 'NHI', 1.0,1.0,r'$N_{\mathrm{HI}}$ (cm$^{-2}$)',theRange=[1.0e19,3.0e21])
-        self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
-        rAcc = -(self.var['r'].sensible(locIndex=1) - self.var['r'].sensible(locIndex=2)) \
-                /np.log(self.var['colAccr'].sensible(locIndex=1)/self.var['colAccr'].sensible(locIndex=2))
-        if(rAcc[0] < 0): # we're not using an exponential profile apparently!
-            rAccInd = np.argmax(self.var['colAccr'].sensible()*self.var['r'].sensible(), axis=1)
-            rAcc = self.var['r'].sensible(timeIndex=range(self.nt),locIndex=rAccInd)
-#        self.var['scaleRadius'] = TimeFunction( \
-#                self.p['accScaleLength']*np.power(self.var['Mh'].sensible()/self.p['Mh0'],self.p['alphaAccretionProfile']), \
-#                'accScaleLength',cmperkpc,1.0,r'$r_\mathrm{acc}$ (kpc)',log=False)
-        self.var['scaleRadius'] = TimeFunction( \
-                rAcc, 'scaleRadius', cgsConv=cmperkpc, texString=r'$r_\mathrm{acc}$',log=False)
         self.var['lambda'] = TimeFunction( self.getData('scaleRadius')/np.power(self.getData('Mh'),1.0/3.0), \
                 'lambda', 1.0,1.0,r'$\lambda$')
         self.var['rx'] = RadialFunction( \
@@ -531,20 +604,20 @@ class SingleModel:
                 'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)', theRange=[0.01,100.0])
         self.var['sfrPerAccr'] = TimeFunction( \
                 self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$', theRange=[1.0e-3,10.0])
-        self.var['mCentral'] = TimeFunction( \
-                self.evarray[:,3], 'mCentral',
-                self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
-                self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
-                r'$M_\mathrm{center}\ (M_\odot)$', theRange=[3.0e7, 5.0e10])
+        def areaWeightedWithin( varName, maxRadius):
+            radiusInd = np.searchsorted( self.var['r'].sensible(timeIndex=-1), maxRadius)
+            mInt = np.sum(self.var['dA'].cgs(locIndex=range(radiusInd))*self.var[varName].cgs(locIndex=range(radiusInd)), 1)
+            return mInt
+        eightkpc = np.searchsorted( self.var['r'].sensible(timeIndex=-1), 8.0 )
+        m1kpc = self.var['mCentral'].cgs() + areaWeightedWithin('colst', 1.0) # mass within 1 kpc 
+        self.var['Sigma1'] = TimeFunction( \
+                m1kpc/(1.0*cmperkpc)**2.0, 'Sigma1', cgsConv=1.0, sensibleConv = cmperkpc**2/gpermsun, \
+                texString=r'$\Sigma_1$')
         self.var['mgas']=TimeFunction( \
                 np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
                 1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
         self.var['tdep']=TimeFunction( \
                 self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_{dep}$ (yr)',theRange=[1.0e8,3.0e10])
-        self.var['mstar'] = TimeFunction( \
-                self.var['mCentral'].sensible() + 
-                np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
-                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
         self.var['efficiency'] = TimeFunction( \
                 self.var['mstar'].cgs()/self.var['Mh'].cgs(), 'efficiency',1.0,1.0,r'$M_*/M_h$',log=True)
         self.var['fg'] = TimeFunction( \
@@ -557,14 +630,8 @@ class SingleModel:
         self.var['tDepH2Radial'] = RadialFunction( \
                 self.var['fH2'].cgs()*self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepH2Radial',\
                 1.0, 1.0/speryear, r'$t_{\mathrm{dep},H_2}\ \mathrm{(yr)}$', theRange=[3.0e8,1.0e11])
-        mbulge,_,fcentral,scaleLengths = self.computeMBulge()
-        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$',theRange=[3.0e7,5.0e10])
-        self.var['scaleLength'] = TimeFunction(scaleLengths, 'scaleLength', cmperkpc, 1.0, r'$r_\mathrm{scale}$')
-        self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
-                'BT',1,1,r'Bulge to Total Ratio',log=False)
-        self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
         self.var['sSFR'] = TimeFunction(self.getData('sfr',cgs=True)/self.getData('mstar',cgs=True) , \
-                'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)', theRange=[1.0e-2,1.0e2])
+                'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)', theRange=[1.0e-4,1.0e2])
         mg = self.getData('col',cgs=True)*self.getData('dA',cgs=True)
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z',cgs=True),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_g (Z_\odot)$')
@@ -619,9 +686,61 @@ class SingleModel:
         self.var['integratedEquilibrium'] = TimeFunction( \
                 np.sum(self.var['equilibrium'].cgs()*eqnorm,axis=1)/np.sum(eqnorm,axis=1), \
                 'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False)
+        self.var['Sigma1p5'] = TimeFunction( \
+                self.var['mstar'].sensible()/np.power(self.var['scaleLength'].sensible(),1.5), 'Sigma1p5', sensibleConv=1.0, cgsConv=gpermsun/cmperkpc**1.5,texString=r'$\Sigma_{1.5}\ (M_\odot/\mathrm{kpc}^{1.5})$', theRange=[1.0e8,1.0e12])
+        self.var['specificJRadial'] = RadialFunction( self.var['r'].cgs() * self.var['vPhi'].cgs(), 'specificJRadial', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
+        self.var['JColGas'] = RadialFunction( self.var['r'].cgs() *self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['col'].cgs(), 'JColGas', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2 v_\phi\Sigma\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')
+        self.var['JColStars'] = RadialFunction( self.var['r'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['colst'].cgs(), 'JColSt', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2v_\phi\Sigma_*\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')
+
+#        try:
+#            maxGIRadius = np.zeros(len(self.var['z'].cgs()))
+#            for i in range(len(self.var['z'].cgs())):
+#                unstable = self.var['Q'].sensible(timeIndex=i) < self.p['fixedQ']  # locations in space/time where Q<fixedQ
+#                maxGIRadius[i] = np.max( self.var['r'].sensible(timeIndex=i)[unstable] )
+#            self.var['maxGIRadius'] = TimeFunction( maxGIRadius, 'maxGIRadius', cgsConv=cmperkpc, sensibleConv=1.0, texString=r'Largest GI radius (kpc)')
+#        except:
+#            print "WARNING: failed to calculate max GI radius"
+        indRange = range(eightkpc)
+
+        self.var['specificJStars'] = TimeFunction( np.sum(self.var['colst'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colst'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJStars', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ M_*\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+        self.var['specificJGas'] = TimeFunction( np.sum(self.var['col'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['col'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJGas', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_\mathrm{gas}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+        self.var['specificJH2'] = TimeFunction( np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJH2', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_{\mathrm{H}_2}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+        self.var['specificJHI'] = TimeFunction( np.sum(self.var['colHI'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colHI'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJHI', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_\mathrm{HI}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+        self.var['specificJOut'] = TimeFunction( np.sum(self.var['colOut'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colOut'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJOut', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_\mathrm{out}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+        self.var['specificJSFR'] = TimeFunction( np.sum(self.var['colsfr'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colsfr'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJSFR', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \mathrm{SFR}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+        self.var['specificJAccr'] = TimeFunction( np.sum(self.var['colAccr'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colAccr'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJAccr', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \mathrm{Accr}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+
+        self.var['JStars'] = TimeFunction( np.sum(self.var['colst'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1), 'JStars', sensibleConv=1.0e-5/cmperkpc/gpermsun, cgsConv=1.0, texString=r'$J_* (M_\odot \mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
+        self.var['JGas'] = TimeFunction( np.sum(self.var['col'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1), 'JGas', sensibleConv=1.0e-5/cmperkpc/gpermsun, cgsConv=1.0, texString=r'$J_g\ (M_\odot \mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
+        self.var['JH2'] = TimeFunction( np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1), 'JH2', sensibleConv=1.0e-5/cmperkpc/gpermsun, cgsConv=1.0, texString=r'$J_{H_2}\ (M_\odot \mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
+        self.var['JHI'] = TimeFunction( np.sum(self.var['colHI'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1), 'JHI', sensibleConv=1.0e-5/cmperkpc/gpermsun, cgsConv=1.0, texString=r'$J_{HI}\ (M_\odot\ \mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
+        self.var['JOut'] = TimeFunction( np.sum(self.var['colOut'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1), 'JOut', sensibleConv=1.0e-5/cmperkpc/gpermsun*speryear, cgsConv=1.0, texString=r'$\dot{J}_\mathrm{out}\ (M_\odot/\mathrm{yr}\ \mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
+        self.var['JSFR'] = TimeFunction( np.sum(self.var['colsfr'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1), 'JSFR', sensibleConv=1.0e-5/cmperkpc/gpermsun*speryear, cgsConv=1.0, texString=r'$\dot{J}_\mathrm{SFR}\ (M_\odot/\mathrm{yr}\ \mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
+        self.var['JAccr'] = TimeFunction( np.sum(self.var['colAccr'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1), 'JAccr', sensibleConv=1.0e-5/cmperkpc/gpermsun * speryear, cgsConv=1.0, texString=r'$\dot{J}_\mathrm{accr}\  (M_\odot/\mathrm{yr}\ \mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
+
+
+
+        rhoCrit = cos.rhocrit( self.var['z'].sensible() )
+        self.var['Rvir'] = TimeFunction(np.power(self.var['Mh'].cgs()*3.0/(4.0*np.pi*200.0*rhoCrit),1./3.), 'Rvir', sensibleConv=1/cmperkpc, cgsConv=1,texString=r'$R_\mathrm{vir}$') # r200
+        self.var['Vvir'] = TimeFunction(np.power(Gcgs*self.var['Mh'].cgs()/self.var['Rvir'].cgs(),1./2.), 'Vvir', sensibleConv=1.0e-5, cgsConv=1,texString=r'$V_\mathrm{vir}$') # V
+        lambdaRange = [8.0e-3, 1.8e-1]
+        self.var['dimensionlessSpinStars'] = TimeFunction(self.var['specificJStars'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinStellarMass', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_*/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
+        self.var['dimensionlessSpinSFR'] = TimeFunction(self.var['specificJSFR'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinSFR', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_\mathrm{SFR}/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
+        self.var['dimensionlessSpinGas'] = TimeFunction(self.var['specificJGas'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinGas', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_\mathrm{gas}/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
+        self.var['dimensionlessSpinH2'] = TimeFunction(self.var['specificJH2'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinH2', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_\mathrm{H2}/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
+        self.var['dimensionlessSpinHI'] = TimeFunction(self.var['specificJHI'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinHI', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_\mathrm{HI}/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
+        self.var['dimensionlessSpinOut'] = TimeFunction(self.var['specificJOut'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinOut', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_\mathrm{out}/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
+        self.var['dimensionlessSpinAccr'] = TimeFunction(self.var['specificJAccr'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinAccr', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_\mathrm{accr}/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
+
+
 
         theKeys = self.var.keys()
         whitelist = ['rb','r','dA','rx','dr'] + keepOnly + starList
+        if 'vPhi' in whitelist:
+            if 'vPhiDM' not in whitelist:
+                whitelist += ['vPhiDM']
+            if 'vPhiBulge' not in whitelist:
+                whitelist += ['vPhiBulge']
         for key in theKeys:
             if(isinstance(self.var[key],RadialFunction) and not (key in whitelist)):
                 del self.var[key]
@@ -647,6 +766,8 @@ class SingleModel:
         raise ValueError('key not found: '+name)
     def get(self,name):
         ''' Get the RadialFunction or TimeFunction named name. '''
+        if name in self.p.keys():
+            return self.p[name]
         if name in self.var.keys():
             return self.var[name]
         raise ValueError('key not found: '+name)
@@ -661,7 +782,7 @@ class SingleModel:
         tf=[]
         blacklist=['t','z','step']
         for key in self.var.keys():
-            if(isinstance(self.var[key],TimeFunction) and not key in blacklist):
+            if(isinstance(self.var[key],TimeFunction) and not key in blacklist and not 'ageSt' in key and not 'startingAgeSt' in key and not 'endingAgeSt' in key):
                 tf.append(key)
         return tf
     def computeMBulge(self):
@@ -753,8 +874,12 @@ def reachedRedshiftZero(fn):
     ''' Read in the last few lines of the standard output and check whether the code successfully reached redshift zero.
         This can be used to check whether a model has finshed successfully, or whether it's either still running or exited early.'''
     with open(fn+'_stdo.txt','r') as f:
-        f.seek(-200, 2)
-        lastFewLines = f.read(200)
+        try:
+            f.seek(-200, 2)
+            lastFewLines = f.read(200)
+        except:
+            print "WARNING: failed to read last 200 elements of ",fn+'_stdo.txt'
+            lastFewLines=''
         return 'Reached redshift zero' in lastFewLines
 
 
@@ -914,7 +1039,29 @@ class Experiment:
                     vxe = np.zeros(11)+0.5
                     vy = [26.7, 6.0, 3.5, 3.5, 4.6, 3.9, 2.8, 1.9, 0.9, 0.5, 0.3]
                     vye = [20.3, 5.4, 1.8, 1.6, 2.0, 2.0, 1.4, 1.0, 0.7, 0.4, 0.2]
-                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3)
+                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3,label='Nakanishi06')
+
+                    ## From the Herschel paper - Pineda et al (2013) A&A 554 103
+                    vx = np.array([1.2264620876811554, 1.7322710031600081, 2.2387544688954497, 2.7385962090275573, \
+                            3.2361029675022435, 3.7372419196662534, 4.222606773522346, 4.721514520991485, \
+                            5.227271547989061, 5.7285661655969, 6.228978679023045, 6.736707468309111, \
+                            7.245733469627077, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, \
+                            12.25, 12.75, 13.25, 13.75, 14.25, 14.75] )
+                    vy =np.array( [6.548974943052395, 4.498861047835993, 2.1526195899772205, 2.7220956719817764, \
+                            4.316628701594535, 4.316628701594535, 11.241457858769932, 12.220956719817767, \
+                            10.19362186788155, 10.125284738041003, 10.444191343963555, 7.551252847380409, \
+                            4.088838268792713, 4.7038724373576315, 3.6332574031890665, 3.5193621867881575, \
+                            2.5626423690205016, 3.041002277904326, 2.927107061503417, 1.9476082004555835, \
+                            2.175398633257405, 1.6059225512528492, 1.287015945330296, 2.1070615034168583, \
+                            1.150341685649206, 1.7425968109339394, 1.6514806378132114, 2.835990888382689] )
+                    vyp = np.array( [  9.09185803757829, 6.628392484342381, 4.1022964509394555, 4.77035490605428, \
+                            6.816283924843425, 7.0459290187891455, 14.749478079331944, 16.29436325678497, \
+                            14.373695198329855, 14.436325678496871, 14.937369519832988, 11.784968684759917, \
+                            7.839248434237998, 8.298538622129438, 7.3382045929018815, 8.653444676409187, \
+                            6.9624217118997915, 7.171189979123174, 7.171189979123174, 6.064718162839251, \
+                            6.127348643006265, 4.937369519832988, 4.54070981210856, 5.041753653444678, \
+                            3.810020876826723, 4.039665970772443, 3.6638830897703585, 4.979123173277662 ] )
+                    ax.errorbar(vx,vy,xerr=vx*0+0.25,yerr=vyp-vy,color='r',lw=3, label=r'Pineda13')
                 ## The following HI data are from Nakanishi & Sofue (2003) -- errorbars are not specified
                 if v=='colHI':
                     vy = [1.85, .54, 1.84, 1.81, 1.86, 1.5, 2.6, 4.5, 4.25, 4.0, 4.25, 4.31, 3.6, 2.8, 2.0, 1.4, 1.05, .8, .7, .6, .5, .38, .25, .16, .1]
@@ -922,7 +1069,23 @@ class Experiment:
                     vxe = vx*0+0.5
                     vy = np.array([1.79665, 0.591, 1.775, 1.746, 1.818, 1.488, 2.608, 4.510, 4.301, 4.114, 4.309, 4.388, 3.691, 2.780, 2.055, 1.431, 1.072, 0.821, 0.641, 0.498, 0.390, 0.311, 0.246, 0.189, 0.160])
                     vye = vy*0.1
-                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3)
+                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3, label=r'Nakanishi03')
+
+                    # Following from Pineda+ 2013 A&A (as above). Figure 21
+                    vx = np.array([.75+i*.5 for i in range(39)])
+                    vxe = vx*0+0.25
+                    vy = np.array([ 2.175398633257405, 1.6514806378132114, 1.5375854214123024, 1.5831435079726646, \
+                            1.7198177676537618, 2.1070615034168583, 2.357630979498861, 2.9498861047836016, \
+                            3.3826879271070602, 3.610478359908882, 3.7243735763097945, 3.7927107061503413, \
+                            3.5193621867881575, 3.2915717539863323, 3.0865603644646917, 3.1093394077448764, \
+                            4.56719817767654, 3.906605922551254, 3.5876993166287043, 3.5193621867881575, \
+                            3.6332574031890665, 3.4738041002277917, 2.995444191343964, 2.927107061503417, \
+                            2.6082004555808673, 2.3120728929384953, 1.9476082004555835, 1.6287015945330303, \
+                            1.5148063781321177, 1.3097949886104807, 1.3781321184510276, 1.4009111617312051, \
+                            1.1958997722095681, 1.3097949886104807, 1.1731207289293835, 1.1958997722095681, \
+                            1.3781321184510276, 1.264236902050115, 1.287015945330296 ])
+                    vye = vy*0+0.1
+                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='r',lw=3, label=r'Pineda13')
                 if v=='hGas':
                     vx = np.array([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0, 19.0, 21.0, 23.0, 25.0])
                     vy = np.array([103.448, 142.241, 161.638, 183.190, 316.810, 349.138, 441.810, 497.844, 685.345, 862.069, 928.879, 935.345, 939.655])
@@ -976,7 +1139,11 @@ class Experiment:
                     try:
                         ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm)
                         if v=='colst':
-                            ax.plot(r[k], theVar[k][len(theVar[k])/2] *  np.exp( -r[k] / model.getData('scaleLength',timeIndex=ti)),ls='--')
+                            pass
+                            #ax.plot(r[k], theVar[k][len(theVar[k])/2] *  np.exp( -r[k] / model.getData('scaleLength',timeIndex=ti)),ls='--')
+                        if v=='vPhi':
+                            ax.plot(r[k], model.var['vPhiDM'].sensible( timeIndex=ti), ls='--')
+                            ax.plot(r[k], model.var['vPhiBulge'].sensible( timeIndex=ti), ls=':')
                     except ValueError:
                         rr = model.getData('rb',ti)
                         if(scaleR):
@@ -1009,6 +1176,7 @@ class Experiment:
     def plotAgeFuncs(self):
         ''' Plot properties of the stellar population'''
         dirname = self.name+'_age-velocity-dispersion'
+
         # First we need to identify the fields we're interested in.
         vars = sorted(self.models[0].var.keys()) # Get everything
         cols = []
@@ -1053,6 +1221,24 @@ class Experiment:
                 theAges.append( model.var[ ages[i] ].sensible(timeIndex=-1) )
             ax.errorbar( [np.mean(theAges)], [np.mean(theSigRs)], xerr=[np.std(theAges)], yerr=[np.std(theSigRs)], ecolor='blue')
             ax.errorbar( [np.mean(theAges)], [np.mean(theSigZs)], xerr=[np.std(theAges)], yerr=[np.std(theSigZs)], ecolor='red')
+
+
+
+        tW = np.array([ 1.1545454471140513, 1.4562262504912922, 1.6174725466389603, 1.7283910560022944, 1.7965734639435877, 1.8777958523969331, 1.9626902734826572, 2.040115430494593, 2.108906312357657, 2.180016761710267, 2.253524992309725, 2.316671738324658, 2.394787853464255, 2.4892586052022443, 2.5590109183314973, 2.6452984955626317, 2.7648914130211915, 2.8898910798240056, 3.003892903558393, 3.2098854713099376, 3.5066815356965195, 3.830920293793729, 4.374347699826242, 5.337385567099643, 6.128288264102687, 7.075387313922233, 8.034520783900259, 9.225089476610762, 10.592078624278916, 12.571709892264574 ])
+        sW = np.array([ 10.15947094711839, 10.119366364989414, 11.807187869366663, 9.80417679462689, 11.394270225407617, 12.678456671422186, 11.039371014586864, 12.043018110237995, 10.909152427547689, 12.043018110237995, 13.560276180165056, 15.884716272874831, 13.400321414471529, 15.884716272874831, 13.614017609237196, 14.793111980906472, 12.779149095990569, 13.189979561162446, 15.029019138748827, 15.512179549310623, 14.618614888860135, 16.72285843631423, 17.12447052897269, 20.379765023842037, 20.86920049387745, 24.83635342658302, 24.44650273214034, 27.526432797204478, 30.26749576398466, 30.99439256572452])
+        sWp = np.array([10.952387051506143, 10.823194512848927,12.678456671422186,10.48608269127704,12.235069260658351,13.667972023735317,11.900960668746963,12.931689153515185,11.714153946296314,12.931689153515185,14.676550674587839,17.12447052897269    ,14.389149754895975,17.056871562617136,14.676550674587839,15.947669810219324,13.776523188728843,14.219417734176508,16.201988811116035,16.72285843631423,15.759553745770539,18.028027163560893,18.460983870288672,21.970344294667754,22.49797872882931,    26.774755997810324,26.458925422884747,29.674787960072617,32.75909940704369,33.545833954643506])
+        
+        tU = np.array([ 1.1545454471140513, 1.4481996267037256, 1.6174725466389603, 1.7283910560022944, 1.8065309442770299, 1.8777958523969331, 1.9626902734826572, 2.040115430494593, 2.108906312357657, 2.1920994705262253, 2.253524992309725, 2.316671738324658, 2.394787853464255, 2.5030552821005823, 2.5449058176283663, 2.6452984955626317, 2.7496515125055185, 2.8898910798240056, 3.003892903558393, 3.192192792668354, 3.4873529365723437, 3.830920293793729, 4.350236581591234, 5.337385567099643, 6.128288264102687, 7.036388242108341, 8.079051989720647, 9.17424138716694, 10.650785054440707, 12.571709892264574 ])
+        sU = np.array([ 23.03828470297126,26.25044414355292,24.83635342658302,21.118308554196396,26.04360557809312,26.35447863100062,24.640657091469063,26.774755997810324,27.745047990670184,21.455084220864002,30.38745043564325,31.738746343902054,28.523964850804024,23.12958891586919,31.488663079506047,32.24488713788331,33.41341154210631,33.94625838061393,25.94079826418102 ,32.24488713788331,30.38745043564325,36.740695743681265,34.62428217248994,37.326603098484604,39.45184274341137,41.533482242701545,45.13064926230107,48.46090259220439,53.497788341709885,48.26960284262397] )
+        sUp = np.array([ 24.83635342658302, 28.299212235621507, 26.774755997810324, 22.676657891822398, 27.965399428100582, 28.411366301434906, 26.458925422884747, 28.864445050736656, 29.910465410861065, 22.947340914087935, 32.75909940704369, 34.080792545905844, 30.50788050584042, 24.83635342658302, 33.94625838061393, 34.761503448799075, 35.87903361647077, 36.4511999637219, 27.855005819617247, 34.761503448799075, 32.75909940704369, 39.45184274341137, 37.326603098484604, 40.239832032642134, 42.53094023006707, 44.775045421823734, 48.65296049167699, 52.243130062368444, 57.673129572180216, 51.831483919616105 ])
+        
+        tV = np.array([ 1.154781984689458, 1.4489643232788298, 1.6096474622839103, 1.7201919979837987, 1.8080545883896824, 1.879483258284322, 1.9645777937496076, 2.042190040422458, 2.0994976101348772, 2.1824399740999354, 2.2561365673928373, 2.3194478660758224, 2.4110795441388793, 2.5063312063142997, 2.548296747979347, 2.648969287610528, 2.753618977957703, 2.8942661247167507, 3.0253054571024536, 3.1974789370674914, 3.4935682400446213, 3.8382619912089933, 4.3593634327528035, 5.350142932297119,  6.144146161448629, 7.095149298539764, 8.013941241504929, 9.254354972049763, 10.627773930104956, 12.687188271180933 ])
+        sV = np.array([ 16.855671538516322,14.618614888860135,14.332348486294974,14.618614888860135,15.268688330380503,15.759553745770546,15.884716272874831,16.330665161755658,13.996218708819354,17.192337400274095,16.656844836483952,14.851739325048687,15.697342797897065,16.460363461207066,19.667049629525607,20.299315759857507,17.60522438531374,20.139368700347838,19.823245526441635,19.901808051959897,18.099474966706556,20.70476306688229,21.118308554196396,24.158135846053955,23.96778347962331, 25.736399532087084,27.309540167088848,28.864445050736656,28.97883921983696,38.223029701586235] )
+        sVp = np.array([ 18.099474966706556,15.822011245056265,15.389952399644592,15.697342797897065,16.395386062114245,16.92247311869177,17.056871562617147,17.53572763977108,15.08858141870079,18.460983870288672,17.956861401114423,15.947669810219333, 16.92247311869177,17.60522438531374,21.20200361071367,21.797230480984602,18.979259116958353,21.71118576226263,21.455084220864002,21.455084220864002,19.512084467414365,22.320707455986533,22.676657891822398,26.04360557809312,25.838396782854662,27.745047990670184,29.557646528486323,31.11722803954335,31.364361363287067,41.20622203183994 ])
+
+        ax.errorbar( tU*1.0e9, sU, yerr=sUp-sU, label=r'U from Holmberg09', c='b', ls='--' )
+        ax.errorbar( tW*1.0e9, sW, yerr=sWp-sW, label=r'W from Holmberg09', c='r', ls='--' )
+        ax.errorbar( tV*1.0e9, sV, yerr=sVp-sV, label=r'V from Holmberg09', c='g', ls='--' )
         ax.set_xlabel( 'Age (yr)' )
         ax.set_ylabel( r'$\sigma_*$ (km/s)' )
         plt.savefig( self.name+'_age-vel-disp.png' )
@@ -1267,6 +1453,45 @@ class Experiment:
                 plt.close(fig)
 
 
+    def angularMomentumAnalysis(self):
+        # Barro movie
+        nts = int(self.models[0].p['Noutputs']+1)
+        stepsize=1
+        cb = 'z'
+        self.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar='Sigma1',yvar=['sSFR'],prev=0,colorby=cb,movie=False)
+        self.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar='specificJAccr',yvar=['specificJSFR','specificJStars','specificJOut','specificJGas'],prev=0,colorby=cb,movie=False)
+        self.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar='dimensionlessSpinAccr',yvar=['dimensionlessSpinSFR','dimensionlessSpinStars','dimensionlessSpinOut','dimensionlessSpinGas'],prev=0,colorby=cb,movie=False)
+        cb = 'dimensionlessSpinAccr'
+        self.ptMovie(timeIndex=range(1,nts/2+1,stepsize),xvar='Sigma1',yvar=['sSFR'],prev=0,colorby=cb,movie=True)
+        self.ptMovie(timeIndex=range(1,nts/2+1,stepsize),xvar='specificJAccr',yvar=['specificJSFR','specificJStars','specificJOut','specificJGas'],prev=0,colorby=cb,movie=True)
+        self.ptMovie(timeIndex=range(1,nts/2+1,stepsize),xvar='dimensionlessSpinAccr',yvar=['dimensionlessSpinSFR','dimensionlessSpinStars','dimensionlessSpinOut','dimensionlessSpinGas'],prev=0,colorby=cb,movie=True)
+        
+        # Just plot all components of the angular momentum normalized to the instantaneous accretion ang. mom. on the same plt vs. z.
+        fig,ax = plt.subplots()
+        ls=['-','--','-.']*30
+        for i in range(len(self.models)):
+            if i==0:
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinAccr'].sensible(), c='k', lw=3, ls=ls[i], label=r'Accretion')
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinGas'].sensible(), c='grey', lw=3, ls=ls[i], label=r'Gas')
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinStars'].sensible(), c='r', lw=3, ls=ls[i], label=r'Stars')
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinSFR'].sensible(), c='blue', lw=3, ls=ls[i], label=r'SFR')
+            else:
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinAccr'].sensible(), c='k', lw=3, ls=ls[i])
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinGas'].sensible(), c='grey', lw=3, ls=ls[i])
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinStars'].sensible(), c='r', lw=3, ls=ls[i])
+                ax.plot( self.models[i].var['z'].sensible(),  self.models[i].var['dimensionlessSpinSFR'].sensible(), c='blue', lw=3, ls=ls[i])
+        ax.set_xlabel(r'z') 
+        ax.set_ylabel(r'$\lambda$')
+        ax.set_yscale('log')
+        ax.legend()
+        ax.set_ylim(self.models[0].var['dimensionlessSpinAccr'].theRange[0], self.models[0].var['dimensionlessSpinAccr'].theRange[1])
+        plt.savefig( self.name+'_angularMomentumEvolution.png' )
+
+        import balanceplot
+        balanceplot.budgetAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
+        balanceplot.balanceAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
+
+
     def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True):
         if(yvar is None):
             variables = self.models[0].getTimeFunctions()
@@ -1412,6 +1637,8 @@ class Experiment:
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
                 elif (xvar=='Mh' and v=='mstar'):
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1],eff=False)
+                if('specificJ' in xvar and 'specficJ' in v or 'dimensionlessSpin' in xvar and 'dimensionlessSpin' in v):
+                    ax.plot([overallXRange[0],overallXRange[0]], [overallRange[0],overallRange[1]], c='k',ls='--')
 
                 # Moster
                 if not histFlag:
@@ -1527,6 +1754,8 @@ class Experiment:
                 qvecs = np.array(qvecs)
 
             if perc is None:
+                if len(theVar) != len(self.models):
+                    pdb.set_trace() # Something has gone wrong and we don't have all the data we expected to have!
                 for j,model in enumerate(self.models):
                     #ax.plot(model.getData('t'),theVar[j],c=scalarMap.to_rgba(colors[j]),lw=2.0/lwnorm)
                     if(len(model.getData('t')) != len(theVar[j])):
@@ -1557,8 +1786,8 @@ class Experiment:
                 xx = model.getData('t')
 
             # fill in some percentiles
-            np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
             if(perc is not None):
+                np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
                 if(len(perc) < len(self.models)):
                     if(len(perc) % 2 == 0):
                         # a unique fill between each quantile
@@ -1616,7 +1845,7 @@ class Experiment:
                 print "Caught ValueError while trying to plot variable ",v," colored by ",colorby
             plt.close(fig)
         #### End of timePlot(self,variables=None,colorby=None,perc=None):
-    def customPlotPPD(self):
+    def customPlotPPD(self, expensive=False):
         ''' Make a custom plot where we assume the experiment is composed of a sample from the posterior
             predictive distribution.'''
         # hg vs MLF
@@ -1624,20 +1853,89 @@ class Experiment:
         # r vs rhoDM
         # vcirc decomp??
         # column density decomp
+        # Mh vs other measurements. Ex. Guglielmo+ MNRASS 444, 1759-1774 (2014)
         fig,ax = plt.subplots()
         muNorms,_,_,_ = self.constructQuantity('muNorm')
-        muHgScaling,_,_,_ = self.constructQuantity('muHgScaling')
-        muMhScaling,_,_,_ = self.constructQuantity('muMhScaling')
-        hgs = np.power(10.0, np.linspace(1,3,50))
+        muFgScaling,_,_,_ = self.constructQuantity('muFgScaling')
+        muColScaling,_,_,_ = self.constructQuantity('muColScaling')
+        fgs = np.power(10.0, np.linspace(-2,0,50))
         perc=[2.5, 16.0, 50.0, 86.0, 97.5]
-        cms = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]
-        for counter, Mh in enumerate([1.0e10, 1.0e11, 1.0e12]):
+        cms = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')] * 5
+        for counter, col in enumerate([1.0, 10.0, 100.0, 1000.0]):
             mus = []
             for i in range(len(muNorms)):
-                mus.append( muNorms[i] * np.power(hgs/100.0, muHgScaling[i]) * np.power(Mh/1.0e12, muMhScaling[i]) )
+                mus.append( muNorms[i] * np.power(fgs, muFgScaling[i]) * np.power(col, muColScaling[i]) )
+            # mus ~ models x fgs
+            # qvecs ~ percentiles x fgs
             qvecs = np.percentile(np.array(mus), perc, axis=0)
             qvecs = np.array(qvecs)
-            xx = hgs
+            xx = fgs
+            # fill in some percentiles
+            #np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
+            thisCM = cms[counter]
+            if(len(perc) < len(self.models)):
+                filledPlots(qvecs, perc, thisCM, ax, xx)
+
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlabel(r'Gas Fraction')
+        ax.set_ylabel(r'Local mass loading factor ($\dot{\Sigma}_\mathrm{out}/\dot{\Sigma}_*$)')
+        plt.savefig(self.name+'_fg_vs_mlf.png')
+        plt.close(fig)
+
+        # rho(r) and mInterior(r) for the DM halo
+        concentrationRandomFactor,_,_,_ = self.constructQuantity('concentrationRandomFactor')
+        Mh,_,_,_ = self.constructQuantity('Mh',timeIndex=-1)
+        halos = []
+        cos = halo.Cosmology()
+        rs = np.power(10.0, np.linspace(-1,2.5,50))
+        rhos = np.zeros((len(Mh), len(rs)))
+        mInteriors = np.zeros((len(Mh), len(rs)))
+        for i in range(len(Mh)):
+            thisHalo = halo.halo(Mh[i],0,cos,concentrationRandomFactor[i] ) 
+            for j in range(len(rs)):
+                rhos[i,j] = thisHalo.rho(rs[j])
+                mInteriors[i,j] = thisHalo.mInterior(rs[j])
+        fig,ax = plt.subplots()
+        qvecs = np.percentile( rhos, perc, axis=0 )
+        qvecs = np.array(qvecs)
+        thisCM = cms[0]
+        xx = rs
+        if(len(perc) < len(self.models)):
+            filledPlots(qvecs, perc, thisCM, ax, xx)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_ylabel(r'$\rho_{\rm DM}\ ({\rm g}\ {\rm cm}^{-3})$')
+        ax.set_xlabel(r'$r\ ({\rm kpc})$')
+        plt.savefig(self.name+'_r_vs_rhodm.png')
+        plt.close(fig)
+
+        fig,ax = plt.subplots()
+        qvecs = np.percentile( mInteriors, perc, axis=0 )
+        qvecs = np.array(qvecs)
+        if(len(perc) < len(self.models)):
+            filledPlots(qvecs, perc, thisCM, ax, xx)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_ylabel(r'$M_{\rm DM}(r)\ (M_\odot)$')
+        ax.set_xlabel(r'$r\ ({\rm kpc})$')
+        plt.savefig(self.name+'_r_vs_rhodm.png')
+        plt.close(fig)
+
+
+
+
+        fig,ax = plt.subplots()
+        cols = np.power(10.0, np.linspace(-1,3,50))
+        perc=[2.5, 16.0, 50.0, 86.0, 97.5]
+        cms = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]*5
+        for counter, fg in enumerate([.05,.1,.2]):
+            mus = []
+            for i in range(len(muNorms)):
+                mus.append( muNorms[i] * np.power(fg, muFgScaling[i]) * np.power(cols, muColScaling[i]) )
+            qvecs = np.percentile(np.array(mus), perc, axis=0)
+            qvecs = np.array(qvecs)
+            xx = cols
             # fill in some percentiles
             #np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
             thisCM = cms[counter]
@@ -1658,65 +1956,165 @@ class Experiment:
                             ax.plot( xx, qvecs[k,:], lw=k+1, color='k' )
                             ax.plot( xx, qvecs[(-k-1),:], lw=k+1, color='k' )
 
-
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_xlabel(r'Gas Scale Height (pc)')
+        ax.set_xlabel(r'Gas Column Density ($M_\odot/\mathrm{pc}^2$)')
         ax.set_ylabel(r'Local mass loading factor ($\dot{\Sigma}_\mathrm{out}/\dot{\Sigma}_*$)')
-        plt.savefig(self.name+'_hg_vs_mlf.png')
+        plt.savefig(self.name+'_col_vs_mlf.png')
         plt.close(fig)
 
 
-        fig,ax = plt.subplots()
-        Mhs = np.power(10.0, np.linspace(10,12,50))
-        perc=[2.5, 16.0, 50.0, 86.0, 97.5]
-        cms = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]
-        for counter, hg in enumerate([30,100,300]):
-            mus = []
-            for i in range(len(muNorms)):
-                mus.append( muNorms[i] * np.power(hg/100.0, muHgScaling[i]) * np.power(Mhs/1.0e12, muMhScaling[i]) )
-            qvecs = np.percentile(np.array(mus), perc, axis=0)
-            qvecs = np.array(qvecs)
-            xx = Mhs
-            # fill in some percentiles
-            #np.clip(qvecs,  varRange[0], varRange[1], out=qvecs )
-            thisCM = cms[counter]
-            if(perc is not None):
-                if(len(perc) < len(self.models)):
-                    if(len(perc) % 2 == 0):
-                        # a unique fill between each quantile
-                        for k in range(len(perc)-1):
-                            ax.fill_between(xx, qvecs[k,:], qvecs[k+1,:], facecolor=thisCM(float(k+.5)/float(len(perc))),alpha=0.3)
-                    else:
-                        # symmetric fills around the central quantile.
-                        v2 = (len(perc)-1)/2
-                        for k in range(v2):
-                            col = thisCM(float(k+.5)/float(v2+.5))
-                            #pdb.set_trace()
-                            ax.fill_between(xx, qvecs[k,:], qvecs[(k+1),:], facecolor=col, alpha=0.3)
-                            ax.fill_between(xx, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
-                            ax.plot( xx, qvecs[k,:], lw=k+1, color='k' )
-                            ax.plot( xx, qvecs[(-k-1),:], lw=k+1, color='k' )
+        if expensive:
+            # Alright, here we're going to do something pretty expensive: reproduce the Z_* vs. r @ different heights from JYC's paper.
+            fig,ax = plt.subplots(4)
+            fig.subplots_adjust(hspace=0.04)
+            rs = [6,9,12,15,18]
+            whichModels = []
+            # This is such an expensive operation that we only want to includ a random subset of the full PPD sample.
+            for i in range(len(self.models)):
+                # randomly select ~ 1% of the models
+                if np.random.uniform(0,1) < 0.02: 
+                    whichModels.append(i)
+            theseModels = [self.models[wi] for wi in whichModels]
+            allZ = np.zeros( (len(rs), 4 ,len(theseModels))  )  ## r x z x models
+            slopes = np.zeros( (4, len(theseModels)) ) # z x models
 
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.set_xlabel(r'Halo Mass ($M_\odot$)')
-        ax.set_ylabel(r'Local mass loading factor ($\dot{\Sigma}_\mathrm{out}/\dot{\Sigma}_*$)')
-        plt.savefig(self.name+'_Mh_vs_mlf.png')
-        plt.close(fig)
-
-        # Alright, here we're going to do something pretty expensive: reproduce the Z_* vs. r @ different heights from JYC's paper.
-        fig,ax = plt.subplots()
-        for i,model in enumerate(self.models):
-            rs = [3,5,7,9,11,13]
-            for j,r in enumerate(rs):
+            for i,model in enumerate(theseModels):
+                rr = model.var['r'].sensible(timeIndex=-1)
                 # For each of these we need to collect the Sigst's, sigst's, and Zst's.
                 # With the first two we compute the weights for the different Z bins.
-                pass
-        plt.savefig(self.name+'_Zsti_r_z.png')
-        plt.close(fig)
+                colData = []
+                sigData = []
+                zData = []
+                # search for passive stellar populations (up to 100)
+                for k in range(100):
+                    stk=str(k).zfill(2)
+                    if 'colst'+stk in model.var: 
+                        # for each stellar population found in this run of the model, 
+                        # collect surface density, velocity dispersion, and metallicity at the specified radii (rs)
+                        colData.append( model.var['colst'+stk].atR(rs, rr, -1) )
+                        sigData.append( model.var['sigstZ'+stk].atR(rs, rr, -1) )
+                        zData.append( model.var['Zst'+stk].atR(rs,rr,-1) )
+                # Convert these to numpy arrays
+                colData = np.array(colData) #  nStellarPops  x len(rs) 
+                sigData = np.array(sigData) 
+                zData = np.array(zData)
 
-        
+                # For each of our pre-specified radii...
+                for j,r in enumerate(rs):
+                    try:
+                        col = colData[:,j]
+                    except:
+                        pdb.set_trace()
+                    assert not np.any(col<0)
+                    sigsq = np.power(sigData[:,j], 2.0)
+                    # Use the Narayan and Jog (2002) formalism to compute vertical profiles assuming equilibrium.
+                    y,zs = verticalProfile.run( col, sigsq, r, model.getData('Mh',timeIndex=-1), 0.0, model.get('concentrationRandomFactor') )
+                    # From these vertical profiles extract a weight matrix. This matrix has a shape
+                    #   components  x z
+                    #  For each z window (second index), the weight of each component (first index) must sum to 1.
+                    weightMatrix = verticalProfile.weights(y,zs)
+
+                    # allZ  ~ r x z x models
+                    for m in range(4):
+                        # allZ is the weighted average of the metallicity at this radius and height.
+                        allZ[j,m,i] =  np.sum(weightMatrix[:,m] * zData[:,j])   # one per height bin.
+            ## compute the slope of each ppd model.
+            for i in range(len(theseModels)):
+                for j in range(4):
+                    polyfitResult = np.polyfit(rs, np.log10(allZ[:,j,i]), 1)
+                    # slopes ~ z x model
+                    slopes[j,i] = polyfitResult[0]
+            # Now, at each r and z, identify quantiles of the [average] metallicity distribution across our ensemble of models
+            # qvec ~ r x z x quantiles
+            qvec = np.percentile( allZ, perc, axis=2 )
+            shp2 = np.shape(qvec)
+            assert shp2[0] == len(perc)
+            assert shp2[1] == len(rs)
+            assert shp2[2] == 4
+            # Produce the plots
+            for m in range(4):
+                # one for each window in z
+
+                if(len(perc) < len(self.models)):
+                    if(len(perc) % 2 == 0):
+                        # a unique fill between each quantile
+                        for kk in range(len(perc)-1):
+                            ax[3-m].fill_between(rs, qvec[kk,:,m], qvec[kk+1,:,m], facecolor=thisCM(float(kk+.5)/float(len(perc))),alpha=0.3)
+                    else:
+                        # symmetric fills around the central quantile.
+                        v2 = (len(perc)-1)/2
+                        for kk in range(v2):
+                            col = thisCM(float(kk+.5)/float(v2+.5))
+                            #pdb.set_trace()
+                            ax[3-m].fill_between(rs, qvec[kk,:,m], qvec[(kk+1),:,m], facecolor=col, alpha=0.3)
+                            ax[3-m].fill_between(rs, qvec[(-kk-2),:,m], qvec[(-kk-1),:,m,], facecolor=col, alpha=0.3)
+                            ax[3-m].plot( rs, qvec[kk,:,m], lw=kk+1, color='k' )
+                            ax[3-m].plot( rs, qvec[(-kk-1),:,m], lw=kk+1, color='k' )
+                ax[3-m].set_yscale('log')
+                ax[3-m].set_ylabel(r'$\log_{10}(Z_*/Z_\odot)$')
+                #ax[3-m].set_ylim(-1.8,0.5)
+
+            # Now overplot data extracted from Judy's paper
+            ax[3].set_xlabel(r'r (kpc)')
+            jycR = [8.073, 9.103, 9.485]
+            jycZ = np.power(10.0, [-0.158385, -0.2329193, -0.24534])
+            ax[3].plot(jycR, jycZ, lw=2, c='r')
+            jycR = [ 7.27346, 8.302845, 8.967, 9.3, 9.98, 10.4446, 11.125]
+            jycZ = np.power(10.0, [-0.175, -0.2375, -0.2875, -0.3, -0.35, -0.375, -0.425])
+            ax[2].plot(jycR, jycZ, lw=2, c='r')
+            jycR = [6.495, 7.542, 8.7375, 9.0864, 9.6179, 10.199, 10.98, 11.5615, 12.19269, 13.35548]
+            jycZ = np.power(10.0, [-0.35124, -0.36505, -0.37905, -0.379485, -0.3801495, -0.3933762, -0.40685, -0.42, -0.4333679, -0.43482])
+            ax[1].plot(jycR, jycZ, lw=2, c='r')
+            jycR = [6.196, 7.973, 9.40, 10.465, 11.7275, 12.392, 12.9734, 14.0033, 16.1462]
+            jycZ = np.power(10.0, [-0.5375, -0.5375, -0.5375, -0.5375, -0.525, -0.525, -0.525, -0.525, -0.5125])
+            ax[0].plot(jycR, jycZ, lw=2, c='r')
+
+            ax[0].text(14.0,1.3, r'$1.0\ {\rm kpc} < |z| < 1.5\ {\rm kpc}$')
+            ax[1].text(14.0,1.3, r'$0.50\ {\rm kpc} < |z| < 1.0\ {\rm kpc}$')
+            ax[2].text(14.0,1.3, r'$0.25\ {\rm kpc} < |z| < 0.50\ {\rm kpc}$')
+            ax[3].text(14.0,1.3, r'$0.15\ {\rm kpc} < |z| < 0.25\ {\rm kpc}$')
+            for i in range(4):
+                ax[i].set_xlim(6,18)
+                ax[i].set_ylim(10.0**-1.2, 10.0**0.4)
+                if i!=3:
+                    ax[i].get_xaxis().set_ticks([])
+
+            plt.savefig(self.name+'_Zsti_r_z.png')
+            plt.close(fig)
+
+
+
+            fig,ax = plt.subplots()
+            ## slopes ~ z x models
+            qvec = np.percentile( slopes, perc, axis=1 )
+            # Produce the plots
+            zs = [0.2, .75/2, .75, 1.25]
+            shp1 = np.shape(qvec)
+            assert shp1[0] == len(perc)
+            assert shp1[1] == len(zs)
+            if(len(perc) < len(self.models)):
+                if(len(perc) % 2 == 0):
+                    # a unique fill between each quantile
+                    for kk in range(len(perc)-1):
+                        ax.fill_between(zs, qvec[:,kk], qvec[:,kk+1], facecolor=thisCM(float(kk+.5)/float(len(perc))),alpha=0.3)
+                else:
+                    # symmetric fills around the central quantile.
+                    v2 = (len(perc)-1)/2
+                    for kk in range(v2):
+                        col = thisCM(float(kk+.5)/float(v2+.5))
+                        ax.fill_between(zs, qvec[kk,:], qvec[(kk+1),:], facecolor=col, alpha=0.3)
+                        ax.fill_between(zs, qvec[(-kk-2),:], qvec[(-kk-1),:], facecolor=col, alpha=0.3)
+                        ax.plot( zs, qvec[kk,:], lw=kk+1, color='k' )
+                        ax.plot( zs, qvec[(-kk-1),:], lw=kk+1, color='k' )
+            ax.set_ylabel(r'$\partial \log_{10}Z/\partial r\ ({\rm dex}/{\rm kpc})$')
+            ax.errorbar(zs, [-0.066, -0.064, -0.013, 0.0028], yerr=[[0.044,0.0041,0.0,0.0032],[0.030,0.015,0.0093,0.0071]], color='r', lw=2)
+            ax.set_xlabel(r'$z\ ({\rm kpc})$')
+            #ax.set_ylim(-1.8,0.5)
+            ax.set_xlim(0.19, 1.26)
+            
+            plt.savefig(self.name+'_Zsti_slope_z.png')
+            plt.close(fig)
 
 
                 

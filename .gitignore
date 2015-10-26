@@ -12,4 +12,12 @@ bin/gidget
 py/*.dat
 py/r*
 py/mcmc*
+py/movie*
+estd.*
+*.o*
+*.e*
+*.png
+*.pickle
+*.gif
+triangle.py
 !py/*.py

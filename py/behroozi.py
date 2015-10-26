@@ -88,7 +88,8 @@ class behroozi:
             ret = (left + (z-self.smmr_z[zi])*(right-left)/(self.smmr_z[zi2]-self.smmr_z[zi]))
         return ret,Flag
 
-    def plotSmmr(self, z, ax, minMh=None, maxMh=None, eff=True):
+    def plotSmmr(self, z, ax, minMh=None, maxMh=None, eff=True, color='red', add=None, mult=1.0):
+        ''' add is a function that accepts log10 M_h and yields some value to add to everything in this plot. By default it is zero. '''
         if minMh is None:
             minMh = 1.0e10
         if maxMh is None:
@@ -107,34 +108,67 @@ class behroozi:
             mmh = minMh * (maxMh/minMh)**(float(i)/(99.0)) 
             try:
                 ret,flag = self.getSmmr(np.log10(mmh),z,eff)
+                if eff:
+                    log10MStar = ret[1] + np.log10(mmh)
+                else:
+                    log10MStar = ret[1]
+                if add is not None:
+                    toAdd = add(log10MStar)
+                else:
+                    toAdd = 0
+                if eff:
+                    toAdd = toAdd/mmh
                 if not flag:
-                    me.append(10.0**ret[1])
-                    hi.append(10.0**ret[2])
-                    lo.append(10.0**ret[0])
+                    me.append((10.0**ret[1] + toAdd)*mult)
+                    hi.append((10.0**ret[2] + toAdd)*mult)
+                    lo.append((10.0**ret[0] + toAdd)*mult)
                     mh.append(mmh)
                 if flag:
-                    meFlagged.append(10.0**ret[1])
-                    hiFlagged.append(10.0**ret[2])
-                    loFlagged.append(10.0**ret[0])
+                    meFlagged.append((10.0**ret[1] + toAdd)*mult)
+                    hiFlagged.append((10.0**ret[2] + toAdd)*mult)
+                    loFlagged.append((10.0**ret[0] + toAdd)*mult)
                     mhFlagged.append(mmh)
             except ValueError:
                 pass
-        ax.plot(mh,me,color='r',lw=3,ls='--')
-        ax.fill_between(mh,lo,hi,color='r',alpha=0.2)
-        ax.plot(mhFlagged,meFlagged,color='red',lw=2,ls='--')
-        ax.fill_between(mhFlagged,loFlagged,hiFlagged,color='red',alpha=0.1)
+        ax.plot(mh,me,color=color,lw=3,ls='--')
+        ax.fill_between(mh,lo,hi,color=color,alpha=0.2)
+        ax.plot(mhFlagged,meFlagged,color=color,lw=2,ls='--')
+        ax.fill_between(mhFlagged,loFlagged,hiFlagged,color=color,alpha=0.1)
         #print "Plotting SMMR!"
         #pdb.set_trace()
 
+def zero(log10MStar):
+    return 0
 
-if __name__=='__main__':
+def MHI(log10MStar):
+    #return 10.0**(-0.4) * 10.0**(-0.53*(log10MStar-10.0)) * 10.0**log10MStar
+    return 10.0** ( -0.43 * log10MStar + 3.75 )* 10.0**log10MStar
+
+def baryonicMassRelation():
     b = behroozi()
     b.readSmmr()
     fig,ax = plt.subplots()
-    b.plotSmmr(.3,ax)
+    b.plotSmmr(0,ax,mult=1.0/0.18)
+    #b.plotSmmr(0,ax, add=MHI, color='blue')
     ax.set_yscale('log')
     ax.set_xscale('log')
-    plt.savefig('testsmmr.png')
-    plt.close(fig)
+    ax.set_xlabel(r'$M_h\ (M_\odot)$', fontsize=16)
+    ax.set_ylabel(r'$M_*/M_h/f_b$', fontsize=16)
+    ax.set_ylim(.005,1.0)
+    #ax.plot([1.0e10,1.0e13],[0.18,0.18], color='k', lw=4, ls=':')
+    plt.savefig('testbary.png')
+
+if __name__=='__main__':
+    if False:
+        b = behroozi()
+        b.readSmmr()
+        fig,ax = plt.subplots()
+        b.plotSmmr(.3,ax)
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        plt.savefig('testsmmr.png')
+        plt.close(fig)
+    else:
+        baryonicMassRelation()
 
 

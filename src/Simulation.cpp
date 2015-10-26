@@ -119,6 +119,29 @@ int Simulation::runToConvergence(const double fCondition,
         flagList.push_back(std::vector<int>(3));
     }
 
+    bool readIn = true;
+    std::ifstream inputRandomFactors;
+    std::string fnIn = filename+"_inputRandomFactorsY.txt";
+    std::vector<double> irfY(0);
+    int rfcounter=0;
+    if(readIn) inputRandomFactors.open(fnIn.c_str());
+    bool readFlag = true;
+    while (readFlag && readIn) {
+        std::cout << "Attempting to read in random factor "<<rfcounter<<std::endl;
+        ++rfcounter;
+        std::string line;
+        readFlag = getline(inputRandomFactors, line);
+        if (!readFlag)
+            std::cout << "Failed to read in random factor " << rfcounter<<std::endl;
+        double y = atof(line.c_str());
+        irfY.push_back(y);
+        std::cout << "Successfully read in y = "<<y<<" at z="<<z<<std::endl;
+    }
+    if(readIn) inputRandomFactors.close();
+
+
+
+
     // Loop over time steps until...
     while(t<tmax &&           // the simulation has run for too many orbits
             step<=stepmax &&    // the simulation has run for too many steps
@@ -166,7 +189,7 @@ int Simulation::runToConvergence(const double fCondition,
 
         theDisk.ComputeColSFRapprox(accr.MhOfZ(z) * accr.GetMh0(),z);
         // theDisk.ComputeColSFR(accr.MhOfZ(z) * accr.GetMh0(),z);
-        theDisk.ComputeMassLoadingFactor(accr.MhOfZ(z) * accr.GetMh0());
+        theDisk.ComputeMassLoadingFactor(accr.MhOfZ(z) * accr.GetMh0(), theDisk.active()[0]->spcol);
 
         if(dbg.opt(6)) {
             for(unsigned int i=0; i!=theDisk.passive().size(); ++i) {
@@ -189,6 +212,18 @@ int Simulation::runToConvergence(const double fCondition,
         else AccRate = 1.;
         
         double r200 = theDisk.GetCos().r200(accr.MhOfZ(z)*accr.GetMh0(), z)/dim.Radius;
+
+        int irfInd = 0.0;
+        if (irfY.size() > 0) {
+            irfInd = irfY.size()-1 - ((int) floor( z / (zrelax/(((double) irfY.size())-1.0)) ));
+            r200 *= pow(10.0, irfY[irfInd] );
+            if( step % 1000 == 0) {
+                std::cout << "At z= "<<z<<", irfInd= "<<irfInd<<" and irf= "<< irfY[irfInd] << std::endl;
+            }
+        }
+
+
+
         accProf.UpdateProfile(r200);
         // accProf.UpdateProfile(accr.MhOfZ(z));
 

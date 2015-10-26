@@ -206,9 +206,14 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
             ++rfcounter;
             std::string line;
             bool readFlag = getline(inputRandomFactors, line);
-            if (!readFlag)
-                errormsg("Failed to read in random factor!");
-            x = atof(line.c_str());
+            if (!readFlag) {
+                // errormsg("Failed to read in random factor!");
+                std::cout<< "WARNING: failed to read in random factor. Using newly-generated random number" <<std::endl;
+                x  = gsl_ran_gaussian(r,1.0);
+            }
+            else {
+                x = atof(line.c_str());
+            }
             std::cout << "Successfully read in x = "<<x<<" at z="<<z<<std::endl;
         }
         // Set dMh such that the average accretion rate == the value given above by dMh.

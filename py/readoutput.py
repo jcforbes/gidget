@@ -330,7 +330,11 @@ class SingleModel:
             arr = evolution.read()
             evarray = np.fromstring(arr)
             self.nsteps = len(evarray)/ncolev
-            self.evarray = np.reshape(evarray,(self.nsteps,self.ncolev))
+            try:
+                self.evarray = np.reshape(evarray,(self.nsteps,self.ncolev))
+            except:
+                print "Failed to reshape array. Off by one error?", np.shape(evarray),self.nsteps,self.ncolev,self.nsteps*self.ncolev,self.path
+                
         with open(self.path+'_radial.dat','r') as radial:
             dataCube=[]
             for i in range(self.nsteps):
@@ -916,7 +920,10 @@ class Experiment:
         ''' Read in every model in the experiment. '''
         n=0
         for model in self.models:
-            model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars)
+            try:
+                model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars)
+            except:
+                print "Failed to read in model n=",n
             n+=1
             if(n % 50 == 0):
                 print "Reading in model ",n," of ",len(self.models)

@@ -794,6 +794,7 @@ if __name__ == "__main__":
     re30[0].irregularVary('NPassive',1)
     re30[0].irregularVary('NChanges',30)
     re30[0].irregularVary('eta',0.5)
+    re30[0].vary('whichAccretionHistory',-300,-101,200,0,6)
 
     successTables=[]
 

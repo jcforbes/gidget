@@ -1,5 +1,5 @@
-LDFLAGS		= -O3  -L/home/jforbes/gsl/lib -lgsl -lgslcblas -lm 
-CFLAGS		= -O3  -I/home/jforbes/gsl/include -c 
+LDFLAGS		= -O3  -L/usr/local/Cellar/gsl/lib -lgsl -lgslcblas -lm 
+CFLAGS		= -O3  -I/usr/local/Cellar/gsl/include -c 
 CC		= g++
 EXECUTABLE=../bin/gidget
 

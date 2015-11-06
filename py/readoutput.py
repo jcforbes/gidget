@@ -548,6 +548,22 @@ class SingleModel:
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
 
+        mstdist = np.column_stack( (self.var['mCentral'].cgs()  , self.var['colst'].cgs()*self.var['dA'].cgs()) # stellar mass in each bin
+        mstcu = np.cumsum(mstdist, axis=1) #
+        gascu = np.cumsum( self.var['col'].cgs()*self.var['dA'].cgs() )
+        sfrcu = np.cumsum( self.var['colsfr'].cgs()*self.var['dA'].cgs() )
+        halfMassRadiiStars = []
+        halfMassRadiiGas = []
+        halfMassRadiiSFR = []
+        for z in range(np.shape(mstcu)[0]):
+            halfMassRadiiStars.append( self.var['rb'].sensible( locIndex=  np.searchsorted(mstcu[z,:], [mstcu[z,-1]])[0] - 1 ) ) 
+            halfMassRadiiGas.append( self.var['rb'].sensible( locIndex= np.searchsorted(gascu[z,:], [gascu[z,-1]])[0] )  )
+            halfMassRadiiSSFR.append( self.var['rb'].sensible( locIndex= np.searchsorted(sfrcu[z,:], [sfrcu[z,-1]])[0] )  )
+
+        self.var['halfMassStars'] = TimeFunction( halfMassRadiiStars, 'halfMassStars', cgsConv = cmperkpc, texString=r'$r_*$ (kpc)')
+        self.var['halfMassGas'] = TimeFunction( halfMassRadiiGas, 'halfMassGas', cgsConv = cmperkpc, texString=r'$r_g$ (kpc)')
+        self.var['halfMassSFR'] = TimeFunction( halfMassRadiiSFR, 'halfMassSFR', cgsConv = cmperkpc, texString=r'$r_\mathrm{SFR}$ (kpc)')
+
 
         rAcc = -(self.var['r'].sensible(locIndex=1) - self.var['r'].sensible(locIndex=2)) \
                 /np.log(self.var['colAccr'].sensible(locIndex=1)/self.var['colAccr'].sensible(locIndex=2))
@@ -620,6 +636,7 @@ class SingleModel:
         self.var['mgas']=TimeFunction( \
                 np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
                 1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
+        self.var['gasToStellarRatio'] = TimeFunction( self.var['mgas'].sensible()/self.var['mstar'].sensible(), 'gasToStellarRatio', texString=r'$M_g/M_*$')
         self.var['tdep']=TimeFunction( \
                 self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_{dep}$ (yr)',theRange=[1.0e8,3.0e10])
         self.var['efficiency'] = TimeFunction( \
@@ -2221,16 +2238,21 @@ class Experiment:
                 minDist=dist
                 minmodel = i
         return self.models[minmodel],timeIndex
-    def msCoords(self,z):
+
+    def msCoords(self,z, x='mstar',y='sfr'):
+        ''' Gather and store the x- and y- coordinates for some integrated galaxy property as a fn of redshift.
+            These will then be passed to fitMS which will fit them to a powerlaw w/ const. scatter.'''
         coords = []
         for model in self.models:
             timeIndex,zCoarse = Nearest(model.var['z'].sensible(),z)
-            coords.append((model.var['mstar'].sensible(timeIndex), \
-                            model.var['sfr'].sensible(timeIndex), \
+            coords.append((model.var[x].sensible(timeIndex), \
+                            model.var[y].sensible(timeIndex), \
                             zCoarse))
         return coords
 
     def fitMS(self,mscoords):
+        ''' A pretty generic function to fit a series of x- and y- data as a powerlaw.
+            Return the slope, zero point, and scatter as a list, then return the residuals themselves. '''
         coords = np.array(mscoords)
         mst = np.log10(coords[:,0])
         sfr = np.log10(coords[:,1])
@@ -2238,20 +2260,23 @@ class Experiment:
         residuals = sfr - (mst*params[0] + params[1])
         scatter = np.std(residuals)
         return [params[0],params[1],scatter],residuals
-    def storeMS(self):
+    
+    def storeScalingRelation(self, relationDesignation, x='mstar', y='sfr' ):
         allResiduals = []
         msParams = []
         for z in self.models[0].var['z'].sensible():
-            params,residuals = self.fitMS(self.msCoords(z))
+            params,residuals = self.fitMS(self.msCoords(z, x, y))
             allResiduals.append(residuals)
             msParams.append(params)
         npres = np.array(allResiduals)
         self.msParams = np.array(msParams)
-        rng = [-0.7*np.max(self.msParams[:,2]),0.7*np.max(self.msParams[:,2])]
+        #rng = [-0.7*np.max(self.msParams[:,2]),0.7*np.max(self.msParams[:,2])]
+        rng=None
         for i, model in enumerate(self.models):
-            model.var['deltaMS'] = TimeFunction(npres[:,i], 'deltaMS', 1.0, 1.0, r'$\Delta$ MS (dex)',log=False,theRange=rng)
+            model.var['delta'+relationDesignation] = TimeFunction(npres[:,i], 'delta'+relationDesignation, 1.0, 1.0, r'$\Delta$ '+relationDesignation+' (dex)',log=False,theRange=rng)
         # Save data as time(Gyr), slope, zp, scatter
-        np.savetxt(self.name+'_msParams.dat',np.vstack((self.models[0].var['t'].sensible(),self.msParams.T)).T)
+        np.savetxt(self.name+'_'+relationDesignation+'Params.dat',np.vstack((self.models[0].var['t'].sensible(),self.msParams.T)).T)
+
     def setParam(self,keyname,value,models=None):
         if(models is None):
             models=range(len(self.models))

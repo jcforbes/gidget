@@ -546,7 +546,7 @@ class SingleModel:
         self.var['mstar'] = TimeFunction( \
                 self.var['mCentral'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
-                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
 
 
         rAcc = -(self.var['r'].sensible(locIndex=1) - self.var['r'].sensible(locIndex=2)) \
@@ -557,8 +557,8 @@ class SingleModel:
 #        self.var['scaleRadius'] = TimeFunction( \
 #                self.p['accScaleLength']*np.power(self.var['Mh'].sensible()/self.p['Mh0'],self.p['alphaAccretionProfile']), \
 #                'accScaleLength',cmperkpc,1.0,r'$r_\mathrm{acc}$ (kpc)',log=False)
-        self.var['scaleRadius'] = TimeFunction( \
-                rAcc, 'scaleRadius', cgsConv=cmperkpc, texString=r'$r_\mathrm{acc}$',log=False)
+        self.var['accretionRadius'] = TimeFunction( \
+                rAcc, 'accretionRadius', cgsConv=cmperkpc, texString=r'$r_\mathrm{acc}$',log=False)
 
 
 
@@ -597,15 +597,13 @@ class SingleModel:
                  r'$v_{r,g}$',log=False)
         self.var['NHI'] = RadialFunction(self.getData('col',cgs=True)*(1.0-self.getData('fH2'))*(1.0-self.getData('Z',cgs=True))/gperH,\
                 'NHI', 1.0,1.0,r'$N_{\mathrm{HI}}$ (cm$^{-2}$)',theRange=[1.0e19,3.0e21])
-        self.var['lambda'] = TimeFunction( self.getData('scaleRadius')/np.power(self.getData('Mh'),1.0/3.0), \
-                'lambda', 1.0,1.0,r'$\lambda$')
         self.var['rx'] = RadialFunction( \
-                np.array([self.var['r'].sensible(ti)/self.var['scaleRadius'].sensible(timeIndex=ti) for ti in range(self.nt)]), \
+                np.array([self.var['r'].sensible(ti)/self.var['accretionRadius'].sensible(timeIndex=ti) for ti in range(self.nt)]), \
                 'rx',1.0,1.0,r'r/r$_{acc}$',log=False)
         self.var['sfr'] = TimeFunction( \
                 self.var['mdotBulgeG'].sensible()*self.p['RfREC']/(self.p['RfREC']+self.var['MassLoadingFactor'].inner()) \
                 +np.sum( self.var['dA'].sensible()*self.var['colsfr'].sensible(), 1 ), \
-                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)', theRange=[0.01,100.0])
+                'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)')
         self.var['sfrPerAccr'] = TimeFunction( \
                 self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$', theRange=[1.0e-3,10.0])
         def areaWeightedWithin( varName, maxRadius):
@@ -650,7 +648,9 @@ class SingleModel:
                 'vPhiGas',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'Gas mass weighted $v_\phi$', log=True)
         self.var['vPhiStars'] = TimeFunction( \
                 np.sum(self.var['vPhi'].cgs() * self.var['dA'].cgs() * self.var['colst'].cgs(),axis=1)/self.var['mstar'].cgs(),
-                'vPhiGas',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'Stellar mass weighted $v_\phi$', log=True)
+                'vPhiStars',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'Stellar mass weighted $v_\phi$', log=True)
+        self.var['vPhiOuter'] = TimeFunction( \
+                self.var['vPhi'].cgs(locIndex=-1), 'vPhiOuter',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'$v_\phi$ at outer radius', log=True)
         self.var['integratedMLF'] = TimeFunction( \
                 np.sum(self.var['MassLoadingFactor'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs(),axis=1)/self.var['sfr'].cgs(),
                 'integratedMLF',cgsConv=1.0,sensibleConv=1.0,texString=r'Mass loading factor', theRange=[0.03, 50.0])
@@ -802,7 +802,7 @@ class SingleModel:
         failures=[]
         for timeIndex in range(len(self.var['z'].sensible())):
             doneFlag = 0
-            scaleRadius =  self.var['scaleRadius'].sensible(timeIndex)
+            scaleRadius =  self.var['accretionRadius'].sensible(timeIndex)
             for i in range(maxTries):
                 f=2.5
                 ind,theMin = Nearest(r,scaleRadius*f)
@@ -1154,7 +1154,7 @@ class Experiment:
                     except ValueError:
                         rr = model.getData('rb',ti)
                         if(scaleR):
-                            rr/=model.getData('scaleRadius',ti)
+                            rr/=model.getData('accretionRadius',ti)
                         ax.plot(rr,theVar[k],c=theRGB[k],lw=2.0/lwnorm)
 
 

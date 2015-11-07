@@ -548,17 +548,17 @@ class SingleModel:
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
 
-        mstdist = np.column_stack( (self.var['mCentral'].cgs()  , self.var['colst'].cgs()*self.var['dA'].cgs()) # stellar mass in each bin
+        mstdist = np.column_stack( (self.var['mCentral'].cgs()  , self.var['colst'].cgs()*self.var['dA'].cgs()) ) # stellar mass in each bin
         mstcu = np.cumsum(mstdist, axis=1) #
-        gascu = np.cumsum( self.var['col'].cgs()*self.var['dA'].cgs() )
-        sfrcu = np.cumsum( self.var['colsfr'].cgs()*self.var['dA'].cgs() )
+        gascu = np.cumsum( self.var['col'].cgs()*self.var['dA'].cgs(), axis=1 )
+        sfrcu = np.cumsum( self.var['colsfr'].cgs()*self.var['dA'].cgs(), axis=1 )
         halfMassRadiiStars = []
         halfMassRadiiGas = []
         halfMassRadiiSFR = []
         for z in range(np.shape(mstcu)[0]):
-            halfMassRadiiStars.append( self.var['rb'].sensible( locIndex=  np.searchsorted(mstcu[z,:], [mstcu[z,-1]])[0] - 1 ) ) 
-            halfMassRadiiGas.append( self.var['rb'].sensible( locIndex= np.searchsorted(gascu[z,:], [gascu[z,-1]])[0] )  )
-            halfMassRadiiSSFR.append( self.var['rb'].sensible( locIndex= np.searchsorted(sfrcu[z,:], [sfrcu[z,-1]])[0] )  )
+            halfMassRadiiStars.append( self.var['rb'].sensible( timeIndex=z, locIndex=  np.searchsorted(mstcu[z,:], [mstcu[z,-1]/2.0])[0] - 1 ) ) 
+            halfMassRadiiGas.append( self.var['rb'].sensible(timeIndex=z, locIndex= np.searchsorted(gascu[z,:], [gascu[z,-1]/2.0])[0] )  )
+            halfMassRadiiSFR.append( self.var['rb'].sensible(timeIndex=z, locIndex= np.searchsorted(sfrcu[z,:], [sfrcu[z,-1]/2.0])[0] )  )
 
         self.var['halfMassStars'] = TimeFunction( halfMassRadiiStars, 'halfMassStars', cgsConv = cmperkpc, texString=r'$r_*$ (kpc)')
         self.var['halfMassGas'] = TimeFunction( halfMassRadiiGas, 'halfMassGas', cgsConv = cmperkpc, texString=r'$r_g$ (kpc)')
@@ -620,6 +620,7 @@ class SingleModel:
                 self.var['mdotBulgeG'].sensible()*self.p['RfREC']/(self.p['RfREC']+self.var['MassLoadingFactor'].inner()) \
                 +np.sum( self.var['dA'].sensible()*self.var['colsfr'].sensible(), 1 ), \
                 'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)')
+        print "Just computed the SFR!"
         self.var['sfrPerAccr'] = TimeFunction( \
                 self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$', theRange=[1.0e-3,10.0])
         def areaWeightedWithin( varName, maxRadius):
@@ -911,6 +912,7 @@ class Experiment:
         # Search for comment files
         fnameKey = gidgetdir+'analysis/*'+name+'*/*_comment.txt'
         fnames = sorted(glob.glob(fnameKey))
+        self.srParams={} # scaling relation parameters.
         self.models=[]
         for i,fn in enumerate(fnames):
             fnames[i] = fn[:-12] #
@@ -937,10 +939,7 @@ class Experiment:
         ''' Read in every model in the experiment. '''
         n=0
         for model in self.models:
-            try:
-                model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars)
-            except:
-                print "Failed to read in model n=",n
+            model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars)
             n+=1
             if(n % 50 == 0):
                 print "Reading in model ",n," of ",len(self.models)
@@ -1002,7 +1001,7 @@ class Experiment:
             if(scaleR):
                 rRange=[0,4]
 
-            dirname = 'movie_'+self.name+'_'+v+'_cb'+colorby+'_vs'+indVar
+            dirname = 'movie_'+self.name+'_vs'+indVar+'_'+v+'_cb'+colorby
             #dirname = self.name+'_'+v+'_cb'+colorby+'_vs'+indVar
             if(percentiles is not None and len(self.models) > 10):
                 dirname +='_perc'
@@ -1316,7 +1315,7 @@ class Experiment:
         ax.set_ylim(0.5, 3.0e3)
         ax.set_xlabel(r'r (kpc)')
         ax.set_ylabel(r'$\Sigma_{*,i}\ (M_\odot/\mathrm{pc}^2)$')
-        plt.savefig( self.name+'_stcols_vsr.png' )
+        plt.savefig( self.name+'_vsr_stcols.png' )
 
 
 
@@ -1348,7 +1347,7 @@ class Experiment:
                     ax.plot( rr, qVecs[(-k-1),:], lw=k, color=thisCM(1.0) )
         ax.set_xlabel(r'r (kpc)')
         ax.set_ylabel(r'$\sigma_{*,R,i}\ (\mathrm{km}/\mathrm{s})$')
-        plt.savefig( self.name+'_sigstRs_vsr.png' )
+        plt.savefig( self.name+'_vsr_sigstRs.png' )
 
 
 
@@ -1380,7 +1379,7 @@ class Experiment:
                     ax.plot( rr, qVecs[(-k-1),:], lw=k, color=thisCM(1.0) )
         ax.set_xlabel(r'r (kpc)')
         ax.set_ylabel(r'$\sigma_{*,Z,i}\ (\mathrm{km}/\mathrm{s})$')
-        plt.savefig( self.name+'_sigstZs_vsr.png' )
+        plt.savefig( self.name+'_vsr_sigstZs.png' )
 
 
         fig,ax = plt.subplots()
@@ -1412,7 +1411,7 @@ class Experiment:
         ax.set_xlabel(r'r (kpc)')
         ax.set_ylabel(r'$Z_{*,i}$')
         ax.set_yscale('log')
-        plt.savefig( self.name+'_Zst_vsr.png' )
+        plt.savefig( self.name+'_vsr_Zst.png' )
 
 
 
@@ -1540,7 +1539,7 @@ class Experiment:
             if((xvar=='Mh' and v=='efficiency') or (xvar=='Mh' and v=='mstar')):
                 b = behroozi()
                 b.readSmmr()
-            dirname = 'movie_'+self.name+'_'+v+'_cb'+colorby+'_vs'+xvar
+            dirname = 'movie_'+self.name+'_vs'+xvar+'_'+v+'_cb'+colorby
             if(not os.path.exists(dirname) and movie):
                 os.makedirs(dirname)
             print "Making movie : ",v," vs ",xvar
@@ -1657,6 +1656,7 @@ class Experiment:
                             #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
                             ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
                 z=model.getData('z')
+                t=model.getData('t')
                 if(xvar=='Mh' and v=='efficiency'):
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
                 elif (xvar=='Mh' and v=='mstar'):
@@ -1694,6 +1694,35 @@ class Experiment:
                             ax.fill_between(Mhs, effM, effP, alpha=.1)
                         if v=='mstar':
                             ax.fill_between(Mhs, effM*Mhs, effP*Mhs,alpha=.1)
+                    if(xvar=='mstar'):
+                        #if v=='sfr':
+                        #    if 'MS' in self.srParams.keys():
+                        mst = xx ## I think this is right.. needs to be checked
+                        if v=='integratedZ':
+                            ZHayward = -8.69 + 9.09*np.power(1.0+z[ti],-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+z[ti],0.094),2.0)
+                            ZHayward = np.power(10.0, ZHayward) * 0.02
+                            ax.plot(xx,ZHayward/0.02, c='k')
+                        if v=='halfMassStars':
+                            reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+z[ti],-0.6) # kpc (eq B3) at z=4
+                            ax.plot(xx,reff, c='k')
+                        if v=='sfr':
+                            def plotWhitaker(Mst0,Mst1,loga,b):
+                                ax.plot([10.0**Mst0,10.0**Mst1],[10.0**Mst0*10.0**loga*(1.0+z)**b,10.0**Mst1*10.0**loga*(1.0+z)**b],c='k')
+                            plotWhitaker(9.2,9.4,-9.54,1.95) # Equation6 from Whitaker+ 2014
+                            plotWhitaker(9.4,9.6,-9.5,1.86)
+                            plotWhitaker(9.6,9.8,-9.54,1.90)
+                            plotWhitaker(9.8,10.0,-9.58,1.98)
+                            plotWhitaker(10.0,10.2,-9.69,2.16)
+                            plotWhitaker(10.2,10.4,-9.93,2.63)
+                            plotWhitaker(10.4,10.6,-10.11,2.88)
+                            plotWhitaker(10.6,10.8,-10.28,3.03)
+                            plotWhitaker(10.8,11.0,-10.53,3.37)
+                            plotWhitaker(11.0,11.2,-10.65,3.45)
+
+                        if v=='fg':
+                            f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+                            tau4 = (12.27-t[ti])/(12.27+1.60) # fractional lookback time at z=4
+                            fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
 
 
                 ax.set_xlim(overallXRange[0],overallXRange[1])
@@ -1722,6 +1751,7 @@ class Experiment:
             colorby = 'Mh0'
 
         for i,v in enumerate(variables):
+            print "Making plot v: ",v
             fig,ax=plt.subplots(1,1)
             model = self.models[0]
 
@@ -1856,7 +1886,7 @@ class Experiment:
 
             #scalarMap.set_array(colors)
             #scalarMap.autoscale()
-            print "Making plot v: ",v
+            print "Finished making plot v: ",v
 
             #plt.colorbar(sc,ax=ax)
             try:
@@ -2269,13 +2299,13 @@ class Experiment:
             allResiduals.append(residuals)
             msParams.append(params)
         npres = np.array(allResiduals)
-        self.msParams = np.array(msParams)
+        self.srParams[relationDesignation] = np.array(msParams)
         #rng = [-0.7*np.max(self.msParams[:,2]),0.7*np.max(self.msParams[:,2])]
         rng=None
         for i, model in enumerate(self.models):
             model.var['delta'+relationDesignation] = TimeFunction(npres[:,i], 'delta'+relationDesignation, 1.0, 1.0, r'$\Delta$ '+relationDesignation+' (dex)',log=False,theRange=rng)
         # Save data as time(Gyr), slope, zp, scatter
-        np.savetxt(self.name+'_'+relationDesignation+'Params.dat',np.vstack((self.models[0].var['t'].sensible(),self.msParams.T)).T)
+        np.savetxt(self.name+'_'+relationDesignation+'Params.dat',np.vstack((self.models[0].var['t'].sensible(),self.srParams[relationDesignation].T)).T)
 
     def setParam(self,keyname,value,models=None):
         if(models is None):

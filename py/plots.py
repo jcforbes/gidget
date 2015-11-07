@@ -2,6 +2,7 @@ from readoutput import *
 from balanceplot import balance
 import argparse
 import cleanup
+import pdb
 
 
 

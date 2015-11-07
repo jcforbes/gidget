@@ -21,7 +21,10 @@ def makeThePlots(args):
         theExp.read(args.vsr+balanceArgs+AMargs, keepStars=args.stellarPops)
         nts = int(theExp.models[0].p['Noutputs']+1)
         tis = [nts/5,nts/2,nts]
-        theExp.storeMS()
+        theExp.storeScalingRelation('MS', 'mstar','sfr')
+        theExp.storeScalingRelation('MZR', 'mstar','integratedZ')
+        theExp.storeScalingRelation('MFG', 'mstar','gasToStellarRatio')
+        theExp.storeScalingRelation('TF', 'mstar','vPhiOuter')
         theExp.assignIndices()
         for i,rankby in enumerate(args.rankby):
             tti=None

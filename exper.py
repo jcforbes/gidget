@@ -841,6 +841,8 @@ if __name__ == "__main__":
     tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
     fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
     reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
     re40 = NewSetOfExperiments(re01,'re40')
     re40[0].irregularVary('fg0', list(fgz4), 5)
     re40[0].irregularVary('Noutputs',400)
@@ -858,6 +860,8 @@ if __name__ == "__main__":
     re40[0].irregularVary('accCeiling',0.6)
     re40[0].irregularVary('NPassive',1)
     re40[0].irregularVary('eta',0.5)
+    re40[0].irregularVary('yREC',0.025)
+    re40[0].irregularVary('ZIGM', Z4)
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

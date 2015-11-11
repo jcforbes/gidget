@@ -1707,7 +1707,7 @@ class Experiment:
                             ax.plot(xx,reff, c='k')
                         if v=='sfr':
                             def plotWhitaker(Mst0,Mst1,loga,b):
-                                ax.plot([10.0**Mst0,10.0**Mst1],[10.0**Mst0*10.0**loga*(1.0+z)**b,10.0**Mst1*10.0**loga*(1.0+z)**b],c='k')
+                                ax.plot([10.0**Mst0,10.0**Mst1],[10.0**Mst0*10.0**loga*(1.0+z[ti])**b,10.0**Mst1*10.0**loga*(1.0+z[ti])**b],c='k')
                             plotWhitaker(9.2,9.4,-9.54,1.95) # Equation6 from Whitaker+ 2014
                             plotWhitaker(9.4,9.6,-9.5,1.86)
                             plotWhitaker(9.6,9.8,-9.54,1.90)

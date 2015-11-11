@@ -1703,7 +1703,7 @@ class Experiment:
                             ZHayward = np.power(10.0, ZHayward) * 0.02
                             ax.plot(xx,ZHayward/0.02, c='k')
                         if v=='halfMassStars':
-                            reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+z[ti],-0.6) # kpc (eq B3) at z=4
+                            reff = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+z[ti],-0.6) # kpc (eq B3) at z=4
                             ax.plot(xx,reff, c='k')
                         if v=='sfr':
                             def plotWhitaker(Mst0,Mst1,loga,b):

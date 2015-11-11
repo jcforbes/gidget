@@ -48,7 +48,7 @@ def makeMovies(keyname = None):
         #print 'to create movie ',movieName
         #procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-i",regstring,"-vcodec","qtrle",movieName],stderr=nulfp))
         procs.append(subprocess.Popen(["convert","-delay","10","-loop","0",regstring,movieName],stderr=nulfp))
-        print "running convert -delay 3 -loop 0 "+regstring+" "+movieName
+        print "running convert -delay 10 -loop 0 "+regstring+" "+movieName
     #    procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-f","image2","-qscale","1","-i",regstring,movieName],stderr=nulfp))
     #    procs.append(subprocess.Popen(["ffmpeg","-f","image2","-qscale","0","-i",regstring,movieName]))
     #    pdb.set_trace()

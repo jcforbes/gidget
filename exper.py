@@ -836,8 +836,8 @@ if __name__ == "__main__":
         return eff
     central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
     mhl = np.power(10.0, np.linspace(9.5, 12.5, 20))
-    eff = Moster(mhl,central)
-    mst = eff*mhl # mstar according to the moster relation.
+    eff = Moster(mhl/10.0,central)
+    mst = eff*mhl # mstar according to the moster relation. ## at z=0 !!
     f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
     tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
     fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)

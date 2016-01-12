@@ -794,8 +794,124 @@ if __name__ == "__main__":
     re30[0].irregularVary('NPassive',1)
     re30[0].irregularVary('NChanges',30)
     re30[0].irregularVary('eta',0.5)
+    re30[0].vary('whichAccretionHistory',-300,-101,200,0,6)
 
+
+    # Same as re30 (scatter in accr. rate) PLUS scatter in scale length
+    re31=NewSetOfExperiments(re20,'re31')
+    re31[0].irregularVary('Noutputs',600)
+    re31[0].irregularVary('zstart',3.95)
+    re31[0].irregularVary('zrelax',4.0)
+    re31[0].irregularVary('dbg',2**4+2**1+2**0 + 2**14 )
+    asls = np.random.normal( np.random.normal(size=200) )*(0.042-0.027) + 0.042
+    re31[0].irregularVary('accScaleLength', list(asls), 6)
+    mhl = np.power(10.0, np.linspace(10,13,200))
+    re31[0].irregularVary('R', list(asls * 25/0.012 * np.power(mhl/1.0e12,1.0/3.0) ), 6)
+    re31[0].irregularVary('fcool', .8)
+    re31[0].irregularVary('Mh0', list(mhl), 6)
+    re31[0].irregularVary('muNorm', list(1.5*np.power(mhl/1.0e12, -2.0/3.0)), 6)
+    re31[0].irregularVary('muFgScaling', 0.4)
+    re31[0].irregularVary('muColScaling', 0)
+    re31[0].irregularVary('fscatter', .45)
+    re31[0].irregularVary('accCeiling',0.6)
+    re31[0].irregularVary('NPassive',1)
+    re31[0].irregularVary('NChanges',30)
+    re31[0].irregularVary('eta',0.5)
+    re31[0].vary('whichAccretionHistory',-300,-101,200,0,6)
     successTables=[]
+
+
+    ## Try to actually get 1st order galaxy scaling relations right.
+    ## Use low-ish time resolution and mass spacing, no scatter.
+    ## Use relations from appendix of Hayward & Hopkins
+    def Moster(Mh, mparams):
+        M10, M11, N10, N11, beta10, beta11, gamma10, gamma11 = mparams
+        zti = 4.0
+        logM1z = M10 + M11*zti/(zti+1.0)
+        Nz = N10 + N11*zti/(zti+1.0)
+        betaz = beta10 + beta11*zti/(zti+1.0)
+        gammaz = gamma10 + gamma11*zti/(zti+1.0)
+        M1 = np.power(10.0, logM1z)
+        eff = 2.0*Nz / (np.power(Mh/M1,-betaz) + np.power(Mh/M1,gammaz))
+        return eff
+    central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
+    Mhz0 = np.power(10.0, np.linspace(9.5, 12.3, 12))
+    Mhz4 = Mhz0/(10.0 * np.power(Mhz0/1.0e12,0.14)) # very roughly...
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
+    re40 = NewSetOfExperiments(re01,'re40')
+    re40[0].irregularVary('fg0', list(fgz4), 5)
+    re40[0].irregularVary('Noutputs',100)
+    re40[0].irregularVary('nx', 300)
+    re40[0].irregularVary('zstart',3.95)
+    re40[0].irregularVary('zrelax',4.0)
+    re40[0].irregularVary('dbg',2**4+2**1+2**0 )
+    re40[0].irregularVary('accScaleLength',0.042)
+    re40[0].irregularVary('R', list(reff4*51.0 ), 5)
+    re40[0].irregularVary('xmin', .00003)
+    re40[0].irregularVary('Mh0', list(Mhz0), 5) 
+    re40[0].irregularVary('muNorm', list(.3*np.power(Mhz0/1.0e12,-0.6)), 5)
+    fcools = 1.0/(1.0-fgz4) * mst/(0.17*Mhz4)
+    re40[0].irregularVary('fcool', list(fcools), 5)
+    re40[0].irregularVary('muFgScaling', 0.5)
+    re40[0].irregularVary('muColScaling', 0.6)
+    re40[0].irregularVary('fscatter', .45)
+    re40[0].irregularVary('accCeiling',0.8)
+    re40[0].irregularVary('NPassive',1)
+    re40[0].irregularVary('eta',0.5)
+    re40[0].irregularVary('yREC',0.04)
+    re40[0].irregularVary('fixedQ', 1.25)
+    re40[0].irregularVary('Qlim', 1.75)
+    re40[0].irregularVary('concentrationRandomFactor', 0.7) ## units of dex! 
+    re40[0].irregularVary('kappaMetals', list(.1*np.power(Mhz0/3.0e12,2.0/3.0)), 5)
+    re40[0].irregularVary('ZIGM', list(ZHayward), 5)
+
+
+
+    Mhz0 = np.power(10.0, np.linspace(9.5, 12.3, 240))
+    Mhz4 = Mhz0/(10.0 * np.power(Mhz0/1.0e12,0.14)) # very roughly...
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
+    re41 = NewSetOfExperiments(re01,'re41')
+    re41[0].irregularVary('fg0', list(fgz4), 5)
+    re41[0].irregularVary('Noutputs',200)
+    re41[0].irregularVary('zstart',3.95)
+    re41[0].irregularVary('zrelax',4.0)
+    re41[0].irregularVary('dbg',2**4+2**1+2**0 )
+    re41[0].irregularVary('accScaleLength',0.052)
+    re41[0].irregularVary('R', list(np.power(reff4/reff4[-1],-0.1)*25), 5)
+    re41[0].irregularVary('Mh0', list(Mhz0), 5) 
+    re41[0].irregularVary('muNorm', list(.2*np.power(Mhz0/1.0e12,-0.6)), 5)
+    re41[0].irregularVary('fcool', list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4)), 5)
+    re41[0].irregularVary('muFgScaling', -0.3)
+    re41[0].irregularVary('muColScaling', 0.2)
+    re41[0].irregularVary('fscatter', .45)
+    re41[0].irregularVary('accCeiling',0.5)
+    re41[0].irregularVary('NPassive',1)
+    re41[0].irregularVary('eta',0.5)
+    re41[0].irregularVary('yREC',0.03)
+    re41[0].irregularVary('fixedQ', 1.25)
+    re41[0].irregularVary('Qlim', 1.75)
+    re41[0].irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
+    re41[0].irregularVary('ZIGM', list(ZHayward), 5)
+    asls = np.random.normal( np.random.normal(size=240) )*(0.042-0.027) + 0.052
+    re41[0].irregularVary('accScaleLength', list(asls), 5)
+    re41[0].irregularVary('NChanges', list(np.random.binomial(19,.53,size=240)), 5)
+    re41[0].vary('whichAccretionHistory',-340,-101,240,0,5)
+
+
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

@@ -21,3 +21,4 @@ estd.*
 *.gif
 triangle.py
 !py/*.py
+*.DS_Store

@@ -440,7 +440,7 @@ class SingleModel:
 #                (self.p['R']*cmperkpc)**2.0,self.p['R']**2.0,'$\Delta$A (kpc$^2$)')
         self.var['MassLoadingFactor'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,54]),'MassLoadingFactor', \
-                1.0,1.0, r'$\dot{\Sigma}_{out}/\dot{\Sigma}_*^{SF}$', theRange=[0.1,100.0])
+                1.0,1.0, r'$\dot{\Sigma}_{out}/\dot{\Sigma}_*^{SF}$')
         self.var['dA'] = RadialFunction( \
                 pi*(np.power(self.getData('rb',locIndex=range(1,nxI+1),cgs=True),2.0) \
                 - np.power(self.getData('rb',locIndex=range(nxI),cgs=True),2.0)), \
@@ -449,7 +449,7 @@ class SingleModel:
                 np.copy(self.dataCube[:,:,3]),'col', \
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
-                r'$\Sigma (M_\odot\ pc^{-2})$',theRange=[0.5,3000])
+                r'$\Sigma (M_\odot\ pc^{-2})$',theRange=[0.1,30000])
         # Conversion from code units to Msun/pc^2 for column density-like units
         colSensibleConv = self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc)
         self.var['colst'] =RadialFunction( \
@@ -457,7 +457,7 @@ class SingleModel:
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 r'$\Sigma_* (M_\odot\ pc^{-2})$', \
-                inner=self.evarray[:,3]*2.0*self.p['md0']*self.p['R']*kmperkpc/(speryear*self.p['vphiR']*self.var['rb'].sensible(None,0)**2.0 * pcperkpc**2.0 *colSensibleConv), theRange=[0.1,3.0e4])
+                inner=self.evarray[:,3]*2.0*self.p['md0']*self.p['R']*kmperkpc/(speryear*self.p['vphiR']*self.var['rb'].sensible(None,0)**2.0 * pcperkpc**2.0 *colSensibleConv))
         self.var['sigstR'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,6]*self.p['vphiR']), 'sigstR', \
                 1.0e5,1.0, r'$\sigma_{r,*}$ (km s$^{-1}$)',log=True)
@@ -521,14 +521,14 @@ class SingleModel:
                 texString=r'$\dot{\Sigma}_{out}/\dot{\Sigma}_{accr}$', theRange=[1.0e-5, 10.0])
 
         self.var['Q'] = RadialFunction( \
-                np.copy(self.dataCube[:,:,11]),'Q',1.0,1.0,r'Q',theRange=[1.0,10.0])
+                np.copy(self.dataCube[:,:,11]),'Q',1.0,1.0,r'Q',theRange=[1.0,30.0])
         self.var['Qg'] = RadialFunction( \
-                np.copy(self.dataCube[:,:,23]),'Qg',1.0,1.0,r'$Q_g$',theRange=[.5,10.0])
+                np.copy(self.dataCube[:,:,23]),'Qg',1.0,1.0,r'$Q_g$',theRange=[.5,30.0])
         self.var['Qst'] = RadialFunction( \
-                np.copy(self.dataCube[:,:,22]),'Qst',1.0,1.0,r'$Q_*$',theRange=[.5,10.0])
+                np.copy(self.dataCube[:,:,22]),'Qst',1.0,1.0,r'$Q_*$',theRange=[.5,30.0])
         self.var['tDepRadial'] = RadialFunction( \
                 self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepRadial',\
-                1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$',theRange=[3.0e8,1.0e12])
+                1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$')
         self.var['fH2']= RadialFunction(np.copy(self.dataCube[:,:,47]),'fH2',1.0,1.0,r'$f_{\mathrm{H}_2}$',log=False,theRange=[0.0,1.0])
         self.var['colH2']= RadialFunction(np.copy(self.dataCube[:,:,47]) * self.var['col'].sensible(),'colH2', \
                 cgsConv = gpermsun/cmperpc**2, texString=r'$\Sigma_{\mathrm{H}_2}$',log=True,theRange=[0.1,3000.0])
@@ -542,7 +542,7 @@ class SingleModel:
                 self.evarray[:,3], 'mCentral',
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
-                r'$M_\mathrm{center}\ (M_\odot)$', theRange=[3.0e7, 5.0e10])
+                r'$M_\mathrm{center}\ (M_\odot)$')
         self.var['mstar'] = TimeFunction( \
                 self.var['mCentral'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
@@ -579,7 +579,7 @@ class SingleModel:
 
 
         mbulge,_,fcentral,scaleLengths = self.computeMBulge()
-        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$',theRange=[3.0e7,5.0e10])
+        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
         self.var['scaleLength'] = TimeFunction(scaleLengths, 'scaleLength', cmperkpc, 1.0, r'$r_\mathrm{scale}$')
         self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
                 'BT',1,1,r'Bulge to Total Ratio',log=False)
@@ -612,7 +612,7 @@ class SingleModel:
         self.var['vrg'] = RadialFunction(np.copy(self.dataCube[:,:,36]),'vrg',self.p['vphiR']*1.0e5,self.p['vphiR'], \
                  r'$v_{r,g}$',log=False)
         self.var['NHI'] = RadialFunction(self.getData('col',cgs=True)*(1.0-self.getData('fH2'))*(1.0-self.getData('Z',cgs=True))/gperH,\
-                'NHI', 1.0,1.0,r'$N_{\mathrm{HI}}$ (cm$^{-2}$)',theRange=[1.0e19,3.0e21])
+                'NHI', 1.0,1.0,r'$N_{\mathrm{HI}}$ (cm$^{-2}$)')
         self.var['rx'] = RadialFunction( \
                 np.array([self.var['r'].sensible(ti)/self.var['accretionRadius'].sensible(timeIndex=ti) for ti in range(self.nt)]), \
                 'rx',1.0,1.0,r'r/r$_{acc}$',log=False)
@@ -634,10 +634,10 @@ class SingleModel:
                 texString=r'$\Sigma_1$')
         self.var['mgas']=TimeFunction( \
                 np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
-                1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)', theRange=[1.0e8,1.0e11])
+                1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)')
         self.var['gasToStellarRatio'] = TimeFunction( self.var['mgas'].sensible()/self.var['mstar'].sensible(), 'gasToStellarRatio', texString=r'$M_g/M_*$')
         self.var['tdep']=TimeFunction( \
-                self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_{dep}$ (yr)',theRange=[1.0e8,3.0e10])
+                self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_{dep}$ (yr)')
         self.var['efficiency'] = TimeFunction( \
                 self.var['mstar'].cgs()/self.var['Mh'].cgs(), 'efficiency',1.0,1.0,r'$M_*/M_h$',log=True)
         self.var['fg'] = TimeFunction( \
@@ -649,9 +649,9 @@ class SingleModel:
 
         self.var['tDepH2Radial'] = RadialFunction( \
                 self.var['fH2'].cgs()*self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepH2Radial',\
-                1.0, 1.0/speryear, r'$t_{\mathrm{dep},H_2}\ \mathrm{(yr)}$', theRange=[3.0e8,1.0e11])
+                1.0, 1.0/speryear, r'$t_{\mathrm{dep},H_2}\ \mathrm{(yr)}$')
         self.var['sSFR'] = TimeFunction(self.getData('sfr',cgs=True)/self.getData('mstar',cgs=True) , \
-                'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)', theRange=[1.0e-4,1.0e2])
+                'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)')
         mg = self.getData('col',cgs=True)*self.getData('dA',cgs=True)
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z',cgs=True),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_g (Z_\odot)$')
@@ -671,7 +671,7 @@ class SingleModel:
                 self.var['vPhi'].cgs(locIndex=-1), 'vPhiOuter',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'$v_\phi$ at outer radius', log=True)
         self.var['integratedMLF'] = TimeFunction( \
                 np.sum(self.var['MassLoadingFactor'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs(),axis=1)/self.var['sfr'].cgs(),
-                'integratedMLF',cgsConv=1.0,sensibleConv=1.0,texString=r'Mass loading factor', theRange=[0.03, 50.0])
+                'integratedMLF',cgsConv=1.0,sensibleConv=1.0,texString=r'Mass loading factor')
         mJeansMask = np.zeros(np.shape(self.var['sig'].sensible()),dtype=float)
         mJeansMask[self.var['fH2'].sensible()>0.1] = 1.0
         self.var['MJeans'] = RadialFunction( \
@@ -709,7 +709,7 @@ class SingleModel:
                 np.sum(self.var['equilibrium'].cgs()*eqnorm,axis=1)/np.sum(eqnorm,axis=1), \
                 'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False)
         self.var['Sigma1p5'] = TimeFunction( \
-                self.var['mstar'].sensible()/np.power(self.var['scaleLength'].sensible(),1.5), 'Sigma1p5', sensibleConv=1.0, cgsConv=gpermsun/cmperkpc**1.5,texString=r'$\Sigma_{1.5}\ (M_\odot/\mathrm{kpc}^{1.5})$', theRange=[1.0e8,1.0e12])
+                self.var['mstar'].sensible()/np.power(self.var['scaleLength'].sensible(),1.5), 'Sigma1p5', sensibleConv=1.0, cgsConv=gpermsun/cmperkpc**1.5,texString=r'$\Sigma_{1.5}\ (M_\odot/\mathrm{kpc}^{1.5})$')
         self.var['specificJRadial'] = RadialFunction( self.var['r'].cgs() * self.var['vPhi'].cgs(), 'specificJRadial', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
         self.var['JColGas'] = RadialFunction( self.var['r'].cgs() *self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['col'].cgs(), 'JColGas', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2 v_\phi\Sigma\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')
         self.var['JColStars'] = RadialFunction( self.var['r'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['colst'].cgs(), 'JColSt', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2v_\phi\Sigma_*\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')
@@ -1698,7 +1698,7 @@ class Experiment:
                         #if v=='sfr':
                         #    if 'MS' in self.srParams.keys():
                         mst = xx ## I think this is right.. needs to be checked
-                        if v=='integratedZ':
+                        if v=='integratedZ' or v=='sfZ':
                             ZHayward = -8.69 + 9.09*np.power(1.0+z[ti],-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+z[ti],0.094),2.0)
                             ZHayward = np.power(10.0, ZHayward) * 0.02
                             ax.plot(xx,ZHayward/0.02, c='k')
@@ -1723,6 +1723,10 @@ class Experiment:
                             f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
                             tau4 = (12.27-t[ti])/(12.27+1.60) # fractional lookback time at z=4
                             fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+                            ax.plot(xx,fgz4,c='k')
+                        if v=='vPhiOuter':
+                            ax.plot(xx,  147*np.power(xx/1.0e10, 0.23),c='k') # Hayward & Hopkins eq. B1
+
 
 
                 ax.set_xlim(overallXRange[0],overallXRange[1])

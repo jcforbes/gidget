@@ -113,7 +113,7 @@ if __name__=='__main__':
     #parser.set_defaults(mass=False)
     parser.add_argument('--mass',type=str,nargs='+',default=[],help='List of x- variables to use in point movies. Eg. mstar, Mh, sSFR,...')
     parser.add_argument('--colorby',type=str,nargs='+',default=['Mh0'],help='List of variables to color points by in vs mstar plots. Default is halo mass at z=0')
-    oldVsrDefaults = ['colsfr','colst','NHI','sig','col','Z','fH2','Mdot','MJeans','ClumpMassPerDisk','tDepRadial','tDepH2Radial','Q','Qg','Qst','fgRadial','equilibrium','colHI','colH2','vPhi','colTrPerAccr','hGas','hStars','sigstR','sigstZ', 'JColGas', 'JColStars']
+    oldVsrDefaults = ['colsfr','colst','NHI','sig','col','Z','fH2','Mdot','MJeans','ClumpMassPerDisk','tDepRadial','tDepH2Radial','Q','Qg','Qst','fgRadial','equilibrium','colHI','colH2','vPhi','colTrPerAccr','hGas','hStars','sigstR','sigstZ', 'JColGas', 'JColStars','MassLoadingFactor']
     parser.add_argument('--vsr',type=str,nargs='+',default=oldVsrDefaults,help='List of variables to plot vs mstar. Default is '+repr(oldVsrDefaults))
     parser.add_argument('--prev',type=int,default=5,help='Number of previous points to plot in vsmstar movies.')
     parser.add_argument('--rankby',type=str,nargs='+',default=[],help='Sort the models according to these arguments.')

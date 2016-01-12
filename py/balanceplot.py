@@ -335,7 +335,7 @@ def balance(models, timeIndex=None, name=None, sortby=None, logR=False, ncols=No
             theAx.plot(r,r*0+0.5,'--',c=(0.5,0.5,0.5),lw=lw)
             theAx.plot(r,r*0-0.5,'--',c=(0.5,0.5,0.5),lw=lw)
 
-            racc = model.getData('scaleRadius',timeIndex=ti)
+            racc = model.getData('accretionRadius',timeIndex=ti)
             theAx.plot([racc,racc],[-1,1],'--',lw=lw)
 
             theAx.set_xlim(np.min(r),np.max(r))

@@ -65,5 +65,13 @@ class Cosmology:
     def rhocrit(self,z):
         H = self.Hubble(z)
         return 3.0*H*H/(8.0*np.pi*G)
-
+    def tL(self,z):
+        ''' Returns the lookback time at redshift z in years, assuming the given cosmology'''
+        def toIntegrate(zz):
+            return 1.0/((1.0+zz)*self.EE(zz))
+        ret = scipy.integrate.quad(toIntegrate,0,z)[0]/self.H0/speryear
+        return ret
+    def dtdz(self,z):
+        return 1.0/((1.0+z)*self.EE(z))/self.H0/speryear # units of years
+    
 

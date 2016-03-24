@@ -5,28 +5,28 @@ import copy
 import emcee
 import pickle
 import triangle
-from mpi4py import mpi
-from emcee.utils import mpipool
+from mpi4py import MPI 
+from emcee.utils import MPIPool
 import numpy as np
 import exper
 import readoutput
 import os, glob
 import matplotlib
-import verticalprofile
+import verticalProfile
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.stats
 import time
 
-comm = mpi.comm_world
-rank = comm.get_rank()
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 
 
-chaindirrel = 'mcmcIndFromMax24'
+chaindirrel = 'mcmcIndFromMax25'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
-bolshoidir = '../bolshoi/'
+bolshoidir = '/pfs/jforbes/bolshoi/'
 
 proccounter=0
 runnumber = 0
@@ -64,15 +64,18 @@ class bolshoireader:
         with open(bolshoidir+'rf_data.txt','r') as f:
             line = f.readline()
             while line!='':
-                if line=='tree '+self.trees[ind][0]:
+                if 'tree '+repr(self.trees[ind][0]) in line:
                     break # we found the tree we're looking for
                 line = f.readline()
+            if line=='':
+                print "Failed to find line tree "+repr(self.trees[ind][0])
             line = f.readline()
             collectlines=[]
             while not 'tree' in line and line!='':
                 collectlines.append(line)
                 line = f.readline()
             with open(dirname+'/'+filename,'w') as ff:
+                assert len(collectlines)>0
                 for line in collectlines:
                     ff.write(line)
 
@@ -122,13 +125,13 @@ def samplefromuniformdensity(a,b):
     return np.random.uniform(a,b)
 
 # define the base experiment we want.
-def emceeparameterspacetogidgetexperiment(emceeparams,name=none):
+def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     global proccounter
     global runnumber
 
 
     # unpack emceeparams
-    eta, epsff, fg0, munorm, mucolscaling, fixedq, qlim, accscalelength, fcool, mh0, obsscale, conrf, mufgscaling, zigm, r0mcmc, v0mcmc, epsilonacc, systematicVphiError, bolshoiWeight = emceeparams
+    eta, epsff, fg0, munorm, mucolscaling, fixedq, qlim, accscalelength, fcool, mh0, conrf, mufgscaling, zigm, r0mcmc, v0mcmc, epsilonacc, systematicVphiError, bolshoiWeight = emceeparams
 
     # if any of the following assertions fail, you should probably adjust / check the prior
     assert fg0>=0
@@ -140,7 +143,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=none):
     # create experiment
     basename = chaindirrel+'_'
     
-    if name is none:
+    if name is None:
         name = basename+str(runnumber).zfill(3)+'_'+str(rank).zfill(5)+'_'+str(proccounter).zfill(5)
     thisexper = exper.experiment(copy.copy(name))
 
@@ -148,7 +151,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=none):
     directory = chaindir[0:-len(chaindirrel)]+'/'+name+'/'
     if not os.path.exists(directory):
         os.makedirs(directory)
-    globalBolshoiReader.copynearest(directory, name, bolshoiWeight)
+    globalBolshoiReader.copynearest(directory, name+'_inputRandomFactors.txt', bolshoiWeight)
     #np.savetxt(directory+name+'_inputrandomfactors.txt', [x0,x1,0.0]  ) # fscatter is accounted for in gidget proper.
     yscatter = 0.5 # check!
     #np.savetxt(directory+name+'_inputrandomfactorsy.txt', [y0*yscatter,y1*yscatter]  )
@@ -156,49 +159,49 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=none):
     proccounter+=1
 
     # set up a range of masses and computational domains
-    thisexper.irregularvary('Mh0', mh0)
-    #thisexper.irregularvary('r', 50*accscalelength/.05 *(mh0/1.0e12)**(1.0/3.0) )
-    thisexper.irregularvary('R', 40.0)
-    thisexper.irregularvary('xmin', .01)
-    thisexper.irregularvary('TOL', 1.0e-3)
-    thisexper.irregularvary('NChanges', 301)
+    thisexper.irregularVary('Mh0', mh0)
+    #thisexper.irregularVary('r', 50*accscalelength/.05 *(mh0/1.0e12)**(1.0/3.0) )
+    thisexper.irregularVary('R', 80.0)
+    thisexper.irregularVary('xmin', .005)
+    thisexper.irregularVary('TOL', 1.0e-3)
+    thisexper.irregularVary('NChanges', 301)
 
     # set up some common parameters.
-    thisexper.irregularvary('dbg', 2**4 + 2**1 + 2**0)
-    thisexper.irregularvary('alphaMRI', 0.005)
-    thisexper.irregularvary('zstart',3.99)
-    thisexper.irregularvary('zrelax',4.0)
-    thisexper.irregularvary('NPassive',2)
-    thisexper.irregularvary('NOutputs',12)
+    thisexper.irregularVary('dbg', 2**4 + 2**1 + 2**0)
+    thisexper.irregularVary('alphaMRI', 0.005)
+    thisexper.irregularVary('zstart',3.99)
+    thisexper.irregularVary('zrelax',4.0)
+    thisexper.irregularVary('NPassive',2)
+    thisexper.irregularVary('Noutputs',12)
 
 
-    thisexper.irregularvary('yREC', .054*.54)
-    thisexper.irregularvary('eta',eta)
-    thisexper.irregularvary('epsff',epsff)
-    thisexper.irregularvary('fg0',fg0)
-    thisexper.irregularvary('muNorm',munorm)
-    thisexper.irregularvary('muColScaling',mucolscaling)
-    thisexper.irregularvary('muFgScaling',mufgscaling)
-    thisexper.irregularvary('fixedQ',fixedq)
-    thisexper.irregularvary('Qlim',qlim)
-    thisexper.irregularvary('accscalelength',accscalelength)
-    thisexper.irregularvary('fscatter',0.45)
-    thisexper.irregularvary('accNorm',epsilonacc)
-    #thisexper.irregularvary('accalphaz',accalphaz)
-    #thisexper.irregularvary('accalphamh',accalphamh)
-    #thisexper.irregularvary('accceiling',accceiling)
-    thisexper.irregularvary('fcool',fcool)
-    thisexper.irregularvary('ZIGM',zigm)
-    thisexper.irregularvary('concentrationRandomFactor',conrf)
+    thisexper.irregularVary('yREC', .054*.54)
+    thisexper.irregularVary('eta',eta)
+    thisexper.irregularVary('epsff',epsff)
+    thisexper.irregularVary('fg0',fg0)
+    thisexper.irregularVary('muNorm',munorm)
+    thisexper.irregularVary('muColScaling',mucolscaling)
+    thisexper.irregularVary('muFgScaling',mufgscaling)
+    thisexper.irregularVary('fixedQ',fixedq)
+    thisexper.irregularVary('Qlim',qlim)
+    thisexper.irregularVary('accScaleLength',accscalelength)
+    thisexper.irregularVary('fscatter',0.45)
+    thisexper.irregularVary('accNorm',epsilonacc)
+    #thisexper.irregularVary('accalphaz',accalphaz)
+    #thisexper.irregularVary('accalphamh',accalphamh)
+    #thisexper.irregularVary('accceiling',accceiling)
+    thisexper.irregularVary('fcool',fcool)
+    thisexper.irregularVary('ZIGM',zigm)
+    thisexper.irregularVary('concentrationRandomFactor',conrf)
 
-    thisexper.irregularvary('whichAccretionHistory', -344)
+    thisexper.irregularVary('whichAccretionHistory', -344)
 
 
     # r0 and v0 are irrelevant to running the physical model and only matter in the comparison to data.
     return thisexper, name
 
 # define the base experiment we want.
-def emceeparameterspacetogidgetexperimentrerun(emceeparams,name=none):
+def emceeparameterspacetogidgetexperimentrerun(emceeparams,name=None):
     global proccounter
     global runnumber
 
@@ -211,7 +214,7 @@ def emceeparameterspacetogidgetexperimentrerun(emceeparams,name=none):
     # create experiment
     basename = chaindirrel+'-rerun-ppd_'
     
-    if name is none:
+    if name is None:
         name = basename+str(rank).zfill(5)+'_'+str(proccounter).zfill(5)
 
 
@@ -224,7 +227,7 @@ def emceeparameterspacetogidgetexperimentrerun(emceeparams,name=none):
         assert 0<=fcool and fcool<=1
     except:
         print "assertions failed. ", emceeparams, name
-        assert false
+        assert False
 
 
     thisexper = exper.experiment(copy.copy(name))
@@ -234,45 +237,45 @@ def emceeparameterspacetogidgetexperimentrerun(emceeparams,name=none):
     if not os.path.exists(directory):
         os.makedirs(directory)
     #np.savetxt(directory+name+'_inputrandomfactors.txt', [x0,x1, 0.0]  )
-    globalBolshoiReader.copynearest(directory, name, bolshoiWeight)
+    globalBolshoiReader.copynearest(directory, name+'_inputRandomFactors.txt', bolshoiWeight)
     yscatter=0.5
     #np.savetxt(directory+name+'_inputrandomfactorsy.txt', [y0*yscatter,y1*yscatter]  )
 
     proccounter+=1
 
     # set up a range of masses and computational domains
-    thisexper.irregularvary('Mh0', mh0)
-    #thisexper.irregularvary('r', 50*accscalelength/.05 *(mh0/1.0e12)**(1.0/3.0) )
-    thisexper.irregularvary('R', 40.0)
-    thisexper.irregularvary('xmin', .01)
-    thisexper.irregularvary('TOL', 1.0e-3)
-    thisexper.irregularvary('NChanges', 301)
+    thisexper.irregularVary('Mh0', mh0)
+    #thisexper.irregularVary('r', 50*accscalelength/.05 *(mh0/1.0e12)**(1.0/3.0) )
+    thisexper.irregularVary('R', 80.0)
+    thisexper.irregularVary('xmin', .005)
+    thisexper.irregularVary('TOL', 1.0e-3)
+    thisexper.irregularVary('NChanges', 301)
 
     # set up some common parameters.
-    thisexper.irregularvary('dbg', 2**4+2**1+2**0)
-    thisexper.irregularvary('alphaMRI', 0.005)
-    thisexper.irregularvary('zstart',3.99)
-    thisexper.irregularvary('zrelax',4.0)
-    thisexper.irregularvary('NPassive',20)
-    thisexper.irregularvary('NOutputs',120)
-    thisexper.irregularvary('fscatter',1.0)
-    thisexper.irregularvary('yREC', .054*.54)
+    thisexper.irregularVary('dbg', 2**4+2**1+2**0)
+    thisexper.irregularVary('alphaMRI', 0.005)
+    thisexper.irregularVary('zstart',3.99)
+    thisexper.irregularVary('zrelax',4.0)
+    thisexper.irregularVary('NPassive',20)
+    thisexper.irregularVary('Noutputs',120)
+    thisexper.irregularVary('fscatter',1.0)
+    thisexper.irregularVary('yREC', .054*.54)
 
-    thisexper.irregularvary('eta',eta)
-    thisexper.irregularvary('epsff',epsff)
-    thisexper.irregularvary('fg0',fg0)
-    thisexper.irregularvary('muNorm',munorm)
-    thisexper.irregularvary('muColScaling',mucolscaling)
-    thisexper.irregularvary('muFgScaling',mufgscaling)
-    thisexper.irregularvary('fixedQ',fixedq)
-    thisexper.irregularvary('accScaleLength',accscalelength)
-    thisexper.irregularvary('Qlim',qlim)
-    thisexper.irregularvary('fcool',fcool)
-    thisexper.irregularvary('ZIGM',zigm)
-    thisexper.irregularvary('concentrationRandomFactor',conrf)
-    thisexper.irregularvary('accNorm',epsilonacc)
+    thisexper.irregularVary('eta',eta)
+    thisexper.irregularVary('epsff',epsff)
+    thisexper.irregularVary('fg0',fg0)
+    thisexper.irregularVary('muNorm',munorm)
+    thisexper.irregularVary('muColScaling',mucolscaling)
+    thisexper.irregularVary('muFgScaling',mufgscaling)
+    thisexper.irregularVary('fixedQ',fixedq)
+    thisexper.irregularVary('accScaleLength',accscalelength)
+    thisexper.irregularVary('Qlim',qlim)
+    thisexper.irregularVary('fcool',fcool)
+    thisexper.irregularVary('ZIGM',zigm)
+    thisexper.irregularVary('concentrationRandomFactor',conrf)
+    thisexper.irregularVary('accNorm',epsilonacc)
 
-    thisexper.irregularvary('whichAccretionHistory', -344)
+    thisexper.irregularVary('whichAccretionHistory', -344)
     return thisexper, name
 
 
@@ -290,7 +293,7 @@ def lnprior(emceeparams):
     accum += lnlognormaldensity(accscalelength, np.log(.05), np.log(10)**2.0)
     accum += lnbetadensity(fcool, 1.0, 1.0 )
     accum += lnlognormaldensity(zigm, np.log(.0002), np.log(10.0)**2.0 )
-    accum += lnlognormaldensity(mh0, np.log(1.0e12), np.log(3.0)**2.0 )
+    accum += lnlognormaldensity(mh0, np.log(1.0e12), np.log(2.0)**2.0 )
     accum += lnnormaldensity(conrf, 0, 0.5**2.0) # dex.
     accum += lnloguniformdensity(systematicvphierror, 0.5, 30.0)
     accum += lnuniformdensity(bolshoiWeight,0, bolshoiSize) 
@@ -320,8 +323,7 @@ def samplefromprior():
             samplefromlognormaldensity( np.log(2.0), np.log(3.0)**2.0), # qlim
             samplefromlognormaldensity(np.log(.05),np.log(10.0)**2.0), # accscalelength
             samplefrombetadensity( 1.0, 1.0 ), #fcool
-            samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0), # mh0
-            samplefromlognormaldensity( 0, np.log(2.0)**2.0),  # obsscale
+            samplefromlognormaldensity( np.log(1.0e12), np.log(2.0)**2.0), # mh0
             samplefromnormaldensity(0,0.5),  # concentrationrandomfactor
             samplefromnormaldensity(0.16, 0.5**2.0), # mufgscaling
             samplefromlognormaldensity(np.log10(0.0002), np.log10(10.0)**2.0), # zigm
@@ -332,30 +334,30 @@ def samplefromprior():
             samplefromuniformdensity(0,bolshoiSize) ] # bolshoiWeight
 
 
-def constlikelihood(emceeparams, modelname=none):
+def constlikelihood(emceeparams, modelname=None):
     ''' just return a constant so that posterior=prior. for testing! '''
-    assert false
+    assert False
     return 0
 
-def lnlikelihood(emceeparams, modelname=none):
+def lnlikelihood(emceeparams, modelname=None):
     # set up the experiment
 
     time0 = time.time()
-    eta, epsff, fg0, munorm, mucolscaling, fixedq, qlim, accscalelength, fcool, mh0, conrf, mufgscaling, zigm, r0mcmc, v0mcmc, epsilonacc = emceeparams
+    eta, epsff, fg0, munorm, mucolscaling, fixedq, qlim, accscalelength, fcool, mh0, conrf, mufgscaling, zigm, r0mcmc, v0mcmc, epsilonacc, systematicVphiError, bolshoiWeight = emceeparams
 
     ## if we're being given a model that's already been run, don't run it again.
-    if modelname is none:
+    if modelname is None:
         expertorun, name = emceeparameterspacetogidgetexperiment(emceeparams)
 
         # run the experiment.
-        expertorun.localrun(1,0,maxtime=3600*3)
+        expertorun.localRun(1,0,maxTime=3600*3)
     else:
         name = modelname
 
     # read the results of the model
-    output = readoutput.experiment(name)
+    output = readoutput.Experiment(name)
     # ... but only keep the radial functions to which we will compare real data.
-    output.read(keeponly=['vphi','colst','colh2','colhi'])
+    output.read(keepOnly=['vPhi','colst','colH2','colHI'])
 
 
     if len(output.models)==0:
@@ -368,7 +370,7 @@ def lnlikelihood(emceeparams, modelname=none):
     accum = 0
 
 
-    # in this next section we take the rotation curve from bhattacharjee (2014) and 
+    # in this next section we take the rotation curve from Bhattacharjee (2014) and 
     # compare it to our model. this involves several steps. 
     # next we interpolate the gidget model's circular velocity curve onto the radii from b14.
     # at each radius, we take the data to be drawn from a normal distribution with b14's quoted errors.
@@ -376,8 +378,8 @@ def lnlikelihood(emceeparams, modelname=none):
     # to begin to account for possible systematics in the data, we allow the quoted errors to be
     # scaled by an additional nuissance parameter obsscale.
 
-    #rotcurve = np.loadtxt(chaindir+"/../../bhattacharjee2014.txt", skiprows=15)
-    rotcurve = np.loadtxt(chaindir[0:-len(chaindirrel)]+"/../bhattacharjee2014.txt", skiprows=15)
+    #rotcurve = np.loadtxt(chaindir+"/../../Bhattacharjee2014.txt", skiprows=15)
+    rotcurve = np.loadtxt(chaindir[0:-len(chaindirrel)]+"/../Bhattacharjee2014.txt", skiprows=15)
     #whichrotcurve = convertpairtolabel(l0,l1)
     whichrotcurve = 1
     if whichrotcurve==0:
@@ -387,7 +389,7 @@ def lnlikelihood(emceeparams, modelname=none):
     if whichrotcurve==2:
         rc = rotcurve[101:151, 2:5]
 
-    rmodel = model0.var['r'].sensible(timeindex=-1)
+    rmodel = model0.var['r'].sensible(timeIndex=-1)
 
 
 
@@ -426,8 +428,8 @@ def lnlikelihood(emceeparams, modelname=none):
 
 
     #rdatah2 = np.arange(11)+0.5  # quoted bin centers
-    vcmodelath2data = model0.var['vphi'].atr( rdatah2, rmodel, -1)
-    vcmodelathidata = model0.var['vphi'].atr( rdatahi, rmodel, -1)
+    vcmodelath2data = model0.var['vPhi'].atR( rdatah2, rmodel, -1)
+    vcmodelathidata = model0.var['vPhi'].atR( rdatahi, rmodel, -1)
     v0assumed = 220 # double check this value
     r0assumed = 8.5 # double check this value
     rdatah2 = r0mcmc / ( (v0mcmc/ vcmodelath2data) * ( ( v0assumed/v0mcmc) * (1.0 * (r0assumed/rdatah2) - 1.0) + 1.0) ) # adjust for model's circular velocity and this mcmc iteration's values of v0 and r0.
@@ -436,9 +438,9 @@ def lnlikelihood(emceeparams, modelname=none):
     #colh2error= [20.3, 5.4, 1.8, 1.6, 2.0, 2.0, 1.4, 1.0, 0.7, 0.4, 0.2]
     nr = np.shape(rc)[0]
     rdata = rc[:,0]
-    vcmodel = model0.var['vphi'].atr(rdata, rmodel, -1)
-    colh2model = model0.var['colh2'].atr(rdatah2, rmodel, -1)
-    colhimodel = model0.var['colhi'].atr(rdatahi, rmodel, -1)
+    vcmodel = model0.var['vPhi'].atR(rdata, rmodel, -1)
+    colh2model = model0.var['colH2'].atR(rdatah2, rmodel, -1)
+    colhimodel = model0.var['colHI'].atR(rdatahi, rmodel, -1)
     minr = np.min(rmodel)
     maxr = np.max(rmodel)
 
@@ -467,7 +469,7 @@ def lnlikelihood(emceeparams, modelname=none):
             r0assumed = 8.3
             v0assumed = 244
             vc = (r0assumed/r0mcmc)*( rc[i,1]  + ( v0mcmc - v0assumed)*rc[i,0]/r0assumed)
-            dvc = np.sqrt( np.power(np.array(rc[i,2]),2.0) + systematicvphierror**2.0 )
+            dvc = np.sqrt( np.power(np.array(rc[i,2]),2.0) + systematicVphiError**2.0 )
             vcm = vcmodel[i]
             accum += - 0.5*(vc-vcm)**2.0/dvc**2.0
 
@@ -479,26 +481,26 @@ def lnlikelihood(emceeparams, modelname=none):
     # this is the boxy & rix (2013) value of the solar neighborhood stellar surface density
     #rinterp = [8.0,8.3,8.5]
     rinterp = [r0mcmc, 20.0]
-    sigstmodel = model0.var['colst'].atr(rinterp,rmodel,-1)[0]
+    sigstmodel = model0.var['colst'].atR(rinterp,rmodel,-1)[0]
     accum += - 0.5*(sigstmodel-38.0)**2.0/(4.0)**2.0
 
-    rscale = model0.var['scalelength'].sensible(timeindex=-1)
+    rscale = model0.var['scaleLength'].sensible(timeIndex=-1)
 #    accum +=  - 0.5*(rscale-2.15)**2.0 / (0.14*obsscale)**2.0
 
     #sfr
-    sfr = model0.var['sfr'].sensible(timeindex=-1)
+    sfr = model0.var['sfr'].sensible(timeIndex=-1)
     accum +=  - 0.5*(sfr-1.65)**2.0 / (0.19)**2.0
 
     # total stellar mass
-    mstar = model0.var['mstar'].sensible(timeindex=-1)
+    mstar = model0.var['mstar'].sensible(timeIndex=-1)
     accum +=  -0.5*((6.08e10 - mstar)/1.14e10)**2.0
 
 #    # bulge:total ratio
-    bt = model0.var['bt'].sensible(timeindex=-1)
+    bt = model0.var['BT'].sensible(timeIndex=-1)
     mean = 0.150 + (0.028 - 0.019)/2.0
     #accum += -0.5*((mean-bt)/0.028/obsscale)**2.0
 
-    maxcolstindex = np.argmax(model0.var['colst'].sensible(timeindex=-1))
+    maxcolstindex = np.argmax(model0.var['colst'].sensible(timeIndex=-1))
     time1 = time.time()
     
     
@@ -510,23 +512,23 @@ def lnlikelihood(emceeparams, modelname=none):
 
 
 
-#def lnlikelihood(emceeparams, modelname=none):
+#def lnlikelihood(emceeparams, modelname=None):
 #    # set up the experiment
 #    #eta, epsff, fg0, munorm, mumhscaling, fixedq, accscalelength, xirec, fcool, kappametals, zigm, mh0, alphamri, fscatter, x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, obsscale, conrf, muhgscaling= emceeparams
 #    eta, epsff, fg0, munorm, mucolscaling, fixedq, qlim, accscalelength, fcool, mh0, x0, x1, obsscale, conrf, mufgscaling, y0,y1, kappametals, zigm, xirec, r0mcmc, v0mcmc, epsilonacc = emceeparams
 #    time0 = time.clock()
 #
 #    ## if we're being given a model that's already been run, don't run it again.
-#    if modelname is none:
+#    if modelname is None:
 #        expertorun, name = emceeparameterspacetogidgetexperiment(emceeparams)
 #
 #        # run the experiment.
-#        expertorun.localrun(1,0,maxtime=3600)
+#        expertorun.localRun(1,0,maxTime=3600)
 #    else:
 #        name = modelname
 #
 #    # read the results of the model
-#    output = readoutput.experiment(name)
+#    output = readoutput.Experiment(name)
 #    # ... but only keep the radial functions to which we will compare real data.
 #    output.read(keeponly=['vphi','colst','colh2'])
 #
@@ -550,8 +552,8 @@ def lnlikelihood(emceeparams, modelname=none):
 #    # to begin to account for possible systematics in the data, we allow the quoted errors to be
 #    # scaled by an additional nuissance parameter obsscale.
 #
-#    #rotcurve = np.loadtxt(chaindir+"/../../bhattacharjee2014.txt", skiprows=15)
-#    rotcurve = np.loadtxt(chaindir[0:-len(chaindirrel)]+"/../bhattacharjee2014.txt", skiprows=15)
+#    #rotcurve = np.loadtxt(chaindir+"/../../Bhattacharjee2014.txt", skiprows=15)
+#    rotcurve = np.loadtxt(chaindir[0:-len(chaindirrel)]+"/../Bhattacharjee2014.txt", skiprows=15)
 #    #whichrotcurve = convertpairtolabel(l0,l1)
 #    whichrotcurve = 1
 #    if whichrotcurve==0:
@@ -571,7 +573,7 @@ def lnlikelihood(emceeparams, modelname=none):
 #    colh2data = [26.7, 6.0, 3.5, 3.5, 4.6, 3.9, 2.8, 1.9, 0.9, 0.5, 0.3]
 #    colh2error= [20.3, 5.4, 1.8, 1.6, 2.0, 2.0, 1.4, 1.0, 0.7, 0.4, 0.2]
 #    nr = np.shape(rc)[0]
-#    rmodel = model0.var['r'].sensible(timeindex=-1)
+#    rmodel = model0.var['r'].sensible(timeIndex=-1)
 #    rdata = rc[:,0]
 #    vcmodel = model0.var['vphi'].atr(rdata, rmodel, -1)
 #    colh2model = model0.var['colh2'].atr(rdatah2, rmodel, -1)
@@ -669,8 +671,8 @@ def dic(restart,burnin,nspace):
         ## the exception is the scaling of the observational errorbars.
         ##  to do this we need to identify the place in the chain 
         ##  where we got this model.
-        thisoutput = readoutput.experiment(shortname)
-        thisoutput.read(paramsonly=true)
+        thisoutput = readoutput.Experiment(shortname)
+        thisoutput.read(paramsonly=True)
         if len(thisoutput.models)==0:
             print 'warning: skipping ',shortname
         else:
@@ -705,13 +707,13 @@ def rerunposteriorpredictive():
         spatially or in terms of the age of stellar populations, or vary some parameter systematically.
         the mandatory argument func is a user-provided function that specifies how a model with known
         parameters should be modified and (re) run.'''
-    pool = mpipool(comm=comm, loadbalance=true)
+    pool = MPIPool(comm=comm, loadbalance=True)
     if not pool.is_master():
         pool.wait()
         sys.exit(0)
 
-    output = readoutput.experiment(chaindirrel+'-ppd') # read in the posterior predictive distribution.
-    output.read(paramsonly=true,keepstars=false)
+    output = readoutput.Experiment(chaindirrel+'-ppd') # read in the posterior predictive distribution.
+    output.read(paramsonly=True,keepstars=False)
     emcee_params = []
     print "output.models: ",len(output.models)
     # for each model, take the parameters we have read in and construct the corresponding emcee parameters.
@@ -745,13 +747,13 @@ def rerunposteriorpredictive():
     # ok, from here on out, we just need to emulate parts of the run() function to trick emcee into running a single iteration of the algorithm with this ic.
 
 
-    ndim =  21
+    ndim =  18
 
     restart = {}
     restart['currentPosition'] = emcee_params
-    restart['chain'] = none
-    restart['state'] = none
-    restart['prob'] = none
+    restart['chain'] = None
+    restart['state'] = None
+    restart['prob'] = None
     restart['iterationCounter'] = 0
     restart['mcmcRunCounter'] = 0
 
@@ -759,15 +761,15 @@ def rerunposteriorpredictive():
 
     nwalkers = len(emcee_params) # need one walker per sample from posterior predictive distribution
     print "starting up the ensemble sampler!"
-    sampler = emcee.ensemblesampler(nwalkers, ndim, fakeprob, pool=pool)
-    #pos, prob, state = sampler.run_mcmc(restart['currentposition'], n, rstate0=restart['state'], lnprob0=restart['prob'])
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, fakeprob, pool=pool)
+    #pos, prob, state = sampler.run_mcmc(restart['currentPosition'], n, rstate0=restart['state'], lnprob0=restart['prob'])
     print "take a step with the ensemble sampler"
 
     # take a single step with the ensemble sampler.
-    print np.shape(restart['currentposition']), np.shape(np.random.uniform(0,1,nwalkers))
-    sampler._get_lnprob(pos = restart['currentposition'])
+    print np.shape(restart['currentPosition']), np.shape(np.random.uniform(0,1,nwalkers))
+    sampler._get_lnprob(pos = restart['currentPosition'])
 
-    #result = sampler.sample(restart['currentposition'], iterations=1, lnprob0=none, rstate0=none)
+    #result = sampler.sample(restart['currentPosition'], iterations=1, lnprob0=None, rstate0=None)
 
     #pos, prob, state = result
     print "close the pool"
@@ -782,7 +784,7 @@ def fakeprob(params):
     print "experiment name: ",name
 
     # run the experiment.
-    expertorun.localrun(1,0,maxtime=3600*6)
+    expertorun.localRun(1,0,maxTime=3600*6)
     return np.random.uniform(0,1) # value doesn't matter -- all we care about is re-running the experiment.
 
 
@@ -794,8 +796,8 @@ def getposteriorpredictive(restart, burnin=0, nspace=10):
         when the new model isn't accepted, you need to include the identical model again.'''
     #allruns = glob.glob(chaindir+'*')
     frac=1.0
-    output = readoutput.experiment(chaindirrel)
-    output.read(paramsonly=true)
+    output = readoutput.Experiment(chaindirrel)
+    output.read(paramsOnly=True)
     modeldict = {}
     for model in output.models:
         key = ("%.5e" % model.p['epsff']) +'_'+ ("%.5e" % model.p['eta'])
@@ -850,30 +852,30 @@ def getposteriorpredictive(restart, burnin=0, nspace=10):
 #                #print sorted(modeldict.keys())
 
 
-def run(n, p00=none, nwalkers=500):
+def run(n, p00=None, nwalkers=500):
 
 
     fn = chaindirrel+'.pickle'
-    ndim = 21
+    ndim = 18
 
-    if p00 is not none:
+    if p00 is not None:
         p0 = [p00*(1.0+0.01*np.random.randn( ndim )) for i in range(nwalkers)]
     else:
         p0 = [samplefromprior() for i in range(nwalkers)]
 
     restart = {}
     restart['currentPosition'] = p0
-    restart['chain'] = none
-    restart['state'] = none
-    restart['prob'] = none
+    restart['chain'] = None
+    restart['state'] = None
+    restart['prob'] = None
     restart['iterationCounter'] = 0
     restart['mcmcRunCounter'] = 0
 
     # read in our past progress unless we've been given a new starting location.
-    if p00 is none:
+    if p00 is None:
         updaterestart(fn,restart)
 
-    if restart['chain'] is not none:
+    if restart['chain'] is not None:
         # this may save some time if you change something and forget to delete the .pickle file.
         restartedshape = np.shape(restart['chain'])
         print restartedshape, nwalkers, ndim
@@ -886,15 +888,15 @@ def run(n, p00=none, nwalkers=500):
     restart['iterationCounter'] += n
     restart['mcmcRunCounter'] += 1
 
-    pool = mpipool(comm=comm, loadbalance=true)
+    pool = MPIPool(comm=comm, loadbalance=True)
     if not pool.is_master():
         pool.wait()
         sys.exit(0)
 
-    sampler = emcee.ensemblesampler(nwalkers, ndim, lnprob, pool=pool)
-    #pos, prob, state = sampler.run_mcmc(restart['currentposition'], n, rstate0=restart['state'], lnprob0=restart['prob'])
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)
+    #pos, prob, state = sampler.run_mcmc(restart['currentPosition'], n, rstate0=restart['state'], lnprob0=restart['prob'])
 
-    for result in sampler.sample(restart['currentposition'], iterations=n, lnprob0=restart['prob'], rstate0=restart['state']):
+    for result in sampler.sample(restart['currentPosition'], iterations=n, lnprob0=restart['prob'], rstate0=restart['state']):
 
         pos, prob, state = result
 
@@ -903,7 +905,7 @@ def run(n, p00=none, nwalkers=500):
         restart['currentPosition'] = pos # same shape as p0: nwalkers x ndim
         restart['state'] = state # random number generator state
         restart['prob'] = prob # nwalkers x __
-        if restart['chain'] is none:
+        if restart['chain'] is None:
             restart['chain'] = np.expand_dims(sampler.chain[:,0,:],1) # nwalkers x niterations x ndim
             restart['allProbs'] = np.expand_dims(prob,1)  # nwalkers x niterations
         else:
@@ -1023,14 +1025,18 @@ def triangleplot(restart,fn,burnin=0, nspace=10):
     prior = np.array([samplefromprior() for i in range(prs)])
     shape = np.shape(restart['chain'])
     ndim = shape[2]
-    #eta, epsff, fg0, munorm, mucolscaling, fixedq, accscalelength, fcool, mh0, fscatter, x0, x1, x2, x3, obsscale, conrf, mufgscaling, y0,y1,y2,y3, yscatter, kappametals, zigm, xirec = emceeparams
-    #eta, epsff, fg0, munorm, mucolscaling, fixedq, qlim, accscalelength, fcool, mh0, x0, x1, obsscale, conrf, mufgscaling, y0,y1, zigm, r0mcmc, v0mcmc, epsilonacc = emceeparams
-    labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$",r"$\mu_{\sigma}$",r"$q_f$",r"$q_\mathrm{lim}$",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
-            r"$f_\mathrm{cool}$", r"$m_{h,0}$",  \
-            r'c offset (dex)', r'$\mu_{f_g}$', \
-            r'$z_\mathrm{igm}$', r'$r_0$', r'$v_0$', r'$\epsilon_\mathrm{acc}$']
+    #eta, epsff, fg0, munorm, mucolscaling, fixedq, qlim, accscalelength, fcool, mh0, conrf, mufgscaling, zigm, r0mcmc, v0mcmc, epsilonacc, systematicVphiError, bolshoiWeight = emceeparams
+    labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$", \
+            r"$\mu_{\Sigma}$",r"$Q_f$",r"$Q_\mathrm{lim}$",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
+            r"$f_\mathrm{cool}$", r"$M_{h,0}$",  r'c offset (dex)', r'$\mu_{f_g}$', \
+            r'$Z_\mathrm{IGM}$', r'$R_0$', r'$v_0$', r'$\epsilon_\mathrm{acc}$', \
+            r'$\sigma_{v_\phi,\mathrm{sys}}$', r'Accretion History']
 
-    logs = [1,1,0,0,0,0,0,1,0,1,0,0,1,0,0,0]
+    logs = [0,1,0,1, \
+            0,0,0,1, \
+            0,1,0,0, \
+            1,0,0,0, \
+            1,0]
 
     ### this code selects a fraction frac of the samples after burnin iterations.
     ### the selection is random, meaning consecutive samples from the same walker
@@ -1061,7 +1067,7 @@ def triangleplot(restart,fn,burnin=0, nspace=10):
             extents.append([mi,ma])
 
     trifig = triangle.corner(samplered, labels=labels, extents=extents)
-    #trifigprior = triangle.corner(prior, color='red', plot_datapoints=false, plot_filled_contours=false, fig=trifig, extents=extents)
+    #trifigprior = triangle.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig, extents=extents)
     trifig.savefig(fn)
     plt.close(trifig)
 
@@ -1156,7 +1162,7 @@ if __name__=="__main__":
             0.4, .23,  # conRF, muFgScaling,
             .002, # ZIGM, 
             8, 220, .5, # R0, V0, epsAcc 
-            3.0, 0.2] # systematicVphiError, bolshoiWeight
+            3.0, bolshoiSize/2] # systematicVphiError, bolshoiWeight
 
 
 #    xmax = [  1.89572200e-01,   1.04076859e-02,   7.38152246e-01,   1.37673100e+00,
@@ -1191,31 +1197,31 @@ if __name__=="__main__":
 #              6.60213847e-02]
 
    
-    run(400, nwalkers=1024,p00=xmax) 
-    #run(400, nwalkers=1024) 
+    #run(400, nwalkers=1024,p00=xmax) 
+    run(400, nwalkers=1024) 
     #rerunPosteriorPredictive()
 
     if True:
         # Load in the resulting chain:
         restart={}
-        updateRestart(chainDirRel+'.pickle', restart)
-        printRestart(restart)
+        updaterestart(chaindirrel+'.pickle', restart)
+        printrestart(restart)
         #dic(restart, 210, 100)
-        trianglePlot(restart,chainDirRel+'_triangle.png',burnIn=168, nspace=300)
+        triangleplot(restart,chaindirrel+'_triangle.png',burnin=67, nspace=300)
         #triangleMovie(restart)
-        tracePlots(restart['chain'], chainDirRel+'_trace', burnIn=0)
-        probsPlots(restart['allProbs'], chainDirRel+'_allProb', restart['chain'], burnIn=0)
+        traceplots(restart['chain'], chaindirrel+'_trace', burnin=0)
+        probsplots(restart['allProbs'], chaindirrel+'_allprob', restart['chain'], burnin=0)
 
         # Find the maximum among all models sampled so far.
-        allProbs = restart['allProbs'].flatten()
-        index = np.argmax(allProbs)
-        print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
-        print allProbs[index]
+        allprobs = restart['allProbs'].flatten()
+        index = np.argmax(allprobs)
+        print "probs stats: ", np.max(allprobs), np.percentile(allprobs,[5,50,90,95,97.5,99])
+        print allprobs[index]
         indices = np.unravel_index(index, np.shape(restart['allProbs']))
         xmax = restart['chain'][indices[0],indices[1],:]
         print "Favorite coordinates: ", xmax
 
-        #getPosteriorPredictive( restart, burnIn=190, nspace=100)
+        #getposteriorpredictive( restart, burnin=67, nspace=100)
 
 
 

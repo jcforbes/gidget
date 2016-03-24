@@ -709,7 +709,7 @@ class SingleModel:
                 np.sum(self.var['equilibrium'].cgs()*eqnorm,axis=1)/np.sum(eqnorm,axis=1), \
                 'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False)
         self.var['Sigma1p5'] = TimeFunction( \
-                self.var['mstar'].sensible()/np.power(self.var['scaleLength'].sensible(),1.5), 'Sigma1p5', sensibleConv=1.0, cgsConv=gpermsun/cmperkpc**1.5,texString=r'$\Sigma_{1.5}\ (M_\odot/\mathrm{kpc}^{1.5})$')
+                self.var['mstar'].sensible()/np.power(self.var['halfMassStars'].sensible(),1.5), 'Sigma1p5', sensibleConv=1.0, cgsConv=gpermsun/cmperkpc**1.5,texString=r'$\Sigma_{1.5}\ (M_\odot/\mathrm{kpc}^{1.5})$')
         self.var['specificJRadial'] = RadialFunction( self.var['r'].cgs() * self.var['vPhi'].cgs(), 'specificJRadial', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
         self.var['JColGas'] = RadialFunction( self.var['r'].cgs() *self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['col'].cgs(), 'JColGas', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2 v_\phi\Sigma\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')
         self.var['JColStars'] = RadialFunction( self.var['r'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['colst'].cgs(), 'JColSt', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2v_\phi\Sigma_*\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')

@@ -310,8 +310,8 @@ void DiskContents::Initialize(double fcool, double fg0,
     for(unsigned int n=1; n<=nx; ++n) {
         ZDisk[n] = Z_IGM;
         initialStarsA->spcol[n] = S0*(1-fg0)*exp(-x[n]/xd);
-        if(initialStarsA->spcol[n] < S0*(1-fg0)*1.0e-11)
-            initialStarsA->spcol[n] = S0*(1-fg0)*1.0e-11; // floor the initial value to avoid very small timesteps
+        if(initialStarsA->spcol[n] < S0*(1-fg0)*1.0e-15)
+            initialStarsA->spcol[n] = S0*(1-fg0)*1.0e-15; // floor the initial value to avoid very small timesteps
         initialStarsA->spsigR[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spsigZ[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spZ[n] = Z_IGM;
@@ -324,13 +324,12 @@ void DiskContents::Initialize(double fcool, double fg0,
         initialStarsP->spZV[n] = initialStarsA->spZV[n];
 
         col[n] = S0*fg0*exp(-x[n]/xd);
-        if(col[n] < S0*fg0*1.0e-11)
-            col[n] = S0*fg0*1.0e-11; // floor the initial value to avoid very small timesteps
+        if(col[n] < S0*fg0*1.0e-15)
+            col[n] = S0*fg0*1.0e-15; // floor the initial value to avoid very small timesteps
         sig[n] = max(sig0, sigth);
 
 
     }
-    // XXXXXXXXXXXXXXX
     ComputeMassLoadingFactor(MhZs, initialStarsA->spcol);
 
     MBulge = M_PI*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!

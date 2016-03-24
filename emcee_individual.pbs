@@ -1,14 +1,14 @@
 #PBS -S /bin/bash
 #PBS -q hyper
-#PBS -N chm24
+#PBS -N chm25
 #PBS -m abe
 #PBS -M johncforbes@gmail.com
 #PBS -l nodes=6:ppn=32
 #PBS -l walltime=96:00:00
 
 #cd $PBS_O_WORKDIR
-cd /zang/pfs/jforbes/gidget/
+cd /pfs/jforbes/gidget/
 
 module load python
-mpirun -n 192 python mcmc_y.py 
+mpirun -n 192 python mcmc_y.py >& estd.$PBS_JOBID.out
 

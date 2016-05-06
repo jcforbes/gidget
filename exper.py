@@ -22,6 +22,11 @@ allModels={} # a global dictionary of all experiments created.
 allProcs=[] # a global list of all processes we've started
 allStartTimes=[] # a global list of the start times of all of these processes
 
+
+#from mcmc_y import bolshoireader
+#globalBolshoiReader = bolshoireader('rf_registry.txt',3.0e11,3.0e12)
+#bolshoiSize =  len(globalBolshoiReader.keys)
+
 def HowManyStillRunning(procs):
     ''' Given a list of processes created with subprocess.Popen, (each of which
           in this case will be a single run of the gidget code), count up how
@@ -910,6 +915,74 @@ if __name__ == "__main__":
     re41[0].irregularVary('accScaleLength', list(asls), 5)
     re41[0].irregularVary('NChanges', list(np.random.binomial(19,.53,size=240)), 5)
     re41[0].vary('whichAccretionHistory',-340,-101,240,0,5)
+
+
+
+    ## Try to set up some galaxies that look sort of like the enzo sims!
+    ## Best guesses for many parameters based on gidgetmcmc fits, e.g. eta=0.5
+    ## For the mass loading factor and xi, choose values based on the results
+    ## of the simulations themselves. Note that these are for the 5 kpc run.
+    dw01 = NewSetOfExperiments(re01, 'dw01')
+    dw01[0].irregularVary('fg0', .95)
+    dw01[0].irregularVary('Noutputs', 200)
+    dw01[0].irregularVary('zstart', 3.95)
+    dw01[0].irregularVary('zrelax', 4.0)
+    dw01[0].irregularVary('dbg', 2**4+2**1+2**0)
+    dw01[0].irregularVary('accScaleLength',0.052)
+    dw01[0].irregularVary('R', 20)
+    dw01[0].irregularVary('Mh0', 1.0e10) 
+    dw01[0].irregularVary('muNorm', 6)
+    dw01[0].irregularVary('fcool', 5.0e-4/.18)
+    dw01[0].irregularVary('muFgScaling', 0)
+    dw01[0].irregularVary('muColScaling', 0)
+    dw01[0].irregularVary('accCeiling',0.5)
+    dw01[0].irregularVary('NPassive',1)
+    dw01[0].irregularVary('eta',0.5)
+    dw01[0].irregularVary('yREC',0.03)
+    dw01[0].irregularVary('xiREC',[.7,.8,.9])
+    dw01[0].irregularVary('fixedQ', 2)
+    dw01[0].irregularVary('Qlim', 3)
+    dw01[0].irregularVary('kappaMetals', .1)
+    dw01[0].irregularVary('ZIGM', 0.0006)
+    dw01[0].irregularVary('whichAccretionHistory',0)
+    dw01[0].irregularVary('alphaMRI',1.0e-4)
+
+    # Try to tweak the above set of disks to look a bit more like the simulations.
+    dw02=NewSetOfExperiments(dw01, 'dw02')
+    dw02[0].irregularVary('xiREC',[0,.7,.8,.9])
+    dw02[0].irregularVary('accScaleLength', [.026, .052, .104])
+    dw02[0].irregularVary('accCeiling',.95)
+    dw02[0].irregularVary('fcool', 2.0e-4/0.18)
+
+    # A few more tweaks, plus... In dw02 above, I find that the SFR is essentially the same for all 12 simulations.
+    # Examining them in a bit more detail suggests that this is because hte inner regions of the disks are gravitationally unstable.
+    # Assuming this is true, perhaps the enzo sims haven't had enough time to adjust their gas profiles accordingly. To make the comparison
+    # fair and see if we can get different rates of star formation, how about essentially turning off GI? Just to check what will happen
+    dw03 = NewSetOfExperiments(dw02, 'dw03')
+    dw03[0].irregularVary('accCeiling', 0.1)
+    dw03[0].irregularVary('fixedQ', 0.1 )
+    dw03[0].irregularVary('Qlim', 0.2 )
+    # Some results: lower sfr. With this I realized that fH2min is still active in the code(!).
+
+    # Correct the fH2min thing.
+    dw04 = NewSetOfExperiments(dw03, 'dw04')
+    dw04[0].irregularVary('accCeiling', 0.5)
+    dw04[0].irregularVary('fH2Min', 0)
+    dw04[0].irregularVary('ZIGM', 0.001)
+    dw04[0].irregularVary('accScaleLength', [.013, .026, .052, .104, .208] )
+    dw04[0].irregularVary('xiREC', [0, .3, .6] )
+    dw04[0].irregularVary('muNorm', [1, 6])
+    # Result: now we get quite large differences in SFR as we expected based on the 3D sims. How to proceed? Consider turning GI back on, and try to set up two different models that end up at about the same place as the sims at z=0
+
+    # These models are:
+    #  Weak ej feedback +       perfect mixing      + preventative feedback
+    #  Intermediate feedback +  imperfect mixing    + no preventative 
+    #  Strong feedback +        perfect mixing      + no preventative 
+    dw05=NewSetOfExperiments(dw04, 'dw05')
+    dw05[0].irregularVary( 'muNorm', [0.5, 6, 60], 3)
+    dw05[0].irregularVary( 'accScaleLength', .2 )
+    dw05[0].irregularVary( 'xiREC', [0, .6, 0] , 3)
+    dw05[0].irregularVary( 'accCeiling', [0.2, 1, 1] , 3)
 
 
 

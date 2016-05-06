@@ -694,8 +694,8 @@ class SingleModel:
         mj = self.var['MJeans'].cgs()
         for ti in range(len(mst)):
             mj[ti,:]/=mst[ti]
-        self.var['ClumpMassPerDisk'] = RadialFunction( \
-                mj,'ClumpMassPerDisk',1.0,1.0,r'$M_J/M_*$')
+        #self.var['ClumpMassPerDisk'] = RadialFunction( \
+        #        mj,'ClumpMassPerDisk',1.0,1.0,r'$M_J/M_*$')
         colAccr = self.getData('colAccr',cgs=True)
         colTr = self.getData('colTr',cgs=True)
         colSFR = self.getData('colsfr',cgs=True)*(self.var['MassLoadingFactor'].sensible()+self.p['RfREC'])

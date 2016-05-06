@@ -26,7 +26,7 @@ rank = comm.Get_rank()
 chaindirrel = 'mcmcIndFromMax25'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
-bolshoidir = '/pfs/jforbes/bolshoi/'
+bolshoidir = '~/bolshoi/'
 
 proccounter=0
 runnumber = 0

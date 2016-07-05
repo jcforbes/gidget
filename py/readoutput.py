@@ -175,7 +175,10 @@ class TimeFunction:
         return self.arr * self.cgsConv
     def sensible(self,timeIndex=None,locIndex=None):
         if(timeIndex is not None):
-            return self.arr[timeIndex]*self.sensibleConv
+            try:
+                return self.arr[timeIndex]*self.sensibleConv
+            except:
+                pdb.set_trace()
         return self.arr * self.sensibleConv
     def range(self):
         if(self.theRange is None):
@@ -418,6 +421,7 @@ class SingleModel:
                 'Time since zstart (Gyr)',log=False)
         self.nt = len(self.evarray[:,1])
         self.var['z'] = TimeFunction(np.copy(self.evarray[:,9]),'z',1,1,'z',log=False)
+        self.var['onePlusZ'] = TimeFunction(self.var['z'].cgs()+1.0, 'onePlusZ', 1, 1, r'$1+z$', log=True)
         self.var['r'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,0]),'r', \
                 self.p['R']*cmperkpc,self.p['R'],'r (kpc)',log=False)
@@ -499,7 +503,7 @@ class SingleModel:
         self.var['Mdot'] = RadialFunction( \
                 mdotCodeUnits, 'Mdot', \
                 self.p['md0']*gpermsun/speryear, \
-                self.p['md0'],r'$\dot{M}$ (M$_\odot$ yr$^{-1}$)',log=False, theRange=[-5,5])
+                self.p['md0'],r'$\dot{M}$ (M$_\odot$ yr$^{-1}$)',log=False)
         self.var['colTr'] = RadialFunction( \
                 (self.var['Mdot'].cgs(locIndex=range(1,nxI+1))-self.var['Mdot'].cgs(locIndex=range(nxI)))/self.var['dA'].cgs(), \
                 'colTr',1.0, speryear*cmperkpc**2.0/gpermsun, r'$\dot{\Sigma}_{tr}$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)',log=False, theRange=[-10,10])
@@ -521,11 +525,11 @@ class SingleModel:
                 texString=r'$\dot{\Sigma}_{out}/\dot{\Sigma}_{accr}$', theRange=[1.0e-5, 10.0])
 
         self.var['Q'] = RadialFunction( \
-                np.copy(self.dataCube[:,:,11]),'Q',1.0,1.0,r'Q',theRange=[1.0,30.0])
+                np.copy(self.dataCube[:,:,11]),'Q',1.0,1.0,r'Q',theRange=[.3,30.0])
         self.var['Qg'] = RadialFunction( \
-                np.copy(self.dataCube[:,:,23]),'Qg',1.0,1.0,r'$Q_g$',theRange=[.5,30.0])
+                np.copy(self.dataCube[:,:,23]),'Qg',1.0,1.0,r'$Q_g$',theRange=[.1,30.0])
         self.var['Qst'] = RadialFunction( \
-                np.copy(self.dataCube[:,:,22]),'Qst',1.0,1.0,r'$Q_*$',theRange=[.5,30.0])
+                np.copy(self.dataCube[:,:,22]),'Qst',1.0,1.0,r'$Q_*$',theRange=[.1,30.0])
         self.var['tDepRadial'] = RadialFunction( \
                 self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepRadial',\
                 1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$')
@@ -599,7 +603,10 @@ class SingleModel:
                  texString=r'$v_{\phi,\mathrm{DM}}$ (km/s)',log=False)
         self.var['vPhiBulge'] = RadialFunction(np.copy(vPhiBulge), 'vPhiBulge', cgsConv=1.0, sensibleConv=1.0e-5, \
                  texString=r'$v_{\phi, \mathrm{bulge}}$ (km/s)',log=False)
-        self.var['vPhiDisk'] = RadialFunction( np.sqrt( np.power(self.var['vPhi'].cgs(),2.0) - np.power(self.var['vPhiDM'].cgs(),2.0) - np.power(self.var['vPhiBulge'].cgs(),2.0)), 'vPhiDisk', cgsConv=1.0, sensibleConv=1.0e-5, texString=r'$v_{\phi, \mathrm{disk}} (km/s)$', log=False)
+        vPhiDisk = np.power(self.var['vPhi'].cgs(),2.0) - np.power(self.var['vPhiDM'].cgs(),2.0) - np.power(self.var['vPhiBulge'].cgs(),2.0)
+        bad = np.logical_or(vPhiDisk != vPhiDisk, vPhiDisk<0)
+        vPhiDisk[bad] = 0
+        self.var['vPhiDisk'] = RadialFunction(vPhiDisk , 'vPhiDisk', cgsConv=1.0, sensibleConv=1.0e-5, texString=r'$v_{\phi, \mathrm{disk}} (km/s)$', log=False)
 
 
         self.var['vOverSigGas'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sig'].sensible(),'vOverSigGas',texString=r'$v_\phi/\sigma$',log=True)
@@ -632,6 +639,11 @@ class SingleModel:
         self.var['Sigma1'] = TimeFunction( \
                 m1kpc/(1.0*cmperkpc)**2.0, 'Sigma1', cgsConv=1.0, sensibleConv = cmperkpc**2/gpermsun, \
                 texString=r'$\Sigma_1$')
+        self.var['rho'] = RadialFunction( self.var['col'].cgs()/self.var['hGas'].cgs(), 'rho', 1.0, 1.0, r'$\rho (\mathrm{g}\ \mathrm{cm}^{-3})$' )
+        r1 = np.searchsorted(self.var['r'].sensible(timeIndex=-1), 1.0) # find the index of the cell closest to 1 kpc
+        numerator = np.sum( self.var['col'].cgs(locIndex=range(r1))*self.var['dA'].cgs(locIndex=range(r1))*self.var['rho'].cgs(locIndex=range(r1)), 1 )
+        denominator = np.sum( self.var['col'].cgs(locIndex=range(r1))*self.var['dA'].cgs(locIndex=range(r1)),1 )
+        self.var['rho1'] = TimeFunction( numerator  / denominator   ,  'rho1', 1.0, 1.0, r'$\rho_1 (\mathrm{g}\ \mathrm{cm}^{-3})$'  )
         self.var['mgas']=TimeFunction( \
                 np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
                 1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)')
@@ -661,6 +673,10 @@ class SingleModel:
         self.var['fH2Integrated'] = TimeFunction( \
                 np.sum(mg*self.var['fH2'].cgs(),axis=1)/np.sum(mg,axis=1), \
                 'fH2Integrated',1.0,1.0,r'$f_{\mathrm{H}_2}$',theRange=[0,1], log=False)
+        self.var['gasToStellarRatioH2'] = TimeFunction( self.var['mgas'].sensible()*self.var['fH2Integrated'].sensible()/self.var['mstar'].sensible(), 'gasToStellarRatioH2', texString=r'$f_{H_2} M_g/M_*$')
+        self.var['tDepH2'] = TimeFunction( \
+                self.var['fH2Integrated'].cgs()*self.var['mgas'].cgs()/self.var['sfr'].cgs(), \
+                'tDepH2', cgsConv=1.0, sensibleConv=1.0/speryear, texString=r'$t_{\mathrm{dep},\mathrm{H}_2} (\mathrm{yr})$', log=True)
         self.var['vPhiGas'] = TimeFunction( \
                 np.sum(self.var['vPhi'].cgs() * self.var['dA'].cgs() * self.var['col'].cgs(),axis=1)/self.var['mgas'].cgs(),
                 'vPhiGas',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'Gas mass weighted $v_\phi$', log=True)
@@ -714,16 +730,23 @@ class SingleModel:
         self.var['JColGas'] = RadialFunction( self.var['r'].cgs() *self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['col'].cgs(), 'JColGas', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2 v_\phi\Sigma\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')
         self.var['JColStars'] = RadialFunction( self.var['r'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs() * self.var['colst'].cgs(), 'JColSt', sensibleConv=1.0e-5/cmperkpc**2/gpermsun*cmperpc**2, cgsConv=1.0, texString=r'$r^2v_\phi\Sigma_*\ (\mathrm{kpc}^2\ \mathrm{km}/\mathrm{s}\ M_\odot/\mathrm{pc}^2$')
 
-#        try:
-#            maxGIRadius = np.zeros(len(self.var['z'].cgs()))
-#            for i in range(len(self.var['z'].cgs())):
-#                unstable = self.var['Q'].sensible(timeIndex=i) < self.p['fixedQ']  # locations in space/time where Q<fixedQ
-#                maxGIRadius[i] = np.max( self.var['r'].sensible(timeIndex=i)[unstable] )
-#            self.var['maxGIRadius'] = TimeFunction( maxGIRadius, 'maxGIRadius', cgsConv=cmperkpc, sensibleConv=1.0, texString=r'Largest GI radius (kpc)')
-#        except:
-#            print "WARNING: failed to calculate max GI radius"
+        #try:
+        maxGIRadius = np.zeros(len(self.var['z'].cgs()))
+        fractionGI = np.zeros(len(self.var['z'].cgs()))
+        for i in range(len(self.var['z'].cgs())):
+            unstable = self.var['Q'].sensible(timeIndex=i) < self.p['fixedQ']  # locations in space/time where Q<fixedQ
+            if np.any(unstable):
+                ### Let's
+                maxGIRadius[i] = np.max( self.var['r'].sensible(timeIndex=i)[unstable] )
+                fractionGI[i] = np.sum(self.var['dr'].cgs(timeIndex=i)[unstable])
+        self.var['maxGIRadius'] = TimeFunction( maxGIRadius, 'maxGIRadius', cgsConv=cmperkpc, sensibleConv=1.0, texString=r'Largest GI radius (kpc)')
+        self.var['fractionGI'] = TimeFunction( fractionGI/self.var['halfMassGas'].cgs(), 'fractionGI', 1,1, texString=r'Radial Extent of GI / Half Gas Mass Radius')
+        #except:
+        #    print "WARNING: failed to calculate max GI radius"
+
         indRange = range(eightkpc)
 
+        self.var['accretionDiscrepancy'] = TimeFunction( np.sum(self.var['colAccr'].cgs()*self.var['dA'].cgs(), axis=1)/self.var['mdotAccr'].cgs(), 'accretionDiscrepancy', 1,1, texString=r'$\int 2\pi r \dot{\Sigma}_\mathrm{accr} dr / \dot{M}_\mathrm{accr}$' )
         self.var['specificJStars'] = TimeFunction( np.sum(self.var['colst'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colst'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJStars', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ M_*\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
         self.var['specificJGas'] = TimeFunction( np.sum(self.var['col'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['col'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJGas', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_\mathrm{gas}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
         self.var['specificJH2'] = TimeFunction( np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJH2', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_{\mathrm{H}_2}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
@@ -763,6 +786,8 @@ class SingleModel:
                 whitelist += ['vPhiDM']
             if 'vPhiBulge' not in whitelist:
                 whitelist += ['vPhiBulge']
+            if 'vPhiDisk' not in whitelist:
+                whitelist += ['vPhiDisk']
         for key in theKeys:
             if(isinstance(self.var[key],RadialFunction) and not (key in whitelist)):
                 del self.var[key]
@@ -1165,8 +1190,9 @@ class Experiment:
                             pass
                             #ax.plot(r[k], theVar[k][len(theVar[k])/2] *  np.exp( -r[k] / model.getData('scaleLength',timeIndex=ti)),ls='--')
                         if v=='vPhi':
-                            ax.plot(r[k], model.var['vPhiDM'].sensible( timeIndex=ti), ls='--')
-                            ax.plot(r[k], model.var['vPhiBulge'].sensible( timeIndex=ti), ls=':')
+                            ax.plot(r[k], model.var['vPhiDM'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
+                            ax.plot(r[k], model.var['vPhiBulge'].sensible( timeIndex=ti), ls=':', c=theRGB[k])
+                            ax.plot(r[k], model.var['vPhiDisk'].sensible( timeIndex=ti), ls='-.', c=theRGB[k])
                     except ValueError:
                         rr = model.getData('rb',ti)
                         if(scaleR):
@@ -1514,6 +1540,206 @@ class Experiment:
         balanceplot.budgetAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
         balanceplot.balanceAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
 
+    def globalGenzelAnalysis(self):
+        ''' Do an analysis similar to Genzel et al 2015, wherein some? many? of the variables we know as functions of time are
+            globally fit by the following simple model: log Quantity = A + B*log(M*) + C*log(1+z) + D*log(sSFR/sSFR(MS))
+            To compare to Genzel we are particularly interested in the H2 depletion time and the ratio of H2 mass to stellar mass.
+            Other quantities potentially of interest include: metallicity, effective radius (SF, gas, stars), total gas depl. and ratio.
+            A few other aspects: do we use sSFR(MS) from the observations or from the model? Does it matter?
+                How do we do the fit? Least squares? Is it ok that most data points are from low z (i.e. the weighting is done to be const. in time)
+                Could conceivably do a more sophisticated (MCMC or otherwise Bayesian) fit'''
+        yvars = ['tDepH2', 'tdep', 'vPhiOuter', 'integratedZ', 'sfZ', 'halfMassGas', 'halfMassSFR', 'halfMassStars', 'gasToStellarRatio', 'gasToStellarRatioH2', 'dimensionlessSpinHI', 'dimensionlessSpinGas', 'dimensionlessSpinStars', 'rho1', 'deltaMZR', 'deltaMsTd', 'deltaMsTdH2', 'deltaRg', 'deltaTF']
+        xvars = ['mstar','onePlusZ', 'deltaMS']
+
+
+        overallMstar,_,overallMstarLog,overallMstarRange = self.constructQuantity(xvars[0]) 
+        overallOnePlusZ,_,overallOnePlusZLog,overallOnePlusZRange = self.constructQuantity(xvars[1]) 
+        overallDeltaMS,_,overallDeltaMSLog,overallDeltaMSRange = self.constructQuantity(xvars[2]) 
+        # these constructions are 2-d arrays ~ (model x time)
+
+        mst = np.log10(overallMstar.flatten()) - 10.5
+        opz = np.log10(overallOnePlusZ.flatten())
+        dms = overallDeltaMS.flatten()
+
+        # The following mess restricts us to mstar between 10^10 and 10^11.5 Msun, and redshift windows below 0.01, between .9 and 1.1, and between 1.9 and 2.1
+        whichData = np.logical_and( np.logical_and( mst>-.5, mst<1.0),   np.logical_or(np.logical_or(opz < np.log10(1.0+0.01), np.logical_and(opz>np.log10(1.0+.9), opz<np.log10(1.0+1.1))), np.logical_and(opz>np.log10(1.0+1.9), opz<np.log10(1.0+2.1)))  )
+
+        X = np.vstack( (mst[whichData], opz[whichData], dms[whichData]) )
+
+        from sklearn import linear_model
+
+        for yvar in yvars:
+
+            overallY,_,overallYLog,overallYRange = self.constructQuantity(yvar) 
+            y = np.log10(overallY.flatten())[whichData]
+            clf = linear_model.LinearRegression()
+            clf.fit( X.T, y )
+            print "Coefficients for fit to ",yvar," vs ",xvars
+            print clf.coef_
+            print clf.intercept_
+            print ""
+
+            fig,ax = plt.subplots()
+            ax.scatter( np.power(10.0, mst[whichData]+10.5), np.power(10.0,y), c=opz[whichData], lw=0, s=5  )
+            colors=['k', 'r', 'b', 'orange', 'purple', 'green', 'lightblue', 'pink']*4
+            lws=['--','-','-.',':']*4
+            mm = np.linspace(np.min(mst[whichData]), np.max(mst[whichData]), 113) # log Mstar normalized to 10^10.5
+            for iz, z in enumerate([0,.5,1,2,3,4]):
+                zzz = np.zeros(113)+np.log10(z+1.0) # log10(z+1)
+                for idd, dd in enumerate([-1, 0, 1]):
+                    ddd = np.zeros(113)+dd # deltaMS
+                    thisX = np.vstack( ( mm, zzz, ddd) ) 
+                    label=None
+                    if idd==1:
+                        label = r'$z='+str(z)+'$'
+                    if iz==0 and idd!=1:
+                        label = r'$\Delta \mathrm{MS} = '+str(dd)+r'\ \mathrm{dex}$'
+                    ax.plot( np.power(10.0, mm+10.5), np.power(10.0, clf.predict(thisX.T) ), color=colors[iz], ls=lws[idd], label=label  )
+            ax.set_xscale('log')
+            if overallYLog:
+                ax.set_yscale('log')
+            ax.set_xlim([10.0**(np.min(mst[whichData])+10.5), 10.0**(np.max(mst[whichData])+10.5) ])
+            ax.set_ylim(overallYRange)
+            ax.set_xlabel( self.models[0].var['mstar'].texString )
+            ax.set_ylabel( self.models[0].var[yvar].texString )
+
+            fontsize=10
+            ax.text(10**10, overallYRange[0]*1.5, r'This Fit: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+"{0:.3f}".format(clf.intercept_)+r'$+$' + "{0:.3f}".format(clf.coef_[0])+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + "{0:.3f}".format(clf.coef_[1])+r'$\log_{10}(1+z)$' + r'$+$' + "{0:.3f}".format(clf.coef_[2])+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'  , fontsize=fontsize)
+            if yvar == 'tdep' or yvar=='tDepH2':
+                ax.text(10**10, overallYRange[0]*3.0, r'Genzel 15 dust : $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+"{0:.2f}".format(0.33)+r'$+$' + "{0:.2f}".format(0.00)+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + "{0:.2f}".format(-0.74)+r'$\log_{10}(1+z)$' + r'$+$' + "{0:.2f}".format(-0.60)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'   , fontsize=fontsize)
+                ax.text(10**10, overallYRange[0]*9.0, r'Genzel 15 CO: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+"{0:.3f}".format(-0.025)+r'$+$' + "{0:.2f}".format(-0.01)+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + "{0:.2f}".format(-0.20)+r'$\log_{10}(1+z)$' + r'$+$' + "{0:.2f}".format(-0.43)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'   , fontsize=fontsize)
+            if yvar=='gasToStellarRatio' or yvar=='gasToStellarRatioH2':
+                ax.text(10**10, overallYRange[0]*3.0, r'Genzel 15 dust : $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+"{0:.2f}".format(-0.98)+r'$+$' + "{0:.2f}".format(-0.40)+r'$\log_{10}(M_*/10^{10.77} M_\odot)$' +  r'$+$' + "{0:.2f}".format(2.32)+r'$\log_{10}(1+z)$' + r'$+$' + "{0:.2f}".format(0.36)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'  , fontsize=fontsize)
+                ax.text(10**10, overallYRange[0]*9.0, r'Genzel 15 CO: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+"{0:.3f}".format(-1.12)+r'$+$' + "{0:.2f}".format(-0.35)+r'$\log_{10}(M_*/10^{10.77} M_\odot)$' +  r'$+$' + "{0:.2f}".format(2.71)+r'$\log_{10}(1+z)$' + r'$+$' + "{0:.2f}".format(0.53)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'   , fontsize=fontsize)
+
+            plt.savefig( self.name+'_globalFit_vsmstar_'+yvar+'_cbz.png' )
+            plt.close(fig)
+
+
+            fig,ax = plt.subplots()
+            ax.scatter( np.power(10.0, opz[whichData]), np.power(10.0,y), c=mst[whichData] , lw=0, s=5 )
+            zzz = np.linspace(np.min(opz[whichData]), np.max(opz[whichData]), 113)   # log10(z+1)
+            for im, m in enumerate([-.5, 0, 0.5, 1.0]):
+                mm = np.zeros(113) + m   # log Mstar normalized to 10^10.5
+                for idd, dd in enumerate([-1, 0, 1]):
+                    ddd = np.zeros(113)+dd # deltaMS
+                    thisX = np.vstack( ( mm, zzz, ddd) ) 
+                    label=None
+                    if idd==1:
+                        label = r'$\log_{10} M_*='+str(m+10.5)+'$'
+                    if im==0 and idd!=1:
+                        label = r'$\Delta \mathrm{MS} = '+str(dd)+r'\ \mathrm{dex}$'
+                    ax.plot( np.power(10.0, zzz), np.power(10.0, clf.predict(thisX.T) ), color=colors[im], ls=lws[idd], label=label  )
+
+            ax.set_xscale('log')
+            if overallYLog:
+                ax.set_yscale('log')
+            ax.set_xlim(overallOnePlusZRange)
+            ax.set_ylim(overallYRange)
+            ax.set_xlabel( self.models[0].var['onePlusZ'].texString )
+            ax.set_ylabel( self.models[0].var[yvar].texString )
+
+            ax.text(1, overallYRange[0]*1.5, r'This Fit: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+"{0:.3f}".format(clf.intercept_)+r'$+$' + "{0:.3f}".format(clf.coef_[0])+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + "{0:.3f}".format(clf.coef_[1])+r'$\log_{10}(1+z)$' + r'$+$' + "{0:.3f}".format(clf.coef_[2])+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'   , fontsize=fontsize)
+            if yvar == 'tdep' or yvar=='tDepH2':
+                ax.text(1, overallYRange[0]*3.0, r'Genzel 15 dust : $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(0.33)+r'$+$' + str(0.00)+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + str(-0.74)+r'$\log_{10}(1+z)$' + r'$+$' + str(-0.60)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'   , fontsize=fontsize)
+                ax.text(1, overallYRange[0]*9.0, r'Genzel 15 CO: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(-0.025)+r'$+$' + str(-0.01)+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + str(-0.20)+r'$\log_{10}(1+z)$' + r'$+$' + str(-0.43)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'  , fontsize=fontsize)
+            if yvar=='gasToStellarRatio' or yvar=='gasToStellarRatioH2':
+                ax.text(1, overallYRange[0]*3.0, r'Genzel 15 dust : $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(-0.98)+r'$+$' + str(-0.40)+r'$\log_{10}(M_*/10^{10.77} M_\odot)$' +  r'$+$' + str(2.32)+r'$\log_{10}(1+z)$' + r'$+$' + str(0.36)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$' , fontsize=fontsize  )
+                ax.text(1, overallYRange[0]*9.0, r'Genzel 15 CO: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(-1.12)+r'$+$' + str(-0.35)+r'$\log_{10}(M_*/10^{10.77} M_\odot)$' +  r'$+$' + str(2.71)+r'$\log_{10}(1+z)$' + r'$+$' + str(0.53)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$' , fontsize=fontsize  )
+
+            plt.savefig( self.name+'_globalFit_vsz_'+yvar+'_cbmst.png' )
+            plt.close(fig)
+
+
+
+
+
+            fig,ax = plt.subplots()
+            ax.scatter(  dms[whichData], np.power(10.0,y), c=opz[whichData] , lw=0, s=5 )
+            ddd = np.linspace(np.min(dms), np.max(dms), 113)   # log10(z+1)
+            for im, m in enumerate([-.5, 0, 0.5, 1.0]):
+                mm = np.zeros(113) + m   # log Mstar normalized to 10^10.5
+                for iz, zz in enumerate([0, 1, 2]):
+                    zzz= np.zeros(113)+np.log10(1.0+zz) # log10( 1+z )
+                    thisX = np.vstack( ( mm, zzz, ddd) ) 
+                    label=None
+                    if iz==1:
+                        label = r'$\log_{10} M_*='+str(m+10.5)+'$'
+                    if im==0 and iz!=1:
+                        label = r'$\Delta \mathrm{MS} = '+str(dd)+r'\ \mathrm{dex}$'
+                    ax.plot( ddd, np.power(10.0, clf.predict(thisX.T) ), color=colors[im], ls=lws[iz], label=label  )
+
+            if overallYLog:
+                ax.set_yscale('log')
+            ax.set_xlim(overallDeltaMSRange)
+            ax.set_ylim(overallYRange)
+            ax.set_xlabel( self.models[0].var['deltaMS'].texString )
+            ax.set_ylabel( self.models[0].var[yvar].texString )
+
+            ax.text(-1.5, overallYRange[0]*1.5, r'This Fit: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+"{0:.3f}".format(clf.intercept_)+r'$+$' + "{0:.3f}".format(clf.coef_[0])+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + "{0:.3f}".format(clf.coef_[1])+r'$\log_{10}(1+z)$' + r'$+$' + "{0:.3f}".format(clf.coef_[2])+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$' , fontsize=fontsize  )
+            if yvar == 'tdep' or yvar=='tDepH2':
+                ax.text(-1.5, overallYRange[0]*3.0, r'Genzel 15 dust : $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(0.33)+r'$+$' + str(0.00)+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + str(-0.74)+r'$\log_{10}(1+z)$' + r'$+$' + str(-0.60)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'  , fontsize=fontsize )
+                ax.text(-1.5, overallYRange[0]*9.0, r'Genzel 15 CO: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(-0.025)+r'$+$' + str(-0.01)+r'$\log_{10}(M_*/10^{10.5} M_\odot)$' +  r'$+$' + str(-0.20)+r'$\log_{10}(1+z)$' + r'$+$' + str(-0.43)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$'  , fontsize=fontsize )
+            if yvar=='gasToStellarRatio' or yvar=='gasToStellarRatioH2':
+                ax.text(-1.5, overallYRange[0]*3.0, r'Genzel 15 dust : $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(-0.98)+r'$+$' + str(-0.40)+r'$\log_{10}(M_*/10^{10.77} M_\odot)$' +  r'$+$' + str(2.32)+r'$\log_{10}(1+z)$' + r'$+$' + str(0.36)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$', fontsize=fontsize)
+                ax.text(-1.5, overallYRange[0]*9.0, r'Genzel 15 CO: $\log_{10}$'+self.models[0].var[yvar].texString+r'$=$'+str(-1.12)+r'$+$' + str(-0.35)+r'$\log_{10}(M_*/10^{10.77} M_\odot)$' +  r'$+$' + str(2.71)+r'$\log_{10}(1+z)$' + r'$+$' + str(0.53)+r'$\log_{10}(\mathrm{SFR}/\mathrm{SFR}_\mathrm{MS})$', fontsize=fontsize)
+
+            plt.savefig( self.name+'_globalFit_vsdeltaMS_'+yvar+'_cbz.png' )
+            plt.close(fig)
+
+
+
+
+
+    def globalFractionAnalysis(self, xv1='Mh', xv2='onePlusZ', yvars=None, funcs=None):
+        ''' Make plots of 1+z vs M_h, colored by some property, e.g. fraction of grav unst galaxies'''
+
+
+        if yvars is None:
+            yvars = self.models[0].getTimeFunctions()
+        if funcs is None:
+            funcs = [np.mean]*len(yvars)
+
+        assert len(funcs) == len(yvars)
+
+        NMhBins = 20
+        NzBins = 20
+
+        overallMh,_,overallMhLog,overallMhRange = self.constructQuantity(xv1) 
+        overallOnePlusZ,_,overallOnePlusZLog,overallOnePlusZRange = self.constructQuantity(xv2)
+        # these constructions are 2-d arrays ~ (model x time)
+
+        Mhs = np.logspace( np.log10(overallMhRange[0]), np.log10(overallMhRange[1]), num=NMhBins+1 ) # These are bin edges
+        opzs = np.logspace( np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), num=NzBins+1 ) # These are bin edges
+
+        flatMh = overallMh.flatten()
+        flatOpz = overallOnePlusZ.flatten()
+
+        # These are the indices in our 2d histogram-like object.
+        iMh = np.searchsorted(Mhs, flatMh)
+        jOpz = np.searchsorted(opzs, flatOpz)
+        for iyv,yv in enumerate(yvars):
+            overallY,_,overallYLog,overallYRange = self.constructQuantity(yv) 
+            flatY = overallY.flatten()
+            hist= np.zeros( ( NMhBins, NzBins) )
+            for i in range(NMhBins):
+                for j in range(NzBins):
+                    whichDataPoints = np.logical_and( iMh==i, jOpz==j )
+                    hist[i,j] = funs[iyv](flatY[whichDataPoints])
+
+            fig,ax= plt.subplots()
+            pl = ax.imshow(hist.T, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])) )
+            cbar = plt.colorbar(pl,ax=ax)
+            cbar.set_label(yvar)
+            ax.set_xlabel(xv1)
+            ax.set_ylabel(xv2)
+            plt.savefig( self.name+'_globalFraction_'+yvar+'_'+repr(funs[iyv]).replace(' ','').replace('<','').replace('>','')+'.png')
+            plt.close(fig)
+
+
+
+
+
 
     def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True):
         if(yvar is None):
@@ -1697,35 +1923,59 @@ class Experiment:
                     if(xvar=='mstar'):
                         #if v=='sfr':
                         #    if 'MS' in self.srParams.keys():
-                        mst = xx ## I think this is right.. needs to be checked
+                        mst = np.array(sorted(xx)) ## I think this is right.. needs to be checked
+                        
                         if v=='integratedZ' or v=='sfZ':
                             ZHayward = -8.69 + 9.09*np.power(1.0+z[ti],-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+z[ti],0.094),2.0)
                             ZHayward = np.power(10.0, ZHayward) * 0.02
-                            ax.plot(xx,ZHayward/0.02, c='k')
+                            
+                            b = 10.4 + 4.46*np.log10(1.0+z[ti])-1.78*np.log10(1.0+z[ti])**2.0
+                            ZGenzel15 = np.power(10.0,  8.74 - 0.087 * np.power(np.log10(mst) -b,2.0) -8.69) # Equation 12a normalized to solar
+                            #bb = np.log10(mst) - 0.32*np.log10(sfr) - 10
+                            #ZMannucci10 = np.power(10.0, 0.21 + 0.39*bb - 0.2*bb*bb - 0.077*bb*bb*bb + 0.064*bb*bb*bb*bb
+                            ax.plot(mst,ZHayward/0.02, c='k')
+                            ax.plot(mst, ZGenzel15, c='r')
+                            #ax.plot(mst, ZMannucci10, c='blue')
                         if v=='halfMassStars':
                             reff = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+z[ti],-0.6) # kpc (eq B3) at z=4
-                            ax.plot(xx,reff, c='k')
+                            ax.plot(mst,reff, c='k')
                         if v=='sfr':
                             def plotWhitaker(Mst0,Mst1,loga,b):
                                 ax.plot([10.0**Mst0,10.0**Mst1],[10.0**Mst0*10.0**loga*(1.0+z[ti])**b,10.0**Mst1*10.0**loga*(1.0+z[ti])**b],c='k')
-                            plotWhitaker(9.2,9.4,-9.54,1.95) # Equation6 from Whitaker+ 2014
-                            plotWhitaker(9.4,9.6,-9.5,1.86)
-                            plotWhitaker(9.6,9.8,-9.54,1.90)
-                            plotWhitaker(9.8,10.0,-9.58,1.98)
-                            plotWhitaker(10.0,10.2,-9.69,2.16)
-                            plotWhitaker(10.2,10.4,-9.93,2.63)
-                            plotWhitaker(10.4,10.6,-10.11,2.88)
-                            plotWhitaker(10.6,10.8,-10.28,3.03)
-                            plotWhitaker(10.8,11.0,-10.53,3.37)
-                            plotWhitaker(11.0,11.2,-10.65,3.45)
+                            #plotWhitaker(9.2,9.4,-9.54,1.95) # Equation6 from Whitaker+ 2014
+                            #plotWhitaker(9.4,9.6,-9.5,1.86)
+                            #plotWhitaker(9.6,9.8,-9.54,1.90)
+                            #plotWhitaker(9.8,10.0,-9.58,1.98)
+                            #plotWhitaker(10.0,10.2,-9.69,2.16)
+                            #plotWhitaker(10.2,10.4,-9.93,2.63)
+                            #plotWhitaker(10.4,10.6,-10.11,2.88)
+                            #plotWhitaker(10.6,10.8,-10.28,3.03)
+                            #plotWhitaker(10.8,11.0,-10.53,3.37)
+                            #plotWhitaker(11.0,11.2,-10.65,3.45)
 
+                            whitaker12 = np.power(10.0, -1.12 + 1.14*z[ti] - 0.19*z[ti]*z[ti] - (0.3+0.13*z[ti])*(np.log10(mst)-10.5)) # Gyr^-1 -- Genzel+15 eq 1
+                            if z[ti]<2:
+                                lilly13 = 0.117 * np.power(mst/3.16e10, -0.1) * np.power(1.0+z[ti],3.0)
+                            else:
+                                lilly13 = 0.5 * np.power(mst/3.16e10, -0.1) * np.power(1.0+z[ti],1.667)
+
+                            ax.plot(mst, whitaker12*mst*1.0e-9, c='k')
+                            ax.plot(mst, lilly13*mst*1.0e-9, c='r')
+                        if v=='sSFR':
+                            whitaker12 = np.power(10.0, -1.12 + 1.14*z[ti] - 0.19*z[ti]*z[ti] - (0.3+0.13*z[ti])*(np.log10(mst)-10.5)) # Gyr^-1 -- Genzel+15 eq 1
+                            if z[ti]<2:
+                                lilly13 = 0.117 * np.power(mst/3.16e10, -0.1) * np.power(1.0+z[ti],3.0)
+                            else:
+                                lilly13 = 0.5 * np.power(mst/3.16e10, -0.1) * np.power(1.0+z[ti],1.667)
+                            ax.plot(mst, whitaker12, c='k')
+                            ax.plot(mst, lilly13, c='r')
                         if v=='fg':
                             f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
                             tau4 = (12.27-t[ti])/(12.27+1.60) # fractional lookback time at z=4
                             fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
-                            ax.plot(xx,fgz4,c='k')
+                            ax.plot(mst,fgz4,c='k')
                         if v=='vPhiOuter':
-                            ax.plot(xx,  147*np.power(xx/1.0e10, 0.23),c='k') # Hayward & Hopkins eq. B1
+                            ax.plot(mst,  147*np.power(mst/1.0e10, 0.23),c='k') # Hayward & Hopkins eq. B1
 
 
 
@@ -2237,12 +2487,11 @@ class Experiment:
             theRange[1] = np.max(theRange[1])
 
         if(log):
-            try:
-                assert theRange[0]>0 and theRange[1]>0
-            except:
-                pdb.set_trace()
-            if(theRange[1]/theRange[0] < 10.0):
+            if not (theRange[0]>0 and theRange[1]>0):
                 log=False
+            if theRange[0]>0:
+                if(theRange[1]/theRange[0] < 10.0):
+                    log=False
 
         if theRange[0]==theRange[1]:
             theRange[1]=theRange[0]+1.0

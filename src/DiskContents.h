@@ -273,6 +273,9 @@ class DiskContents {
     x,     // position of each cell
     beta,  // power law index of rotation curve
     uu,    // local circular velocity
+    uDisk,
+    uDM,
+    uBulge,
 //    yy,    // inward velocity of stars
     betap; //d(beta)/dx 
 

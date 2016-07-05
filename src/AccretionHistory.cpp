@@ -244,6 +244,9 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
 
         tabulatedAcc.push_back(MdotExt);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<" "<<x<<" "<<scatter<<" "<<epsin(z,Mh,cos,zquench)<<" "<<currentAccretionRate<<std::endl;
+        if(i==N) {
+            std::cout << "Ratio of initial to final Mh: "<<Mh0/Mh<<std::endl;
+        }
     }
 
         // 

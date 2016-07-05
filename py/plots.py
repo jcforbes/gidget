@@ -27,6 +27,9 @@ def makeThePlots(args):
         theExp.storeScalingRelation('MFG', 'mstar','gasToStellarRatio')
         theExp.storeScalingRelation('TF', 'mstar','vPhiOuter')
         theExp.storeScalingRelation('MsTd', 'mstar','tdep')
+        theExp.storeScalingRelation('MsTdH2', 'mstar','tDepH2')
+        theExp.storeScalingRelation('Rg', 'mstar','halfMassGas')
+        theExp.storeScalingRelation('mRho', 'mstar','rho1')
         theExp.assignIndices()
         for i,rankby in enumerate(args.rankby):
             tti=None
@@ -74,6 +77,8 @@ def makeThePlots(args):
         #theExp.ptMovie(timeIndex=tis,xvar='x3',yvar=['MassLoadingFactor'],prev=0,colorby='t',movie=False)
         #theExp.ptMovie(timeIndex=tis,xvar='colsfr',yvar=['colTr','colAccr','colOut'],prev=0,colorby='t',movie=False)
         #theExp.ptMovie(timeIndex=tis,xvar='r',yvar=['col','colst','Z','vPhi','Q','MassLoadingFactor','hGas','colsfr','fH2','fgRadial','colTr','colAccr','colOut','equilibrium'],prev=0,colorby='t',movie=False)
+        if args.genzel:
+            theExp.globalGenzelAnalysis()
         if args.stellarPops:
             theExp.plotAgeFuncs()
         if(args.percentiles):
@@ -124,6 +129,7 @@ if __name__=='__main__':
     parser.add_argument('--percentiles',dest='percentiles',action='store_true',help="In radial plots overplot percentiles.")
     parser.add_argument('--snapshot',dest='snapshot',action='store_true',help="Produce 1d histograms of all parameters and time variables.")
     parser.add_argument('--stellarPops',dest='stellarPops',action='store_true',help="Produce plots relating to the passive stellar pops")
+    parser.add_argument('--genzel', dest='genzel', action='store_true',help="Produce plots relating to Genzel et al 2015")
     args = parser.parse_args()
 
     weNeed = len(args.rankby) - len(args.rbz) 

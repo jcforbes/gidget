@@ -1,6 +1,7 @@
 #include <math.h>
 #include <vector>
 #include <iostream>
+#include <fstream>
 
 #include "FixedMesh.h"
 #include "DiskUtils.h"
@@ -24,9 +25,15 @@ double sign(double a) {
 }
 
 
+
+
 double summand(double xnm, double xnp, double xj)
 {
    gsl_mode_t mode = GSL_PREC_DOUBLE; // since we're only evaluating this once, we can probably afford the high precision.
+   if(xnp<=xnm) {
+       std::cerr << "Bad input in FixedMesh::summand()." << std::endl;
+       return 0;
+   }
    if(xj > xnp) {
         return (2.0/M_PI) * ( gsl_sf_ellint_Ecomp(xnm/xj ,mode) 
                              -gsl_sf_ellint_Ecomp(xnp/xj, mode)
@@ -52,6 +59,45 @@ double summand(double xnm, double xnp, double xj)
 }
 
 
+void test_summand()
+{
+    std::ofstream f;
+    f.open("test_summand.txt");
+    std::cout << "Hello from test_summand 0" <<std::endl;
+    unsigned int ntest = 1373;
+    for(unsigned int i=0; i<ntest; ++i) {
+        double x0 = ((double) i+1)/((double) ntest);
+        f <<x0<<" "<< summand( 0.01, 0.011, x0) <<" "<< summand(0.1,0.11, x0)<<" "<< summand(.9,.95,x0) << std::endl;
+    }
+    f.close();
+
+
+    FixedMesh m(0, .1, 1, .01, .001, 100 );
+    std::ofstream f2;
+    f2.open("test2_summand.txt");
+    for(unsigned int n=1; n<=m.nx(); ++n) {
+        double u1=0.0;
+        double u2=0.0;
+        double u3=0.0;
+        double u4=0.0;
+        double u5=0.0;
+        for(unsigned int nn=1; nn<=m.nx(); ++nn) {
+            double weight = summand( m.xPlusHalf(nn-1), m.xPlusHalf(nn), m.x(n) );
+            u1=u1 + weight * exp(-m.x(nn)/0.01);
+            u2=u2 + weight * exp(-m.x(nn)/0.3);
+            u3=u3 + weight * exp(-m.x(nn)/2.0);
+            u4=u4 + weight * 1.0;
+            u5=u5 + weight * 1/m.x(nn);
+        }
+        u1=u1 * 2.0*M_PI*.1*m.x(n);
+        u2=u2 * 2.0*M_PI*.1*m.x(n);
+        u3=u3 * 2.0*M_PI*.1*m.x(n);
+        u4=u4 * 2.0*M_PI*.1*m.x(n);
+        u5=u5 * 2.0*M_PI*.1*m.x(n);
+        f2 << m.x(n) << " " << u1 << " " << u2 << " " << u3 << " " << u4 << " " << u5 << std::endl;
+    }
+    f2.close();
+}
 
 
 
@@ -93,6 +139,7 @@ FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, 
 }
 void FixedMesh::storeSummand()
 {
+    test_summand();
     for(unsigned int n=1; n<=nxc; ++n) {
         for(unsigned int nn=1; nn<=nxc; ++nn) {
             sumTab[n][nn] =  summand(xPlusHalf(nn-1), xPlusHalf(nn), x(n));

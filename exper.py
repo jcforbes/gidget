@@ -8,6 +8,7 @@ import math
 import numpy as np
 import pdb
 import random
+from bolshoireader import bolshoireader
 
 # This is a script to allow you to run the GIDGET code with
 # a wide variety of systematically varied parameters. The functions here are described
@@ -23,9 +24,8 @@ allProcs=[] # a global list of all processes we've started
 allStartTimes=[] # a global list of the start times of all of these processes
 
 
-#from mcmc_y import bolshoireader
-#globalBolshoiReader = bolshoireader('rf_registry.txt',3.0e11,3.0e12)
-#bolshoiSize =  len(globalBolshoiReader.keys)
+globalBolshoiReader = bolshoireader('rf_registry3.txt',3.0e11,3.0e12, '/Users/jforbes/bolshoi/')
+bolshoiSize =  len(globalBolshoiReader.keys)
 
 def HowManyStillRunning(procs):
     ''' Given a list of processes created with subprocess.Popen, (each of which
@@ -80,7 +80,7 @@ class experiment:
                 0.54,0.1,200,.30959,0.38, \
                 -0.25,1.0,1.0,0.3,1.0, \
                 0,0.0,.1,.03,2.0, \
-                .002,.054,0.0,0.0]
+                .002,.054,0.0,0.0, bolshoiSize/2]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -95,7 +95,7 @@ class experiment:
                 'RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ', \
                 'accAlphaMh','accCeiling','fscatter','invMassRatio','fcool', \
                 'whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC', \
-                'ZIGM','yREC','concentrationRandomFactor','muFgScaling']
+                'ZIGM','yREC','concentrationRandomFactor','muFgScaling', 'bolshoiWeight']
         assert len(self.p)==len(self.names)
         self.keys={}
         ctr=0
@@ -231,9 +231,10 @@ class experiment:
 				if(covaryOtherVarsWithJ): 
 					for covIndex in covIndices:
 						if(covIndex != j): # already taken care of with a_p[j]=...
+							print covIndex, i, len(a_p), len(self.p), len(self.p[covIndex]) 
 							a_p[covIndex] = self.p[covIndex][i]
                 	        # in each copy, append to the name a...z corresponding to 
-				# which copy is currently being edited
+                            # which copy is currently being edited
 	                        if(i<=25):
         	                    base='a'
                 	            app=''
@@ -377,13 +378,14 @@ class experiment:
         for a_p in self.pl[startAt:]:
             ctr+=1
             tmpap=a_p[:]
+            globalBolshoiReader.copynearest(expDir, a_p[self.keys['name']]+'_inputRandomFactors.txt', a_p[self.keys['bolshoiWeight']])
             with open(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt','w') as stdo:
                 with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','w') as stde:
                     print "Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core."
                     #print "Parameters: "
                     #print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
                     os.chdir(expDir)
-                    procs.append(subprocess.Popen([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]],stdout=stdo,stderr=stde))
+                    procs.append(subprocess.Popen([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:-1]],stdout=stdo,stderr=stde))
                     cmd = ''
                     for el in tmpap:
                         cmd+=str(el)+' '
@@ -984,6 +986,261 @@ if __name__ == "__main__":
     dw05[0].irregularVary( 'xiREC', [0, .6, 0] , 3)
     dw05[0].irregularVary( 'accCeiling', [0.2, 1, 1] , 3)
 
+
+
+    # re52 and re53 are the same, but 53 is fed with multidark
+    Mhz0 = np.power(10.0, np.linspace(11.5, 13.3, 300))
+    Mhz4 = Mhz0/(10.0 * np.power(Mhz0/1.0e12,0.14)) # very roughly...
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
+    re51 = NewSetOfExperiments(re01,'re53')
+    re51[0].irregularVary('fg0', list(fgz4), 5)
+    re51[0].irregularVary('Noutputs',200)
+    re51[0].irregularVary('zstart',3.98)
+    re51[0].irregularVary('zrelax',4.0)
+    re51[0].irregularVary('dbg',2**4+2**1+2**0 )
+    re51[0].irregularVary('accScaleLength',0.052)
+    re51[0].irregularVary('R', list(np.power(reff4/reff4[-1],-0.1)*25), 5)
+    re51[0].irregularVary('Mh0', list(Mhz0), 5) 
+    re51[0].irregularVary('muNorm', list(.2*np.power(Mhz0/1.0e12,-0.6)), 5)
+    re51[0].irregularVary('fcool', list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4)), 5)
+    re51[0].irregularVary('muFgScaling', -0.3)
+    re51[0].irregularVary('muColScaling', 0.2)
+    re51[0].irregularVary('fscatter', 1.0)
+    re51[0].irregularVary('accCeiling',0.5)
+    re51[0].irregularVary('NPassive',1)
+    re51[0].irregularVary('eta',0.5)
+    re51[0].irregularVary('yREC',0.03)
+    re51[0].irregularVary('fixedQ', 1.25)
+    re51[0].irregularVary('Qlim', 1.75)
+    re51[0].irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
+    re51[0].irregularVary('ZIGM', list(ZHayward), 5)
+    asls = np.random.normal( np.random.normal(size=len(Mhz0)) )*(0.042-0.027) + 0.052
+    re51[0].irregularVary('accScaleLength', list(asls), 5)
+    #re51[0].irregularVary('NChanges', list(np.random.binomial(19,.53,size=240)), 5)
+    re51[0].irregularVary('NChanges', 301)
+    #re51[0].vary('whichAccretionHistory',-340,-101,240,0,5)
+    re51[0].irregularVary('whichAccretionHistory',-413)
+    #re51[0].irregularVary('bolshoiWeight', bolshoiSize/4)
+    bolweights = bolshoiSize * np.random.random(size=len(Mhz0))
+    re51[0].irregularVary('bolshoiWeight', [int(bolweights[i]) for i in range(len(bolweights))], 5)
+
+    # re54 is very similar to those above, but now fed with the ordinary Bouche accretion history ----------- this is also a good experiment: old-school variations in accretion histories to verify that our method of constructing them from multidark is reasonable.
+    Mhz0 = np.power(10.0, np.linspace(11.5, 13.3, 300))
+    Mhz4 = Mhz0/(10.0 * np.power(Mhz0/1.0e12,0.14)) # very roughly...
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
+    re54 = NewSetOfExperiments(re01,'re54')
+    re54[0].irregularVary('fg0', list(fgz4), 5)
+    re54[0].irregularVary('Noutputs',200)
+    re54[0].irregularVary('zstart',3.98)
+    re54[0].irregularVary('zrelax',4.0)
+    re54[0].irregularVary('dbg',2**4+2**1+2**0 )
+    re54[0].irregularVary('accScaleLength',0.052)
+    re54[0].irregularVary('R', list(np.power(reff4/reff4[-1],-0.1)*25), 5)
+    re54[0].irregularVary('Mh0', list(Mhz0), 5) 
+    re54[0].irregularVary('muNorm', list(.2*np.power(Mhz0/1.0e12,-0.6)), 5)
+    re54[0].irregularVary('fcool', list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4)), 5)
+    re54[0].irregularVary('muFgScaling', -0.3)
+    re54[0].irregularVary('muColScaling', 0.2)
+    re54[0].irregularVary('fscatter', 1.0)
+    re54[0].irregularVary('accCeiling',0.5)
+    re54[0].irregularVary('NPassive',1)
+    re54[0].irregularVary('eta',0.5)
+    re54[0].irregularVary('yREC',0.03)
+    re54[0].irregularVary('fixedQ', 1.25)
+    re54[0].irregularVary('Qlim', 1.75)
+    re54[0].irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
+    re54[0].irregularVary('ZIGM', list(ZHayward), 5)
+    asls = np.random.normal( np.random.normal(size=len(Mhz0)) )*(0.042-0.027) + 0.052
+    re54[0].irregularVary('accScaleLength', list(asls), 5)
+    #re54[0].irregularVary('NChanges', list(np.random.binomial(19,.53,size=240)), 5)
+    re54[0].irregularVary('NChanges', 301)
+    #re54[0].vary('whichAccretionHistory',-340,-101,240,0,5)
+    re54[0].irregularVary('whichAccretionHistory',0)
+    #re54[0].irregularVary('bolshoiWeight', bolshoiSize/4)
+    bolweights = bolshoiSize * np.random.random(size=len(Mhz0))
+    re54[0].irregularVary('bolshoiWeight', [int(bolweights[i]) for i in range(len(bolweights))], 5)
+
+
+
+
+
+    # re55 - fix up the run a bit. First, try to get rid of the high redshift cases where r_* is unresolved.
+    Ngal = 15
+    Mhz0 = np.power(10.0, np.linspace(11.5, 13.3, Ngal))
+    Mhz4 = Mhz0/(.75*33.3 * np.power(Mhz0/1.5e13,0.359)) # very roughly... We know for Mh0 = 3e11, Mhz4 =4e10, and same for Mh0=2e13->Mhz4=6e11. Using those 4 numbers and assuming a powerlaw, we get this relation.
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
+    re55 = NewSetOfExperiments(re01,'re55')
+    re55[0].irregularVary('fg0', list(fgz4), 5)
+    re55[0].irregularVary('Noutputs',200)
+    re55[0].irregularVary('zstart',3.98)
+    re55[0].irregularVary('zrelax',4.0)
+    re55[0].irregularVary('dbg',2**4+2**1+2**0 )
+    #re55[0].irregularVary('accScaleLength',0.104) # twice the canonical value I've been using
+    re55[0].irregularVary('R', list(np.power(reff4/reff4[-1],0.2)*40), 5)
+    re55[0].irregularVary('Mh0', list(Mhz0), 5) 
+    re55[0].irregularVary('muNorm', list(.2*np.power(Mhz0/1.0e12,-0.2)), 5)
+    re55[0].irregularVary('fcool', list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4)), 5)
+    re55[0].irregularVary('muFgScaling', -0.1)
+    re55[0].irregularVary('muColScaling', 0.1)
+    re55[0].irregularVary('fscatter', 1.0)
+    re55[0].irregularVary('accCeiling',0.5)
+    re55[0].irregularVary('NPassive',1)
+    re55[0].irregularVary('eta',0.5)
+    re55[0].irregularVary('xmin',0.005)
+    re55[0].irregularVary('yREC',0.03)
+    re55[0].irregularVary('fixedQ', 1.25)
+    re55[0].irregularVary('Qlim', 1.75)
+    re55[0].irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
+    re55[0].irregularVary('ZIGM', list(ZHayward), 5)
+    width = (0.042-0.027)/2.0
+    asls = np.random.normal( np.random.normal(size=len(Mhz0)) )*width + 0.104
+    re55[0].irregularVary('accScaleLength', list(asls), 5)
+    #re51[0].irregularVary('NChanges', list(np.random.binomial(19,.53,size=240)), 5)
+    re55[0].irregularVary('NChanges', 301)
+    #re51[0].vary('whichAccretionHistory',-340,-101,240,0,5)
+    re55[0].irregularVary('whichAccretionHistory',-413)
+    #re51[0].irregularVary('bolshoiWeight', bolshoiSize/4)
+    bolweights = bolshoiSize * np.random.random(size=len(Mhz0))
+    re55[0].irregularVary('bolshoiWeight', [int(bolweights[i]) for i in range(len(bolweights))], 5)
+
+
+
+
+    # re56 - fix up the run a bit. First, try to get rid of the high redshift cases where r_* is unresolved.
+    Ngal = 15
+    Mhz0 = np.power(10.0, np.linspace(11.5, 13.3, Ngal))
+    Mhz4 = Mhz0/(.75*33.3 * np.power(Mhz0/1.5e13,0.359)) # very roughly... We know for Mh0 = 3e11, Mhz4 =4e10, and same for Mh0=2e13->Mhz4=6e11. Using those 4 numbers and assuming a powerlaw, we get this relation.
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
+    re56 = NewSetOfExperiments(re01,'re56')
+    re56[0].irregularVary('fg0', list(fgz4), 5)
+    re56[0].irregularVary('Noutputs',200)
+    re56[0].irregularVary('zstart',3.98)
+    re56[0].irregularVary('zrelax',4.0)
+    re56[0].irregularVary('dbg',2**4+2**1+2**0+2**13 )
+    #re56[0].irregularVary('accScaleLength',0.104) # twice the canonical value I've been using
+    re56[0].irregularVary('R', list(np.power(reff4/reff4[-1],0.2)*40), 5)
+    re56[0].irregularVary('Mh0', list(Mhz0), 5) 
+    re56[0].irregularVary('muNorm', list(.2*np.power(Mhz0/1.0e12,-0.2)), 5)
+    re56[0].irregularVary('fcool', list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4)), 5)
+    re56[0].irregularVary('muFgScaling', -0.1)
+    re56[0].irregularVary('muColScaling', 0.1)
+    re56[0].irregularVary('fscatter', 1.0)
+    re56[0].irregularVary('accCeiling',0.5)
+    re56[0].irregularVary('NPassive',1)
+    re56[0].irregularVary('eta',0.5)
+    re56[0].irregularVary('xmin',0.005)
+    re56[0].irregularVary('yREC',0.03)
+    re56[0].irregularVary('fixedQ', 1.25)
+    re56[0].irregularVary('Qlim', 1.75)
+    re56[0].irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
+    re56[0].irregularVary('ZIGM', list(ZHayward), 5)
+    width = (0.042-0.027)/2.0
+    asls = np.random.normal( np.random.normal(size=len(Mhz0)) )*width + 0.104
+    re56[0].irregularVary('accScaleLength', list(asls), 5)
+    #re51[0].irregularVary('NChanges', list(np.random.binomial(19,.53,size=240)), 5)
+    re56[0].irregularVary('NChanges', 301)
+    #re56[0].vary('whichAccretionHistory',-340,-101,240,0,5)
+    re56[0].irregularVary('whichAccretionHistory',-413)
+    #re56[0].irregularVary('bolshoiWeight', bolshoiSize/4)
+    bolweights = bolshoiSize * np.random.random(size=len(Mhz0))
+    re56[0].irregularVary('bolshoiWeight', [int(bolweights[i]) for i in range(len(bolweights))], 5)
+
+
+    # re57 - continue to debug newly-discovered issue with rotation curves
+    Ngal = 15
+    Mhz0 = np.power(10.0, np.linspace(11.5, 13.3, Ngal))
+    Mhz4 = Mhz0/(.75*33.3 * np.power(Mhz0/1.5e13,0.359)) # very roughly... We know for Mh0 = 3e11, Mhz4 =4e10, and same for Mh0=2e13->Mhz4=6e11. Using those 4 numbers and assuming a powerlaw, we get this relation.
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+    ZHayward = np.power(10.0, ZHayward) * 0.02
+    re57 = NewSetOfExperiments(re01,'re57')
+    re57[0].irregularVary('fg0', list(fgz4), 5)
+    re57[0].irregularVary('Noutputs',200)
+    re57[0].irregularVary('zstart',3.98)
+    re57[0].irregularVary('zrelax',4.0)
+    re57[0].irregularVary('dbg',2**4+2**1+2**0+2**13 )
+    #re57[0].irregularVary('accScaleLength',0.104) # twice the canonical value I've been using
+    re57[0].irregularVary('R', list(np.power(reff4/reff4[-1],0.2)*60), 5)
+    re57[0].irregularVary('Mh0', list(Mhz0), 5) 
+    re57[0].irregularVary('muNorm', list(.2*np.power(Mhz0/1.0e12,-0.2)), 5)
+    re57[0].irregularVary('fcool', list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4)), 5)
+    re57[0].irregularVary('muFgScaling', -0.1)
+    re57[0].irregularVary('muColScaling', 0.1)
+    re57[0].irregularVary('fscatter', 1.0)
+    re57[0].irregularVary('accCeiling',0.5)
+    re57[0].irregularVary('NPassive',1)
+    re57[0].irregularVary('eta',0.5)
+    re57[0].irregularVary('xmin',0.005)
+    re57[0].irregularVary('yREC',0.03)
+    re57[0].irregularVary('fixedQ', 1.25)
+    re57[0].irregularVary('Qlim', 1.75)
+    re57[0].irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
+    re57[0].irregularVary('ZIGM', list(ZHayward), 5)
+    width = (0.042-0.027)/2.0
+    asls = np.random.normal( np.random.normal(size=len(Mhz0)) )*width + 0.052
+    re57[0].irregularVary('accScaleLength', list(asls), 5)
+    #re51[0].irregularVary('NChanges', list(np.random.binomial(19,.53,size=240)), 5)
+    re57[0].irregularVary('NChanges', 301)
+    #re56[0].vary('whichAccretionHistory',-340,-101,240,0,5)
+    re57[0].irregularVary('whichAccretionHistory',-413)
+    #re56[0].irregularVary('bolshoiWeight', bolshoiSize/4)
+    bolweights = bolshoiSize * np.random.random(size=len(Mhz0))
+    re57[0].irregularVary('bolshoiWeight', [int(bolweights[i]) for i in range(len(bolweights))], 5)
+
+
+    # re58: try turning off GI - confirm that it's the cause of the oscillations.
+    re58= NewSetOfExperiments(re57,'re58')
+    re58[0].irregularVary( 'fixedQ', 0.1)
+
+    # re59
+    re59 = NewSetOfExperiments(re58,'re59')
+    re59[0].irregularVary( 'fixedQ', .01)
+    re59[0].irregularVary( 'Qlim', 0.015 )
+    
+    # re60 - turn off stars basically. Confirm that the instability still occurs in a gas-only disk. If it does, as we expect, then we can check whether it can be killed with a large alpha viscosity.
+    re60 = NewSetOfExperiments(re57, 're60')
+    re60[0].irregularVary( 'Qlim', 0 )
+    re60[0].irregularVary( 'fixedQ', 1.5 )
+    re60[0].irregularVary( 'fg0', .999999 )
+    re60[0].irregularVary( 'epsff', 1.0e-7 )
+    re60[0].irregularVary( 'muNorm', 0)
+
+    # re61 - now check that we can kill the oscillation with high alpha.
+    re61 = NewSetOfExperiments(re60, 're61')
+    re61[0].irregularVary( 'alphaMRI', 0.2 )
 
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

@@ -217,6 +217,7 @@ int main(int argc, char **argv) {
     // Set the dimensional quantities. 
     Dimensions dim(radius,vphiR,mdot0);
     FixedMesh mesh(beta0,BulgeRadius/dim.d(1.0),nRotCurve,xmin,minSigSt,nx);
+    mesh.storeSummand();
     double MhZs = accr.MhOfZ(zrelax)*Mh0; // this is in units of solar masses
     cos.UpdateProfile(MhZs, zrelax, mesh.x(), dim.Radius);
     double r200 = cos.r200(MhZs,zrelax); // this will be in cm

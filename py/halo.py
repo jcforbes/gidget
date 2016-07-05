@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.special
+import pdb
 
 
 gpermsun = 1.9891e33
@@ -17,16 +18,21 @@ c = 2.99792458e10
 
 class halo:
     def __init__(self,mass,z, cos, crf):
+        zz = z
+        if zz<0:
+            zz=0 # Floor z at 0.
         self.mass=mass # Msun
         self.crf = crf
-        self.radius = (mass * gpermsun * 3.0/(4.0*np.pi*200.0*cos.rhocrit(z)))**(1.0/3.0) / cmperkpc # kpc
+        self.radius = (mass * gpermsun * 3.0/(4.0*np.pi*200.0*cos.rhocrit(zz)))**(1.0/3.0) / cmperkpc # kpc
         self.vcirc = np.sqrt( G*mass*gpermsun / (self.radius*cmperkpc )) * 1.0e-5 # km/s
         self.T = mp * (self.vcirc*1.0e5)**2.0 / kB # K
         m = np.log10(mass*cos.h/1.0e12)
-        nu = 10.0 ** ( -0.11 + 0.146*m + 0.0138*m*m + 0.00123*m*m*m) * (0.033 + 0.79*(1.0+z) + 0.176*np.exp(-1.356*z))
-        a = 0.520 + (0.905 - 0.520)*np.exp(-0.617*z**1.21)
-        b = -0.101 + 0.026*z
+        nu = 10.0 ** ( -0.11 + 0.146*m + 0.0138*m*m + 0.00123*m*m*m) * (0.033 + 0.79*(1.0+zz) + 0.176*np.exp(-1.356*zz))
+        a = 0.520 + (0.905 - 0.520)*np.exp(-0.617*zz**1.21)
+        b = -0.101 + 0.026*zz
         self.c200 = 10.0 ** (a+b*m + crf)
+        if self.c200!=self.c200:
+            pdb.set_trace()
         self.alpha = 0.0095*nu*nu + 0.155
     def mInterior(self,r):
         # r in kpc
@@ -35,6 +41,8 @@ class halo:
         alpha = self.alpha
         self.rhoScale = self.mass/( 2.0**(2.0-3.0/alpha)*np.exp(2.0/alpha)*np.pi*alpha**(+3./alpha-1.0)*rScale*rScale*rScale*scipy.special.gamma(3.0/alpha)*( scipy.special.gammainc(3.0/alpha, 2.0*(c200**alpha)/alpha))/gpermsun)
         val = self.rhoScale* 2.0**(2.0-3.0/alpha)*np.exp(2.0/alpha)*np.pi*alpha**(+3./alpha-1.0)*rScale*rScale*rScale* scipy.special.gamma(3.0/alpha)*( scipy.special.gammainc(3.0/alpha, 2.0*((r*cmperkpc/rScale)**alpha)/alpha))
+        if val!=val:
+            pdb.set_trace()
         return val # grams
       #   val = rhoScaleEinasto(Mh,z) * exp( -2.0/alpha * (pow(x[n]*Radius/rScale, alpha) - 1.0) );
       #   rho[n] = val;:

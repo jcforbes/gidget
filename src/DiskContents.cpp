@@ -122,6 +122,9 @@ DiskContents::DiskContents(double tH, double eta,
         double ZIGM, double yrec) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
+    uDisk(std::vector<double>(m.nx()+1,0.)),
+    uDM(std::vector<double>(m.nx()+1,0.)),
+    uBulge(std::vector<double>(m.nx()+1,0.)),
     dim(d), mesh(m), dbg(ddbg),
     XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
     cos(c),tauHeat(tH),sigth(sflr),
@@ -1448,8 +1451,12 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
         double thinDiskContrib = 0.0;
         double thickDiskContrib = 0.0;
         for(unsigned int nn=1; nn<=nx; ++nn) {
-            // if(n!=nn && n!=nn-1 && n!=nn+1)
+            if(n!=nn)
                 thinDiskContrib += (activeColSt(nn)*((double) thin[nn])+col[nn])*mesh.summandTabulated(n,nn);
+        }
+        if(thinDiskContrib < 0) {
+            // std::cout << "WARNING: Negative thinDiskContrib in DiskContents::UpdateRotationCurve! z,n,val: "<<z<<" "<<n<<" "<<thinDiskContrib<<std::endl;
+            thinDiskContrib=0.0;
         }
         thinDiskContrib *= 2.0*M_PI*x[n]*dim.chi();
         for(unsigned int nn=1; nn<=n; ++nn) {
@@ -1459,14 +1466,44 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
         bulgeContrib = MBulge/x[n] * 2.0*M_PI*dim.chi();
         haloContrib = G*GetCos().MrEinasto(n)*MSol/(x[n]*dim.Radius*dim.vphiR*dim.vphiR);
 //        std::cout << "n, halo contribution: "<<n<<" "<<haloContrib/(haloContrib+uu[n]) << " "<<uu[n]<<" "<<haloContrib<<" "<<GetCos().MrEinasto(x[n]*dim.Radius, Mh, z)/Mh << std::endl;
-        uu[n] = sqrt(haloContrib+bulgeContrib+thickDiskContrib+thinDiskContrib);
+        uDM[n] = sqrt(haloContrib);
+        uBulge[n] = sqrt(bulgeContrib);
+        uDisk[n] = sqrt(thickDiskContrib+thinDiskContrib);
+    }
+//    std::vector<double> uDiskCopy(nx+1,0.0);
+//    for(unsigned int n=1; n<=nx; ++n) {
+//        uDiskCopy[n] = uDisk[n];
+//    }
+//    for(unsigned int n=1; n<=nx; ++n) {
+//        double sum=0.0;
+//        double nsum=0.0;
+//        for(int k=n-5; k<=n+5; ++k) {
+//            if(k>=1 && k<=nx) {
+//                sum += uDiskCopy[n]*uDiskCopy[n];
+//                nsum += 1.0;
+//            }
+//        }
+//        uDisk[n] = sqrt(sum/nsum);
+//    }
+    for(unsigned int n=1; n<=nx; ++n) {
+        uu[n] = sqrt(uDM[n]*uDM[n] + uBulge[n]*uBulge[n] + uDisk[n]*uDisk[n]);//sqrt(haloContrib+bulgeContrib+thickDiskContrib+thinDiskContrib);
 
-        if(n==nx && dbg.opt(13)) {
-            std::cout << "Debug vrot "<< haloContrib<<" "<<bulgeContrib<<" "<<thinDiskContrib<<" "<<thickDiskContrib <<std::endl;
-        }
+//        if(n==nx/3 && dbg.opt(13)) {
+ //           std::cout << "Debug vrot "<< haloContrib<<" "<<bulgeContrib<<" "<<thinDiskContrib<<" "<<thickDiskContrib <<std::endl;
+  //      }
     }
     for(unsigned int n=2; n<=nx-1; ++n) {
         beta[n] = log(uu[n+1]/uu[n-1])/log(x[n+1]/x[n-1]);
+        if(beta[n]>0.99) {
+            // Prevent non-physical situation wherein rotation curve is steeper than solid body
+            //std::cout << "WARNING: steep ascending rotation curve in DiskContents::UpdateRotationCurve! z,n,val: "<<z<<" "<<n<<" "<<beta[n]<<std::endl;
+            beta[n]=.99;
+        }
+        if(beta[n]<-.5) {
+            // Prevent non-physical situation wherein rotation curve is much steeper than Keplerian
+            //std::cout << "WARNING: steep declining rotation curve in DiskContents::UpdateRotationCurve! z,n,val: "<<z<<" "<<n<<" "<<beta[n]<<std::endl;
+            beta[n]=-0.5;
+        }
     }
     beta[1]=beta[2];
     beta[nx]=beta[nx-1];

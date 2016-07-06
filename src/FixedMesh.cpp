@@ -25,32 +25,95 @@ double sign(double a) {
 }
 
 
-
-
-double summand(double xnm, double xnp, double xj)
+double HypergeometricPFQ123232152(double y)
 {
+    //// A numerical approximation to HypergeometricPFQ[{1/2,3/2,3/2},{1,5/2},y^2] (in Mathematica parlance).
+}
+
+double HypergeometricPFQ115252223(double y)
+{
+    //// A numerical approximation to HypergeometricPFQ[{1,1,5/2,5/2},{2,2,3},y^2] (in Mathematica parlance).
+}
+
+
+double summand(double xnm, double xnp, double xj, int term)
+{
+    //// We assume here that the column density distribution in the sub-region of interest is described by the following:
+    //// \Sigma = a x^2 + b x + c + d/x.
+    //// The argument term is 0 if we are looking to retrive the terms proportional to a, 1 for b, etc. 
    gsl_mode_t mode = GSL_PREC_DOUBLE; // since we're only evaluating this once, we can probably afford the high precision.
    if(xnp<=xnm) {
        std::cerr << "Bad input in FixedMesh::summand()." << std::endl;
        return 0;
    }
    if(xj > xnp) {
+       if( term==0 ) {
+        return 2.0/(3.0*M_PI) * (4.0*xj*xj+1.0*xnm*xnm) * gsl_sf_ellint_Ecomp(xnm/xj, mode)
+            + 2.0/(3.0*M_PI) * (4.0*xj*xj-1.0*xnp*xnp) * gsl_sf_ellint_Ecomp(xnp/xj, mode)
+            - 2.0/(3.0*M_PI) * (4.0*xj*xj -1.0*xnm*xnm ) * gsl_sf_ellint_Kcomp(xnm/xj, mode)
+            + 2.0/(3.0*M_PI) * (4.0*xj*xj - 1.0*xnp*xnp) * gsl_sf_ellint_Kcomp(xnp/xj, mode);
+       }
+       if( term==1 ) {
+        return -xnm*xnm*xnm/(3.0*xj*xj) * HypergeometricPFQ123232152(xnm/xj) + xnp*xnp*xnp/(3.0*xj*xj) * HypergeometricPFQ123232152(xnp/xj);
+       }
+       if( term==2 ) {
         return (2.0/M_PI) * ( gsl_sf_ellint_Ecomp(xnm/xj ,mode) 
                              -gsl_sf_ellint_Ecomp(xnp/xj, mode)
                              -gsl_sf_ellint_Kcomp(xnm/xj, mode) // check this!
                              +gsl_sf_ellint_Kcomp(xnp/xj, mode) );
+       }
+       if( term==3 ) {
+        return -2.0*xnm/(M_PI*xj*xj) * gsl_sf_ellint_Kcomp(xnm/xj, mode)
+            + 2.0*xnp/(M_PI*xj*xj) * gsl_sf_ellint_Kcomp(xnp/xj, mode);
+       }
    }
    else if(xj < xnm) {
+       if( term==0 ) {
+        return 2.0*(4.0*xj*xnm+1.0*xnm*xnm*xnm/xj)*gsl_sf_ellint_Ecomp(xj/xnm, mode) / (3.0*M_PI)
+            +4.0/(3.0*M_PI) * (2.0*xj*xnp - xnp*xnp*xnp/xj) * gsl_sf_ellint_Ecomp(xj/xnp, mode)
+            +2.0/(3.0*M_PI) * (2.0*xj*xnm - xnm*xnm*xnm/xj) * gsl_sf_ellint_Kcomp(xj/xnm, mode)
+            +2.0/(3.0*M_PI) * (2.0*xj*xnp - xnp*xnp*xnp/xj) * gsl_sf_ellint_Kcomp(xj/xnp, mode);
+       }
+       if( term==1) {
+        return -9.0*xj*xj*xj/(32.0*xnm*xnm) * HypergeometricPFQ115252223(xj/xnm)
+            +9.0*xj*xj*xj/(32.0*xnp*xnp) * HypergeometricPFQ115252223(xj/xnp)
+            +0.5*xj*log(xnm) - 0.5*xj*log(xnp);
+       }
+       if( term==2 ) {
         return (2.0/(M_PI*xj)) * ( xnm*gsl_sf_ellint_Ecomp(xj/xnm, mode)
                                   -xnp*gsl_sf_ellint_Ecomp(xj/xnp, mode) 
                                   -xnm*gsl_sf_ellint_Kcomp(xj/xnm, mode)
                                   +xnp*gsl_sf_ellint_Kcomp(xj/xnp, mode));
+       }
+       if( term==3 ) {
+        return -2.0/(M_PI*xj) * gsl_sf_ellint_Kcomp(xj/xnm, mode)
+            + 2.0/(M_PI*xj) * gsl_sf_ellint_Kcomp(xj/xnp, mode);
+       }
    }
    else if(xnm<=xj && xj<=xnp) {
+       if( term==0 ) {
+        return 2.0/(3.0*M_PI) * (4.0*xj*xj+2.0*xnm*xnm)*gsl_sf_ellint_Ecomp(xnm/xj, mode)
+            + 2.0/(3.0*M_PI) * (-4.0*xj*xnp - xnp*xnp*xnp/xj) * gsl_sf_ellint_Ecomp(xj/xnp, mode)
+            + 2.0/(3.0*M_PI) * (-4.0*xj*xj + 1.0*xnm*xnm) * gsl_sf_ellint_Kcomp(xnm/xj, mode)
+            + 2.0/(3.0*M_PI) * (2.0*xj*xnp + 1.0*xnp*xnp*xnp/xj) *gsl_sf_ellint_Kcomp(xj/xnp, mode);
+       }
+       if( term==1 ) {
+        return 3.0*xj/4.0
+            - xnm*xnm*xnm/(3.0*xj*xj) * HypergeometricPFQ123232152(xnm/xj) 
+            + 9.0*xj*xj*xj/(32.0*xnp*xnp) * HypergeometricPFQ115252223(xj/xnp)
+            - 0.25*xj*log(16*xnp*xnp/xj/xj);
+
+       }
+       if( term==2 ) {
         return (2.0/(M_PI*xj)) * ( xj*gsl_sf_ellint_Ecomp(xnm/xj, mode)
                                  -xnp*gsl_sf_ellint_Ecomp(xj/xnp, mode)
                                  - xj*gsl_sf_ellint_Kcomp(xnm/xj, mode)
                                  +xnp*gsl_sf_ellint_Kcomp(xj/xnp, mode) );
+       }
+       if( term==3 ) {
+        return -2.0*xnm/(M_PI*xj*xj) * gsl_sf_ellint_Kcomp(xnm/xj, mode)
+            + 2.0/(M_PI*xj) * gsl_sf_ellint_Kcomp(xj/xnp, mode);
+       }
    }
    else {
        std::cerr << "Strange circumstance in summand()." << std::endl;
@@ -67,7 +130,7 @@ void test_summand()
     unsigned int ntest = 1373;
     for(unsigned int i=0; i<ntest; ++i) {
         double x0 = ((double) i+1)/((double) ntest);
-        f <<x0<<" "<< summand( 0.01, 0.011, x0) <<" "<< summand(0.1,0.11, x0)<<" "<< summand(.9,.95,x0) << std::endl;
+        f <<x0<<" "<< summand( 0.01, 0.011, x0, 2) <<" "<< summand(0.1,0.11, x0, 2)<<" "<< summand(.9,.95,x0, 2) << std::endl;
     }
     f.close();
 
@@ -82,7 +145,7 @@ void test_summand()
         double u4=0.0;
         double u5=0.0;
         for(unsigned int nn=1; nn<=m.nx(); ++nn) {
-            double weight = summand( m.xPlusHalf(nn-1), m.xPlusHalf(nn), m.x(n) );
+            double weight = summand( m.xPlusHalf(nn-1), m.xPlusHalf(nn), m.x(n), 2 );
             u1=u1 + weight * exp(-m.x(nn)/0.01);
             u2=u2 + weight * exp(-m.x(nn)/0.3);
             u3=u3 + weight * exp(-m.x(nn)/2.0);
@@ -142,7 +205,7 @@ void FixedMesh::storeSummand()
     test_summand();
     for(unsigned int n=1; n<=nxc; ++n) {
         for(unsigned int nn=1; nn<=nxc; ++nn) {
-            sumTab[n][nn] =  summand(xPlusHalf(nn-1), xPlusHalf(nn), x(n));
+            sumTab[n][nn] =  summand(xPlusHalf(nn-1), xPlusHalf(nn), x(n), 2);
         }
     }
 

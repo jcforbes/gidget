@@ -1242,6 +1242,14 @@ if __name__ == "__main__":
     re61 = NewSetOfExperiments(re60, 're61')
     re61[0].irregularVary( 'alphaMRI', 0.2 )
 
+    re62 = NewSetOfExperiments( re57, 're62' )
+    re62[0].irregularVary( 'nx', 256 ) # FFT o'clock.
+
+
+    re63 = NewSetOfExperiments( re62, 're63')
+    re63[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7)
+
+
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

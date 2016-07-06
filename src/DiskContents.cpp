@@ -18,6 +18,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_sf_erf.h>
+#include <gsl/gsl_fft_halfcomplex.h>
 
 #include <iostream>
 #include <fstream>
@@ -1445,14 +1446,35 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
 
     }
 
+    double * col_copy = new double[nx];
+    double * colst_copy = new double[nx];
+    for(unsigned int n=0; n<nx; ++n) {
+        col_copy[n] = col[n+1];
+        colst_copy[n] = activeColSt(n+1);
+    }
+    gsl_fft_real_radix2_transform( col_copy, 1, nx );
+    gsl_fft_real_radix2_transform( colst_copy, 1, nx );
+    for(unsigned int n=0; n<nx; ++n) {
+        if(dbg.opt(7)) { 
+            col_copy[n] = col_copy[n] * exp(-((double) n) /20.0 );
+            colst_copy[n] = colst_copy[n] * exp(-((double) n) /20.0 );
+            // col_copy[nx-1-n] = col_copy[nx-1-n] * exp(-((double) (nx-1-n)) /20.0 );
+            // colst_copy[nx-1-n] = colst_copy[nx-1-n] * exp(-((double) (nx-1-n)) /20.0 );
+        }
+    }
+
+    gsl_fft_halfcomplex_radix2_inverse(col_copy, 1, nx);
+    gsl_fft_halfcomplex_radix2_inverse(colst_copy, 1, nx);
+
+
     for(unsigned int n=1; n<=nx; ++n) {
         double haloContrib;
         double bulgeContrib;
         double thinDiskContrib = 0.0;
         double thickDiskContrib = 0.0;
         for(unsigned int nn=1; nn<=nx; ++nn) {
-            if(n!=nn)
-                thinDiskContrib += (activeColSt(nn)*((double) thin[nn])+col[nn])*mesh.summandTabulated(n,nn);
+            //thinDiskContrib += (activeColSt(nn)*((double) thin[nn])+col[nn])*mesh.summandTabulated(n,nn);
+            thinDiskContrib += (colst_copy[nn-1]*((double) thin[nn])+col_copy[nn-1])*mesh.summandTabulated(n,nn);
         }
         if(thinDiskContrib < 0) {
             // std::cout << "WARNING: Negative thinDiskContrib in DiskContents::UpdateRotationCurve! z,n,val: "<<z<<" "<<n<<" "<<thinDiskContrib<<std::endl;
@@ -1470,6 +1492,9 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
         uBulge[n] = sqrt(bulgeContrib);
         uDisk[n] = sqrt(thickDiskContrib+thinDiskContrib);
     }
+
+    delete[] col_copy;
+    delete[] colst_copy;
 //    std::vector<double> uDiskCopy(nx+1,0.0);
 //    for(unsigned int n=1; n<=nx; ++n) {
 //        uDiskCopy[n] = uDisk[n];

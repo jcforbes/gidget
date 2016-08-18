@@ -238,9 +238,9 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         redshifts.push_back(z); 
 
         if(MdotExt < 1.0e-10)
-            errormsg("Very low Mdot. If you're sure it's fine edit line 233ish of AccretionHistory.cpp");
+            errormsg("Very low Mdot. If you're sure it's fine edit line 241ish of AccretionHistory.cpp");
         if(MdotExt > 1.0e6)
-            errormsg("Very large Mdot. If you're sure it's fine edit line 235ish of AccretionHistory.cpp");
+            errormsg("Very large Mdot. If you're sure it's fine edit line 243ish of AccretionHistory.cpp");
 
         tabulatedAcc.push_back(MdotExt);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<" "<<x<<" "<<scatter<<" "<<epsin(z,Mh,cos,zquench)<<" "<<currentAccretionRate<<std::endl;
@@ -544,9 +544,11 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
 {
     // try a reasonably general formula with user-controlled values.
     // Use the same functional form as CAFG.
+    double Mquench = 1.0;
     double val = normalization * pow(1.0+z, alpha_z) * pow(Mh, alpha_Mh);
     if(val > ceiling) val=ceiling;
     if(z<zquench) val = 0.0;
+    if(Mh>Mquench) val*=0.3;
     if (val<0 || val>1)
         errormsg("Nonphysical accretion efficiency!");
     return val;

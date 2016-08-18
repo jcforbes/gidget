@@ -120,7 +120,8 @@ DiskContents::DiskContents(double tH, double eta,
         double minSigSt,
 		double rfrec, double xirec,
 		double fh2min, double tdeph2sc,
-        double ZIGM, double yrec) :
+        double ZIGM, double yrec,
+        double ksup, double kpow) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
     uDisk(std::vector<double>(m.nx()+1,0.)),
@@ -141,6 +142,7 @@ DiskContents::DiskContents(double tH, double eta,
     analyticQ(aq),
     tDepH2SC(tdeph2sc),
     fH2Min(fh2min),
+    ksuppress(ksup), kpower(kpow),
     thickness(thk), migratePassive(migP),
     col(std::vector<double>(m.nx()+1,0.)),
     sig(std::vector<double>(m.nx()+1,0.)),
@@ -185,6 +187,8 @@ DiskContents::DiskContents(double tH, double eta,
     CuGasOut(std::vector<double>(m.nx()+1,0.)),
     fH2(std::vector<double>(m.nx()+1,0.5)),
     G0(std::vector<double>(m.nx()+1,1.0)),
+    colvPhiDisk(std::vector<double>(m.nx()+1,0.0)),
+    colstvPhiDisk(std::vector<double>(m.nx()+1,0.0)),
     dampingFactors(std::vector<double>(m.nx()+1,0.3)),
     //FF(std::vector<double>(m.nx()+1,0.)),
     // DD(std::vector<double>(m.nx()+1,0.)),
@@ -299,6 +303,9 @@ void DiskContents::Initialize(double fcool, double fg0,
     StellarPop * initialStarsA = new StellarPop(mesh);
     StellarPop * initialStarsP = new StellarPop(mesh);
 
+    double fg4 = fg0;
+    double fc = fcool;
+    double Z0 = Z_IGM;
     double xd = stScaleLength/dim.d(1.0);
     // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
     // fcool of the baryons have cooled to form a disk.
@@ -309,13 +316,48 @@ void DiskContents::Initialize(double fcool, double fg0,
     xinner = 0.0; // don't change the column density depending on inner edge
     xouter = 1000.0;
     double dummy = -exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner);
-    double S0 = 0.17*fcool*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
+    double eff;
+
+    // override the inputs to this function for fcool and fg0 based on our knowledge of the actual halo mass in this galaxy at z=4.
+    if(dbg.opt(10)) {
+        double Mh = MhZs;
+        double M10 = 11.590;
+        double M11 = 1.195;
+        double N10 = 0.0351;
+        double N11 = -0.0247;
+        double beta10= 1.376;
+        double beta11 = -0.826;
+        double gamma10 = 0.608;
+        double gamma11 = 0.329;
+        double zti = 4.0;
+        double logM1z = M10 + M11*zti/(zti+1.0);
+        double Nz = N10 + N11*zti/(zti+1.0);
+        double betaz = beta10 + beta11*zti/(zti+1.0);
+        double gammaz = gamma10 + gamma11*zti/(zti+1.0);
+        double M1 = pow(10.0, logM1z);
+        eff = 2.0*Nz / (pow(Mh/M1,-betaz) + pow(Mh/M1,gammaz));
+        double mst = eff*Mh; // mstar according to the moster relation. ## at z=4 !!
+        double f0 = 1.0/(1.0 + pow(mst/pow(10.0,9.15),0.4)); // from Hayward & Hopkins (2015) eq. B2
+        double tau4 = 12.27/(12.27+1.60); // fractional lookback time at z=4
+        double fgz4 = f0*pow(1.0 - tau4*(1.0-pow(f0,1.5)), -2.0/3.0);
+        double reff4 = 5.28*pow(mst/1.0e10, 0.25)*pow(1.0+4.0,-0.6); // kpc (eq B3) at z=4
+        double ZHayward = -8.69 + 9.09*pow(1.0+4.0,-0.017) - 0.0864*pow(log10(mst) - 11.07*pow(1.0+4.0,0.094),2.0);
+        ZHayward = pow(10.0, ZHayward) * 0.02;
+        Z0 = ZHayward;
+        fc = 1.0/(1.0-fgz4) * mst/(0.17*Mh);
+        fg4 = fgz4;
+        xd = reff4/dim.d(1.0)/1.67835; // is scale length = reff? Numerical solution says reff/rd = 1.67835.
+ 
+    }
+
+    double S0 = 0.17*fc*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
+    double floorval = 1.0e-15;
 
     for(unsigned int n=1; n<=nx; ++n) {
-        ZDisk[n] = Z_IGM;
-        initialStarsA->spcol[n] = S0*(1-fg0)*exp(-x[n]/xd);
-        if(initialStarsA->spcol[n] < S0*(1-fg0)*1.0e-15)
-            initialStarsA->spcol[n] = S0*(1-fg0)*1.0e-15; // floor the initial value to avoid very small timesteps
+        ZDisk[n] = Z0;
+        initialStarsA->spcol[n] = S0*(1-fg4)*exp(-x[n]/xd);
+        if(initialStarsA->spcol[n] < S0*(1-fg4)*floorval)
+            initialStarsA->spcol[n] = S0*(1-fg4)*floorval; // floor the initial value to avoid very small timesteps
         initialStarsA->spsigR[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spsigZ[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spZ[n] = Z_IGM;
@@ -327,16 +369,23 @@ void DiskContents::Initialize(double fcool, double fg0,
         initialStarsP->spZ[n] = initialStarsA->spZ[n];
         initialStarsP->spZV[n] = initialStarsA->spZV[n];
 
-        col[n] = S0*fg0*exp(-x[n]/xd);
-        if(col[n] < S0*fg0*1.0e-15)
-            col[n] = S0*fg0*1.0e-15; // floor the initial value to avoid very small timesteps
+        col[n] = S0*fg4*exp(-x[n]/xd);
+        if(col[n] < S0*fg4*floorval)
+            col[n] = S0*fg4*floorval; // floor the initial value to avoid very small timesteps
         sig[n] = max(sig0, sigth);
 
 
     }
+    std::cout << "DEBUG ICs.  "<< MhZs << " "<< eff<<" "<< xd<<" "<< " "<< stScaleLength/dim.d(1.0)<<" " << col[1]<< " "<<col[nx]<<  std::endl;
+    
     ComputeMassLoadingFactor(MhZs, initialStarsA->spcol);
 
-    MBulge = M_PI*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!
+    // In simulation units, mass = M(dimensional) / [ Mdotext * 2pi R/vphiR ]
+    // Ergo mbulge(dimensionless) = pi r0^2 \Sigma0 / [ Mdotext * 2pi R/vphiR]
+    //                            = pi x0^2 R^2 S0 Mdotext/(vphiR R) / [ Mdotext *2pi R/vphiR]
+    //                            = 0.5 x0^2 S0
+    // MBulge = M_PI*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!
+    MBulge = 0.5*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!
     initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
     initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
 
@@ -1236,7 +1285,8 @@ void DiskContents::DiffuseMetals(double dt)
         //else if(dbg.opt(8)) KM = (kappaMetals*1.0e3)*1.0e-4 * uu[n]/uu[nx]*x[nx]/x[n] * dim.Radius/(10.0*cmperkpc); //KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(M_PI*col[n]*dim.chi() * (1.0 +  sig[n]*activeColSt(n)/(activeSigStZ(n)*col[n]))); 
         // don't scale - kappa is constant.
         //else KM = kappaMetals;
-        if(KM > 1.0) KM = 1.0;
+        double klim = sig[n]*sig[n]/uu[n] * x[n];
+        if(KM > klim ) KM = klim;
         double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
         double colnp1 = col[nx];
         if(n!=nx) colnp1=col[n+1];
@@ -1406,7 +1456,8 @@ double DiskContents::ComputeH2Fraction(double ch, double thisCol, double thisZ)
     double tauc = 320.0 * clumping * Sig0 * Z0;
     double ss = log(1.0 + 0.6 * ch + .01*ch*ch)/(0.6*tauc);
     double val = 1.0 - 0.75 * ss/(1.0+0.25*ss);
-    if(val<fH2Min ) val = fH2Min;
+    // if(val<fH2Min ) val = fH2Min; // This "feature" was an old hack to get around KMT09's deficiencies. It's solved by going to K13.
+    if(val<0) val=0.0;
     if(val<0. || val>1.0 || val!=val)
         errormsg("Nonphysical H2 Fraction :" + str(val) + 
                 ", ch,tauc,ss,ZDisk,ZBulge,col= " +
@@ -1415,9 +1466,10 @@ double DiskContents::ComputeH2Fraction(double ch, double thisCol, double thisZ)
     return val;
 }
 
-double DiskContents::ComputeRhoSD(unsigned int n, double Mh, double z)
+double DiskContents::ComputeRhoSD(unsigned int n)
 {
-    double r = x[n]*dim.Radius; // cm
+    //// The dark matter density at a given cell indexed by n.
+    // double r = x[n]*dim.Radius; // cm
     return GetCos().rhoEinasto(n) + activeColSt(n)*dim.col_cgs(1.0) / hStars(n);
 
 }
@@ -1427,6 +1479,33 @@ void DiskContents::ZeroDuDt()
     for(unsigned int n=1; n<=nx; ++n)
         dudt[n] = 0.0;
 }
+
+// Take a pointer to a vector (0th element assumed blank), and average it over a window from -k to k.
+void windowAverage(std::vector<double>& arr, int k)
+{
+    int nx=arr.size()+1;
+    std::vector<double> arrcopy(nx+1);
+    // First copy the array
+    for(int n=1; n<=nx; ++n) {
+        arrcopy[n] = arr[n];
+    }
+    for(int n=1; n<=nx; ++n) {
+        double accum=0;
+        double counter=0;
+        for(int nn=n-k; nn<=n+k; ++nn) {
+            if(nn>=1 && nn<=nx) {
+                accum += arrcopy[nn];
+                counter += 1.0;
+            }
+        }
+        double val = accum/counter;
+        if(val<0 || val!=val) {
+            errormsg("Nonphysical value of smoothed quantity. n, val, accum, counter: "+str(n)+" "+str(val)+" "+str(accum)+" "+str(counter));
+        }
+        arr[n] = val;
+    }
+}
+
 
 void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
 {
@@ -1448,33 +1527,51 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
 
     double * col_copy = new double[nx];
     double * colst_copy = new double[nx];
+    //std::cout << "colst_copy before: ";
     for(unsigned int n=0; n<nx; ++n) {
-        col_copy[n] = col[n+1];
-        colst_copy[n] = activeColSt(n+1);
+        col_copy[n] = log(col[n+1]);
+        colst_copy[n] = log(activeColSt(n+1));
+        //std::cout << colst_copy[n] << " ";
     }
+    //std::cout << std::endl;
     gsl_fft_real_radix2_transform( col_copy, 1, nx );
     gsl_fft_real_radix2_transform( colst_copy, 1, nx );
-    for(unsigned int n=0; n<nx; ++n) {
+    //std::cout << "colst_copy during: ";
+    //double ksuppress = 10.0;
+    //double kpower = 2.0;
+    for(unsigned int n=1; n<nx/2; ++n) {
         if(dbg.opt(7)) { 
-            col_copy[n] = col_copy[n] * exp(-((double) n) /20.0 );
-            colst_copy[n] = colst_copy[n] * exp(-((double) n) /20.0 );
-            // col_copy[nx-1-n] = col_copy[nx-1-n] * exp(-((double) (nx-1-n)) /20.0 );
-            // colst_copy[nx-1-n] = colst_copy[nx-1-n] * exp(-((double) (nx-1-n)) /20.0 );
+            double exparg = -pow( ((double) n) /ksuppress, kpower) ;
+            double theexp = exp(exparg);
+            //std::cout << "Debug DFT. n, exparg, ksuppress, kpower, exp: "<<n<<" "<<exparg<<" "<<ksuppress<<" "<<kpower<<" "<<exp(exparg)<<std::endl;
+            col_copy[n] = col_copy[n] * theexp;
+            colst_copy[n] = colst_copy[n] * theexp;
+            col_copy[nx-n] = col_copy[nx-n] * theexp;
+            colst_copy[nx-n] = colst_copy[nx-n] * theexp;
         }
     }
+    if( dbg.opt(7) ) {
+        col_copy[nx/2] = col_copy[nx/2] * exp(-pow(((double) nx)/(2.0*ksuppress), kpower));
+        colst_copy[nx/2] = colst_copy[nx/2] * exp(-pow( ((double) nx)/(2.0*ksuppress), kpower));
+    }
+    //std::cout << std::endl;
 
     gsl_fft_halfcomplex_radix2_inverse(col_copy, 1, nx);
     gsl_fft_halfcomplex_radix2_inverse(colst_copy, 1, nx);
 
 
+    //std::cout << "colst_copy after: ";
     for(unsigned int n=1; n<=nx; ++n) {
+        //std::cout << colst_copy[n-1] << " ";
+        colvPhiDisk[n] = exp(col_copy[n-1]);
+        colstvPhiDisk[n] = exp(colst_copy[n-1]);
         double haloContrib;
         double bulgeContrib;
         double thinDiskContrib = 0.0;
         double thickDiskContrib = 0.0;
         for(unsigned int nn=1; nn<=nx; ++nn) {
             //thinDiskContrib += (activeColSt(nn)*((double) thin[nn])+col[nn])*mesh.summandTabulated(n,nn);
-            thinDiskContrib += (colst_copy[nn-1]*((double) thin[nn])+col_copy[nn-1])*mesh.summandTabulated(n,nn);
+            thinDiskContrib += (exp(colst_copy[nn-1])*((double) thin[nn])+exp(col_copy[nn-1]))*mesh.summandTabulated(n,nn);
         }
         if(thinDiskContrib < 0) {
             // std::cout << "WARNING: Negative thinDiskContrib in DiskContents::UpdateRotationCurve! z,n,val: "<<z<<" "<<n<<" "<<thinDiskContrib<<std::endl;
@@ -1485,6 +1582,9 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
                 thickDiskContrib += activeColSt(nn)*((double) (1-thin[nn]))*mesh.area(nn);
         }
         thickDiskContrib *= dim.chi()/x[n];
+        // v^2_bulge = G MB/r
+        // u^2_bulge vphiR^2 = G MBulge(dimensionless) * Mdotext *2pi R/vphiR / (x R)
+        // u^2_bulge = MBulge(dimensionless) /x  * 2 pi chi
         bulgeContrib = MBulge/x[n] * 2.0*M_PI*dim.chi();
         haloContrib = G*GetCos().MrEinasto(n)*MSol/(x[n]*dim.Radius*dim.vphiR*dim.vphiR);
 //        std::cout << "n, halo contribution: "<<n<<" "<<haloContrib/(haloContrib+uu[n]) << " "<<uu[n]<<" "<<haloContrib<<" "<<GetCos().MrEinasto(x[n]*dim.Radius, Mh, z)/Mh << std::endl;
@@ -1492,6 +1592,7 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
         uBulge[n] = sqrt(bulgeContrib);
         uDisk[n] = sqrt(thickDiskContrib+thinDiskContrib);
     }
+    // std::cout << std::endl;
 
     delete[] col_copy;
     delete[] colst_copy;
@@ -1517,8 +1618,15 @@ void DiskContents::UpdateRotationCurve(double Mh, double z, double dt)
  //           std::cout << "Debug vrot "<< haloContrib<<" "<<bulgeContrib<<" "<<thinDiskContrib<<" "<<thickDiskContrib <<std::endl;
   //      }
     }
+    // Before computing beta, smooth u to prevent sudden changes in the first derivative!
+    windowAverage( uu, 20 );
+
     for(unsigned int n=2; n<=nx-1; ++n) {
         beta[n] = log(uu[n+1]/uu[n-1])/log(x[n+1]/x[n-1]);
+        if(beta[n]!=beta[n]) {
+            errormsg("Nonphysical value of beta! u[n-1],u[n],u[n+1], x[n-1],x[n],x[n+1]: "+str(uu[n-1])+" "+str(uu[n])+
+                    " "+str(uu[n+1])+" "+str(x[n-1])+" "+str(x[n])+" "+str(x[n+1]));;
+        }
         if(beta[n]>0.99) {
             // Prevent non-physical situation wherein rotation curve is steeper than solid body
             //std::cout << "WARNING: steep ascending rotation curve in DiskContents::UpdateRotationCurve! z,n,val: "<<z<<" "<<n<<" "<<beta[n]<<std::endl;
@@ -1573,7 +1681,7 @@ double DiskContents::ComputeColSFRapprox(double Mh, double z)
          double nCNM_2p_perG0p_1 = 2.30 *4.1 / (1.0+3.1*pow(ZDisk[n]/Z_Sol, 0.365)); // n/(10/cc)  --- this won't change during the iterations
          double colHI = (col[n])*colConv;
          double RH2 = 1.0;
-         double rhosd = ComputeRhoSD(n, Mh, z);
+         double rhosd = ComputeRhoSD(n);
          double thirdTerm =  thirdTermConv * rhosd / (colHI*colHI);
          double nCNM_Hydro_1_HIdom = M_PI*G*colHI*colHI/20.0 * (1.0 + 2.0*RH2 + sqrt((1.0+2.0*RH2)*(1.0+2.0*RH2) + thirdTerm)) / (11.0*( kB )*243.0);
          double n1;
@@ -1635,7 +1743,7 @@ double DiskContents::ComputeColSFR(double Mh, double z)
         bool continueFlag1 = true;
         bool continueFlag2;
         double colSF;
-        double rhosd = ComputeRhoSD(n, Mh, z);
+        double rhosd = ComputeRhoSD(n);
         double chGuess = 7.2/nCNM_2p_perG0p_1;
 
         double fH2_currentIteration=fH2[n];
@@ -1739,7 +1847,8 @@ void DiskContents::ComputeMassLoadingFactor(double Mh, std::vector<double>& cols
             errormsg("probability not between 0 and 1");
         if(dbg.opt(0)) {
 //            ColOutflows[n] = constMassLoadingFactor*colSFR[n];
-            ColOutflows[n] = theCurrentMLF*colSFR[n] * pow(col[n] / col0, mlfColScaling) * pow(col[n]/(col[n]+colst[n]), mlfFgScaling);
+            double colDM = ComputeRhoSD(n) * hg * dim.vphiR*dim.Radius/dim.MdotExt0; // g/cm**3 * cm / (Mdotext0 (g/s)/ (vPhiR(cm/s) r(cm))) -- A rough estimate of the dark matter column density
+            ColOutflows[n] = theCurrentMLF*colSFR[n] * pow(col[n] / col0, mlfColScaling) * pow(col[n]/(col[n]+colst[n] +  colDM ), mlfFgScaling);
         }
         else {
             ColOutflows[n] = (1-1.0/fr) * mBubble[n] *fH2[n]*col[n]/(tauGMC * mGMC) * (1.0 - pConfined)
@@ -2230,7 +2339,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
         wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52
         wrt.push_back(dcoldtIncoming[n]); wrt.push_back(dcoldtOutgoing[n]); // 53..54
-        wrt.push_back(MassLoadingFactor[n]); // 55
+        wrt.push_back(MassLoadingFactor[n]); wrt.push_back(colvPhiDisk[n]); wrt.push_back(colstvPhiDisk[n]); // 55..57
         
         if(n==1 ) {
             int ncol = wrt.size();

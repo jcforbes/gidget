@@ -120,6 +120,8 @@ int main(int argc, char **argv) {
     const double yREC =              as.Set(.054,"yield - mass of metals produced per gas mass locked in stars");
     const double concentrationRandomFactor= as.Set(0.0, "Constant multiplicative offset from Mh-c relation (dex)");
     const double MassLoadingFgScaling=as.Set(0.16, "Scaling of the mass loading factor with the gas fraction");
+    const double ksuppress =         as.Set(10.0, "The characteristic mode of a DFT to begin suppressing power in computation of vPhiDisk");
+    const double kpower =            as.Set(2.0,"The power to which to raise the argument of the exponential in suppressing powe abve ksuppess");
 
 
     as.WriteOut();
@@ -197,7 +199,7 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(7), "Attenuate high-k modes when computing vPhiDisk");
     as2.Set(dbg.opt(8), "Like Bouche, but use prescription from Dekel13 WMAP5 cosmology" );
     as2.Set(dbg.opt(9), "not minmod in ddx(sig)");
-    as2.Set(dbg.opt(10),"No longer used"); 
+    as2.Set(dbg.opt(10),"Override initialization params to enforce agreement with observations"); 
     as2.Set(dbg.opt(11), "Take non-Euler timesteps"); 
     as2.Set(dbg.opt(12), "Artificially set GI torque=0 everywhere");
     as2.Set(dbg.opt(13), "Print out rotation curve info at n==nx");
@@ -228,7 +230,7 @@ int main(int argc, char **argv) {
             TOL,analyticQ,MassLoadingFactor,MassLoadingColScaling,MassLoadingFgScaling,
             cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-          minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC);
+          minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC, ksuppress, kpower);
     // double sig0 = 8.0/220.0; 
     double sig0 = sigth;
     double stScaleLengthA = accScaleLength*r200/cmperkpc; // accScaleLength * pow(MhZs/Mh0,alphaAccProf);

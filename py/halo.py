@@ -83,3 +83,43 @@ class Cosmology:
         return 1.0/((1.0+z)*self.EE(z))/self.H0/speryear # units of years
     
 
+
+def testhalo():
+    import matplotlib.pyplot as plt
+    
+    cos = Cosmology()
+    h = halo(1.0e12, 0.01, cos, 0)
+    rs = np.power(10.0, np.linspace(-2,3,1000))
+    ms = [h.mInterior(r) for r in rs]
+    rhos = [h.rho(r) for r in rs]
+
+    rho3 = rhos[-1]*np.power(rs[-1]/rs[0], 3.0)
+    rho1 = rhos[0]*np.power(rs[-1]/rs[0], -1.0)
+
+    fig,ax = plt.subplots()
+    ax.plot(rs,rhos)
+    ax.plot([rs[0],rs[-1]], [rho3,rhos[-1]], ls='--', c='k')
+    ax.plot([rs[0],rs[-1]], [rhos[0],rho1], ls='--', c='k')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel(r'r (kpc)')
+    ax.set_ylabel(r'$\rho\ (g/cm^3)$')
+    plt.savefig('test_halo_density.png')
+    plt.close(fig)
+
+    Gcgs = 6.67e-8
+    cmperkpc = 3.1e21
+    fig,ax = plt.subplots()
+    ax.plot( rs, np.sqrt( np.array(ms) * Gcgs/ (rs*cmperkpc) )*1.0e-5 )
+    ax.set_xscale('log')
+    ax.set_xlabel('r (kpc)')
+    ax.set_ylabel(r'Circular Velocity (km/s)')
+    plt.savefig('test_halo_vphi.png')
+    plt.close(fig)
+
+
+if __name__=='__main__':
+    testhalo()
+
+
+

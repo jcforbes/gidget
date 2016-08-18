@@ -9,6 +9,8 @@ import verticalProfile
 import halo
 from behroozi import *
 from scipy.interpolate import interp1d
+from scipy.optimize import least_squares
+from scipy.special import gamma
 from cosmolopy import *
 from math import pi,log,sinh,sin,cos,sqrt,log10
 #from bitstring import Bits
@@ -81,6 +83,8 @@ class RadialFunction:
             self.outerVal = arr[:,-1]
         self.log = log
         self.theRange = theRange
+        if log and not theRange is None:
+            self.arr=np.clip(self.arr, 0, theRange[1])
     def inner(self,timeIndex=None,cgs=False):
         if(cgs):
             if(timeIndex is not None and hasattr(self.innerVal,"__len__")):
@@ -169,6 +173,8 @@ class TimeFunction:
         self.texString = texString
         self.log = log
         self.theRange=theRange
+        if log and not theRange is None:
+            self.arr=np.clip(self.arr, 0, theRange[1])
     def cgs(self,timeIndex=None,locIndex=None):
         if(timeIndex is not None):
             return self.arr[timeIndex]*self.cgsConv
@@ -261,7 +267,7 @@ class SingleModel:
             sums[ti] = theSum
         return sums
 
-    def read(self, keepOnly=[], keepStars=False, paramsOnly=False):
+    def read(self, keepOnly=[], keepStars=False, paramsOnly=False, computeFit=False):
         with open(self.path+'_comment.txt','r') as comment:
             lines = comment.readlines()
             # paramnames - copied from exper.py's experiment class.
@@ -278,7 +284,7 @@ class SingleModel:
                     'accCeiling','fscatter','invMassRatio','fcool', \
                     'whichAccretionProfile','alphaAccretionProfile', \
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC', \
-                    'concentrationRandomFactor','muFgScaling']
+                    'concentrationRandomFactor','muFgScaling','ksuppress', 'kpower']
             params=[]
             line = lines[-1] # get the last line
             tmp = line.split() # split the line into a list of strings
@@ -454,6 +460,11 @@ class SingleModel:
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 r'$\Sigma (M_\odot\ pc^{-2})$',theRange=[0.1,30000])
+        self.var['colvPhiDisk'] =RadialFunction( \
+                np.copy(self.dataCube[:,:,55]),'colvPhiDisk', \
+                self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
+                self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
+                r'$\bar{\Sigma} (M_\odot\ pc^{-2})$',theRange=[0.1,30000])
         # Conversion from code units to Msun/pc^2 for column density-like units
         colSensibleConv = self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc)
         self.var['colst'] =RadialFunction( \
@@ -461,6 +472,12 @@ class SingleModel:
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 r'$\Sigma_* (M_\odot\ pc^{-2})$', \
+                inner=self.evarray[:,3]*2.0*self.p['md0']*self.p['R']*kmperkpc/(speryear*self.p['vphiR']*self.var['rb'].sensible(None,0)**2.0 * pcperkpc**2.0 *colSensibleConv), theRange=[1.0e-4, 1.0e5])
+        self.var['colstvPhiDisk'] =RadialFunction( \
+                np.copy(self.dataCube[:,:,56]),'colstvPhiDisk', \
+                self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
+                self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
+                r'$\bar{\Sigma}_* (M_\odot\ pc^{-2})$', \
                 inner=self.evarray[:,3]*2.0*self.p['md0']*self.p['R']*kmperkpc/(speryear*self.p['vphiR']*self.var['rb'].sensible(None,0)**2.0 * pcperkpc**2.0 *colSensibleConv))
         self.var['sigstR'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,6]*self.p['vphiR']), 'sigstR', \
@@ -484,7 +501,7 @@ class SingleModel:
         self.var['mdotAccr'] = TimeFunction( \
                 self.evarray[:,19],'mdotAccr',gpermsun/speryear,1.0,r'$\dot{M}_{ext}$')
         self.var['feedingEfficiency'] = TimeFunction( \
-                self.var['mdotBulgeG'].sensible()/self.evarray[:,19],'feedingEfficiency', \
+                np.clip(self.var['mdotBulgeG'].sensible()/self.evarray[:,19], 0,10.0), 'feedingEfficiency', \
                 1.0,1.0,r'$\dot{M}_\mathrm{bulge}/\dot{M}_{ext}$', theRange=[1.0e-7,10.0])
         self.var['dcoldt'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,7]),'dcoldt',self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']*cmperkpc)**2.0), \
@@ -517,11 +534,11 @@ class SingleModel:
                 self.var['colsfr'].sensible()*self.var['MassLoadingFactor'].sensible(), 'colOut', \
                 cgsConv = gpermsun/speryear/cmperkpc**2, sensibleConv=1.0,
                 inner = self.var['colsfr'].inner()*self.var['MassLoadingFactor'].inner(), texString=r'$\dot{\Sigma}_\mathrm{out}$', theRange=[1.0e-5, 10.0])
-        self.var['colTrPerAccr'] = RadialFunction( np.abs(self.var['colTr'].cgs())/self.var['colAccr'].cgs(), 'colTrPerAccr', \
+        self.var['colTrPerAccr'] = RadialFunction( np.clip( np.abs(self.var['colTr'].cgs())/self.var['colAccr'].cgs(), 0,10), 'colTrPerAccr', \
                 texString=r'$|\dot{\Sigma}_{tr}|/\dot{\Sigma}_{accr}$', theRange=[1.0e-5,10.0])
-        self.var['colOutPerAccr'] = RadialFunction( self.var['colOut'].cgs()/self.var['colAccr'].cgs(), 'colOutPerAccr', \
+        self.var['colOutPerAccr'] = RadialFunction( np.clip(self.var['colOut'].cgs()/self.var['colAccr'].cgs(), 0,10), 'colOutPerAccr', \
                 texString=r'$\dot{\Sigma}_{out}/\dot{\Sigma}_{accr}$', theRange=[1.0e-5, 10.0])
-        self.var['colSfrPerAccr'] = RadialFunction( self.var['colsfr'].cgs()/self.var['colAccr'].cgs(), 'colSfrPerAccr', \
+        self.var['colSfrPerAccr'] = RadialFunction( np.clip(self.var['colsfr'].cgs()/self.var['colAccr'].cgs(), 0,10), 'colSfrPerAccr', \
                 texString=r'$\dot{\Sigma}_{out}/\dot{\Sigma}_{accr}$', theRange=[1.0e-5, 10.0])
 
         self.var['Q'] = RadialFunction( \
@@ -537,11 +554,21 @@ class SingleModel:
         self.var['colH2']= RadialFunction(np.copy(self.dataCube[:,:,47]) * self.var['col'].sensible(),'colH2', \
                 cgsConv = gpermsun/cmperpc**2, texString=r'$\Sigma_{\mathrm{H}_2}$',log=True,theRange=[0.1,3000.0])
         self.var['colHI']= RadialFunction((1.0-np.copy(self.dataCube[:,:,47])) * self.var['col'].sensible(),'colHI', \
-                cgsConv = gpermsun/cmperpc**2, sensibleConv=1, texString=r'$\Sigma_{\mathrm{HI}}$',log=True,theRange=[0.1,3000.0])
+                cgsConv = gpermsun/cmperpc**2, sensibleConv=1, texString=r'$\Sigma_{\mathrm{HI}} (M_\odot/\mathrm{pc}^2)$',log=True,theRange=[0.1,3000.0])
+        self.var['MHI'] = TimeFunction( np.sum(self.var['colHI'].cgs()*self.var['dA'].cgs(),axis=1), 'MHI', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$M_\mathrm{HI}\ M_\odot$')
+        HIradius=[]
+        for z in range(len(self.var['z'].sensible())):
+            HIdisk = self.var['colHI'].sensible(timeIndex=z) > 1.0 # Where is the HI column density greater than 1 Msun/pc^2
+            if np.any(HIdisk):
+                HIradius.append( np.max(self.var['r'].sensible(timeIndex=z)[HIdisk]) )
+            else:
+                HIradius.append( self.var['r'].sensible(timeIndex=z,locIndex=-1))
+        self.var['broeilsHI'] = TimeFunction(HIradius, 'broeilsHI', cgsConv=cmperkpc,texString=r'$R_\mathrm{HI, Broeils97}\ \mathrm{kpc}$')
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$')
         self.var['vPhi'] = RadialFunction(np.copy(self.dataCube[:,:,15]),'vPhi',self.p['vphiR']*1.0e5,self.p['vphiR'], \
                  r'$v_\phi$ (km/s)',log=False)
         self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
+        # Mdotext * 2pi R/vphiR ~ Msun/yr * kpc / (km/s) * g/Msun * km/kpc * yr/s -- checks out
         self.var['mCentral'] = TimeFunction( \
                 self.evarray[:,3], 'mCentral',
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
@@ -557,16 +584,64 @@ class SingleModel:
         gascu = np.cumsum( self.var['col'].cgs()*self.var['dA'].cgs(), axis=1 )
         sfrcu = np.cumsum( self.var['colsfr'].cgs()*self.var['dA'].cgs(), axis=1 )
         halfMassRadiiStars = []
+        c82Stars = [] # ratio of the radii containing 80% and 20% of the stellar mass
         halfMassRadiiGas = []
         halfMassRadiiSFR = []
+        gradZAtHalfSFR = []
+        bmassExtrap = []
+        fgHalfMassStars=[]
+        r8s = []
+        r2s = []
+        rds = []
         for z in range(np.shape(mstcu)[0]):
-            halfMassRadiiStars.append( self.var['rb'].sensible( timeIndex=z, locIndex=  np.searchsorted(mstcu[z,:], [mstcu[z,-1]/2.0])[0] - 1 ) ) 
+            sthalfind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.5])[0] 
+            st2ind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.2])[0] 
+            st8ind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.8])[0] 
+            #if sthalfind>=nxIt-1:
+            #    sthalfind=0
+            #if st2ind>=nxIt-1:
+            #    st2ind=0
+            #if st8ind>=nxIt-1:
+            #    st8ind=0
+            halfMassRadiiStars.append( self.var['r'].sensible(timeIndex=z, locIndex=sthalfind) )
+            fgHalfMassStars.append( gascu[z,sthalfind]/ (mstcu[z, sthalfind] + gascu[z,sthalfind]) )
+            c82Stars.append( self.var['r'].sensible(timeIndex=z, locIndex=st8ind)/  self.var['r'].sensible(timeIndex=z, locIndex=st2ind) )
+            r8 = self.var['r'].cgs(timeIndex=z, locIndex=st8ind)
+            r2 = self.var['r'].cgs(timeIndex=z, locIndex=st2ind)
+            cst8 = self.var['colst'].cgs(timeIndex=z, locIndex=st8ind)
+            cst2 = self.var['colst'].cgs(timeIndex=z, locIndex=st2ind)
+            ## col=A exp(-r/rd)
+            ## log col = log A - r/rd
+            ## log cst8 = log A - r8/rd
+            ## log cst2 = log A - r2/rd
+            ## log cst8 - log cst2 = -r8/rd + r2/rd
+            ## rd = (r2-r8)/(logcst8 - logcst2)
+            ## log A = log cst8 + r8/rd
+            rd = (r2-r8)/(np.log(cst8) - np.log(cst2))
+            rds.append(rd)
+            r8s.append(r8)
+            r2s.append(r2)
+            A = np.exp( np.log(cst8) + r8/rd)
+            bmassExtrap.append( mstcu[z,-1]*0.8 - 2.0*np.pi*cst8*r8*r8 ) # grams apparently
             halfMassRadiiGas.append( self.var['rb'].sensible(timeIndex=z, locIndex= np.searchsorted(gascu[z,:], [gascu[z,-1]/2.0])[0] )  )
-            halfMassRadiiSFR.append( self.var['rb'].sensible(timeIndex=z, locIndex= np.searchsorted(sfrcu[z,:], [sfrcu[z,-1]/2.0])[0] )  )
+            sfrhalfind = np.searchsorted(sfrcu[z,:], [sfrcu[z,-1]/2.0])[0]
+            halfMassRadiiSFR.append( self.var['rb'].sensible(timeIndex=z, locIndex=sfrhalfind  )  )
 
+
+            gradZAtHalfSFR.append( ( (np.log10(self.var['Z'].cgs())[z,1:] - np.log10(self.var['Z'].cgs())[z,:-1])/(self.var['r'].sensible()[z,1:] - self.var['r'].sensible()[z,:-1]) )[sfrhalfind] )
+
+        self.var['BMassFromExtrap'] = TimeFunction( bmassExtrap, 'BMassFromExtrap', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$M_B (M_\odot)$ extrapolated' )
+        self.var['BTExtrap'] = TimeFunction( self.var['BMassFromExtrap'].sensible()/self.var['mstar'].sensible(), 'BMassFromExtrap', texString=r'BT extrapolated', log=False)
+        self.var['r8'] = TimeFunction( r8s, 'r8', sensibleConv=1/cmperkpc, texString=r'$r_8 (kpc)$')
+        self.var['r2'] = TimeFunction( r2s, 'r2', sensibleConv=1/cmperkpc, texString=r'$r_2 (kpc)$')
+        self.var['rd82'] = TimeFunction( rds, 'rd82', sensibleConv=1/cmperkpc, texString=r'$r_{d,82} (kpc)$')
+
+        self.var['fghm'] = TimeFunction( fgHalfMassStars, 'fghm', sensibleConv=1, texString=r'$\langle f_g \rangle_{r_*}$')
         self.var['halfMassStars'] = TimeFunction( halfMassRadiiStars, 'halfMassStars', cgsConv = cmperkpc, texString=r'$r_*$ (kpc)')
+        self.var['c82'] = TimeFunction( c82Stars, 'c82', cgsConv = 1.0, texString=r'$c_{82} = r_{80}/r_{20}$ ')
         self.var['halfMassGas'] = TimeFunction( halfMassRadiiGas, 'halfMassGas', cgsConv = cmperkpc, texString=r'$r_g$ (kpc)')
         self.var['halfMassSFR'] = TimeFunction( halfMassRadiiSFR, 'halfMassSFR', cgsConv = cmperkpc, texString=r'$r_\mathrm{SFR}$ (kpc)')
+        self.var['metallicityGradient'] = TimeFunction( gradZAtHalfSFR, 'metallicityGradient', cgsConv=1.0/cmperkpc, sensibleConv=1.0, texString=r'$\partial \log_{10} Z/\partial r\ (r_\mathrm{SFR}) $ (dex/kpc)', log=False)
 
 
         rAcc = -(self.var['r'].sensible(locIndex=1) - self.var['r'].sensible(locIndex=2)) \
@@ -582,13 +657,19 @@ class SingleModel:
 
 
 
-        mbulge,_,fcentral,scaleLengths = self.computeMBulge()
-        self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
-        self.var['scaleLength'] = TimeFunction(scaleLengths, 'scaleLength', cmperkpc, 1.0, r'$r_\mathrm{scale}$')
-        self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
-                'BT',1,1,r'Bulge to Total Ratio',log=False)
-        self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
+        if computeFit:
+            self.globalPowerlaw()
+            self.globalMBulge()
+            self.var['fCentral2'] = TimeFunction( self.var['mCentral'].sensible()/self.var['stFit2MBulge'].sensible(), 'fCentral2', 1,1, r'$M_\mathrm{central} / M_B$', log=True)
 
+        #mbulge,_,fcentral,scaleLengths = self.computeMBulge()
+        #self.var['mBulge'] = TimeFunction(mbulge,'mBulge',gpermsun,1.0,r'$M_B (M_\odot)$')
+        #self.var['scaleLength'] = TimeFunction(scaleLengths, 'scaleLength', cmperkpc, 1.0, r'$r_\mathrm{scale}$')
+        #self.var['BT'] = TimeFunction(self.var['mBulge'].cgs()/(self.var['mBulge'].cgs()+self.var['mstar'].cgs()), \
+        #        'BT',1,1,r'Bulge to Total Ratio',log=False)
+        #self.var['fCentral'] = TimeFunction(fcentral,'fCentral',1,1,r'Central Excess/$M_B$',log=False)
+
+        #self.var['fCentral'] = TimeFunction( self.var['mCentral'].sensible()/self.var['stFitMBulge'].sensible(), 'fCentral', 1,1, r'$M_\mathrm{central} / M_B$', log=True)
 
         cos = halo.Cosmology()
         vPhiDM = np.zeros((len(self.var['Mh'].sensible()), len(self.var['r'].sensible(timeIndex=0))))
@@ -597,7 +678,7 @@ class SingleModel:
             thisHalo = halo.halo(self.var['Mh'].sensible(timeIndex=i),self.var['z'].sensible(timeIndex=i),cos,0) 
             for j in range(len(self.var['r'].sensible(timeIndex=0))):
                 vPhiDM[i,j] = np.sqrt( Gcgs * thisHalo.mInterior(self.var['r'].sensible(timeIndex=0,locIndex=j)) / self.var['r'].cgs(timeIndex=0,locIndex=j) )
-                vPhiBulge[i,j] = np.sqrt( Gcgs * self.var['mBulge'].cgs(timeIndex=i)*self.var['fCentral'].sensible(timeIndex=i) / self.var['r'].cgs(timeIndex=0,locIndex=j) )
+                vPhiBulge[i,j] = np.sqrt( Gcgs * self.var['mCentral'].cgs(timeIndex=i) / self.var['r'].cgs(timeIndex=0,locIndex=j) )
 
         self.var['vPhiDM'] = RadialFunction(np.copy(vPhiDM),'vPhiDM', cgsConv=1.0, sensibleConv=1.0e-5, \
                  texString=r'$v_{\phi,\mathrm{DM}}$ (km/s)',log=False)
@@ -606,7 +687,7 @@ class SingleModel:
         vPhiDisk = np.power(self.var['vPhi'].cgs(),2.0) - np.power(self.var['vPhiDM'].cgs(),2.0) - np.power(self.var['vPhiBulge'].cgs(),2.0)
         bad = np.logical_or(vPhiDisk != vPhiDisk, vPhiDisk<0)
         vPhiDisk[bad] = 0
-        self.var['vPhiDisk'] = RadialFunction(vPhiDisk , 'vPhiDisk', cgsConv=1.0, sensibleConv=1.0e-5, texString=r'$v_{\phi, \mathrm{disk}} (km/s)$', log=False)
+        self.var['vPhiDisk'] = RadialFunction(np.sqrt(vPhiDisk) , 'vPhiDisk', cgsConv=1.0, sensibleConv=1.0e-5, texString=r'$v_{\phi, \mathrm{disk}} (km/s)$', log=False)
 
 
         self.var['vOverSigGas'] = RadialFunction(self.var['vPhi'].sensible()/self.var['sig'].sensible(),'vOverSigGas',texString=r'$v_\phi/\sigma$',log=True)
@@ -627,9 +708,16 @@ class SingleModel:
                 self.var['mdotBulgeG'].sensible()*self.p['RfREC']/(self.p['RfREC']+self.var['MassLoadingFactor'].inner()) \
                 +np.sum( self.var['dA'].sensible()*self.var['colsfr'].sensible(), 1 ), \
                 'sfr',gpermsun/speryear, 1.0, r'SFR (M$_\odot$ yr$^{-1}$)')
-        print "Just computed the SFR!"
+
+        self.var['sigmaPerSFR'] = TimeFunction( np.sqrt(self.var['maxsig'].sensible()**2.0 - 7.601**2.0)/self.var['sfr'].sensible(), 'sigmaPerSFR', sensibleConv=1.0, cgsConv=1.0e5/(gpermsun/speryear), texString=r'$\sigma_\mathrm{max}/\mathrm{SFR} (\mathrm{km}/\mathrm{s}/(M_\odot/\mathrm{yr}))$' , theRange=[0.1,50.0])
+        onekpc = np.searchsorted( self.var['r'].sensible(timeIndex=-1), 1.0 )
+        self.var['v1kpc'] = TimeFunction( np.sqrt(  np.sum( (15.0**2.0 + np.power(self.var['vPhi'].sensible(locIndex=range(onekpc)),2.0)+np.power(self.var['sig'].sensible(locIndex=range(onekpc)),2.0))* self.var['dA'].cgs(locIndex=range(onekpc)) * self.var['col'].cgs(locIndex=range(onekpc)),axis=1)/np.sum(  self.var['dA'].cgs(locIndex=range(onekpc)) * self.var['col'].cgs(locIndex=range(onekpc)),axis=1 )   ), 'v1kpc', sensibleConv=1.0, cgsConv=1.0e5, texString=r'$\langle \sqrt{v_\phi^2 + \sigma^2} \rangle_\mathrm{1 kpc} (km/s)$ ') # "beam-smeared" velocity dispersion in central kpc
+
+        self.var['v1PerSFR'] = TimeFunction( self.var['v1kpc'].sensible()/self.var['sfr'].sensible(), 'v1PerSFR', sensibleConv=1.0, cgsConv=1.0e5/(gpermsun/speryear) )
+
         self.var['sfrPerAccr'] = TimeFunction( \
-                self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$', theRange=[1.0e-3,10.0])
+                np.clip(self.var['sfr'].cgs()/self.var['mdotAccr'].cgs(),0,10),'sfrPerAccr',1.0,1.0,r'SFR / $\dot{M}_{ext}$', theRange=[1.0e-3,10.0])
+
         def areaWeightedWithin( varName, maxRadius):
             radiusInd = np.searchsorted( self.var['r'].sensible(timeIndex=-1), maxRadius)
             mInt = np.sum(self.var['dA'].cgs(locIndex=range(radiusInd))*self.var[varName].cgs(locIndex=range(radiusInd)), 1)
@@ -638,12 +726,12 @@ class SingleModel:
         m1kpc = self.var['mCentral'].cgs() + areaWeightedWithin('colst', 1.0) # mass within 1 kpc 
         self.var['Sigma1'] = TimeFunction( \
                 m1kpc/(1.0*cmperkpc)**2.0, 'Sigma1', cgsConv=1.0, sensibleConv = cmperkpc**2/gpermsun, \
-                texString=r'$\Sigma_1$')
+                texString=r'$\langle\Sigma_{*}\rangle_\mathrm{1 kpc}$')
         self.var['rho'] = RadialFunction( self.var['col'].cgs()/self.var['hGas'].cgs(), 'rho', 1.0, 1.0, r'$\rho (\mathrm{g}\ \mathrm{cm}^{-3})$' )
         r1 = np.searchsorted(self.var['r'].sensible(timeIndex=-1), 1.0) # find the index of the cell closest to 1 kpc
         numerator = np.sum( self.var['col'].cgs(locIndex=range(r1))*self.var['dA'].cgs(locIndex=range(r1))*self.var['rho'].cgs(locIndex=range(r1)), 1 )
         denominator = np.sum( self.var['col'].cgs(locIndex=range(r1))*self.var['dA'].cgs(locIndex=range(r1)),1 )
-        self.var['rho1'] = TimeFunction( numerator  / denominator   ,  'rho1', 1.0, 1.0, r'$\rho_1 (\mathrm{g}\ \mathrm{cm}^{-3})$'  )
+        self.var['rho1'] = TimeFunction( numerator  / denominator   ,  'rho1', 1.0, 1.0, r'$\langle \rho \rangle_\mathrm{1 kpc} (\mathrm{g}\ \mathrm{cm}^{-3})$'  )
         self.var['mgas']=TimeFunction( \
                 np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
                 1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)')
@@ -658,6 +746,8 @@ class SingleModel:
         self.var['fgRadial'] = RadialFunction( \
                 self.var['col'].cgs()/(self.var['col'].cgs()+self.var['colst'].cgs()), \
                 'fgRadial',1.0,1.0,r'$f_g = \Sigma/(\Sigma_*+\Sigma)$', log=False)
+        self.var['sSFRRadial'] = RadialFunction( self.var['colsfr'].cgs()/self.var['colst'].cgs(), 'sSFRRadial',
+                sensibleConv=speryear*1.0e9, cgsConv=1.0, texString=r'$\dot{\Sigma}_\mathrm{SF}/\Sigma_*$')
 
         self.var['tDepH2Radial'] = RadialFunction( \
                 self.var['fH2'].cgs()*self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepH2Radial',\
@@ -665,14 +755,20 @@ class SingleModel:
         self.var['sSFR'] = TimeFunction(self.getData('sfr',cgs=True)/self.getData('mstar',cgs=True) , \
                 'sSFR',1.0,1.0e9*speryear,r'sSFR (Gyr$^{-1}$)')
         mg = self.getData('col',cgs=True)*self.getData('dA',cgs=True)
+        self.var['massWeightedMetallicityGradient'] = TimeFunction( np.sum( (np.log10(self.var['Z'].cgs())[:,1:] - np.log10(self.var['Z'].cgs())[:,:-1])*mg[:,:-1]/(self.var['r'].sensible()[:,1:] - self.var['r'].sensible()[:,:-1]), axis=1)/np.sum(mg,axis=1), \
+                'massWeightedMetallicityGradient', cgsConv=1.0/cmperkpc, sensibleConv=1.0, texString=r'$\langle \partial \log_{10} Z/\partial r \rangle$ (dex/kpc)', log=False)
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z',cgs=True),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_g (Z_\odot)$')
         sfRad = self.getData('colsfr',cgs=True)*self.getData('dA',cgs=True)
         self.var['sfZ'] = TimeFunction(np.sum(sfRad*self.getData('Z',cgs=True),axis=1)/np.sum(sfRad,axis=1), \
                 'sfZ',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$ weighted by SFR')
+        self.var['Z1'] = TimeFunction( np.sum(mg[:,:onekpc] * self.var['Z'].cgs(locIndex=range(onekpc)) ,axis=1)/np.sum(mg[:,:onekpc],axis=1), 'Z1', cgsConv=1.0, sensibleConv=1.0/0.02, texString=r'$Z_\mathrm{1 kpc} (Z_\odot)$' ) 
+        self.var['sffg'] = TimeFunction(np.sum(sfRad*self.getData('fgRadial',cgs=True),axis=1)/np.sum(sfRad,axis=1), \
+                'sffg',cgsConv=1.0,sensibleConv=1.0,texString=r'$f_g$ weighted by SFR')
         self.var['fH2Integrated'] = TimeFunction( \
                 np.sum(mg*self.var['fH2'].cgs(),axis=1)/np.sum(mg,axis=1), \
                 'fH2Integrated',1.0,1.0,r'$f_{\mathrm{H}_2}$',theRange=[0,1], log=False)
+        self.var['fgh2'] = TimeFunction( self.var['fH2Integrated'].sensible()*self.var['mgas'].sensible()/( self.var['fH2Integrated'].sensible()*self.var['mgas'].sensible() + self.var['mstar'].sensible() ), 'fgh2', texString=r'$M_{\mathrm{gas,H}_2}/(  M_{\mathrm{gas,H}_2} + M_* )$', theRange=[0,1], log=False)
         self.var['gasToStellarRatioH2'] = TimeFunction( self.var['mgas'].sensible()*self.var['fH2Integrated'].sensible()/self.var['mstar'].sensible(), 'gasToStellarRatioH2', texString=r'$f_{H_2} M_g/M_*$')
         self.var['tDepH2'] = TimeFunction( \
                 self.var['fH2Integrated'].cgs()*self.var['mgas'].cgs()/self.var['sfr'].cgs(), \
@@ -703,9 +799,6 @@ class SingleModel:
         self.var['MJeansAvg'] = TimeFunction( mja, \
                 'MJeansAvg', cgsConv = gpermsun, texString=r'$M_{Jeans}\ (M_\odot)$', theRange=[1.0e5, 1.0e9])
                 
-        self.var['centralDensity'] = TimeFunction(  \
-            self.TotalWithinR(self.var['dA'].cgs()*self.var['colst'].cgs(),self.var['mCentral'].cgs(),1.0)/(gpermsun*np.pi),
-            'centralDensity',gpermsun/cmperkpc**2.0,1.0,r'Average $\Sigma_*$ with $r<1$ kpc')
         mst = self.var['mstar'].cgs()
         mj = self.var['MJeans'].cgs()
         for ti in range(len(mst)):
@@ -723,7 +816,7 @@ class SingleModel:
         eqnorm = shareNorm*self.var['dA'].cgs()
         self.var['integratedEquilibrium'] = TimeFunction( \
                 np.sum(self.var['equilibrium'].cgs()*eqnorm,axis=1)/np.sum(eqnorm,axis=1), \
-                'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False)
+                'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False, theRange=[-1,1])
         self.var['Sigma1p5'] = TimeFunction( \
                 self.var['mstar'].sensible()/np.power(self.var['halfMassStars'].sensible(),1.5), 'Sigma1p5', sensibleConv=1.0, cgsConv=gpermsun/cmperkpc**1.5,texString=r'$\Sigma_{1.5}\ (M_\odot/\mathrm{kpc}^{1.5})$')
         self.var['specificJRadial'] = RadialFunction( self.var['r'].cgs() * self.var['vPhi'].cgs(), 'specificJRadial', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$')
@@ -732,21 +825,24 @@ class SingleModel:
 
         #try:
         maxGIRadius = np.zeros(len(self.var['z'].cgs()))
+        minGIRadius = np.zeros(len(self.var['z'].cgs()))
         fractionGI = np.zeros(len(self.var['z'].cgs()))
         for i in range(len(self.var['z'].cgs())):
             unstable = self.var['Q'].sensible(timeIndex=i) < self.p['fixedQ']  # locations in space/time where Q<fixedQ
             if np.any(unstable):
                 ### Let's
                 maxGIRadius[i] = np.max( self.var['r'].sensible(timeIndex=i)[unstable] )
+                minGIRadius[i] = np.min( self.var['r'].sensible(timeIndex=i)[unstable] )
                 fractionGI[i] = np.sum(self.var['dr'].cgs(timeIndex=i)[unstable])
         self.var['maxGIRadius'] = TimeFunction( maxGIRadius, 'maxGIRadius', cgsConv=cmperkpc, sensibleConv=1.0, texString=r'Largest GI radius (kpc)')
+        self.var['minGIRadius'] = TimeFunction( minGIRadius, 'minGIRadius', cgsConv=cmperkpc, sensibleConv=1.0, texString=r'Smallest GI radius (kpc)')
         self.var['fractionGI'] = TimeFunction( fractionGI/self.var['halfMassGas'].cgs(), 'fractionGI', 1,1, texString=r'Radial Extent of GI / Half Gas Mass Radius')
         #except:
         #    print "WARNING: failed to calculate max GI radius"
 
         indRange = range(eightkpc)
 
-        self.var['accretionDiscrepancy'] = TimeFunction( np.sum(self.var['colAccr'].cgs()*self.var['dA'].cgs(), axis=1)/self.var['mdotAccr'].cgs(), 'accretionDiscrepancy', 1,1, texString=r'$\int 2\pi r \dot{\Sigma}_\mathrm{accr} dr / \dot{M}_\mathrm{accr}$' )
+        self.var['accretionDiscrepancy'] = TimeFunction( np.sum(self.var['colAccr'].cgs()*self.var['dA'].cgs(), axis=1)/self.var['mdotAccr'].cgs(), 'accretionDiscrepancy', 1,1, texString=r'$\int 2\pi r \dot{\Sigma}_\mathrm{accr} dr / \dot{M}_\mathrm{accr}$' , log=False)
         self.var['specificJStars'] = TimeFunction( np.sum(self.var['colst'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colst'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJStars', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ M_*\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
         self.var['specificJGas'] = TimeFunction( np.sum(self.var['col'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['col'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJGas', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_\mathrm{gas}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
         self.var['specificJH2'] = TimeFunction( np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs()*self.var['r'].cgs() * self.var['vPhi'].cgs(), axis=1)/np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs(),axis=1), 'specificJH2', sensibleConv=1.0e-5/cmperkpc, cgsConv=1.0, texString=r'$j\ \mathrm{weighted}\ \mathrm{by}\ \Sigma_{\mathrm{H}_2}\ (\mathrm{kpc}\ \mathrm{km}/\mathrm{s})$', theRange=[10,5000])
@@ -781,6 +877,9 @@ class SingleModel:
 
         theKeys = self.var.keys()
         whitelist = ['rb','r','dA','rx','dr'] + keepOnly + starList
+        if ('colstFit' in whitelist or 'colstFit2' in whitelist or 'stFit2Residual' in whitelist or 'stFitResidual' in whitelist) and not computeFit:
+            print "You asked me to plot something that you asked me not to compute! Either add --fit or take away and colstFit or colstFit2."
+            raise ValueError
         if 'vPhi' in whitelist:
             if 'vPhiDM' not in whitelist:
                 whitelist += ['vPhiDM']
@@ -788,6 +887,15 @@ class SingleModel:
                 whitelist += ['vPhiBulge']
             if 'vPhiDisk' not in whitelist:
                 whitelist += ['vPhiDisk']
+        if 'colvPhiDisk' in whitelist:
+            if 'col' not in whitelist:
+                whitelist += ['col']
+        if 'colstvPhiDisk' in whitelist:
+            if 'colst' not in whitelist:
+                whitelist += ['colst']
+        if 'colstFit' in whitelist or 'colstFit2' in whitelist:
+            if 'colst' not in whitelist:
+                whitelist += ['colst']
         for key in theKeys:
             if(isinstance(self.var[key],RadialFunction) and not (key in whitelist)):
                 del self.var[key]
@@ -829,9 +937,173 @@ class SingleModel:
         tf=[]
         blacklist=['t','z','step']
         for key in self.var.keys():
-            if(isinstance(self.var[key],TimeFunction) and not key in blacklist and not 'ageSt' in key and not 'startingAgeSt' in key and not 'endingAgeSt' in key):
+            rule = isinstance(self.var[key],TimeFunction) and not key in blacklist and not 'ageSt' in key and not 'startingAgeSt' in key and not 'endingAgeSt' in key  and not 'specificJ' in key and not 'dimensionlessSpin' in key and not key[0]=='J'
+            if(rule):
                 tf.append(key)
         return tf
+
+
+
+
+
+
+    def globalPowerlaw(self):
+        ''' Try to improve on the function below by doing a global fit. In particular, let's try
+                \Sigma_* = w_0 ( A_B exp(-(r/r_B)^n_B) + A_D exp(-r/r_D) ) + (1-w_0) A_O exp(-r/r_O)
+            with
+                w_0 = exp(-(r/r_w)^n_w) 
+                
+            This is kind of a lot of parameters! Yikes. Let's see how robust least squares does! '''
+
+        def residualFn( x, t, y ):
+            ''' x is an array of parameters, t are the ordinates (r in this case), and y is the data (log10(colst) in this case) '''
+            AD, AB, AO,  rD, rO, rw, nB, nw = x
+            w0 = np.exp( - np.power(t/rw,nw) )
+            #return np.log10( w0 * (AB * np.exp(-np.power(t/rB, nB)) + AD*np.exp(-t/rD)) + (1.0-w0)*AO*np.exp(-t/rO) ) - y
+
+            val = np.log10( w0 * (AD*np.exp(-t/rD) + AB/np.power(t,nB)) + (1.0-w0)*AO*np.exp(-t/rO) ) - y 
+            if np.any(val!=val):
+                pdb.set_trace()
+            #print val
+            return val
+        xGuess = None
+        fitfns = []
+        params = []
+        # M_D ~ 2 Pi AD rD^2 
+        # M_B ~ Pi AB rB^2 Gamma((2+nB)/nB) 
+
+        #thisR = np.hstack([[self.var['r'].sensible(timeIndex=0,locIndex=0)/2.0], self.var['r'].sensible(timeIndex=0)])
+        thisR = self.var['r'].sensible(timeIndex=0)
+        ntries=[]
+        for timeIndex in range(len(self.var['z'].sensible())):
+            #thisY = np.log10( np.hstack([[self.var['colst'].inner(timeIndex=timeIndex,cgs=True)], self.var['colst'].cgs(timeIndex=timeIndex)]))
+            thisY = np.log10( self.var['colst'].cgs(timeIndex=timeIndex) )
+            fitThese = thisY-thisY[0] > -6.0
+            colguess = 10.0**thisY[0]
+            rguess = self.var['halfMassStars'].sensible(timeIndex=timeIndex)
+            nguess = 4.0
+            xGuess0 = np.array([ colguess/10.0, colguess/8.0, colguess/200.0, rguess/2.0, rguess*2.0, rguess*10.0, 1.5, nguess*3 ])
+            if xGuess is None:
+                xGuess = copy.deepcopy( xGuess0 )
+            # fscale=0.3 -- this means that points larger than about a factor of ~2 (i.e. 0.3 dex) are considered outliers and thereby attenuated in the loss function.
+            lowerbound = [colguess*1.0e-6, colguess*1.0e-6, colguess*1.0e-6,  thisR[0], thisR[0], thisR[0], 0.0, 4.0]
+            #lowerbound = [1.0e-9,1.0e-9,1.0e-9,  thisR[0]/2.0, thisR[0]/2.0, thisR[0]/2.0, 0.0, 4.0]
+            upperbound = [colguess*10.0, colguess*10.0, colguess*10.0, thisR[-1], thisR[-1], thisR[-1], 1.9, 20 ]
+            #upperbound = [np.inf,np.inf,np.inf, thisR[-1]*3.0, thisR[-1]*3.0, thisR[-1]*3.0, 2.0, 20 ]
+            maxResidual = 100.0
+            success=False
+            tries=0
+            while (not (success and  maxResidual<.3)) and tries<100:
+                xGuess = np.clip( xGuess, lowerbound, upperbound )
+                res_robust = least_squares( residualFn, xGuess, loss='soft_l1', f_scale=0.3, args=( thisR[fitThese], thisY[fitThese] ), bounds=(lowerbound,upperbound) ) 
+                # Our initial guess was bad! Let's adjust our guess...
+                xGuess = xGuess0 * np.exp( np.random.normal(size=len(xGuess))/3.0 ) # Modify our guess by a lognormal centered at 1.0, but w/ factor-of-3ish spread
+                maxResidual = np.max( np.abs(residualFn( res_robust.x, thisR[fitThese], thisY[fitThese] ) ) )
+
+                success=res_robust.success
+                tries+=1
+            ntries.append(tries)
+            #if res_robust.success and maxResidual<1.0:
+            xGuess = copy.deepcopy(res_robust.x) # Update the guess for our next timestep to be the best fit from this timestep. 
+            #print "Ratio of 'correct' guess to our initial guess: ", xGuess/xGuess0
+            fitfns.append( residualFn(xGuess, thisR, thisY)  )
+            params.append( xGuess )
+        params = np.array(params).T
+        #pdb.set_trace()
+
+        self.var['stFit2Rd'] = TimeFunction( copy.deepcopy(params[3,:]), 'stFit2Rd', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Disk Scale Radius $r_d$ (kpc)')
+        #self.var['stFitRb'] = TimeFunction( copy.deepcopy(params[3,:]), 'stFitRb', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Bulge Scale Radius $r_b$ (kpc)')
+        self.var['stFit2Ro'] = TimeFunction( copy.deepcopy(params[4,:]), 'stFit2Ro', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Outer Scale Radius $r_O$ (kpc)')
+        self.var['stFit2Rw'] = TimeFunction( copy.deepcopy(params[5,:]), 'stFit2Rw', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Break Radius $r_w$ (kpc)' )
+        self.var['stFit2Nb'] = TimeFunction( copy.deepcopy(params[6,:]), 'stFit2Nb', sensibleConv=1.0, cgsConv=1.0, texString=r'Sersic index $n_b$', log=False)
+        self.var['stFit2Nw'] = TimeFunction( copy.deepcopy(params[7,:]), 'stFit2Nw', sensibleConv=1.0, cgsConv=1.0, texString=r'Break sersic $n_w$', log=False)
+        self.var['stFit2NTries'] = TimeFunction( copy.deepcopy(ntries), 'stFit2NTries', texString='Number of minimization tries', log=True )
+        self.var['stFit2MBulge'] = TimeFunction( copy.deepcopy(-1.0* params[1,:]* 2.0*np.pi* np.power(self.var['stFit2Rw'].sensible(),(2.0-self.var['stFit2Nb'].sensible()))/(self.var['stFit2Nb'].sensible()-2.0)), 'stFit2MBulge', sensibleConv=(1.0/gpermsun)*cmperkpc**2, cgsConv=cmperkpc**2, texString=r'$\Sigma_*$ Fit Bulge Mass $M_b$ ($M_\odot)$', log=True, theRange=[1.0e7,1.0e12])
+        self.var['stFit2MDisk'] = TimeFunction( copy.deepcopy(2.0*np.pi*params[0,:]*self.var['stFit2Rd'].cgs()**2), 'stFitMDisk', sensibleConv=1.0/gpermsun, cgsConv=1.0, texString=r'$\Sigma_*$ Fit Disk Mass $M_d$ ($M_\odot$)', log=True )
+        self.var['stFit2Residual'] = RadialFunction( copy.deepcopy( np.array(fitfns) ), 'stFit2Residual', sensibleConv=1.0, cgsConv=1.0, log=False, texString=r'$\log_{10}\left(\Sigma_{*,\mathrm{fit}} / \Sigma_* \right)$ ')
+        self.var['colstFit2'] = RadialFunction( np.power(10.0, np.array(fitfns) )*self.var['colst'].sensible(), 'colstFit2', sensibleConv=1.0, cgsConv=self.var['colst'].cgsConv/self.var['colst'].sensibleConv, log=True, texString=r'$\Sigma_{*,\mathrm{fit}}\ \left(M_\odot/\mathrm{pc}^2\right)$', theRange=[1.0e-4,1.0e5])
+        self.var['stFit2BT'] = TimeFunction( self.var['stFit2MBulge'].sensible()/(self.var['stFit2MBulge'].sensible()+self.var['stFit2MDisk'].sensible()) , 'stFit2BT', sensibleConv=1.0, cgsConv=1.0, log=False, texString=r'$\Sigma_*$ Fit $M_b/(M_b+M_d)$')
+        self.var['stFit3BT'] = TimeFunction( self.var['stFit2MBulge'].sensible()/ self.var['mstar'].sensible(), 'stFit3BT', sensibleConv=1.0, cgsConv=1.0, log=False, texString=r'$\Sigma_*$ Fit $M_b/(M_b+M_d)$', theRange=[0,1])
+
+
+
+
+
+
+
+
+
+
+
+    def globalMBulge(self):
+        ''' Try to improve on the function below by doing a global fit. In particular, let's try
+                \Sigma_* = w_0 ( A_B exp(-(r/r_B)^(1/n_B)) + A_D exp(-r/r_D) ) + (1-w_0) A_O exp(-r/r_O)
+            with
+                w_0 = exp(-(r/r_w)^n_w) 
+                
+            This is kind of a lot of parameters! Yikes. Let's see how robust least squares does! '''
+
+        def residualFn( x, t, y ):
+            ''' x is an array of parameters, t are the ordinates (r in this case), and y is the data (log10(colst) in this case) '''
+            AB, AD, AO, rB, rD, rO, rw, nB, nw = x
+            w0 = np.exp( - np.power(t/rw,nw) )
+            return np.log10( w0 * (AB * np.exp(-np.power(t/rB, 1.0/nB)) + AD*np.exp(-t/rD)) + (1.0-w0)*AO*np.exp(-t/rO) ) - y
+
+            #return np.log10( w0 * (AD* (1.0/t) * (1.0 + t/rD + t*t/rB/np.abs(rB)) ) + (1-w0)*AO*np.exp(-t/r0) ) - y
+        xGuess = None
+        fitfns = []
+        params = []
+        # M_D ~ 2 Pi AD rD^2 
+        # M_B ~ Pi AB rB^2 Gamma((2+nB)/nB) 
+
+        #thisR = np.hstack([[self.var['r'].sensible(timeIndex=0,locIndex=0)/2.0], self.var['r'].sensible(timeIndex=0)])
+        thisR = self.var['r'].sensible(timeIndex=0)
+        ntries=[]
+        for timeIndex in range(len(self.var['z'].sensible())):
+            #thisY = np.log10( np.hstack([[self.var['colst'].inner(timeIndex=timeIndex,cgs=True)], self.var['colst'].cgs(timeIndex=timeIndex)]))
+            thisY = np.log10( self.var['colst'].cgs(timeIndex=timeIndex) )
+            colguess = 10.0**thisY[0]
+            fitThese = thisY-thisY[0] > -6.0
+            rguess = self.var['halfMassStars'].sensible(timeIndex=timeIndex)
+            nguess = 4.0
+            if xGuess is None:
+                xGuess0 = np.array([ colguess, colguess/3, colguess/10, rguess/2.0, rguess, rguess*2.0, rguess*10.0, nguess, nguess*3 ])
+            # fscale=0.3 -- this means that points larger than about a factor of ~2 (i.e. 0.3 dex) are considered outliers and thereby attenuated in the loss function.
+            lowerbound = [0,0,0, thisR[0]/2.0, thisR[0]/2.0, thisR[0]/2.0, thisR[0]/2.0,  1.0,6.0]
+            upperbound = [np.inf,np.inf,np.inf, thisR[-1]*3.0, thisR[-1]*3.0, thisR[-1]*3.0, thisR[-1]*3.0,    10.0,20 ]
+            maxResidual = 100.0
+            success=False
+            tries=0
+            while (not (success and  maxResidual<.3)) and tries<10:
+                xGuess = np.clip( xGuess, lowerbound, upperbound )
+                res_robust = least_squares( residualFn, xGuess, loss='soft_l1', f_scale=0.3, args=( thisR[fitThese], thisY[fitThese] ), bounds=(lowerbound,upperbound) ) 
+                # Our initial guess was bad! Let's adjust our guess...
+                xGuess = xGuess0 * np.exp( np.random.normal(size=len(xGuess))/3.0 ) # Modify our guess by a lognormal centered at 1.0, but w/ factor-of-3ish spread
+                maxResidual = np.max( np.abs(residualFn( res_robust.x, thisR[fitThese], thisY[fitThese] ) ) )
+                success=res_robust.success
+                tries+=1
+            ntries.append(tries)
+            #if res_robust.success and maxResidual<1.0:
+            xGuess = copy.deepcopy(res_robust.x) # Update the guess for our next timestep to be the best fit from this timestep. 
+            fitfns.append( residualFn(xGuess, thisR, thisY)  )
+            params.append( xGuess )
+        params = np.array(params).T
+        #pdb.set_trace()
+
+        self.var['stFitRd'] = TimeFunction( copy.deepcopy(params[4,:]), 'stFitRd', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Disk Scale Radius $r_d$ (kpc)')
+        self.var['stFitRb'] = TimeFunction( copy.deepcopy(params[3,:]), 'stFitRb', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Bulge Scale Radius $r_b$ (kpc)')
+        self.var['stFitRo'] = TimeFunction( copy.deepcopy(params[5,:]), 'stFitRo', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Outer Scale Radius $r_O$ (kpc)')
+        self.var['stFitRw'] = TimeFunction( copy.deepcopy(params[6,:]), 'stFitRw', sensibleConv=1.0, cgsConv=cmperkpc, texString=r'$\Sigma_*$ Fit Break Radius $r_w$ (kpc)' )
+        self.var['stFitNb'] = TimeFunction( copy.deepcopy(params[7,:]), 'stFitNb', sensibleConv=1.0, cgsConv=1.0, texString=r'Sersic index $n_b$', log=False)
+        self.var['stFitNw'] = TimeFunction( copy.deepcopy(params[8,:]), 'stFitNw', sensibleConv=1.0, cgsConv=1.0, texString=r'Break sersic $n_w$', log=False)
+        self.var['stFitNTries'] = TimeFunction( copy.deepcopy(ntries), 'stFitNTries', texString='Number of minimization tries', log=True )
+        self.var['stFitMBulge'] = TimeFunction( copy.deepcopy(np.pi*params[0,:]*self.var['stFitRb'].cgs()**2*gamma((2.0+self.var['stFitNb'].sensible())/self.var['stFitNb'].sensible())), 'stFitMBulge', sensibleConv=1.0/gpermsun, cgsConv=1.0, texString=r'$\Sigma_*$ Fit Bulge Mass $M_b$ ($M_\odot)$', log=True, theRange=[1.0e7,1.0e12])
+        self.var['stFitMDisk'] = TimeFunction( copy.deepcopy(2.0*np.pi*params[1,:]*self.var['stFitRd'].cgs()**2), 'stFitMDisk', sensibleConv=1.0/gpermsun, cgsConv=1.0, texString=r'$\Sigma_*$ Fit Disk Mass $M_d$ ($M_\odot$)', log=True )
+        self.var['stFitResidual'] = RadialFunction( copy.deepcopy( np.array(fitfns) ), 'stFitResidual', sensibleConv=1.0, cgsConv=1.0, log=False, texString=r'$\log_{10}\left(\Sigma_{*,\mathrm{fit}} / \Sigma_* \right)$ ')
+        self.var['colstFit'] = RadialFunction( np.power(10.0, np.array(fitfns) )*self.var['colst'].sensible(), 'stFitResidual', sensibleConv=1.0, cgsConv=self.var['colst'].cgsConv/self.var['colst'].sensibleConv, log=True, texString=r'$\Sigma_{*,\mathrm{fit}}\ \left(M_\odot/\mathrm{pc}^2\right)$', theRange=[1.0e-4,1.0e5])
+        self.var['stFitBT'] = TimeFunction( self.var['stFitMBulge'].sensible()/(self.var['stFitMBulge'].sensible()+self.var['stFitMDisk'].sensible()) , 'stFitBT', sensibleConv=1.0, cgsConv=1.0, log=False, texString=r'$\Sigma_*$ Fit $M_b/(M_b+M_d)$')
+
+
     def computeMBulge(self):
         ''' Compute the mass of stars an observer might interpret as being part of a bulge. 
         To do this, we project an exponential profile from 1.5x the scale radius inwards
@@ -960,11 +1232,11 @@ class Experiment:
         for i,model in enumerate(self.models):
             model.p['experIndex'] = float(i)
             model.pLog['experIndex'] = False
-    def read(self, keepOnly=[],paramsOnly=False,keepStars=False):
+    def read(self, keepOnly=[],paramsOnly=False,keepStars=False, computeFit=False):
         ''' Read in every model in the experiment. '''
         n=0
         for model in self.models:
-            model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars)
+            model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars,computeFit=computeFit)
             n+=1
             if(n % 50 == 0):
                 print "Reading in model ",n," of ",len(self.models)
@@ -1186,6 +1458,7 @@ class Experiment:
                     model = self.models[k]
                     try:
                         ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm)
+                        ax.scatter( r[k][0]/2.0, model.var[v].inner( timeIndex=ti ), c=theRGB[k], s=30, lw=1 ) # plot the innermost point?
                         if v=='colst':
                             pass
                             #ax.plot(r[k], theVar[k][len(theVar[k])/2] *  np.exp( -r[k] / model.getData('scaleLength',timeIndex=ti)),ls='--')
@@ -1193,6 +1466,29 @@ class Experiment:
                             ax.plot(r[k], model.var['vPhiDM'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
                             ax.plot(r[k], model.var['vPhiBulge'].sensible( timeIndex=ti), ls=':', c=theRGB[k])
                             ax.plot(r[k], model.var['vPhiDisk'].sensible( timeIndex=ti), ls='-.', c=theRGB[k])
+                        if v=='colvPhiDisk':
+                            ax.plot( r[k], model.var['col'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
+                        if v=='colstvPhiDisk':
+                            ax.plot( r[k], model.var['colst'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
+                        if v=='colstFit':
+                            ax.plot( r[k], model.var['colst'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
+
+                            ind,rind = Nearest( r[k], model.var['stFitRb'].sensible( timeIndex=ti ) )
+                            ax.scatter( [model.var['stFitRb'].sensible(timeIndex=ti)], [model.var['colst'].sensible(timeIndex=ti,locIndex=ind)], lw=1, s=50, marker='h', c=theRGB[k] )
+
+                            ind,rind = Nearest( r[k], model.var['stFitRd'].sensible( timeIndex=ti ) )
+                            ax.scatter( [model.var['stFitRd'].sensible(timeIndex=ti)], [model.var['colst'].sensible(timeIndex=ti,locIndex=ind)], lw=1, s=50, marker='o', c=theRGB[k] )
+
+                            ind,rind = Nearest( r[k], model.var['stFitRo'].sensible( timeIndex=ti ) )
+                            ax.scatter( [model.var['stFitRo'].sensible(timeIndex=ti)], [model.var['colst'].sensible(timeIndex=ti,locIndex=ind)], lw=1, s=50, marker='s', c=theRGB[k] )
+
+                            ind,rind = Nearest( r[k], model.var['stFitRw'].sensible( timeIndex=ti ) )
+                            ax.scatter( [model.var['stFitRw'].sensible(timeIndex=ti)], [model.var['colst'].sensible(timeIndex=ti,locIndex=ind)], lw=1, s=50, marker='^', c=theRGB[k] )
+    
+                        if v=='colstFit2':
+                            ax.plot( r[k], model.var['colst'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
+
+
                     except ValueError:
                         rr = model.getData('rb',ti)
                         if(scaleR):
@@ -1539,6 +1835,21 @@ class Experiment:
         import balanceplot
         balanceplot.budgetAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
         balanceplot.balanceAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
+    def quickCheck(self):
+        ''' Take a look at Mh vs M_*, and a variety of other easy diagnostics:
+                M_* vs. ReSF, ReMst, Z_g, Z_SF, fg, fgh2, vPhi, sfr, Sigma1 '''
+        skip6 = range(1,len(self.models[0].var['z'].sensible()),6)
+        self.ptMovie(xvar='Mh', yvar=['mstar'],colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
+        self.ptMovie(xvar='mstar', yvar=['halfMassStars','halfMassSFR','integratedZ','sfZ','Z1','fg','fgh2','fghm','vPhiOuter','sfr','Sigma1','gasToStellarRatio','gasToStellarRatioH2','c82'], colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
+        self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
+        self.ptMovie(xvar='Sigma1p5', yvar=['sSFR'],colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
+
+    def krumholzAnalysis(self):
+        ''' Following Krumholz&Burkhart 2016 on the source of turbulence in the ISM, take a look at various versions of sfr vs sig and sig/SFR vs fg'''
+        self.ptMovie(xvar='fg',yvar=['sigmaPerSFR','v1PerSFR'],colorby='z',timeIndex=None,prev=0,movie=False)
+        self.ptMovie(xvar='sffg',yvar=['sigmaPerSFR','v1PerSFR'],colorby='z',timeIndex=None,prev=0,movie=False)
+        self.ptMovie(xvar='fgh2',yvar=['sigmaPerSFR','v1PerSFR'],colorby='z',timeIndex=None,prev=0,movie=False)
+        self.ptMovie(xvar='fghm',yvar=['sigmaPerSFR','v1PerSFR'],colorby='z',timeIndex=None,prev=0,movie=False)
 
     def globalGenzelAnalysis(self):
         ''' Do an analysis similar to Genzel et al 2015, wherein some? many? of the variables we know as functions of time are
@@ -1570,11 +1881,11 @@ class Experiment:
 
         for yvar in yvars:
 
+            print "Coefficients for fit to ",yvar," vs ",xvars
             overallY,_,overallYLog,overallYRange = self.constructQuantity(yvar) 
             y = np.log10(overallY.flatten())[whichData]
             clf = linear_model.LinearRegression()
             clf.fit( X.T, y )
-            print "Coefficients for fit to ",yvar," vs ",xvars
             print clf.coef_
             print clf.intercept_
             print ""
@@ -1694,11 +2005,14 @@ class Experiment:
     def globalFractionAnalysis(self, xv1='Mh', xv2='onePlusZ', yvars=None, funcs=None):
         ''' Make plots of 1+z vs M_h, colored by some property, e.g. fraction of grav unst galaxies'''
 
+        from matplotlib.colors import LogNorm
 
         if yvars is None:
             yvars = self.models[0].getTimeFunctions()
         if funcs is None:
             funcs = [np.mean]*len(yvars)
+        if len(funcs)==1 and len(yvars)>1:
+            funcs = funcs*len(yvars) # This lets you pass funcs=[np.mean] and have it evaluate the mean for every yvar.
 
         assert len(funcs) == len(yvars)
 
@@ -1719,22 +2033,31 @@ class Experiment:
         iMh = np.searchsorted(Mhs, flatMh)
         jOpz = np.searchsorted(opzs, flatOpz)
         for iyv,yv in enumerate(yvars):
+            print "Doing global fraction analysis for y=",yv
             overallY,_,overallYLog,overallYRange = self.constructQuantity(yv) 
             flatY = overallY.flatten()
             hist= np.zeros( ( NMhBins, NzBins) )
             for i in range(NMhBins):
                 for j in range(NzBins):
                     whichDataPoints = np.logical_and( iMh==i, jOpz==j )
-                    hist[i,j] = funs[iyv](flatY[whichDataPoints])
+                    hist[i,j] = funcs[iyv](flatY[whichDataPoints])
 
-            fig,ax= plt.subplots()
-            pl = ax.imshow(hist.T, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])) )
-            cbar = plt.colorbar(pl,ax=ax)
-            cbar.set_label(yvar)
-            ax.set_xlabel(xv1)
-            ax.set_ylabel(xv2)
-            plt.savefig( self.name+'_globalFraction_'+yvar+'_'+repr(funs[iyv]).replace(' ','').replace('<','').replace('>','')+'.png')
-            plt.close(fig)
+            try:
+                fig,ax= plt.subplots()
+                if overallYLog: 
+                    pl = ax.imshow(hist, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])), aspect='auto', interpolation='Nearest', origin='lower', norm=LogNorm(), vmin=overallYRange[0], vmax=overallYRange[1] ) 
+                else:
+                    pl = ax.imshow(hist, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])), aspect='auto', interpolation='Nearest', origin='lower', vmin=overallYRange[0], vmax=overallYRange[1] ) 
+                cbar = plt.colorbar(pl,ax=ax)
+                cbar.set_label(self.models[0].var[yv].texString)
+                ax.set_ylabel(r'$\log_{10} $ '+self.models[0].var[xv1].texString)
+                ax.set_xlabel(r'$\log_{10} $ '+self.models[0].var[xv2].texString)
+                funcname = repr(funcs[iyv]).replace(' ','').replace('<','').replace('>','')
+                atind = funcname.find('at')
+                plt.savefig( self.name+'_globalFraction_'+yv+'_'+funcname[:atind]+'.png')
+                plt.close(fig)
+            except:
+                pdb.set_trace()
 
 
 
@@ -1890,6 +2213,8 @@ class Experiment:
                 if('specificJ' in xvar and 'specficJ' in v or 'dimensionlessSpin' in xvar and 'dimensionlessSpin' in v):
                     ax.plot([overallXRange[0],overallXRange[0]], [overallRange[0],overallRange[1]], c='k',ls='--')
 
+                labelled=False
+
                 # Moster
                 if not histFlag:
                     def Moster(Mh, mparams):
@@ -1920,6 +2245,22 @@ class Experiment:
                             ax.fill_between(Mhs, effM, effP, alpha=.1)
                         if v=='mstar':
                             ax.fill_between(Mhs, effM*Mhs, effP*Mhs,alpha=.1)
+                    if (xvar=='fg' or xvar=='sffg' or xvar=='fgh2' or xvar=='fghm') and  (v=='sigmaPerSFR' or v=='v1PerSFR'):
+                        tx = np.linspace(0.01,1.0,100) # gas fractions
+                        ax.plot(tx, 1.0/(tx*tx* 16.0/np.pi*0.01* (150.0*1.0e5)**2/Gcgs * np.log(100.0)) / self.models[0].var[v].cgsConv, c='k', lw=1, ls='--', label='150 km/s' )
+                        ax.plot(tx, 1.0/ (tx*tx* 16.0/np.pi*0.01* (250.0*1.0e5)**2/Gcgs * np.log(100.0)) / self.models[0].var[v].cgsConv, c='k', lw=1, ls='--', label='250 km/s' )
+                        labelled=True
+                    if( xvar=='Sigma1p5' and v=='sSFR'):
+                        ## Barro14 lines
+                        ax.plot([10.0**10.3, 10.0**10.3], [overallRange[0], overallRange[1]], ls='--', c='k', label='Barro14')
+                        ax.plot([overallXRange[0], overallXRange[1]], [0.1, 0.1], ls='--', c='k')
+                        labelled=True
+                    if( xvar=='MHI' ):
+                        if v=='broeilsHI':
+                            mhis = np.power(10.0, np.linspace(8.0, 10.5, 100))
+                            DHI = np.power(10.0, (np.log10(mhis) - 6.52)/1.96)/2.0
+                            ax.plot(mhis,DHI, c='k', label='Broeils97')
+
                     if(xvar=='mstar'):
                         #if v=='sfr':
                         #    if 'MS' in self.srParams.keys():
@@ -1933,12 +2274,47 @@ class Experiment:
                             ZGenzel15 = np.power(10.0,  8.74 - 0.087 * np.power(np.log10(mst) -b,2.0) -8.69) # Equation 12a normalized to solar
                             #bb = np.log10(mst) - 0.32*np.log10(sfr) - 10
                             #ZMannucci10 = np.power(10.0, 0.21 + 0.39*bb - 0.2*bb*bb - 0.077*bb*bb*bb + 0.064*bb*bb*bb*bb
-                            ax.plot(mst,ZHayward/0.02, c='k')
-                            ax.plot(mst, ZGenzel15, c='r')
+                            ax.plot(mst,ZHayward/0.02, c='k', label='Hayward16')
+                            ax.plot(mst, ZGenzel15, c='r', label='Genzel15')
                             #ax.plot(mst, ZMannucci10, c='blue')
-                        if v=='halfMassStars':
+                            labelled=True
+                        if v=='Sigma1':
+                            mstThis = np.power(10.0, np.linspace(9.75, 11.25, 100))
+                            fang = np.power(10.0, 9.29 + 0.64*(np.log10(mstThis)-10.25))  # Fang et al 2013
+                            ax.plot(mstThis, fang, c='k', label='Fang+ 2013 Red and Green')
+                            labelled=True
+                        if v=='c82':
+                            pass
+                            #mstThis = np.power(10.0, np.linspace(8.75,11.5, 300))
+                            #logn = logn2 + (logn1-logn2)/(1.0+np.power(10.0, gamma*np.log10(mstThis/M0)))
+                        if v=='halfMassStars' or v=='halfMassSFR':
                             reff = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+z[ti],-0.6) # kpc (eq B3) at z=4
                             ax.plot(mst,reff, c='k')
+
+                            #obsmst = np.array([1.0e9, 3.0e11])
+                            obsmst = np.power(10.0, np.linspace(9.0, 11.5, 100))
+                            if z[ti]<0.5:
+                                reffETGvdW = 10.0**0.60*np.power(obsmst/(5.0e10), 0.75)
+                                reffLTGvdW = 10.0**0.86*np.power(obsmst/(5.0e10), 0.25)
+                            if 0.5<=z[ti] and z[ti]<1.0:
+                                reffETGvdW = 10.0**0.42*np.power(obsmst/(5.0e10), 0.71)
+                                reffLTGvdW = 10.0**0.78*np.power(obsmst/(5.0e10), 0.22)
+                            if 1.0<=z[ti] and z[ti]<1.5:
+                                reffETGvdW = 10.0**0.22*np.power(obsmst/(5.0e10), 0.76)
+                                reffLTGvdW = 10.0**0.70*np.power(obsmst/(5.0e10), 0.22)
+                            if 1.5<=z[ti] and z[ti]<2.0:
+                                reffETGvdW = 10.0**0.09*np.power(obsmst/(5.0e10), 0.76)
+                                reffLTGvdW = 10.0**0.65*np.power(obsmst/(5.0e10), 0.23)
+                            if 2.0<=z[ti] and z[ti]<2.5:
+                                reffETGvdW = 10.0**-0.05*np.power(obsmst/(5.0e10), 0.76)
+                                reffLTGvdW = 10.0**0.55*np.power(obsmst/(5.0e10), 0.22)
+                            if 2.5<=z[ti] :
+                                reffETGvdW = 10.0**-0.06*np.power(obsmst/(5.0e10), 0.79)
+                                reffLTGvdW = 10.0**0.51*np.power(obsmst/(5.0e10), 0.18)
+                            ax.plot(obsmst,reffETGvdW, c='r', label='vdWel14 ETG')
+                            ax.plot(obsmst,reffLTGvdW, c='b', label='vdWel14 LTG')
+                            labelled=True
+
                         if v=='sfr':
                             def plotWhitaker(Mst0,Mst1,loga,b):
                                 ax.plot([10.0**Mst0,10.0**Mst1],[10.0**Mst0*10.0**loga*(1.0+z[ti])**b,10.0**Mst1*10.0**loga*(1.0+z[ti])**b],c='k')
@@ -1959,28 +2335,37 @@ class Experiment:
                             else:
                                 lilly13 = 0.5 * np.power(mst/3.16e10, -0.1) * np.power(1.0+z[ti],1.667)
 
-                            ax.plot(mst, whitaker12*mst*1.0e-9, c='k')
-                            ax.plot(mst, lilly13*mst*1.0e-9, c='r')
+                            ax.plot(mst, whitaker12*mst*1.0e-9, c='k',label='Whitaker12')
+                            ax.plot(mst, lilly13*mst*1.0e-9, c='r', label='Lilly13')
+                            labelled=True
                         if v=='sSFR':
                             whitaker12 = np.power(10.0, -1.12 + 1.14*z[ti] - 0.19*z[ti]*z[ti] - (0.3+0.13*z[ti])*(np.log10(mst)-10.5)) # Gyr^-1 -- Genzel+15 eq 1
                             if z[ti]<2:
                                 lilly13 = 0.117 * np.power(mst/3.16e10, -0.1) * np.power(1.0+z[ti],3.0)
                             else:
                                 lilly13 = 0.5 * np.power(mst/3.16e10, -0.1) * np.power(1.0+z[ti],1.667)
-                            ax.plot(mst, whitaker12, c='k')
-                            ax.plot(mst, lilly13, c='r')
-                        if v=='fg':
-                            f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
-                            tau4 = (12.27-t[ti])/(12.27+1.60) # fractional lookback time at z=4
-                            fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
-                            ax.plot(mst,fgz4,c='k')
+                            ax.plot(mst, whitaker12, c='k', label='Whitaker12')
+                            ax.plot(mst, lilly13, c='r', label='Lilly13')
+                            labelled=True
+                        f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+                        tau4 = (12.27-t[ti])/(12.27+1.60) # fractional lookback time at z=4
+                        fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+                        if v=='fg' or v=='fghm' or v=='fgsf' or v=='fgh2':
+                            ax.plot(mst,fgz4,c='k', label='Hayward16')
+                            labelled=True
+                        if v=='gasToStellarRatio' or v=='gasToStellarRatioH2':
+                            ax.plot(mst, fgz4/(1-fgz4), c='k', label='Hayward16')
+                            labelled=True
                         if v=='vPhiOuter':
-                            ax.plot(mst,  147*np.power(mst/1.0e10, 0.23),c='k') # Hayward & Hopkins eq. B1
+                            ax.plot(mst,  147*np.power(mst/1.0e10, 0.23),c='k', label='Hayward16') # Hayward & Hopkins eq. B1
+                            labelled=True
 
 
 
                 ax.set_xlim(overallXRange[0],overallXRange[1])
                 ax.set_ylim(overallRange[0],overallRange[1])
+                if labelled:
+                    ax.legend(frameon=False, loc=4)
                 if(overallLog and not histFlag):
                     ax.set_yscale('log')
                 if(overallXLog and not histFlag):
@@ -2074,7 +2459,8 @@ class Experiment:
                             xx = model.getData('z')
                         else:
                             xx = model.getData('t')
-                        sc = ax.scatter(xx,
+                        try:
+                            sc = ax.scatter(xx,
                                     theVar[j],
                                     c=(colors[j]),
                                     lw=0.1/lwnorm,
@@ -2082,6 +2468,8 @@ class Experiment:
                                     vmin=overallColorRange[0],
                                     vmax=overallColorRange[1],
                                     cmap=cm)
+                        except:
+                            pdb.set_trace()
                 cbar = plt.colorbar(sc,ax=ax)
                 if(log):
                     cbar.set_label(r'$\log_{10}$'+colorby)
@@ -2487,6 +2875,9 @@ class Experiment:
             theRange[1] = np.max(theRange[1])
 
         if(log):
+            if theRange[0]<1.0e-20:
+                theRange[0] = theRange[1]/1.0e6
+                print "Warning: clobbering lower end of range"
             if not (theRange[0]>0 and theRange[1]>0):
                 log=False
             if theRange[0]>0:

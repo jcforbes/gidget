@@ -19,17 +19,18 @@ def makeThePlots(args):
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
-        theExp.read(args.vsr+balanceArgs+AMargs, keepStars=args.stellarPops)
+        theExp.read(args.vsr+balanceArgs+AMargs, keepStars=args.stellarPops, computeFit=args.fit)
         nts = int(theExp.models[0].p['Noutputs']+1)
         tis = [nts/5,nts/2,nts]
-        theExp.storeScalingRelation('MS', 'mstar','sfr')
-        theExp.storeScalingRelation('MZR', 'mstar','integratedZ')
-        theExp.storeScalingRelation('MFG', 'mstar','gasToStellarRatio')
-        theExp.storeScalingRelation('TF', 'mstar','vPhiOuter')
-        theExp.storeScalingRelation('MsTd', 'mstar','tdep')
-        theExp.storeScalingRelation('MsTdH2', 'mstar','tDepH2')
-        theExp.storeScalingRelation('Rg', 'mstar','halfMassGas')
-        theExp.storeScalingRelation('mRho', 'mstar','rho1')
+        if args.scalings or args.genzel:
+            theExp.storeScalingRelation('MS', 'mstar','sfr')
+            theExp.storeScalingRelation('MZR', 'mstar','integratedZ')
+            theExp.storeScalingRelation('MFG', 'mstar','gasToStellarRatio')
+            theExp.storeScalingRelation('TF', 'mstar','vPhiOuter')
+            theExp.storeScalingRelation('MsTd', 'mstar','tdep')
+            theExp.storeScalingRelation('MsTdH2', 'mstar','tDepH2')
+            theExp.storeScalingRelation('Rg', 'mstar','halfMassGas')
+            theExp.storeScalingRelation('mRho', 'mstar','rho1')
         theExp.assignIndices()
         for i,rankby in enumerate(args.rankby):
             tti=None
@@ -77,8 +78,14 @@ def makeThePlots(args):
         #theExp.ptMovie(timeIndex=tis,xvar='x3',yvar=['MassLoadingFactor'],prev=0,colorby='t',movie=False)
         #theExp.ptMovie(timeIndex=tis,xvar='colsfr',yvar=['colTr','colAccr','colOut'],prev=0,colorby='t',movie=False)
         #theExp.ptMovie(timeIndex=tis,xvar='r',yvar=['col','colst','Z','vPhi','Q','MassLoadingFactor','hGas','colsfr','fH2','fgRadial','colTr','colAccr','colOut','equilibrium'],prev=0,colorby='t',movie=False)
+        theExp.krumholzAnalysis()
         if args.genzel:
             theExp.globalGenzelAnalysis()
+        if args.quick:
+            theExp.quickCheck()
+        if args.fraction:
+            theExp.globalFractionAnalysis()
+            theExp.globalFractionAnalysis(funcs=[np.std])
         if args.stellarPops:
             theExp.plotAgeFuncs()
         if(args.percentiles):
@@ -130,6 +137,10 @@ if __name__=='__main__':
     parser.add_argument('--snapshot',dest='snapshot',action='store_true',help="Produce 1d histograms of all parameters and time variables.")
     parser.add_argument('--stellarPops',dest='stellarPops',action='store_true',help="Produce plots relating to the passive stellar pops")
     parser.add_argument('--genzel', dest='genzel', action='store_true',help="Produce plots relating to Genzel et al 2015")
+    parser.add_argument('--fraction', dest='fraction', action='store_true',help="Produce heatmaps of quantites as fn of Mh and z")
+    parser.add_argument('--fit', dest='fit', action='store_true',help="Fit the stellar column density profiles. May be time-consuming")
+    parser.add_argument('--scalings', dest='scalings', action='store_true',help="Fit galaxy scaling relations - only really makes sense in runs where you have a decent range of masses and some source of variability between galaxies at a given mass.")
+    parser.add_argument('--quick', dest='quick', action='store_true',help="Quickly check fit to scaling relations.")
     args = parser.parse_args()
 
     weNeed = len(args.rankby) - len(args.rbz) 

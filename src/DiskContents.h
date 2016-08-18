@@ -33,7 +33,8 @@ class DiskContents {
 	           double minSigSt, 
                double rfrec, double zetarec,
     	       double fh2min, double tdeph2sc,
-               double Z_IGM, double yrec);
+               double Z_IGM, double yrec,
+               double ksupp, double kpow);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -96,7 +97,7 @@ class DiskContents {
   double hGas(unsigned int n); 
 
   // Find the density in g/cc from stars + dark matter
-  double ComputeRhoSD(unsigned int n, double Mh, double z);
+  double ComputeRhoSD(unsigned int n);
 
   // Compute the star formation rate in every cell
   double ComputeColSFR(double Mh, double z);
@@ -245,6 +246,7 @@ class DiskContents {
 //  std::vector<double> MdotiPlusHalf;
 //  std::vector<double> MstarDotIPlusHalf;
 
+  std::vector<double> colvPhiDisk, colstvPhiDisk; // used to store the actual column density distributions used to calculated vPhiDisk. These are the regular column density distributions (col and activeColSt()) passed through a discrete fourier transform and with their high-k components exponentially suppressed.
   std::vector<double> dsigdtTrans, dsigdtDdx, dsigdtHeat, dsigdtCool;
 
   // store the cells where we have turned off forcing in the
@@ -267,6 +269,9 @@ class DiskContents {
   
   std::vector<double> ZDisk; // metallicity at each cell
   unsigned int nx; // number of cells
+
+  unsigned int ksuppress; // k at which to begin exponentially suppressing modes to caclulate vPhiDisk
+  double kpower; // power to raise argument of the exponential in the above suppression.
   
   //  Dimensionless values of:
   std::vector<double> &

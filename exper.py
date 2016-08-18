@@ -24,7 +24,7 @@ allProcs=[] # a global list of all processes we've started
 allStartTimes=[] # a global list of the start times of all of these processes
 
 
-globalBolshoiReader = bolshoireader('rf_registry3.txt',3.0e11,3.0e12, '/Users/jforbes/bolshoi/')
+globalBolshoiReader = bolshoireader('rf_registry.txt',3.0e11,3.0e12, '/Users/jforbes/bolshoi/')
 bolshoiSize =  len(globalBolshoiReader.keys)
 
 def HowManyStillRunning(procs):
@@ -80,10 +80,13 @@ class experiment:
                 0.54,0.1,200,.30959,0.38, \
                 -0.25,1.0,1.0,0.3,1.0, \
                 0,0.0,.1,.03,2.0, \
-                .002,.054,0.0,0.0, bolshoiSize/2]
+                .002,.054,0.0,0.0, 10.0, 2.0, bolshoiSize/2]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
+
+        # When adding new variables, put them /before/ bolshoiWeight, leaving bolshoiWeight as the final
+        # element of this list!
         self.names=['name','nx','eta','epsff','tauHeat', \
                 'analyticQ','cosmologyOn','xmin','NActive','NPassive', \
                 'vphiR','R','gasTemp','Qlim','fg0', \
@@ -95,7 +98,7 @@ class experiment:
                 'RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ', \
                 'accAlphaMh','accCeiling','fscatter','invMassRatio','fcool', \
                 'whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC', \
-                'ZIGM','yREC','concentrationRandomFactor','muFgScaling', 'bolshoiWeight']
+                'ZIGM','yREC','concentrationRandomFactor','muFgScaling', 'ksuppress', 'kpower', 'bolshoiWeight']
         assert len(self.p)==len(self.names)
         self.keys={}
         ctr=0
@@ -385,6 +388,8 @@ class experiment:
                     #print "Parameters: "
                     #print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
                     os.chdir(expDir)
+                    # Here we exclude the final element of tmpap since it corresponds to the variable bolshoiWeight, which
+                    # is only used in the python code, not by the C code.
                     procs.append(subprocess.Popen([binary]+tmpap[:1]+[repr(el) for el in tmpap[1:-1]],stdout=stdo,stderr=stde))
                     cmd = ''
                     for el in tmpap:
@@ -1174,6 +1179,57 @@ if __name__ == "__main__":
     re56[0].irregularVary('bolshoiWeight', [int(bolweights[i]) for i in range(len(bolweights))], 5)
 
 
+    def setKnownProperties( Mhz0, theExperiment, widthReductionFactor=1 ):
+        Mhz0 = np.array(Mhz0)
+        Mhz4 = Mhz0/(.75*33.3 * np.power(Mhz0/1.5e13,0.359)) # very roughly... We know for Mh0 = 3e11, Mhz4 =4e10, and same for Mh0=2e13->Mhz4=6e11. Using those 4 numbers and assuming a powerlaw, we get this relation.
+        eff = Moster(Mhz4,central)
+        mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+        f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+        tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+        fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+        reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+        ZHayward = -8.69 + 9.09*np.power(1.0+4.0,-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+4.0,0.094),2.0)
+        ZHayward = np.power(10.0, ZHayward) * 0.02
+        weight1 = np.exp(-Mhz0/1.0e12)  #the ad-hoc reductions in fg and fcool make things bad for high-mass galaxies. weight1 is for tiny galaxies.
+        weight2 = 1-weight1
+        theExperiment.irregularVary( 'fg0', list(fgz4*(0.5*weight1+1.0*weight2)), 5)
+        theExperiment.irregularVary( 'Mh0', list(Mhz0), 5)
+        theExperiment.irregularVary('muNorm', list(.02*np.power(Mhz0/1.0e12,-0.7)), 5)
+        fcools = list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4) * (0.03*weight1+1.0*weight2) ) # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
+        theExperiment.irregularVary('fcool', fcools, 5)
+        theExperiment.irregularVary('NChanges', 301)
+
+        #theExperiment.irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
+        width = 0.015/widthReductionFactor # From mid-bottom panel of fig 6 of Danovich et al (2015)
+        #width = 0.001 # just for debugging
+        asls =  np.random.normal( np.random.normal(size=len(Mhz0)) )*width + 0.12
+        if len(Mhz0)==1:
+            asls = np.array([asls])
+        asls = np.clip(asls, 0.005,np.inf)
+        theExperiment.irregularVary('accScaleLength', list(asls), 5)
+        #theExperiment.irregularVary( 'R', list(np.power(reff4/reff4[-1],0.2)*60), 5)
+        theExperiment.irregularVary( 'R', list( np.power(reff4/reff4[-1],1.0)*70* asls/0.042 ) , 5)
+        bolweights = bolshoiSize * np.random.random(size=len(Mhz0))
+        theExperiment.irregularVary('bolshoiWeight', [int(bolweights[i]) for i in range(len(bolweights))], 5)
+        theExperiment.irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7)
+        theExperiment.irregularVary('Noutputs',400)
+        theExperiment.irregularVary('zstart',3.98)
+        theExperiment.irregularVary('zrelax',4.0)
+        theExperiment.irregularVary('muFgScaling', -0.3)
+        theExperiment.irregularVary('muColScaling', 0.5)
+        theExperiment.irregularVary('fscatter', 1.0)
+        theExperiment.irregularVary('accCeiling',1.0)
+        theExperiment.irregularVary('NPassive',6)
+        theExperiment.irregularVary('eta',0.5)
+        theExperiment.irregularVary('xmin',0.005)
+        theExperiment.irregularVary('yREC',0.03)
+        theExperiment.irregularVary('fixedQ', 2.0)
+        theExperiment.irregularVary('Qlim', 2.5)
+        theExperiment.irregularVary( 'nx', 256 ) # FFT o'clock.
+        theExperiment.irregularVary('ZIGM', list(ZHayward), 5)
+
+
+
     # re57 - continue to debug newly-discovered issue with rotation curves
     Ngal = 15
     Mhz0 = np.power(10.0, np.linspace(11.5, 13.3, Ngal))
@@ -1250,6 +1306,223 @@ if __name__ == "__main__":
     re63[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7)
 
 
+    re64 = NewSetOfExperiments ( re63, 're64')
+    # A straight-up copy of re63. The C cde has been altered to reduce ksupress and take its log before passing it to the DFT. The former should do something to reduce hte oscillations still visible in vrot and the latter should hopefully do something to suppress the large spike at large radii in vrot? IDK.
+
+    re65=NewSetOfExperiments(re64, 're65')
+    # ksuppress is still 30, but now we try squaring the exponent.  Hmm. in the final version of re65, ksuppress=10. That actually works.
+
+    # In this experiment we've finally added ksuppress as an externally-specfiable param. 
+    # We're going to vary it over huge values of ksuppress in a situation (Q crit values very low) where the instability doesn't exist
+    # just to check the effect of the fourier suppression on the reconstructed shape of col and colst, which we are now writing to disk.
+    re66 = NewSetOfExperiments( re01, 're66' )
+    setKnownProperties( [1.0e12] , re66[0])
+    re66[0].irregularVary( 'ksuppress', [5, 20, 80, 320, 1200] )
+    re66[0].irregularVary( 'Qlim', 1.0e-5 )
+    re66[0].irregularVary( 'fixedQ', 1.0e-6 )
+
+    re67 = NewSetOfExperiments( re01, 're67' )
+    setKnownProperties(  np.power(10.0, np.linspace(11.5, 13.3, Ngal)) , re67[0])
+    re67[0].irregularVary( 'ksuppress', 10.0 )
+
+    # more galaxies
+    re68 = NewSetOfExperiments( re01, 're68' )
+    setKnownProperties( np.power(10.0, np.linspace(11.0, 13.3, 200)), re68[0])
+    re68[0].irregularVary( 'ksuppress', 10.0 )
+
+    # clip the negative reff's in the previous sample
+    re69 = NewSetOfExperiments( re01, 're69' )
+    setKnownProperties( np.power(10.0, np.linspace(11.0, 13.3, 200)), re69[0])
+    re69[0].irregularVary( 'ksuppress', 10.0 )
+
+    #  Enforce agreement with observations in IC's (dbg 10)
+    # ... to debug that isue, try to get things working the way they are
+    re70 = NewSetOfExperiments( re01, 're70' )
+    setKnownProperties( np.power(10.0, np.linspace(11.0, 13.3, 20)), re70[0])
+    re70[0].irregularVary( 'ksuppress', 5.0 )
+    re70[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    # Holy cow.. why is re70 so unstable?! Let's just turn off GI for a minute to double-check that it's the cause
+    re71 = NewSetOfExperiments( re01, 're71' )
+    setKnownProperties( np.power(10.0, np.linspace(11.0, 13.3, 20)), re71[0] )
+    re71[0].irregularVary( 'ksuppress', 5.0 )
+    re71[0].irregularVary( 'Qlim', 1.0e-5 )
+    re71[0].irregularVary( 'fixedQ', 1.0e-6 )
+    re71[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+
+    # Yep, what a shocker
+    # This one seems to create a weird artificial peak. Too much kpower?
+    re72 = NewSetOfExperiments( re01, 're72' )
+    setKnownProperties( np.power(10.0, np.linspace(11.0, 13.3, 20)), re72[0] )
+    re72[0].irregularVary( 'ksuppress', 5.0 )
+    re72[0].irregularVary('kpower', 4.0)
+    re72[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+
+    re73 = NewSetOfExperiments( re01, 're73' )
+    setKnownProperties( np.power(10.0, np.linspace(11,13.3,20)), re73[0] )
+    re73[0].irregularVary('ksuppress', 20.0 )
+    re73[0].irregularVary('kpower', 2.0)
+    re73[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    re74 = NewSetOfExperiments(re01, 're74' )
+    setKnownProperties( np.power(10.0, np.linspace(11,13.3,20)), re74[0] )
+    re74[0].irregularVary('ksuppress', 10.0 )
+    re74[0].irregularVary('kpower', 2.0)
+    re74[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+
+    # Now that we've smoothed vPhi forcefully to make these runs stable, let's re-do with realistic scatter in accr. and scale length
+    # also include a reasonable ZIGM distribution!
+    re75 = NewSetOfExperiments(re01, 're75' )
+    setKnownProperties( np.power(10.0, np.linspace(11,13.3,20)), re75[0], widthReductionFactor=1 )
+    re75[0].irregularVary('whichAccretionHistory', -344)
+    re75[0].irregularVary('ksuppress', 10.0 )
+    re75[0].irregularVary('kpower', 2.0)
+    re75[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+    re75[0].irregularVary('concentrationRandomFactor', .5 )
+
+
+    # re75 is kind of fascinating. The lowest-mass galaxies have real trouble increasing their stellar mass. The metallicity gradients are kind of nuts (they have peaks at low radii). Let's try the following series of runs to understand metallicity gradients a bit better:
+    # re76: same as re75, but take out the stochasticity in size and accretion radius
+    # re77: re76, but take out metal mixing
+    # re78: re76, but take out radial gas flow
+    # re79: re76, but take out mass loading
+    re76 = NewSetOfExperiments(re01, 're76' )
+    setKnownProperties( np.power(10.0, np.linspace(11,13.3,20)), re76[0], widthReductionFactor=100.0 )
+    re76[0].irregularVary('whichAccretionHistory', 0)
+    re76[0].irregularVary('ksuppress', 10.0 )
+    re76[0].irregularVary('kpower', 2.0)
+    re76[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+    re76[0].irregularVary('concentrationRandomFactor', .5 )
+
+    re77 = NewSetOfExperiments(re01, 're77' )
+    setKnownProperties( np.power(10.0, np.linspace(11,13.3,20)), re77[0], widthReductionFactor=100.0 )
+    re77[0].irregularVary('whichAccretionHistory', 0)
+    re77[0].irregularVary('ksuppress', 10.0 )
+    re77[0].irregularVary('kpower', 2.0)
+    re77[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+    re77[0].irregularVary('concentrationRandomFactor', .5 )
+    re77[0].irregularVary('kappaMetals',0)
+
+    re78 = NewSetOfExperiments(re01, 're78' )
+    setKnownProperties( np.power(10.0, np.linspace(11,13.3,20)), re78[0], widthReductionFactor=100.0 )
+    re78[0].irregularVary('whichAccretionHistory', 0)
+    re78[0].irregularVary('ksuppress', 10.0 )
+    re78[0].irregularVary('kpower', 2.0)
+    re78[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+    re78[0].irregularVary('concentrationRandomFactor', .5 )
+    re78[0].irregularVary('fixedQ',1.0e-5)
+
+    re79 = NewSetOfExperiments(re01, 're79' )
+    setKnownProperties( np.power(10.0, np.linspace(11,13.3,20)), re79[0], widthReductionFactor=100.0 )
+    re79[0].irregularVary('whichAccretionHistory', 0)
+    re79[0].irregularVary('ksuppress', 10.0 )
+    re79[0].irregularVary('kpower', 2.0)
+    re79[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+    re79[0].irregularVary('concentrationRandomFactor', .5 )
+    re79[0].irregularVary('muNorm', 0)
+
+
+    # Make some adjustments - larger MLF, larger accretion radii, reduction in fcool.
+    re80 = NewSetOfExperiments(re01, 're80')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re80[0], widthReductionFactor=100.0 )
+    re80[0].irregularVary('whichAccretionHistory', 0)
+    re80[0].irregularVary('ksuppress', 10.0 )
+    re80[0].irregularVary('kpower', 2.0)
+    re80[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    # Same as re81, but add the scatter back in.
+    re81 = NewSetOfExperiments(re01, 're81')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 200)), re81[0], widthReductionFactor=1.0 )
+    re81[0].irregularVary('whichAccretionHistory', -112)
+    re81[0].irregularVary('ksuppress', 10.0 )
+    re81[0].irregularVary('kpower', 2.0)
+    re81[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    # Same as re82, but switch DM sims. In re81 there's a weird /tri/modality in accretion rates.
+    # OK, mystery solved. You need to specify the correct NChanges.
+    re82 = NewSetOfExperiments(re01, 're82')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 200)), re82[0], widthReductionFactor=1.0 )
+    re82[0].irregularVary('whichAccretionHistory', -112)
+    re82[0].irregularVary('ksuppress', 10.0 )
+    re82[0].irregularVary('kpower', 2.0)
+    re82[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    # OK, I've found two issues. One is that MBulge in gidget proper is initialized too large by a factor of 2pi. That's been corrected. I've also altered the MLF prescription so that fg = col/(col+colst+colDM). In re83 I just re-run re80. In re84 I try out just straight-up Creasey fits for the MLF.
+    # Make some adjustments - larger MLF, larger accretion radii, reduction in fcool.
+    re83 = NewSetOfExperiments(re01, 're83')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re83[0], widthReductionFactor=100.0 )
+    re83[0].irregularVary('whichAccretionHistory', 0)
+    re83[0].irregularVary('ksuppress', 10.0 )
+    re83[0].irregularVary('kpower', 2.0)
+    re83[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    re84 = NewSetOfExperiments(re01, 're84')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re84[0], widthReductionFactor=100.0 )
+    re84[0].irregularVary('whichAccretionHistory', 0)
+    re84[0].irregularVary('ksuppress', 10.0 )
+    re84[0].irregularVary('kpower', 2.0)
+    re84[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+    re84[0].irregularVary('muNorm', 13)
+    re84[0].irregularVary('muFgScaling', 0.16)
+    re84[0].irregularVary('muColScaling', 1.15)
+
+    # At this point we add a Mquench = 10^12 Msun hard-codd. In re86, also check what happens if we turn on the ancient likely-wrong prescription for stellar mass return
+    re85 = NewSetOfExperiments(re01, 're85')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re85[0], widthReductionFactor=100.0 )
+    re85[0].irregularVary('whichAccretionHistory', 0)
+    re85[0].irregularVary('ksuppress', 10.0 )
+    re85[0].irregularVary('kpower', 2.0)
+    re85[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    re86 = NewSetOfExperiments(re01, 're86')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re86[0], widthReductionFactor=100.0 )
+    re86[0].irregularVary('whichAccretionHistory', 0)
+    re86[0].irregularVary('ksuppress', 10.0 )
+    re86[0].irregularVary('kpower', 2.0)
+    re86[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**6 )
+
+    # Steepen dependence of outflows on halo mass and increase epsin to bring us back up to M_*-M_h
+    re87 = NewSetOfExperiments(re01, 're87')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re87[0], widthReductionFactor=100.0 )
+    re87[0].irregularVary('whichAccretionHistory', 0)
+    re87[0].irregularVary('ksuppress', 10.0 )
+    re87[0].irregularVary('kpower', 2.0)
+    re87[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 )
+
+    re88 = NewSetOfExperiments(re01, 're88')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re88[0], widthReductionFactor=100.0 )
+    re88[0].irregularVary('whichAccretionHistory', 0)
+    re88[0].irregularVary('ksuppress', 10.0 )
+    re88[0].irregularVary('kpower', 2.0)
+    re88[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 +2**6)
+    re88[0].irregularVary('RfREC', 0.1)
+
+    # Just re-run re87, but in the code chance epsin when Mh>Mquench to be epsin*=0.1
+    re89=NewSetOfExperiments(re87,'re89')
+
+    # in KnownProperties, increase scale lengths
+    re90=NewSetOfExperiments(re87, 're90')
+
+    # again slightly larger scale lengths, a bit steeper MLF mass-dependence, and lower initial values of f_g and f_cool
+    re91=NewSetOfExperiments(re87, 're91')
+
+    # a little bit more on the scale lengths. Keep the adjusted f_g and f_cool from re91 for low-mass galaxies, but up the initial values for high-mass galaxies [this makes some physical sense because those galaxies should do most of their SF earlier
+    re92=NewSetOfExperiments(re87, 're92')
+
+    # dial back on lengths, increase weighting effects
+    re93=NewSetOfExperiments(re87, 're93')
+
+    # Adjust feedback: reduce overall normalization from .5 to .2, increase strength of scaling with fg and column density
+    re94=NewSetOfExperiments(re87, 're94')
+
+    # re93->re94 increase global MLF by like a factor of 10, so let's knock down the normalization by a factor of 10.
+    re95=NewSetOfExperiments(re87, 're95')
+
+    # 95 was pretty good (at least for SMHM)! Adjust weighted IC's -- high initial gas fractions for high-mass galaxies, and lower fcools for low-mass galaxies
+    re96=NewSetOfExperiments(re87, 're96')
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

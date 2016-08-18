@@ -202,7 +202,6 @@ FixedMesh::FixedMesh(double bet0, double turnoverRadius, double nRC, double xm, 
 }
 void FixedMesh::storeSummand()
 {
-    test_summand();
     for(unsigned int n=1; n<=nxc; ++n) {
         for(unsigned int nn=1; nn<=nxc; ++nn) {
             sumTab[n][nn] =  summand(xPlusHalf(nn-1), xPlusHalf(nn), x(n), 2);

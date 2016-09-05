@@ -306,7 +306,8 @@ void DiskContents::Initialize(double fcool, double fg0,
     double fg4 = fg0;
     double fc = fcool;
     double Z0 = Z_IGM;
-    double xd = stScaleLength/dim.d(1.0);
+    double xdstars = stScaleLength/dim.d(1.0)/2.0; // make the initial size much smaller than the initial accr. radius
+    double xdgas = stScaleLength/dim.d(1.0)/1.4; // make the initial size much smaller than the initial accr. radius
     // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
     // fcool of the baryons have cooled to form a disk.
     // This is a correction, to account for the fact that for scale lengths >~ the radius of the disk,
@@ -315,7 +316,7 @@ void DiskContents::Initialize(double fcool, double fg0,
     double xinner = mesh.x(.5);
     xinner = 0.0; // don't change the column density depending on inner edge
     xouter = 1000.0;
-    double dummy = -exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner);
+    // double dummy = -exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner);
     double eff;
 
     // override the inputs to this function for fcool and fg0 based on our knowledge of the actual halo mass in this galaxy at z=4.
@@ -346,18 +347,20 @@ void DiskContents::Initialize(double fcool, double fg0,
         Z0 = ZHayward;
         fc = 1.0/(1.0-fgz4) * mst/(0.17*Mh);
         fg4 = fgz4;
-        xd = reff4/dim.d(1.0)/1.67835; // is scale length = reff? Numerical solution says reff/rd = 1.67835.
+        xdstars = reff4/dim.d(1.0)/1.67835; // is scale length = reff? Numerical solution says reff/rd = 1.67835.
+        xdgas= xdstars*2.0;
  
     }
 
-    double S0 = 0.17*fc*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xd)*xd*(xd+xouter) + exp(-xinner/xd)*xd*(xd+xinner))*dim.MdotExt0*dim.Radius);
+    double S0gas = 0.17*fc*fg4*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xdgas)*xdgas*(xdgas+xouter) + exp(-xinner/xdgas)*xdgas*(xdgas+xinner))*dim.MdotExt0*dim.Radius);
+    double S0stars = 0.17*fc*(1-fg4)*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xdstars)*xdstars*(xdstars+xouter) + exp(-xinner/xdstars)*xdstars*(xdstars+xinner))*dim.MdotExt0*dim.Radius);
     double floorval = 1.0e-15;
 
     for(unsigned int n=1; n<=nx; ++n) {
         ZDisk[n] = Z0;
-        initialStarsA->spcol[n] = S0*(1-fg4)*exp(-x[n]/xd);
-        if(initialStarsA->spcol[n] < S0*(1-fg4)*floorval)
-            initialStarsA->spcol[n] = S0*(1-fg4)*floorval; // floor the initial value to avoid very small timesteps
+        initialStarsA->spcol[n] = S0stars*exp(-x[n]/xdstars);
+        if(initialStarsA->spcol[n] < S0stars*floorval)
+            initialStarsA->spcol[n] = S0stars*floorval; // floor the initial value to avoid very small timesteps
         initialStarsA->spsigR[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spsigZ[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spZ[n] = Z_IGM;
@@ -369,14 +372,14 @@ void DiskContents::Initialize(double fcool, double fg0,
         initialStarsP->spZ[n] = initialStarsA->spZ[n];
         initialStarsP->spZV[n] = initialStarsA->spZV[n];
 
-        col[n] = S0*fg4*exp(-x[n]/xd);
-        if(col[n] < S0*fg4*floorval)
-            col[n] = S0*fg4*floorval; // floor the initial value to avoid very small timesteps
+        col[n] = S0gas*exp(-x[n]/xdgas);
+        if(col[n] < S0gas*floorval)
+            col[n] = S0gas*floorval; // floor the initial value to avoid very small timesteps
         sig[n] = max(sig0, sigth);
 
 
     }
-    std::cout << "DEBUG ICs.  "<< MhZs << " "<< eff<<" "<< xd<<" "<< " "<< stScaleLength/dim.d(1.0)<<" " << col[1]<< " "<<col[nx]<<  std::endl;
+    //std::cout << "DEBUG ICs.  "<< MhZs << " "<< eff<<" "<< xd<<" "<< " "<< stScaleLength/dim.d(1.0)<<" " << col[1]<< " "<<col[nx]<<  std::endl;
     
     ComputeMassLoadingFactor(MhZs, initialStarsA->spcol);
 
@@ -704,21 +707,39 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             Znm1=ZBulge; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
         double mu = MassLoadingFactor[n]; //dSdtOutflows(n)/colSFR[n];
         double Zej = ZDisk[n] + xiREC * yREC*RfREC / max(mu, 1.0-RfREC);
-        dMZdt[n] = 
-                    accProf[n]*AccRate*Z_IGM *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
-                    ((yREC-ZDisk[n])*RfREC - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
-                    PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
-                        - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
-                        + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
-                        - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*Znm1;
-
-
-
+        double ZAccFac = 0.5;
         dZDiskdtPrev[n] = dZDiskdt[n];
-        dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
-            * dlnZdx *tauvec[2][n] 
-            + yREC*(1.0-RfREC)*colSFR[n]/(col[n])
-            + accProf[n]*AccRate * (Z_IGM - ZDisk[n])/col[n];
+        if (dbg.opt(5)) {
+            dMZdt[n] = 
+                        accProf[n]*AccRate*std::max(ZDisk[n]*ZAccFac, Z_IGM) *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
+                        ((yREC-ZDisk[n])*RfREC - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
+                        PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
+                            - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
+                            + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
+                            - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*Znm1;
+            dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
+                * dlnZdx *tauvec[2][n] 
+                + yREC*(1.0-RfREC)*colSFR[n]/(col[n])
+                + accProf[n]*AccRate * (std::max(ZDisk[n]*ZAccFac,Z_IGM) - ZDisk[n])/col[n];
+        }
+        else {
+            dMZdt[n] = 
+                        accProf[n]*AccRate*Z_IGM *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
+                        ((yREC-ZDisk[n])*RfREC - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
+                        PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
+                            - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
+                            + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
+                            - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*Znm1;
+
+            dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
+                * dlnZdx *tauvec[2][n] 
+                + yREC*(1.0-RfREC)*colSFR[n]/(col[n])
+                + accProf[n]*AccRate * (Z_IGM - ZDisk[n])/col[n];
+
+        }
+
+
+
 
         // Terms for non-instantaneous-recycling
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {

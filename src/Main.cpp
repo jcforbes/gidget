@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
     as2.Set(dbg.opt(2), "No longer used");
     as2.Set(dbg.opt(3), "Neistein & Dekel (2008) instead of Neistein+ (2010)"); // check this
     as2.Set(dbg.opt(4), "dQ/dt ~ exp(Delta Q) - 1 instead of 0");
-    as2.Set(dbg.opt(5), "No longer used");
+    as2.Set(dbg.opt(5), "Accreting metallicity changes along with ZDisk");
     as2.Set(dbg.opt(6), "Stellar recycling");
     as2.Set(dbg.opt(7), "Attenuate high-k modes when computing vPhiDisk");
     as2.Set(dbg.opt(8), "Like Bouche, but use prescription from Dekel13 WMAP5 cosmology" );

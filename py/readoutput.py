@@ -9,7 +9,6 @@ import verticalProfile
 import halo
 from behroozi import *
 from scipy.interpolate import interp1d
-from scipy.optimize import least_squares
 from scipy.special import gamma
 from cosmolopy import *
 from math import pi,log,sinh,sin,cos,sqrt,log10
@@ -955,6 +954,7 @@ class SingleModel:
                 
             This is kind of a lot of parameters! Yikes. Let's see how robust least squares does! '''
 
+        from scipy.optimize import least_squares
         def residualFn( x, t, y ):
             ''' x is an array of parameters, t are the ordinates (r in this case), and y is the data (log10(colst) in this case) '''
             AD, AB, AO,  rD, rO, rw, nB, nw = x
@@ -2266,7 +2266,7 @@ class Experiment:
                         #    if 'MS' in self.srParams.keys():
                         mst = np.array(sorted(xx)) ## I think this is right.. needs to be checked
                         
-                        if v=='integratedZ' or v=='sfZ':
+                        if v=='integratedZ' or v=='sfZ' or v=='Z1':
                             ZHayward = -8.69 + 9.09*np.power(1.0+z[ti],-0.017) - 0.0864*np.power(np.log10(mst) - 11.07*np.power(1.0+z[ti],0.094),2.0)
                             ZHayward = np.power(10.0, ZHayward) * 0.02
                             

@@ -1192,17 +1192,19 @@ if __name__ == "__main__":
         ZHayward = np.power(10.0, ZHayward) * 0.02
         weight1 = np.exp(-Mhz0/1.0e12)  #the ad-hoc reductions in fg and fcool make things bad for high-mass galaxies. weight1 is for tiny galaxies.
         weight2 = 1-weight1
-        theExperiment.irregularVary( 'fg0', list(fgz4*(0.5*weight1+1.0*weight2)), 5)
+        fgUsed =fgz4*(1.0*weight1+1.0*weight2) 
+        theExperiment.irregularVary( 'fg0', list(fgUsed), 5)
         theExperiment.irregularVary( 'Mh0', list(Mhz0), 5)
-        theExperiment.irregularVary('muNorm', list(.02*np.power(Mhz0/1.0e12,-0.7)), 5)
-        fcools = list(1.0/(1.0-fgz4) * mst/(0.17*Mhz4) * (0.03*weight1+1.0*weight2) ) # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
+        fcools = list(1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (0.8*weight1+1.0*weight2) ) # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
         theExperiment.irregularVary('fcool', fcools, 5)
         theExperiment.irregularVary('NChanges', 301)
 
         #theExperiment.irregularVary('kappaMetals', list(np.power(Mhz0/3.0e12,1.0/3.0)), 5)
-        width = 0.015/widthReductionFactor # From mid-bottom panel of fig 6 of Danovich et al (2015)
+        #width = 0.015/widthReductionFactor # From mid-bottom panel of fig 6 of Danovich et al (2015)
+        width = 0.3/widthReductionFactor # From mid-bottom panel of fig 6 of Danovich et al (2015)
         #width = 0.001 # just for debugging
-        asls =  np.random.normal( np.random.normal(size=len(Mhz0)) )*width + 0.12
+        #asls =  np.random.normal( np.random.normal(size=len(Mhz0)) )*width + 0.16
+        asls = 0.16*np.power(10.0, np.random.normal(size=len(Mhz0))*width)
         if len(Mhz0)==1:
             asls = np.array([asls])
         asls = np.clip(asls, 0.005,np.inf)
@@ -1215,16 +1217,17 @@ if __name__ == "__main__":
         theExperiment.irregularVary('Noutputs',400)
         theExperiment.irregularVary('zstart',3.98)
         theExperiment.irregularVary('zrelax',4.0)
+        theExperiment.irregularVary('muNorm', list(.005*np.power(Mhz0/1.0e12,-0.65)), 5)
         theExperiment.irregularVary('muFgScaling', -0.3)
-        theExperiment.irregularVary('muColScaling', 0.5)
+        theExperiment.irregularVary('muColScaling', .6)
         theExperiment.irregularVary('fscatter', 1.0)
         theExperiment.irregularVary('accCeiling',1.0)
         theExperiment.irregularVary('NPassive',6)
         theExperiment.irregularVary('eta',0.5)
-        theExperiment.irregularVary('xmin',0.005)
+        theExperiment.irregularVary('xmin',0.002)
         theExperiment.irregularVary('yREC',0.03)
-        theExperiment.irregularVary('fixedQ', 2.0)
-        theExperiment.irregularVary('Qlim', 2.5)
+        theExperiment.irregularVary('fixedQ', 1.8)
+        theExperiment.irregularVary('Qlim', 2.2)
         theExperiment.irregularVary( 'nx', 256 ) # FFT o'clock.
         theExperiment.irregularVary('ZIGM', list(ZHayward), 5)
 
@@ -1486,7 +1489,7 @@ if __name__ == "__main__":
 
     # Steepen dependence of outflows on halo mass and increase epsin to bring us back up to M_*-M_h
     re87 = NewSetOfExperiments(re01, 're87')
-    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 20)), re87[0], widthReductionFactor=100.0 )
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 10)), re87[0], widthReductionFactor=100.0 )
     re87[0].irregularVary('whichAccretionHistory', 0)
     re87[0].irregularVary('ksuppress', 10.0 )
     re87[0].irregularVary('kpower', 2.0)
@@ -1523,6 +1526,77 @@ if __name__ == "__main__":
 
     # 95 was pretty good (at least for SMHM)! Adjust weighted IC's -- high initial gas fractions for high-mass galaxies, and lower fcools for low-mass galaxies
     re96=NewSetOfExperiments(re87, 're96')
+
+    # Features I don't like about 96: 1: really large difference between low-mass and high-mass galaxies in IC's. 2: SMHM has halos w/ too little stellar mass at z~1-2 near and above Mh~10^12,  3: odd up-turn in gas fraction at high-mass end 4: Generally too-low metallicity, especially for low-mass galaxies
+    # So here we: soften the transition a bit, bump up the quenching mass, scale metllicity with current disk metallicity.
+    re97=NewSetOfExperiments(re87, 're97')
+    re97[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) # Add in dbg.opt(5) - scale incoming metallicity with current metallicity.
+
+    # Lower the accretion efficiency above the quenching limit from 0.3 to 0.15 to address high SM in SMHM at high end
+    # Increase avg accretion scale length from 0.12 to 0.14 to address small galaxy sizes (SM-r*) and too-high Sigma1's
+    # Increase initial fg to increase high-z SF, while decreasing initial fcool's to compensate hopefully?
+    re98=NewSetOfExperiments(re87, 're98')
+    re98[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) 
+
+    # Lower accr at M>Mq from .15 to .05; increase fg's from 0.8 to 1.0 of their nominal value; increase fcool from .7 to .8 for low-mass galaxies
+    re99=NewSetOfExperiments(re87, 're99')
+    re99[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) 
+
+    # Loewr accr at M>Mq from .05 to .01, increase fcool from .8 to .9, decrease Mq from 3 to 2.
+    rf01=NewSetOfExperiments(re87, 'rf01')
+    rf01[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) 
+
+    # In an effort to lower Sigma1, increase mu scaling with col, bump down quenching mass
+    rf02=NewSetOfExperiments(re87, 'rf02')
+    rf02[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) 
+
+    # Shallower scaling of mu w/ halo mass and col. Z accretion now correctly scales with current disk metallicity
+    rf03=NewSetOfExperiments(re87, 'rf03')
+    rf03[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) 
+
+    # Raised Q and Qlim a bit.
+    rf04=NewSetOfExperiments(re87, 'rf04')
+    rf04[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) 
+
+
+    # reduce xmin from .005 to .001. Lower Q and Qlim (was dumb to raise them... derp)
+    rf05=NewSetOfExperiments(re87, 'rf05')
+    rf05[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 ) 
+
+    #  Make stars follow full velocity dispersion instead of turbulent only, when formed.
+    # Also step down the gas fraction at high masses and the gas feeding efficiency above Mq.
+    rf06=NewSetOfExperiments(re87, 'rf06')
+    rf06[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 )  # full v.d.
+
+    # Halve number of galaxis to speed up iterations, up interior edge radius a bit to avoid numerical instability
+    # Quarter the initial radius of the galaxy - i.e. r_disk,ic = r_acc,ic / 4.0 instead of 1.0
+    rf07 = NewSetOfExperiments(re87, 'rf07')
+    rf07[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 )  # full v.d.
+
+    # Decouple initial col and colst.
+    # Bump up fg at high masses, lower fc at low masses, bump up Q's to increase inward flow (and maybe sfr's?)
+    rf08 = NewSetOfExperiments(re87, 'rf08')
+    rf08[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 )  # full v.d.
+
+    # Raise Mq again, bump up scale lengths a little
+    rf09 = NewSetOfExperiments(re87, 'rf09')
+    rf09[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 )  # full v.d.
+
+    # Slightly lower MLF normalization
+    rf10 = NewSetOfExperiments(re87, 'rf10')
+    rf10[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 )  # full v.d.
+
+    # Tone down the large difference in scale radii beteen ic's
+    rf11 = NewSetOfExperiments(re87, 'rf11')
+    rf11[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 )  # full v.d.
+
+    rf12 = NewSetOfExperiments(re01, 'rf12')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 13.3, 100)), rf12[0], widthReductionFactor=1.0 )
+    rf12[0].irregularVary('whichAccretionHistory', -113)
+    rf12[0].irregularVary('ksuppress', 10.0 )
+    rf12[0].irregularVary('kpower', 2.0)
+    rf12[0].irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 )  # full v.d.
+
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

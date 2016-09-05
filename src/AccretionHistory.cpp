@@ -544,7 +544,7 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
 {
     // try a reasonably general formula with user-controlled values.
     // Use the same functional form as CAFG.
-    double Mquench = 1.0;
+    double Mquench = 2.0;
     double val = normalization * pow(1.0+z, alpha_z) * pow(Mh, alpha_Mh);
     if(val > ceiling) val=ceiling;
     if(z<zquench) val = 0.0;

@@ -12,14 +12,17 @@ def makeThePlots(args):
     print "plots.py in makeThePlots: args.models: ",args.models
     balanceArgs=[]
     AMargs=[]
+    MONDargs=[]
     if(args.balance):
         balanceArgs=['colTr','colAccr','colsfr','dcoldt','MassLoadingFactor','Mdot']
     if(args.angularMomentum):
         AMargs = ['colTr','r','vPhi','dA']
+    if(args.quick):
+        MONDargs = ['gbar', 'gtot']
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
-        theExp.read(args.vsr+balanceArgs+AMargs, keepStars=args.stellarPops, computeFit=args.fit)
+        theExp.read(args.vsr+balanceArgs+AMargs+MONDargs, keepStars=(args.stellarPops or args.quick), computeFit=args.fit)
         nts = int(theExp.models[0].p['Noutputs']+1)
         tis = [nts/5,nts/2,nts]
         if args.scalings or args.genzel:

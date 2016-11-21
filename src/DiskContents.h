@@ -34,7 +34,9 @@ class DiskContents {
                double rfrec, double zetarec,
     	       double fh2min, double tdeph2sc,
                double Z_IGM, double yrec,
-               double ksupp, double kpow);
+               double ksupp, double kpow,
+               double mq, double muq, 
+               double ZMx);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -168,7 +170,7 @@ class DiskContents {
 		       std::vector<double>& MdotiPlusHalf,
 		       std::vector<double>& MdotiPlusHalfStar,
 		       std::vector<double>& MdotiPlusHalfMRI,
-               double fracAccInner);
+               double fracAccInner, double stAcc);
 
   // Using parameters which specify the initial conditions, 
   // fill in the initial values for the state variables
@@ -185,7 +187,8 @@ class DiskContents {
 
   void Initialize(double fcool, double fg0,
                   double sig0, double tempRatio, double Mh0,
-                  double MhZs, double stScaleLength, double zs);
+                  double MhZs, double stScaleLength, double zs,
+                  const double stScaleReduction, const double gaScaleReduction);
 
   // Is one of the current stellar populations 'currently forming'
   //, i.e. since stars are binned by age, is the age of stars 
@@ -319,6 +322,8 @@ class DiskContents {
     constMassLoadingFactor, 
     mlfColScaling,
     mlfFgScaling,
+    MQuench,
+    muQuench,
 
     tDepH2SC,
     fH2Min,
@@ -335,6 +340,8 @@ class DiskContents {
   // properties of the "bulge", i.e. the region inside the inner
   // truncation radius of the disk
   double ZBulge,MBulge;
+
+  double MHalo;
 
   // parameters controlling the instantaneous recycling approx.
   double yREC, RfREC, xiREC; 
@@ -366,6 +373,7 @@ class DiskContents {
   gsl_vector *lr, *diag, *ur;
   gsl_vector *tau, *forcing;
   
+  const double ZMix; // a number between 0 and 1 controlling the fraction of ejected metals mixed back into the accretion flow.
   const double dd,dm1,dmm1,dmdinv,sqd;
 
   const unsigned int NActive, NPassive;

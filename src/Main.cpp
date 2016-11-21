@@ -122,6 +122,12 @@ int main(int argc, char **argv) {
     const double MassLoadingFgScaling=as.Set(0.16, "Scaling of the mass loading factor with the gas fraction");
     const double ksuppress =         as.Set(10.0, "The characteristic mode of a DFT to begin suppressing power in computation of vPhiDisk");
     const double kpower =            as.Set(2.0,"The power to which to raise the argument of the exponential in suppressing powe abve ksuppess");
+    const double MQuench =           as.Set(1.0e12, "Halo mass at which quenching occurs");
+    const double epsquench =         as.Set(0.1, "Factor by which accretion efficiency is depressed above MQuench");
+    const double muQuench =          as.Set(0.0, "mass loading factor in central kpc above Mquench (overrides ordinarily-calculated mu if larger)");
+    const double stScaleReduction=   as.Set(2.0, "Factor by which to reduct initial stellar scale length relative to initial exponential scale length of the accretion");
+    const double gaScaleReduction=   as.Set(1.4, "Factor by which to reduct initial gas scale length relative to initial exponential scale length of the accretion");
+    const double ZMix =              as.Set(0.5, "Fraction of outflowing metals mixed back in to inflowing gas");
 
 
     as.WriteOut();
@@ -145,7 +151,7 @@ int main(int argc, char **argv) {
     Debug dbg(Experimental);
 
     // Make an object to deal with the accretion history
-    AccretionHistory accr(Mh0,dbg);
+    AccretionHistory accr(Mh0,dbg,MQuench, epsquench);
     accr.SetEfficiencyParams(accNormalization, accAlpha_z, accAlpha_Mh, accCeiling);
     double mdot0;
 
@@ -170,8 +176,9 @@ int main(int argc, char **argv) {
         mdot0 = accr.GenerateConstantAccretionHistory(12.3368,zstart,cos,filename+"_ConstAccHistory2.dat",true)*MSol/speryear;
     else if(whichAccretionHistory<0 ) {
         bool constInTime = dbg.opt(14);
+        bool readIn = dbg.opt(2); // Read in an external file, e.g. generated from Bolshoi outputs
         mdot0=MSol/speryear * accr.GenerateLogNormal(zstart, zrelax, cos, 
-              fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,filename+"_LogNormal.dat",constInTime,true,filename+"_inputRandomFactors.txt");
+              fscatter, NChanges, true, zquench, Mh0,-whichAccretionHistory,filename+"_LogNormal.dat",constInTime,readIn,filename+"_inputRandomFactors.txt");
         //      mdot0 = accr.GenerateOscillatingAccretionHistory(10.0,-whichAccretionHistory,0.0,zstart,false,cos,filename+"_OscAccHistory.dat",true)*MSol/speryear;
     }
     else {
@@ -191,7 +198,7 @@ int main(int argc, char **argv) {
     // This is where we'll store a record of all the possiblities of dbg.opt
     as2.Set(dbg.opt(0), "Use constant mass loading factor instead of Lagos13"); // recommended
     as2.Set(dbg.opt(1), "Dont increase accr rate to account for matter accreting outside domain");
-    as2.Set(dbg.opt(2), "No longer used");
+    as2.Set(dbg.opt(2), "Read in an external file for accretion rates");
     as2.Set(dbg.opt(3), "Neistein & Dekel (2008) instead of Neistein+ (2010)"); // check this
     as2.Set(dbg.opt(4), "dQ/dt ~ exp(Delta Q) - 1 instead of 0");
     as2.Set(dbg.opt(5), "Accreting metallicity changes along with ZDisk");
@@ -230,11 +237,12 @@ int main(int argc, char **argv) {
             TOL,analyticQ,MassLoadingFactor,MassLoadingColScaling,MassLoadingFgScaling,
             cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-          minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC, ksuppress, kpower);
+          minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGM,yREC, ksuppress, kpower, MQuench, muQuench,
+          ZMix);
     // double sig0 = 8.0/220.0; 
     double sig0 = sigth;
     double stScaleLengthA = accScaleLength*r200/cmperkpc; // accScaleLength * pow(MhZs/Mh0,alphaAccProf);
-    disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax);
+    disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax, stScaleReduction, gaScaleReduction);
 
     Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
             zstart,NActive,NPassive,alphaMRI,

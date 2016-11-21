@@ -9,12 +9,13 @@ class Debug;
 
 class AccretionHistory {
  public:
-  AccretionHistory(double Mh,Debug & db):Mh0(Mh),allocated(false),linear(false),dbg(db){};
+  AccretionHistory(double Mh,Debug & db, double MQ, double epsq):Mh0(Mh),allocated(false),linear(false),dbg(db),MQuench(MQ),epsquench(epsq){};
   ~AccretionHistory();  
   // Compute the normalized external accretion rate mdot(z)/mdot(zstart)
   // This is implemented by doing an interpolation of a given 
   // tabulated accretion history
   double AccOfZ(double z);
+  double AccStOfZ(double z);
 
   double GetMh0() { return Mh0; }  
 
@@ -25,6 +26,7 @@ class AccretionHistory {
   void ReadTabulated(std::string filename, 
 		     unsigned int zc, // column with redshifts
 		     unsigned int acC, // column with accretion histories
+		     unsigned int sacC, // column with accretion histories
 		     unsigned int rs, // number of rows to skip
 		     unsigned int nc, // number of columns in the file
 		     double zstart); // starting redshift
@@ -81,6 +83,7 @@ double GenerateAverageNMD10(double zst, Cosmology& cos,
   // be used to return the accretion rate at arbitrary redshifts.
   void InitializeGSLObjs(std::vector<double> z, 
 			 std::vector<double> tabulatedAcc,
+			 std::vector<double> tabulatedStAcc,
 			 std::vector<double> haloMass);
 
   double epsin(double z, double Mh, Cosmology & cos,double zquench);
@@ -90,6 +93,7 @@ double GenerateAverageNMD10(double zst, Cosmology& cos,
   // vector of tabulated dimensionless accretion - same 
   // number of elements as redshift:
   double *acc;
+  double *accSt;
   
   // vector of redshifts at which acc rate has been tabulated
   double * redshift;
@@ -100,8 +104,8 @@ double GenerateAverageNMD10(double zst, Cosmology& cos,
   double zstart;
 
   // objects used in the interpolation between the tabulated values
-  gsl_interp_accel *accel, *accelMh;
-  gsl_spline *spline, *splineMh;
+  gsl_interp_accel *accel, *accelSt, *accelMh;
+  gsl_spline *spline, *splineSt, *splineMh;
  
   // a switch to determine whether we're using a cubic spline or a linear
   // interpolation. If linear is true, we're using the linear interpolation.
@@ -113,6 +117,9 @@ double GenerateAverageNMD10(double zst, Cosmology& cos,
 
   // halo mass at redshift zero (units of solar masses)
   double Mh0;
+
+  const double MQuench;
+  const double epsquench;
 
   Debug & dbg;
 

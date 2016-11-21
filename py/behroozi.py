@@ -58,8 +58,8 @@ class behroozi:
             zi=0
         if zi==len(self.smmr_z)-1:
             zi2=zi
-        Mh1 = self.smmr_Mh[zi]
-        Mh2 = self.smmr_Mh[zi2]
+        Mh1 = self.smmr_Mh[zi] ## available halo masses at slightly higher z
+        Mh2 = self.smmr_Mh[zi2] ## available halo masses at slightly lower z
 
         Flag=False
 
@@ -132,8 +132,11 @@ class behroozi:
                 pass
         ax.plot(mh,me,color=color,lw=3,ls='--')
         ax.fill_between(mh,lo,hi,color=color,alpha=0.2)
-        ax.plot(mhFlagged,meFlagged,color=color,lw=2,ls='--')
-        ax.fill_between(mhFlagged,loFlagged,hiFlagged,color=color,alpha=0.1)
+        ##  The following two lines make some funky plots [for certain sets of galaxies, at high z these plots
+        ##   show the expected lighter shading at low masses, but have an unsightly band overlapping the other
+        ##   band (plotted above) in mass. Not quite sure why.
+        #ax.plot(mhFlagged,meFlagged,color=color,lw=2,ls='--')
+        #ax.fill_between(mhFlagged,loFlagged,hiFlagged,color=color,alpha=0.1)
         #print "Plotting SMMR!"
         #pdb.set_trace()
 

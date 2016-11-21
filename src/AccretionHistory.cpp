@@ -32,13 +32,13 @@ double AccretionHistory::GenerateOscillatingAccretionHistory(double amp, double 
     zstart = zst;
     std::ofstream file;
     if(writeOut) file.open(fn.c_str());
-
+    double fst = 0.1;
     double z=zstart;
     double MdotExt0=0.0; 
     double mass = 1.0e12 - (amp/2.0) * cosm.Tsim(0.0) / speryear;
     unsigned int N=10000;
 
-    std::vector<double> redshifts(0), tabulatedAcc(0), masses(0);
+    std::vector<double> redshifts(0), tabulatedAcc(0), tabulatedStAcc(0), masses(0);
 
     double eps = 1.0e-8; // safety factor to make sure we never get Mdot<0
 
@@ -55,11 +55,11 @@ double AccretionHistory::GenerateOscillatingAccretionHistory(double amp, double 
         if(i==0) MdotExt0 = MdotExt;
 
         if(writeOut) file << z <<" "<<t<<" "<<MdotExt<<" "<<-1.0<<std::endl;
-        redshifts.push_back(z); tabulatedAcc.push_back(MdotExt); masses.push_back(mass);
+        redshifts.push_back(z); tabulatedAcc.push_back(MdotExt); tabulatedStAcc.push_back(MdotExt*fst); masses.push_back(mass);
         mass += MdotExt * fabs(cosm.Tsim(redshifts[N-i+1]) - cosm.Tsim(z)) / speryear;
     }
     file.close();
-    InitializeGSLObjs(redshifts,tabulatedAcc,masses);
+    InitializeGSLObjs(redshifts,tabulatedAcc,tabulatedStAcc,masses);
     if (MdotExt0<=0)
         errormsg("Generating an oscillating accretion history has produced negative mdot.");
 
@@ -75,20 +75,21 @@ double AccretionHistory::GenerateConstantAccretionHistory(double rate, double zs
     if(writeOut) file.open(fn.c_str());
     unsigned int N=1000;
     double z=zstart;
+    double fst = 0.1;
     double MdotExt0=0.0;
     double mass=1.0e12 - rate * cos.Tsim(0.0) / speryear;
-    std::vector<double> redshifts(0),tabulatedAcc(0),masses(0);
+    std::vector<double> redshifts(0),tabulatedAcc(0), tabulatedStAcc(0),masses(0);
 
     for(unsigned int i=0; i<=N; ++i) {
         z=(((double) (N-i))/((double) N))*(zstart-0.0);
         double MdotExt = rate; //solar masses /year
         if(i==0) MdotExt0 = MdotExt;
         if(writeOut) file << z <<" "<<cos.Tsim(z)<<" "<<MdotExt<<" "<<-1.0<<std::endl;
-        redshifts.push_back(z); tabulatedAcc.push_back(MdotExt); masses.push_back(mass);
+        redshifts.push_back(z); tabulatedAcc.push_back(MdotExt); tabulatedStAcc.push_back(MdotExt*fst); masses.push_back(mass);
         mass += rate* fabs(cos.Tsim(redshifts[N-i+1]) - cos.Tsim(z)) / speryear;
     }
     file.close();
-    InitializeGSLObjs(redshifts,tabulatedAcc,masses);
+    InitializeGSLObjs(redshifts, tabulatedAcc, tabulatedStAcc, masses);
     if (MdotExt0<=0)
         errormsg("Generating a constant accretion history has produced negative mdot.");
     return MdotExt0;
@@ -155,6 +156,25 @@ double npow(double x,double ex)
         return pow(x,ex);
 }
 
+double mosterEfficiency(double Mh, double z)
+{
+    double M10 = 11.590;
+    double M11 = 1.195;
+    double N10 = 0.0351;
+    double N11 = -0.0247;
+    double beta10 = 1.376;
+    double beta11 = -0.826;
+    double gamma10 = 0.608;
+    double gamma11 = 0.329;
+    double logM1z = M10 + M11*z/(z+1.0);
+    double Nz = N10 + N11*z/(z+1.0);
+    double betaz = beta10 + beta11*z/(z+1.0);
+    double gammaz = gamma10 + gamma11*z/(z+1.0);
+    double M1 = pow(10.0, logM1z);
+    double eff = 2.0*Nz / (pow(Mh/M1,-betaz) + pow(Mh/M1,gammaz));
+    return eff;
+}
+
 double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& cos,
                     double scatter, double Nchanges,
                     bool writeOut, double zquench,
@@ -170,22 +190,42 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     std::ofstream file;
     std::ifstream inputRandomFactors;
     if(readIn) inputRandomFactors.open(fnIn.c_str());
+    double BolshoiMh0 = -1; // the z=0 halo mass of the tree we're adopting from Boshloi
+    if(readIn) {
+        std::string line;
+        bool readFlag0 = getline(inputRandomFactors, line);
+        if(!readFlag0) {
+            errormsg("Failed to read the initial Bolshoi halo mass");
+        }
+        std::stringstream linestream(line);
+        linestream >> BolshoiMh0;
+    }
+
     if(writeOut) file.open(fn.c_str());
     unsigned int N=1000; 
     if(Nchanges > N/100) N=100*Nchanges;
     double Mh=Mh012; // units of 10^12 solar masses
     // double fbp18 = 17.0/18.0; // baryon fraction / 0.18
     double MdotExt0, MdotExt;
-    std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
+    std::vector<double> redshifts(0),tabulatedAcc(0),tabulatedStAcc(0),haloMass(0);
     double duration = cos.Tsim(0.0);
     // double DeltaT = duration/Nchanges; // seconds
     double currentAccretionRate;
     double z,dz;
     double x=0.0;
+    int bolshoiRedshiftIndex=-1;
+    double firstmerger=-1;
+    double secondmerger=-1;
+    double bolshoiDeltaMh = 0.0;
     int rfcounter=0; // debugging 
+    double dtBolshoi = -1.0;
 
+    std::vector<double> timesSinceMerger(0);
+    std::vector<double> stellarMassesToMerge(0);
     // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
     // Otherwise, loop over redshift from zstart to z=0.
+    double zmax = ((double) N+1)/((double) N) * (zrelax*1.01 - 0.0) -.0005*zrelax;
+    double lbtMax = cos.lbt(zmax);
     for(unsigned int i=0; i<=N; ++i) {
         z=((double) i)/((double) N) * (zrelax*1.01 - 0.0) -.0005*zrelax;
         dz = 1.0/((double) N) * (zrelax*1.01 - 0.0);
@@ -200,6 +240,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         bool drawNewNumber = (floor((Nchanges-1) * present/duration) < floor((Nchanges-1) * next/duration) && z<zstart && constInTime) || (floor((Nchanges-1) * z/zstart) < floor((Nchanges-1) * (z+dz)/zstart) && z<zstart && !constInTime);// || (z-zstart)*(z+dz-zstart) <= 0.0;
         if(drawNewNumber && !readIn) {
             x = gsl_ran_gaussian(r,1.0);
+            std::cout << "Successfully drew a new value for x = "<<x<<" at z="<<z<<std::endl;
         }
         else if(drawNewNumber && readIn) {
             std::cout << "Attempting to read in random factor "<<rfcounter<<std::endl;
@@ -212,17 +253,52 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
                 x  = gsl_ran_gaussian(r,1.0);
             }
             else {
-                x = atof(line.c_str());
+                // x = atof(line.c_str());
+                std::stringstream linestream(line);
+                linestream >> x >> bolshoiRedshiftIndex >> firstmerger >> secondmerger >> dtBolshoi;
+
+                double mst1 = 0.0;
+                double mst2 = 0.0;
+                if(firstmerger>0 && firstmerger*BolshoiMh0>2.0e10)
+                    mst1 = mosterEfficiency(Mh*1.0e12*firstmerger, z) * Mh*1.0e12; // stellar mass of the first merger (Msun)
+                if(secondmerger>0 && secondmerger*BolshoiMh0>2.0e10)
+                    mst2 = mosterEfficiency(Mh*1.0e12*secondmerger, z) * Mh*1.0e12; // stellar mass of the second merger (Msun)
+                //double dmstdt = (mst1+mst2)/ dtBolshoi; // (Msun/yr)
+
+                double tH = 1.0/cos.Hubble(z); // seconds
+                double tDelay = 0.117 / firstmerger / log(1.0/firstmerger) * tH;
+                timesSinceMerger.push_back(tDelay- lbtMax);
+                stellarMassesToMerge.push_back(mst1);
+                tDelay = 0.117 / secondmerger / log(1.0/secondmerger) * tH;
+                timesSinceMerger.push_back(tDelay - lbtMax);
+                stellarMassesToMerge.push_back(mst2);
+
             }
             std::cout << "Successfully read in x = "<<x<<" at z="<<z<<std::endl;
         }
         // Set dMh such that the average accretion rate == the value given above by dMh under the assumption that x is normally distributed
         // currentAccretionRate = dMh*1.0e12 * exp(-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
         // In this version make no assumption about the distribution of x (because it's being generated by a simulation). x is now simply the log10 of the ratio of the simulated accretion rate to the "average" one given above.
-        currentAccretionRate = dMh*1.0e12 * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
+        if(readIn) {
+            currentAccretionRate = dMh*1.0e12 * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
+        }
+        else {
+            // Enforce that the arithmetic mean of the accretion rate is unaffected by the lognormal random factors.
+            currentAccretionRate = dMh*1.0e12 * exp(-scatter*scatter*log(10.)*log(10.)/2.) * pow(10.0, x*scatter);//*epsin(z,Mh,cos,zquench);
+        }
+        double deltaMh = currentAccretionRate*1.0e-12 * -1.0*( cos.Tsim(z) - cos.Tsim(z+dz)) / speryear; // in 10^12 Msun/yr
+
+        // add the time of the current redshift step to the time until all mergers recorded so far.
+        for(unsigned int itt=0; itt!=timesSinceMerger.size(); ++itt) {
+            timesSinceMerger[itt] += next-present;
+        }
+
+
         
         if(z>zstart) currentAccretionRate = dMh*1.0e12; // above zstart don't include any stochasticity
         MdotExt = currentAccretionRate * epsin(z,Mh,cos,zquench)*.17;
+        //std::cerr<< MdotExt << " " << dmstdt << " " << dtBolshoi << " " << currentAccretionRate << " " << dMh << std::endl;
+        //MdotExt -= dmstdt;
 
         if((z-zstart)*(z+dz-zstart)<=0.0)// always set MdotExt0 to be MdotExt at z=2
             MdotExt0= MdotExt;
@@ -231,7 +307,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
 
         if(true) { //z>zquench) {
             // Basically compute Mh(z) by taking an Euler step, since from the above we know dMh (which is actually dMh/dt)
-            Mh+= currentAccretionRate*1.0e-12 * -1.0*( cos.Tsim(z) - cos.Tsim(z+dz)) / speryear;
+            Mh+= deltaMh;
         }
 
         // these small adjustments to z avoid interpolation errors without really affecting anything.
@@ -243,20 +319,44 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
             errormsg("Very large Mdot. If you're sure it's fine edit line 243ish of AccretionHistory.cpp");
 
         tabulatedAcc.push_back(MdotExt);
+        // tabulatedStAcc.push_back(dmstdt);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<" "<<x<<" "<<scatter<<" "<<epsin(z,Mh,cos,zquench)<<" "<<currentAccretionRate<<std::endl;
         if(i==N) {
             std::cout << "Ratio of initial to final Mh: "<<Mh0/Mh<<std::endl;
         }
     }
 
+
+    for(unsigned int i=0; i<=N; ++i) {
+        z=((double) i)/((double) N) * (zrelax*1.01 - 0.0) -.0005*zrelax;
+        dz = 1.0/((double) N) * (zrelax*1.01 - 0.0);
+
+        // Use the analogous formula to tell us the baryonic accretion rate.
+//        double MdotExt = 7.0 * epsin(z,Mh,cos,zquench) * fbp18 * pow(Mh,1.1)*pow(1+z,2.2); // in solar masses /year
+        double present = cos.lbt(z); // lookback time (in seconds) of the current redshift.
+        double next = cos.lbt(z+dz); // this will be a larger number, i.e. a number further back in time.
+        double dmstdt = 0.0;
+        for(unsigned int itt=0; itt!=timesSinceMerger.size(); ++itt) {
+            timesSinceMerger[itt] += next-present;
+            if( 0<timesSinceMerger[itt] && timesSinceMerger[itt] < next-present) {
+                
+                dmstdt += stellarMassesToMerge[itt]/(next-present) * speryear;
+            }
+        }
+        tabulatedStAcc.push_back(dmstdt);
+
+    }
+
+
         // 
     reverse(redshifts.begin(),redshifts.end());
     reverse(tabulatedAcc.begin(), tabulatedAcc.end());
+    reverse(tabulatedStAcc.begin(), tabulatedStAcc.end());
     reverse(haloMass.begin(),haloMass.end());
 
     if(writeOut) file.close();
     if(readIn) inputRandomFactors.close();
-    InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
+    InitializeGSLObjs(redshifts,tabulatedAcc,tabulatedStAcc,haloMass);
     if( MdotExt0<=0)
         errormsg("Generating a lognormal accretion history has produced negative mdot.");
     return MdotExt0;
@@ -312,19 +412,24 @@ double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
 
     std::vector<double> avgMh(NSamples,0);
     std::vector<double> avgMdots(NSamples,0);
+    std::vector<double> avgMstdots(NSamples,0);
     double avgMdotExt0 = 0.0;
+    double avgMstdotExt0 = 0.0;
+    double fst = 0.1;
     for(int i=0; i!=nToAvg; ++i) {
         int nattempts=0;
-        AccretionHistory accr(Mh0, dbg); // Same as for *this.
+        AccretionHistory accr(Mh0, dbg, MQuench, epsquench); // Same as for *this.
         accr.SetEfficiencyParams(normalization, alpha_z, alpha_Mh,  ceiling);
         mdotext0 = accr.GenerateNeistein08(zst,cos,fn,false,i,invMassRatioLimit,zquench,&nattempts,domega,zrelax,fscatter);
         avgMdotExt0 += mdotext0/((double) nToAvg);
+        avgMstdotExt0 += mdotext0*fst/((double) nToAvg);
         TotalAttempts += nattempts;
         // Now that we have an accretion history, accumulate its mdot's and mh's.
         for(unsigned int j=0; j!=zs.size(); ++j) {
             avgMh[j] += accr.MhOfZ(zs[j])/((double) nToAvg);
             double currentAcc = accr.AccOfZ(zs[j]) * mdotext0;
             avgMdots[j] += currentAcc/((double) nToAvg);
+            avgMstdots[j] += currentAcc*fst/((double) nToAvg);
             //sqMdots[j] += currentAcc*currentAcc/((double) nToAvg);
         }
     }
@@ -343,7 +448,7 @@ double AccretionHistory::GenerateAverageNMD10(double zst, Cosmology& cos,
     }
 
     linear=true;
-    InitializeGSLObjs(zs,avgMdots,avgMh);
+    InitializeGSLObjs(zs,avgMdots,avgMstdots,avgMh);
     if( avgMdotExt0<=0 )
         errormsg("Avg NMD10 accr. history has produced negative mdot0");
     return avgMdotExt0;
@@ -385,7 +490,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     sp.rhs=0.0;
     sp.sigma8=sigma8;
     sp.OmegaM=OmegaM;
-    std::vector<double> zs(0),accs(0),masses(0),zs2(0),accs2(0),masses2(0);
+    std::vector<double> zs(0),accs(0),masses(0),zs2(0),accs2(0),accsst2(0),masses2(0);
     double SS= S(Mh0*hisCos.h(),&sp);
     bool first=true;
     do {
@@ -490,9 +595,11 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     // This is problematic because between big enough interpolation steps, Mh will diverge from the sum of 
     // all accreted matter, only to reconverge at the next interpolation point.
     // At this point zs is going from high redshift to low.
+    double fst = 0.1;
     for(unsigned int i=0; i!=zs.size()-1; ++i) {
         zs2.push_back(zs[i]);
         accs2.push_back(accs[i] * epsin(zs[i],masses[i]*1.0e-12,simCos,zquench));
+        accsst2.push_back(fst*accs[i] * epsin(zs[i],masses[i]*1.0e-12,simCos,zquench));
         masses2.push_back(masses[i]);
         // The number of points to add between two known z's.
         unsigned int NExpand = 100;
@@ -524,7 +631,7 @@ double AccretionHistory::AttemptToGenerateNeistein08(double zst, Cosmology& cos,
     }
 
 
-    InitializeGSLObjs(zs2,accs2,masses2);
+    InitializeGSLObjs(zs2,accs2, accsst2,masses2);
 
     // return accs[accs.size()-1] / AccOfZ(zs[zs.size()-1]);
     return md0;
@@ -544,11 +651,18 @@ double AccretionHistory::epsin(double z, double Mh,Cosmology & cos, double zquen
 {
     // try a reasonably general formula with user-controlled values.
     // Use the same functional form as CAFG.
-    double Mquench = 2.0;
+    //double Mquench = 2.0;
+    double mq = MQuench/1.0e12; // user supplies MQuench in units of MSun. Within this method, Mh is in units of 10^12 Msun.
     double val = normalization * pow(1.0+z, alpha_z) * pow(Mh, alpha_Mh);
     if(val > ceiling) val=ceiling;
     if(z<zquench) val = 0.0;
-    if(Mh>Mquench) val*=0.3;
+    //if(Mh>mq) val*=epsquench;
+    if (Mh>0.8) {
+        val *=sqrt(epsquench);
+        if ( z< 1.5 + log10(Mh/0.8)) {
+            val *=sqrt(epsquench);
+        }
+    }
     if (val<0 || val>1)
         errormsg("Nonphysical accretion efficiency!");
     return val;
@@ -568,7 +682,7 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
     double z=zstart;
     double fbp18 = 17.0/18.0; // baryon fraction / 0.18
     double MdotExt0;
-    std::vector<double> redshifts(0),tabulatedAcc(0),haloMass(0);
+    std::vector<double> redshifts(0),tabulatedAcc(0),tabulatedStAcc(0),haloMass(0);
 
     // Loop over redshift from z=0 to z=zstart in N increments if Mh is specified at z=0
     // Otherwise, loop over redshift from zstart to z=0.
@@ -614,6 +728,7 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
         redshifts.push_back(z); 
 
         tabulatedAcc.push_back(MdotExt);
+        tabulatedStAcc.push_back(0.0);
         if(writeOut) file << z << " "<< cos.Tsim(z) <<" "<<MdotExt<<" "<<Mh<<std::endl;
     }
 
@@ -621,11 +736,12 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
     if(MhAtz0) { // then we need to reverse redshifts and tabulatedAcc
         reverse(redshifts.begin(),redshifts.end());
         reverse(tabulatedAcc.begin(), tabulatedAcc.end());
+        reverse(tabulatedStAcc.begin(), tabulatedStAcc.end());
         reverse(haloMass.begin(),haloMass.end());
     }
 
     file.close();
-    InitializeGSLObjs(redshifts,tabulatedAcc,haloMass);
+    InitializeGSLObjs(redshifts,tabulatedAcc,tabulatedStAcc,haloMass);
     if( MdotExt0<=0 )
         errormsg("Bouche accr. history has produced negative mdot0");
     return MdotExt0;
@@ -634,23 +750,27 @@ double AccretionHistory::GenerateBoucheEtAl2009( double zs, Cosmology& cos,
 // redshifts should range from zstart to 0, tabulatedAcc, haloMass, and redshifts have 
 // to have the same size; redshifts must start high and end low
 void AccretionHistory::InitializeGSLObjs(std::vector<double> redshifts, std::vector<double> tabulatedAcc,
-        std::vector<double> haloMass)
+        std::vector<double> tabulatedStAcc, std::vector<double> haloMass)
 {
-    if(redshifts.size()!=tabulatedAcc.size() || redshifts.size()!=haloMass.size())
+    if(redshifts.size()!=tabulatedAcc.size() || redshifts.size()!=haloMass.size() || redshifts.size()!=tabulatedStAcc.size())
         errormsg("InitializeGSLObjs: tabulatedAcc and redshifts must be the same size.");
 
     allocated=true;
     accel=gsl_interp_accel_alloc();
+    accelSt=gsl_interp_accel_alloc();
     accelMh=gsl_interp_accel_alloc();
     if(!linear) {
         spline=gsl_spline_alloc(gsl_interp_cspline,tabulatedAcc.size());
+        splineSt=gsl_spline_alloc(gsl_interp_cspline,tabulatedStAcc.size());
         splineMh=gsl_spline_alloc(gsl_interp_cspline,haloMass.size());
     }
     else {
         spline=gsl_spline_alloc(gsl_interp_linear,tabulatedAcc.size());
+        splineSt=gsl_spline_alloc(gsl_interp_linear,tabulatedStAcc.size());
         splineMh = gsl_spline_alloc(gsl_interp_linear,haloMass.size());
     }
     acc = new double[tabulatedAcc.size()];
+    accSt = new double[tabulatedStAcc.size()];
     redshift = new double[redshifts.size()];
     hMass = new double[haloMass.size()];
     unsigned int tabAcc=tabulatedAcc.size();
@@ -663,11 +783,13 @@ void AccretionHistory::InitializeGSLObjs(std::vector<double> redshifts, std::vec
     // reverse order!
     for(unsigned int i=0; i<tabAcc; ++i) {
         acc[tabAcc-i-1]=tabulatedAcc[i];
+        accSt[tabAcc-i-1]=tabulatedStAcc[i];
         redshift[tabAcc-i-1]=redshifts[i];
         hMass[tabAcc-i-1]=haloMass[i];
     }
 
     gsl_spline_init(spline,redshift,acc, tabulatedAcc.size());  
+    gsl_spline_init(splineSt,redshift,accSt, tabulatedStAcc.size());  
     gsl_spline_init(splineMh,redshift,hMass, haloMass.size());
 
 }
@@ -678,12 +800,13 @@ void AccretionHistory::InitializeGSLObjs(std::vector<double> redshifts, std::vec
 // acC= accretion column
 // rs = rows skipped before data is read
 // nc = total number of columns
-void AccretionHistory::ReadTabulated(std::string fn,unsigned int zc, unsigned int acC, 
+void AccretionHistory::ReadTabulated(std::string fn,unsigned int zc, unsigned int acC, unsigned int sacC,
         unsigned int rs, unsigned int nc, double zst)
 {
     zstart = zst;
     std::vector<double> redshifts(0);
     std::vector<double> tabulatedAcc(0);
+    std::vector<double> tabulatedStAcc(0);
     std::vector<double> haloMass(0);
     std::ifstream f(fn.c_str());
     if(!f.is_open()) errormsg("Error opening file containing the tabulated accretion history!");
@@ -700,22 +823,44 @@ void AccretionHistory::ReadTabulated(std::string fn,unsigned int zc, unsigned in
                 else if(redshifts.size()==0) redshifts.push_back(nm*1.0001);
                 redshifts.push_back(nm); // 
             }
-            if(i+1 == acC) {
+            else if(i+1 == acC) {
                 tabulatedAcc.push_back(nm);
                 if(tabulatedAcc.size()==1) tabulatedAcc.push_back(nm);
+            }
+            else if(i+1 == sacC) { 
+                tabulatedStAcc.push_back(nm);
+                if(tabulatedStAcc.size()==1) tabulatedStAcc.push_back(nm);
             }
         }
     }
     tabulatedAcc.pop_back();
+    tabulatedStAcc.pop_back();
     redshifts.pop_back();
     if(redshifts[redshifts.size()-1] != 0.0) {
         tabulatedAcc.push_back(tabulatedAcc[tabulatedAcc.size()-1]);
+        tabulatedStAcc.push_back(tabulatedStAcc[tabulatedStAcc.size()-1]);
         redshifts.push_back(0.);
     }
 
     f.close();
 
-    InitializeGSLObjs( redshifts,tabulatedAcc, haloMass);
+    InitializeGSLObjs( redshifts,tabulatedAcc,tabulatedStAcc, haloMass);
+}
+
+
+
+double AccretionHistory::AccStOfZ(double z)
+{
+    //  if(z > zstart) errormsg("AccOfZ: The accretion rate at this z is unspecified. z and zstart are "
+    //	+str(z)+" "+str(zstart));
+    double val =  gsl_spline_eval(splineSt,z,accelSt);///gsl_spline_eval(spline,zstart,accel);
+    if(val<0.0) {
+        // turned out it was, e.g. numbers on the order of 10^-200
+        //    std::cout << "WARNING: setting accr rate = 0. Hopefully this negative value "<<val<<" is a small error because of the interpolation scheme + the sharp cutoff from zquench." << std::endl;
+        val = 0.0;
+
+    }
+    return val;
 }
 
 double AccretionHistory::AccOfZ(double z)

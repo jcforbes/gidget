@@ -304,7 +304,7 @@ int Simulation::runToConvergence(const double fCondition,
 
 
         theDisk.UpdateStateVars(dt,dtPrev,z,tauvec,AccRate,tauvecStar,
-				MdotiPlusHalf,MdotiPlusHalfStar,MdotiPlusHalfMRI,accProf.fInner()); 
+				MdotiPlusHalf,MdotiPlusHalfStar,MdotiPlusHalfMRI,accProf.fInner(), accr.AccStOfZ(z)); 
 
 
         // update the independent variables.

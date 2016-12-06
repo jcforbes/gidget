@@ -79,6 +79,9 @@ class Cosmology:
             return 1.0/((1.0+zz)*self.EE(zz))
         ret = scipy.integrate.quad(toIntegrate,0,z)[0]/self.H0/speryear
         return ret
+    def age(self,z):
+        ''' Returns the age of the universe at that redshift in Gyr. '''
+        return (self.tL(10000.0) - self.tL(z))/1.0e9
     def dtdz(self,z):
         return 1.0/((1.0+z)*self.EE(z))/self.H0/speryear # units of years
     

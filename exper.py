@@ -1193,7 +1193,9 @@ if __name__ == "__main__":
         ZHayward = np.power(10.0, ZHayward) * 0.02
         weight1 = np.exp(-Mhz0/1.0e12)  #the ad-hoc reductions in fg and fcool make things bad for high-mass galaxies. weight1 is for tiny galaxies.
         weight2 = 1-weight1
-        fgUsed =fgz4*(1.0*weight1+1.0*weight2) 
+        rat4 = 1.0/(1.0/fgz4 - 1.0)
+        rat4 *= 2.0 # double the gas content
+        fgUsed =1.0/(1.0/rat4 + 1.0)*(1.0*weight1+1.0*weight2) 
         theExperiment.irregularVary( 'fg0', list(fgUsed), 5)
         theExperiment.irregularVary( 'Mh0', list(Mhz0), 5)
         fcools = list(1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (0.8*weight1+1.0*weight2) ) # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
@@ -1205,7 +1207,7 @@ if __name__ == "__main__":
         width = 0.4/widthReductionFactor 
         #width = 0.001 # just for debugging
         #asls =  np.random.normal( np.random.normal(size=len(Mhz0)) )*width + 0.16
-        asls = 0.101*np.power(10.0, np.random.normal(size=len(Mhz0))*width)
+        asls = 0.141*np.power(10.0, np.random.normal(size=len(Mhz0))*width)
         if len(Mhz0)==1:
             asls = np.array([asls])
         asls = np.clip(asls, 0.005,np.inf)
@@ -1226,15 +1228,13 @@ if __name__ == "__main__":
         theExperiment.irregularVary('muColScaling', .6)
         theExperiment.irregularVary('fscatter', 1.0)
         theExperiment.irregularVary('accCeiling',1.0)
-        theExperiment.irregularVary('NPassive',6)
+        theExperiment.irregularVary('NPassive',8)
         theExperiment.irregularVary('eta',1.5)
         theExperiment.irregularVary('xmin',0.001)
         theExperiment.irregularVary('yREC',0.03)
-        theExperiment.irregularVary('fixedQ', 1.8)
-        theExperiment.irregularVary('Qlim', 2.2)
         theExperiment.irregularVary( 'nx', 256 ) # FFT o'clock.
-        ZLee = np.power(10.0, 5.65 + 0.15*8+ 0.15*np.log10(mst) - 8.7 ) # Z in Zsun
-        theExperiment.irregularVary('ZIGM', list(0.4*ZLee*0.02), 5)
+        ZLee = np.power(10.0, 5.65 + 0.3*np.log10(mst) - 8.7 ) # Z in Zsun
+        theExperiment.irregularVary('ZIGM', list(0.05*ZLee*0.02), 5)
 
 
 
@@ -2259,6 +2259,159 @@ if __name__ == "__main__":
     rf51[0].irregularVary('fixedQ', 1.3)
     rf51[0].irregularVary('TOL', 7.0e-4)
 
+    # Attempt to improve stability - increase SigSt floor, decrease eta, decrease number of passive populations.
+    rf52 = NewSetOfExperiments(re01, 'rf52')
+    setKnownProperties( np.power(10.0, np.linspace(9.5, 15.1, 19)), rf52[0], widthReductionFactor=5.0 )
+    rf52[0].irregularVary('whichAccretionHistory', -112)
+    rf52[0].irregularVary('ksuppress', 10.0 )
+    rf52[0].irregularVary('kpower', 2.0)
+    rf52[0].irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    rf52[0].irregularVary('fscatter', 1.0)
+    rf52[0].irregularVary('MQuench', 2.0e12)
+    rf52[0].irregularVary('epsquench', 0.00001)
+    rf52[0].irregularVary('accCeiling', 0.5)
+    rf52[0].irregularVary('muQuench', 0.0)
+    rf52[0].irregularVary('gaScaleReduction', 3.0 )
+    rf52[0].irregularVary('stScaleReduction', 4.0 )
+    rf52[0].irregularVary('ZMix', 0.5)
+    rf52[0].irregularVary('alphaMRI', 0.05)
+    rf52[0].irregularVary('Qlim', 1.35)
+    rf52[0].irregularVary('fixedQ', 1.3)
+    rf52[0].irregularVary('TOL', 7.0e-4)
+    rf52[0].irregularVary('minSigSt', 10.0)
+
+    # Try some more on stability - time step this time
+    rf53 = NewSetOfExperiments(re01, 'rf53')
+    setKnownProperties( np.power(10.0, np.linspace(9.5, 15.1, 19)), rf53[0], widthReductionFactor=5.0 )
+    rf53[0].irregularVary('whichAccretionHistory', -112)
+    rf53[0].irregularVary('ksuppress', 10.0 )
+    rf53[0].irregularVary('kpower', 2.0)
+    rf53[0].irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    rf53[0].irregularVary('fscatter', 1.0)
+    rf53[0].irregularVary('MQuench', 2.0e12)
+    rf53[0].irregularVary('epsquench', 0.00001)
+    rf53[0].irregularVary('accCeiling', 0.5)
+    rf53[0].irregularVary('muQuench', 0.0)
+    rf53[0].irregularVary('gaScaleReduction', 3.0 )
+    rf53[0].irregularVary('stScaleReduction', 4.0 )
+    rf53[0].irregularVary('ZMix', 0.5)
+    rf53[0].irregularVary('alphaMRI', 0.05)
+    rf53[0].irregularVary('Qlim', 1.35)
+    rf53[0].irregularVary('fixedQ', 1.3)
+    rf53[0].irregularVary('TOL', 1.0e-4)
+    rf53[0].irregularVary('minSigSt', 10.0)
+
+    # Exactly the same as rf54, but we've made stricter cuts on the halos we're allowed to use to avoid ridiculously large merged halo masses.
+    rf54 = NewSetOfExperiments(rf53, 'rf54')
+
+    # Narrow the mass range again. Bump up the scale lengths. Bump up Q's
+    rf55 = NewSetOfExperiments(re01, 'rf55')
+    setKnownProperties( np.power(10.0, np.linspace(8.5, 14.1, 19)), rf55[0], widthReductionFactor=5.0 )
+    rf55[0].irregularVary('whichAccretionHistory', -112)
+    rf55[0].irregularVary('ksuppress', 10.0 )
+    rf55[0].irregularVary('kpower', 2.0)
+    rf55[0].irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    rf55[0].irregularVary('fscatter', 1.0)
+    rf55[0].irregularVary('MQuench', 2.0e12)
+    rf55[0].irregularVary('epsquench', 1.0e-5)
+    rf55[0].irregularVary('accCeiling', 0.5)
+    rf55[0].irregularVary('muQuench', 0.0)
+    rf55[0].irregularVary('gaScaleReduction', 3.0 )
+    rf55[0].irregularVary('stScaleReduction', 4.0 )
+    rf55[0].irregularVary('ZMix', 0.5)
+    rf55[0].irregularVary('alphaMRI', 0.05)
+    rf55[0].irregularVary('Qlim', 1.95)
+    rf55[0].irregularVary('fixedQ', 1.9)
+    rf55[0].irregularVary('TOL', 6.0e-4)
+    rf55[0].irregularVary('minSigSt', 10.0)
+    
+    # Increase gas accretion ceiling, increase initial metallicity slope
+    rf56 = NewSetOfExperiments(re01, 'rf56')
+    setKnownProperties( np.power(10.0, np.linspace(8.5, 14.1, 19)), rf56[0], widthReductionFactor=5.0 )
+    rf56[0].irregularVary('whichAccretionHistory', -112)
+    rf56[0].irregularVary('ksuppress', 10.0 )
+    rf56[0].irregularVary('kpower', 2.0)
+    rf56[0].irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    rf56[0].irregularVary('fscatter', 1.0)
+    rf56[0].irregularVary('MQuench', 2.0e12)
+    rf56[0].irregularVary('epsquench', 1.0e-5)
+    rf56[0].irregularVary('accCeiling', 1.0)
+    rf56[0].irregularVary('muQuench', 0.0)
+    rf56[0].irregularVary('gaScaleReduction', 3.0 )
+    rf56[0].irregularVary('stScaleReduction', 4.0 )
+    rf56[0].irregularVary('ZMix', 0.1)
+    rf56[0].irregularVary('alphaMRI', 0.05)
+    rf56[0].irregularVary('Qlim', 1.95)
+    rf56[0].irregularVary('fixedQ', 1.9)
+    rf56[0].irregularVary('TOL', 6.0e-4)
+    rf56[0].irregularVary('minSigSt', 10.0)
+
+
+    # Narrow mass range - no more tiny dwarfs. Lower Q limits, reduce the scaleReduction parameters
+    rf57 = NewSetOfExperiments(re01, 'rf57')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 14.1, 19)), rf57[0], widthReductionFactor=5.0 )
+    rf57[0].irregularVary('whichAccretionHistory', -112)
+    rf57[0].irregularVary('ksuppress', 10.0 )
+    rf57[0].irregularVary('kpower', 2.0)
+    rf57[0].irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    rf57[0].irregularVary('fscatter', 1.0)
+    rf57[0].irregularVary('MQuench', 2.0e12)
+    rf57[0].irregularVary('epsquench', 1.0e-5)
+    rf57[0].irregularVary('accCeiling', 1.0)
+    rf57[0].irregularVary('muQuench', 0.0)
+    rf57[0].irregularVary('gaScaleReduction', 1.5 )
+    rf57[0].irregularVary('stScaleReduction', 2.0 )
+    rf57[0].irregularVary('ZMix', 0.1)
+    rf57[0].irregularVary('alphaMRI', 0.05)
+    rf57[0].irregularVary('Qlim', 1.35)
+    rf57[0].irregularVary('fixedQ', 1.3)
+    rf57[0].irregularVary('TOL', 6.0e-4)
+    rf57[0].irregularVary('minSigSt', 10.0)
+
+    # Bump up accretion scale lengths
+    rf58 = NewSetOfExperiments(re01, 'rf58')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 14.1, 19)), rf58[0], widthReductionFactor=5.0 )
+    rf58[0].irregularVary('whichAccretionHistory', -112)
+    rf58[0].irregularVary('ksuppress', 10.0 )
+    rf58[0].irregularVary('kpower', 2.0)
+    rf58[0].irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    rf58[0].irregularVary('fscatter', 1.0)
+    rf58[0].irregularVary('MQuench', 2.0e12)
+    rf58[0].irregularVary('epsquench', 1.0e-3)
+    rf58[0].irregularVary('accCeiling', 1.0)
+    rf58[0].irregularVary('muQuench', 0.0)
+    rf58[0].irregularVary('gaScaleReduction', 1.5 )
+    rf58[0].irregularVary('stScaleReduction', 2.0 )
+    rf58[0].irregularVary('ZMix', 0.1)
+    rf58[0].irregularVary('alphaMRI', 0.05)
+    rf58[0].irregularVary('Qlim', 1.35)
+    rf58[0].irregularVary('fixedQ', 1.3)
+    rf58[0].irregularVary('TOL', 6.0e-4)
+    rf58[0].irregularVary('minSigSt', 10.0)
+
+
+    # Bump up initial gas fractions
+    rf59 = NewSetOfExperiments(re01, 'rf59')
+    setKnownProperties( np.power(10.0, np.linspace(10.5, 14.1, 19)), rf59[0], widthReductionFactor=5.0 )
+    rf59[0].irregularVary('whichAccretionHistory', -112)
+    rf59[0].irregularVary('ksuppress', 10.0 )
+    rf59[0].irregularVary('kpower', 2.0)
+    rf59[0].irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    rf59[0].irregularVary('fscatter', 1.0)
+    rf59[0].irregularVary('MQuench', 2.0e12)
+    rf59[0].irregularVary('epsquench', 1.0e-3)
+    rf59[0].irregularVary('accCeiling', 1.0)
+    rf59[0].irregularVary('muQuench', 0.0)
+    rf59[0].irregularVary('gaScaleReduction', 1.5 )
+    rf59[0].irregularVary('stScaleReduction', 2.0 )
+    rf59[0].irregularVary('ZMix', 0.1)
+    rf59[0].irregularVary('alphaMRI', 0.05)
+    rf59[0].irregularVary('Qlim', 1.35)
+    rf59[0].irregularVary('fixedQ', 1.3)
+    rf59[0].irregularVary('TOL', 6.0e-4)
+    rf59[0].irregularVary('minSigSt', 10.0)
+
+    
     
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

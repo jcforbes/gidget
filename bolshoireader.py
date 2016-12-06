@@ -25,12 +25,12 @@ class bolshoireader:
         ''' copy a file with the closest value of tree[2]'''
         #ind = np.searchsorted(self.keys, value)
         assert value>=0 and value<=1
-        if logMh0 < self.minimumMass+0.5:
-            acceptable = self.masses<self.minimumMass+1
-        elif logMh0 > self.maximumMass-1.0:
-            acceptable = self.masses>self.maximumMass-1
+        if logMh0 < self.minimumMass+0.25:
+            acceptable = self.masses<self.minimumMass+0.5
+        elif logMh0 > self.maximumMass-0.25:
+            acceptable = self.masses>self.maximumMass-0.5
         else:
-            acceptable = np.logical_and( self.masses>logMh0-0.5, self.masses<logMh0+0.5 )
+            acceptable = np.logical_and( self.masses>logMh0-0.25, self.masses<logMh0+0.25 )
 
         nAcceptable = np.sum(np.ones(len(self.keys))[acceptable])
         indAccept = int(nAcceptable*value) # pick one of the acceptable trees

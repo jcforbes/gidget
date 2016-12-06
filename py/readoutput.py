@@ -431,7 +431,10 @@ class SingleModel:
         # And self.evarray ~ (timestep, var)
         self.var={}
         starList=[]
+
         if keepStars:
+            ageAccum = np.zeros(np.shape(col[0]))
+            colAccum = np.zeros(np.shape(col[0]))
             for j in range(NABp1):
                 stj=str(j).zfill(2)
                 self.var['colst'+stj] = RadialFunction( copy.deepcopy(col[j]), 'colst'+stj, \
@@ -460,6 +463,13 @@ class SingleModel:
                         np.copy(endingAge[j]), 'endingAgeSt'+stj, \
                         cgsConv = speryear, texString='Age (Gyr)',log=False)
                 starList = starList + [ 'colst'+stj, 'sigstR'+stj, 'sigstZ'+stj, 'Zst'+stj, 'VarZst'+stj, 'ageSt'+stj, 'startingAgeSt'+stj, 'endingAgeSt'+stj ]
+        
+                ageTile = np.tile( self.var['ageSt'+stj].cgs(), (int(self.p['nx']),1) ).T
+                ageAccum += self.var['colst'+stj].cgs()*ageTile
+                colAccum += self.var['colst'+stj].cgs()
+            self.var['ageRadial'] = RadialFunction( ageAccum/colAccum, 'ageRadial', cgsConv=1.0, sensibleConv=1.0/speryear, texString=r'Age at $z=0$ (yr)', log=True)
+            starList.append('ageRadial')
+            
 
 
         self.var['step'] = TimeFunction( \
@@ -517,7 +527,7 @@ class SingleModel:
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 self.p['md0']*cmperpc*cmperpc/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
                 r'$\Sigma_* (M_\odot\ pc^{-2})$', \
-                inner=self.evarray[:,3]*2.0*self.p['md0']*self.p['R']*kmperkpc/(speryear*self.p['vphiR']*self.var['rb'].sensible(None,0)**2.0 * pcperkpc**2.0 *colSensibleConv), theRange=[1.0e-4, 1.0e5])
+                inner=self.evarray[:,3]*2.0*self.p['md0']*self.p['R']*kmperkpc/(speryear*self.p['vphiR']*self.var['rb'].sensible(None,0)**2.0 * pcperkpc**2.0 *colSensibleConv), theRange=[1.0e-1, 1.0e5])
         self.var['colstvPhiDisk'] =RadialFunction( \
                 np.copy(self.dataCube[:,:,56]),'colstvPhiDisk', \
                 self.p['md0']*gpermsun/(self.p['vphiR']*self.p['R']*speryear*1.0e5*cmperkpc), \
@@ -615,13 +625,16 @@ class SingleModel:
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
                 r'$M_\mathrm{center}\ (M_\odot)$')
+        deriv = np.zeros(len(self.var['mCentral'].sensible()))
+        deriv[:-1] = (self.var['mCentral'].sensible()[1:]-self.var['mCentral'].sensible()[:-1])/np.abs(self.var['t'].sensible()[1:]-self.var['t'].sensible()[:-1])
+        self.var['LXProxy'] = TimeFunction( self.var['mCentral'].sensible()*deriv , 'LXProxy', texString=r'$M_\mathrm{central}\dot{M}_\mathrm{central}$' )
         self.var['mStellarHalo'] = TimeFunction( \
                 self.evarray[:,5], 'mStellarHalo',
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
                 r'$M_\mathrm{center}\ (M_\odot)$')
         self.var['mstar'] = TimeFunction( \
-                self.var['mCentral'].sensible() + self.var['mStellarHalo'].sensible() +
+                self.var['mCentral'].sensible() + 0.1*self.var['mStellarHalo'].sensible() + ## try a version where we don't add this in
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
 
@@ -632,6 +645,7 @@ class SingleModel:
         sfrcu = np.cumsum( np.column_stack((self.var['mdotBulgeG'].cgs() * self.p['RfREC']/(self.p['RfREC']+self.var['MassLoadingFactor'].inner()),  self.var['colsfr'].cgs()*self.var['dA'].cgs())), axis=1  )
         #sfrcu = np.cumsum( np.column_stack( (self.var['mdotBulgeG'].cgs()*  self.p['RfREC']/((self.p['RfREC']+self.var['MassLoadingFactor'].inner())) , self.var['colsfr'].cgs()*self.var['dA'].cgs(), axis=1 ) ))
         halfMassRadiiStars = []
+        halfMassEst = []
         c82Stars = [] # ratio of the radii containing 80% and 20% of the stellar mass
         halfMassRadiiGas = []
         halfMassRadiiSFR = []
@@ -647,9 +661,22 @@ class SingleModel:
         rds = []
         metallicityGradientsR90 = []
         metallicityGradients2kpc = []
+        v22s=[]
         for z in range(np.shape(mstcu)[0]):
             sthalfind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.5])[0] 
             st2halfind, _ = Nearest(self.var['r'].sensible(timeIndex=0), self.var['r'].sensible(timeIndex=0,locIndex=sthalfind)*2.0) 
+            sthalfindest = sthalfind # initialize our guess for the radial index at which we will find the "observed" half mass.
+            while True:
+                st3halfind, _ = Nearest(self.var['r'].sensible(timeIndex=0), self.var['r'].sensible(timeIndex=0,locIndex=sthalfindest)*3.0) 
+                sthalfindestNEW = np.searchsorted(mstcu[z,:], [mstcu[z,st3halfind]*0.5])[0]
+                if sthalfindestNEW ==sthalfindest:
+                    # converged
+                    sthalfindest=sthalfindestNEW # finished iterating - before we leave, update.
+                    break
+                else:
+                    # not converged yet - update our estimate.
+                    sthalfindest=sthalfindestNEW
+            halfMassEst.append(self.var['r'].sensible(timeIndex=0, locIndex=sthalfindest))
             st2ind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.2])[0] 
             st8ind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.8])[0] 
             
@@ -682,6 +709,10 @@ class SingleModel:
             #if st8ind>=nxIt-1:
             #    st8ind=0
             halfMassRadiiStars.append( self.var['r'].sensible(timeIndex=z, locIndex=sthalfind) )
+            st22ind = np.searchsorted( self.var['r'].sensible(timeIndex=z), halfMassRadiiStars[-1]*1.7*2.2 )
+            if st22ind==len(self.var['r'].sensible(timeIndex=z)):
+                st22ind -= 1
+            v22s.append( self.var['vPhi'].sensible(timeIndex=z, locIndex=st22ind) )
             fgHalfMassStars.append( gascu[z,sthalfind]/ (mstcu[z, sthalfind] + gascu[z,sthalfind]) )
             fgTwoHalfMassStars.append( gascu[z,st2halfind]/ (mstcu[z, st2halfind] + gascu[z,st2halfind]) )
             c82Stars.append( self.var['r'].sensible(timeIndex=z, locIndex=st8ind)/  self.var['r'].sensible(timeIndex=z, locIndex=st2ind) )
@@ -720,9 +751,11 @@ class SingleModel:
         self.var['r2'] = TimeFunction( r2s, 'r2', sensibleConv=1/cmperkpc, texString=r'$r_{20\% M_*} (kpc)$')
         self.var['rd82'] = TimeFunction( rds, 'rd82', sensibleConv=1/cmperkpc, texString=r'$r_{d,82} (kpc)$')
 
+        self.var['vPhi22'] = TimeFunction( v22s, 'vPhi22', sensibleConv=1, cgsConv=1.0e5, texString=r'$v_{2.2} (\mathrm{km}/\mathrm{s})$')
         self.var['fghm'] = TimeFunction( fgHalfMassStars, 'fghm', sensibleConv=1, texString=r'$\langle f_g \rangle_{r_*}$')
         self.var['fg2hm'] = TimeFunction( fgTwoHalfMassStars, 'fg2hm', sensibleConv=1, texString=r'$\langle f_g \rangle_{2r_*}$')
-        self.var['halfMassStars'] = TimeFunction( halfMassRadiiStars, 'halfMassStars', cgsConv = cmperkpc, texString=r'$r_*$ (kpc)')
+        self.var['halfMassStars'] = TimeFunction( halfMassRadiiStars, 'halfMassStars', cgsConv = cmperkpc, texString=r'$r_*$ (kpc)', theRange=[0.1, 10.0])
+        self.var['halfMassEst'] = TimeFunction( halfMassEst, 'halfMassEst', cgsConv = cmperkpc, texString=r'$r_{*,\mathrm{est}}$ (kpc)', theRange=[0.1, 10.0])
         self.var['c82'] = TimeFunction( c82Stars, 'c82', cgsConv = 1.0, texString=r'$c_{82} = r_{80}/r_{20}$ ', theRange=[2.0, 30.0])
         self.var['halfMassGas'] = TimeFunction( halfMassRadiiGas, 'halfMassGas', cgsConv = cmperkpc, texString=r'$r_g$ (kpc)')
         self.var['halfMassSFR'] = TimeFunction( halfMassRadiiSFR, 'halfMassSFR', cgsConv = cmperkpc, texString=r'$r_\mathrm{SFR}$ (kpc)')
@@ -849,7 +882,7 @@ class SingleModel:
                 self.var['col'].cgs()/(self.var['col'].cgs()+self.var['colst'].cgs()), \
                 'fgRadial',1.0,1.0,r'$f_g = \Sigma/(\Sigma_*+\Sigma)$', log=False)
         self.var['sSFRRadial'] = RadialFunction( self.var['colsfr'].cgs()/self.var['colst'].cgs(), 'sSFRRadial',
-                sensibleConv=speryear*1.0e9, cgsConv=1.0, texString=r'$\dot{\Sigma}_\mathrm{SF}/\Sigma_* (\mathrm{Gyr}^{-1})$')
+                sensibleConv=speryear*1.0e9, cgsConv=1.0, texString=r'$\dot{\Sigma}_\mathrm{SF}/\Sigma_* (\mathrm{Gyr}^{-1})$', theRange=[1.0e-5, 10.0])
 
         self.var['tDepH2Radial'] = RadialFunction( \
                 self.var['fH2'].cgs()*self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepH2Radial',\
@@ -940,7 +973,10 @@ class SingleModel:
                 'integratedEquilibrium',1.0,1.0,r'Equilibrium',log=False, theRange=[-1,1])
         self.var['rx'] = RadialFunction( \
                 np.array([self.var['r'].sensible(ti)/self.var['halfMassStars'].sensible(timeIndex=ti) for ti in range(self.nt)]), \
-                'rx',1.0,1.0,r'r/r$_{E,*}$',log=False)
+                'rx',1.0,1.0,r'r/r$_{E,*}$',log=False, theRange=[0,3])
+        self.var['rxl'] = RadialFunction( \
+                np.array([self.var['r'].sensible(ti)/(np.power(self.var['halfMassEst'].sensible(timeIndex=ti),1.0/0.90)*10.0**(0.03/0.9)) for ti in range(self.nt)]), \
+                'rxl',1.0,1.0,r'r/r$_{E,\mathrm{opt,est}}$',log=False, theRange=[0,3])
 
         self.var['Sigma1p5'] = TimeFunction( \
                 self.var['mstar'].sensible()/np.power(self.var['halfMassStars'].sensible(),1.5), 'Sigma1p5', sensibleConv=1.0, cgsConv=gpermsun/cmperkpc**1.5,texString=r'$\Sigma_{1.5}\ (M_\odot/\mathrm{kpc}^{1.5})$')
@@ -1492,7 +1528,7 @@ class Experiment:
             
 
 
-    def radialPlot(self,timeIndex=None,variables=None,colorby=None,percentiles=None,logR=False,scaleR=False,movie=True, axIn=None):
+    def radialPlot(self,timeIndex=None,variables=None,colorby=None,percentiles=None,logR=False,scaleR=False,movie=True, axIn=None, light=False):
         ''' Plot quantities vs radius. '''
         if(variables is None):
             variables = self.models[0].getRadialFunctions()
@@ -1505,8 +1541,10 @@ class Experiment:
 
             overallVar,overallFail,overallLog,overallRange = self.constructQuantity(v)
             indVar = 'r'
-            if(scaleR):
+            if(scaleR and not light):
                 indVar='rx'
+            if(scaleR and light):
+                indVar='rxl'
             allR,_,_,_ = self.constructQuantity(indVar)
             rRange = [np.min(allR),np.max(allR)]
             allRb,_,_,_ = self.constructQuantity('rb')
@@ -1574,69 +1612,75 @@ class Experiment:
                 fac = 1.0
                 if scaleR:
                     fac=5.0 # half mass stellar radius for MW (approx)
-                if v=='vPhi':
-                    ax.errorbar(rc[:,0]/fac, rc[:,1], yerr=rc[:,2],color='k',lw=3)
-                if v=='colst':
-                    ax.errorbar([8.3/fac], [38.0], yerr=[4.0],color='k')
-                ## The following is from Nakanishi & Sofue (2006), errorbars included.
-                if v=='colH2':
-                    vx = (np.arange(11)+0.5)/fac
-                    vxe = np.zeros(11)+0.5
-                    vy = [26.7, 6.0, 3.5, 3.5, 4.6, 3.9, 2.8, 1.9, 0.9, 0.5, 0.3]
-                    vye = [20.3, 5.4, 1.8, 1.6, 2.0, 2.0, 1.4, 1.0, 0.7, 0.4, 0.2]
-                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3,label='Nakanishi06')
+                if model.var['z'].sensible(timeIndex=ti)<0.2:
+                    if v=='vPhi':
+                        ax.errorbar(rc[:,0]/fac, rc[:,1], yerr=rc[:,2],color='k',lw=3)
+                    if v=='colst':
+                        ax.errorbar([8.3/fac], [38.0], yerr=[4.0],color='k')
+                        if light:
+                            califa11 = np.loadtxt('califa_colst_11p4_11p8.csv', delimiter=',')
+                            ax.scatter( califa11[:,0]*5.0/fac, np.power(10.0, califa11[:,1]), lw=0, c='maroon', s=20 )
+                            califa9 = np.loadtxt('califa_colst_9p2_10p2.csv', delimiter=',')
+                            ax.scatter( califa9[:,0]*5.0/fac, np.power(10.0, califa9[:,1]), lw=0, c='blue', s=20 )
+                    ## The following is from Nakanishi & Sofue (2006), errorbars included.
+                    if v=='colH2':
+                        vx = (np.arange(11)+0.5)/fac
+                        vxe = np.zeros(11)+0.5/fac
+                        vy = [26.7, 6.0, 3.5, 3.5, 4.6, 3.9, 2.8, 1.9, 0.9, 0.5, 0.3]
+                        vye = [20.3, 5.4, 1.8, 1.6, 2.0, 2.0, 1.4, 1.0, 0.7, 0.4, 0.2]
+                        ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=1,label='Nakanishi06')
 
-                    ## From the Herschel paper - Pineda et al (2013) A&A 554 103
-                    vx = np.array([1.2264620876811554, 1.7322710031600081, 2.2387544688954497, 2.7385962090275573, \
-                            3.2361029675022435, 3.7372419196662534, 4.222606773522346, 4.721514520991485, \
-                            5.227271547989061, 5.7285661655969, 6.228978679023045, 6.736707468309111, \
-                            7.245733469627077, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, \
-                            12.25, 12.75, 13.25, 13.75, 14.25, 14.75] )/fac
-                    vy =np.array( [6.548974943052395, 4.498861047835993, 2.1526195899772205, 2.7220956719817764, \
-                            4.316628701594535, 4.316628701594535, 11.241457858769932, 12.220956719817767, \
-                            10.19362186788155, 10.125284738041003, 10.444191343963555, 7.551252847380409, \
-                            4.088838268792713, 4.7038724373576315, 3.6332574031890665, 3.5193621867881575, \
-                            2.5626423690205016, 3.041002277904326, 2.927107061503417, 1.9476082004555835, \
-                            2.175398633257405, 1.6059225512528492, 1.287015945330296, 2.1070615034168583, \
-                            1.150341685649206, 1.7425968109339394, 1.6514806378132114, 2.835990888382689] )
-                    vyp = np.array( [  9.09185803757829, 6.628392484342381, 4.1022964509394555, 4.77035490605428, \
-                            6.816283924843425, 7.0459290187891455, 14.749478079331944, 16.29436325678497, \
-                            14.373695198329855, 14.436325678496871, 14.937369519832988, 11.784968684759917, \
-                            7.839248434237998, 8.298538622129438, 7.3382045929018815, 8.653444676409187, \
-                            6.9624217118997915, 7.171189979123174, 7.171189979123174, 6.064718162839251, \
-                            6.127348643006265, 4.937369519832988, 4.54070981210856, 5.041753653444678, \
-                            3.810020876826723, 4.039665970772443, 3.6638830897703585, 4.979123173277662 ] )
-                    ax.errorbar(vx,vy,xerr=vx*0+0.25,yerr=vyp-vy,color='r',lw=3, label=r'Pineda13')
-                ## The following HI data are from Nakanishi & Sofue (2003) -- errorbars are not specified
-                if v=='colHI':
-                    vy = [1.85, .54, 1.84, 1.81, 1.86, 1.5, 2.6, 4.5, 4.25, 4.0, 4.25, 4.31, 3.6, 2.8, 2.0, 1.4, 1.05, .8, .7, .6, .5, .38, .25, .16, .1]
-                    vx = (np.arange(25)+0.5)/fac
-                    vxe = vx*0+0.5
-                    vy = np.array([1.79665, 0.591, 1.775, 1.746, 1.818, 1.488, 2.608, 4.510, 4.301, 4.114, 4.309, 4.388, 3.691, 2.780, 2.055, 1.431, 1.072, 0.821, 0.641, 0.498, 0.390, 0.311, 0.246, 0.189, 0.160])
-                    vye = vy*0.1
-                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3, label=r'Nakanishi03')
+                        ## From the Herschel paper - Pineda et al (2013) A&A 554 103
+                        vx = np.array([1.2264620876811554, 1.7322710031600081, 2.2387544688954497, 2.7385962090275573, \
+                                3.2361029675022435, 3.7372419196662534, 4.222606773522346, 4.721514520991485, \
+                                5.227271547989061, 5.7285661655969, 6.228978679023045, 6.736707468309111, \
+                                7.245733469627077, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, \
+                                12.25, 12.75, 13.25, 13.75, 14.25, 14.75] )/fac
+                        vy =np.array( [6.548974943052395, 4.498861047835993, 2.1526195899772205, 2.7220956719817764, \
+                                4.316628701594535, 4.316628701594535, 11.241457858769932, 12.220956719817767, \
+                                10.19362186788155, 10.125284738041003, 10.444191343963555, 7.551252847380409, \
+                                4.088838268792713, 4.7038724373576315, 3.6332574031890665, 3.5193621867881575, \
+                                2.5626423690205016, 3.041002277904326, 2.927107061503417, 1.9476082004555835, \
+                                2.175398633257405, 1.6059225512528492, 1.287015945330296, 2.1070615034168583, \
+                                1.150341685649206, 1.7425968109339394, 1.6514806378132114, 2.835990888382689] )
+                        vyp = np.array( [  9.09185803757829, 6.628392484342381, 4.1022964509394555, 4.77035490605428, \
+                                6.816283924843425, 7.0459290187891455, 14.749478079331944, 16.29436325678497, \
+                                14.373695198329855, 14.436325678496871, 14.937369519832988, 11.784968684759917, \
+                                7.839248434237998, 8.298538622129438, 7.3382045929018815, 8.653444676409187, \
+                                6.9624217118997915, 7.171189979123174, 7.171189979123174, 6.064718162839251, \
+                                6.127348643006265, 4.937369519832988, 4.54070981210856, 5.041753653444678, \
+                                3.810020876826723, 4.039665970772443, 3.6638830897703585, 4.979123173277662 ] )
+                        ax.errorbar(vx,vy,xerr=vx*0+0.25/fac,yerr=vyp-vy,color='r',lw=1, label=r'Pineda13')
+                    ## The following HI data are from Nakanishi & Sofue (2003) -- errorbars are not specified
+                    if v=='colHI':
+                        vy = [1.85, .54, 1.84, 1.81, 1.86, 1.5, 2.6, 4.5, 4.25, 4.0, 4.25, 4.31, 3.6, 2.8, 2.0, 1.4, 1.05, .8, .7, .6, .5, .38, .25, .16, .1]
+                        vx = (np.arange(25)+0.5)/fac
+                        vxe = vx*0+0.5/fac
+                        vy = np.array([1.79665, 0.591, 1.775, 1.746, 1.818, 1.488, 2.608, 4.510, 4.301, 4.114, 4.309, 4.388, 3.691, 2.780, 2.055, 1.431, 1.072, 0.821, 0.641, 0.498, 0.390, 0.311, 0.246, 0.189, 0.160])
+                        vye = vy*0.1
+                        ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=1, label=r'Nakanishi03')
 
-                    # Following from Pineda+ 2013 A&A (as above). Figure 21
-                    vx = np.array([.75+i*.5 for i in range(39)])/fac
-                    vxe = vx*0+0.25
-                    vy = np.array([ 2.175398633257405, 1.6514806378132114, 1.5375854214123024, 1.5831435079726646, \
-                            1.7198177676537618, 2.1070615034168583, 2.357630979498861, 2.9498861047836016, \
-                            3.3826879271070602, 3.610478359908882, 3.7243735763097945, 3.7927107061503413, \
-                            3.5193621867881575, 3.2915717539863323, 3.0865603644646917, 3.1093394077448764, \
-                            4.56719817767654, 3.906605922551254, 3.5876993166287043, 3.5193621867881575, \
-                            3.6332574031890665, 3.4738041002277917, 2.995444191343964, 2.927107061503417, \
-                            2.6082004555808673, 2.3120728929384953, 1.9476082004555835, 1.6287015945330303, \
-                            1.5148063781321177, 1.3097949886104807, 1.3781321184510276, 1.4009111617312051, \
-                            1.1958997722095681, 1.3097949886104807, 1.1731207289293835, 1.1958997722095681, \
-                            1.3781321184510276, 1.264236902050115, 1.287015945330296 ])
-                    vye = vy*0+0.1
-                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='r',lw=3, label=r'Pineda13')
-                if v=='hGas':
-                    vx = np.array([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0, 19.0, 21.0, 23.0, 25.0])/fac
-                    vy = np.array([103.448, 142.241, 161.638, 183.190, 316.810, 349.138, 441.810, 497.844, 685.345, 862.069, 928.879, 935.345, 939.655])
-                    vxe = vx*0+1.0
-                    vye = vy*0.1
-                    ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=3)
+                        # Following from Pineda+ 2013 A&A (as above). Figure 21
+                        vx = np.array([.75+i*.5 for i in range(39)])/fac
+                        vxe = vx*0+0.25/fac
+                        vy = np.array([ 2.175398633257405, 1.6514806378132114, 1.5375854214123024, 1.5831435079726646, \
+                                1.7198177676537618, 2.1070615034168583, 2.357630979498861, 2.9498861047836016, \
+                                3.3826879271070602, 3.610478359908882, 3.7243735763097945, 3.7927107061503413, \
+                                3.5193621867881575, 3.2915717539863323, 3.0865603644646917, 3.1093394077448764, \
+                                4.56719817767654, 3.906605922551254, 3.5876993166287043, 3.5193621867881575, \
+                                3.6332574031890665, 3.4738041002277917, 2.995444191343964, 2.927107061503417, \
+                                2.6082004555808673, 2.3120728929384953, 1.9476082004555835, 1.6287015945330303, \
+                                1.5148063781321177, 1.3097949886104807, 1.3781321184510276, 1.4009111617312051, \
+                                1.1958997722095681, 1.3097949886104807, 1.1731207289293835, 1.1958997722095681, \
+                                1.3781321184510276, 1.264236902050115, 1.287015945330296 ])
+                        vye = vy*0+0.1
+                        ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='r',lw=3, label=r'Pineda13')
+                    if v=='hGas':
+                        vx = np.array([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0, 19.0, 21.0, 23.0, 25.0])/fac
+                        vy = np.array([103.448, 142.241, 161.638, 183.190, 316.810, 349.138, 441.810, 497.844, 685.345, 862.069, 928.879, 935.345, 939.655])
+                        vxe = vx*0+1.0/fac
+                        vye = vy*0.1
+                        ax.errorbar(vx,vy,xerr=vxe,yerr=vye,color='k',lw=1)
                 #if counter==0:
                 if movie and axIn is None:
                     cbar = plt.colorbar(sc,ax=ax)
@@ -2093,7 +2137,7 @@ class Experiment:
                     ax[j].set_ylabel('')
                     ax[j].get_yaxis().set_ticks([])
             ax[j].get_xaxis().set_ticks([1.0e11,1.0e13])
-        plt.savefig(self.name+'_calibration0.png')
+        plt.savefig(self.name+'_calibration0.pdf')
         plt.close(fig)
 
         fig,ax = plt.subplots(5,4, figsize=(8,8))
@@ -2115,7 +2159,7 @@ class Experiment:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
             ax[4,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration1.png')
+        plt.savefig(self.name+'_calibration1.pdf')
         plt.close(fig)
             
 
@@ -2124,7 +2168,7 @@ class Experiment:
         fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
         for j in range(4):
             self.ptMovie(xvar='mstar', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['vPhiOuter'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
+            self.ptMovie(xvar='mstar', yvar=['vPhi22'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
             self.ptMovie(xvar='mstar', yvar=['c82'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
             self.ptMovie(xvar='mstar', yvar=['Sigma1'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
             ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
@@ -2137,7 +2181,7 @@ class Experiment:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
             ax[3,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration2.png')
+        plt.savefig(self.name+'_calibration2.pdf')
         plt.close(fig)
 
 
@@ -2159,7 +2203,7 @@ class Experiment:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
             ax[3,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration3.png')
+        plt.savefig(self.name+'_calibration3.pdf')
         plt.close(fig)
 
 
@@ -2175,6 +2219,28 @@ class Experiment:
         for j in range(4):
             for i in range(4):
                 ax[i,j].axhline(0.0, c='gray', ls='--') # Mark zero.
+                kmosMasses = np.power(10.0, np.linspace(9.88,11.13, 20))
+                kmosMedian = kmosMasses*0 - 0.008
+                if j==1 or j==2:
+                    ax[i,j].fill_between( kmosMasses, kmosMedian-0.04, kmosMedian+0.04, facecolor='r', alpha=0.3) 
+                    ax[i,j].plot( kmosMasses, kmosMedian, c='r', label='Wuyts16')
+                if j==2:
+                    jonesMstars = np.power(10.0, np.array([9.4, 9.1, 9.9, 10.1]))
+                    J0744means = np.array([-0.06, -0.13, 0.02, 0.02, 0.10])
+                    J0744stds = np.array([0.04, 0.05, 0.04, 0.04, 0.07])
+                    J1038means = np.array([0.08, 0.15, 0.25, 0.31, 0.37])
+                    J1038stds = np.array([0.03, 0.07, 0.07, 0.08, 0.09])
+                    J1148means = np.array([-0.28, -0.51, -0.33, -0.37, -0.37])
+                    J1148stds = np.array([ 0.05, 0.11, 0.12, 0.11, 0.19])
+                    J1206means = np.array([-0.25, -0.45, -0.40, -0.46, -0.40])
+                    J1206stds = np.array([0.06, 0.08, 0.08, 0.08, 0.11])
+                    ax[i,j].errorbar([jonesMstars[0]], np.mean(J0744means), yerr=np.sqrt(np.var(J0744means)+np.mean(J0744stds*J0744stds)) , c='b', label='Jones13', fmt='o')
+                    ax[i,j].errorbar([jonesMstars[1]], np.mean(J1038means), yerr=np.sqrt(np.var(J1038means)+np.mean(J1038stds*J1038stds)) , c='b', fmt='o')
+                    ax[i,j].errorbar([jonesMstars[2]], np.mean(J1148means), yerr=np.sqrt(np.var(J1148means)+np.mean(J1148stds*J1148stds)) , c='b', fmt='o')
+                    ax[i,j].errorbar([jonesMstars[3]], np.mean(J1206means), yerr=np.sqrt(np.var(J1206means)+np.mean(J1206stds*J1206stds)) , c='b', fmt='o')
+                if j==0:
+                    ax[i,j].fill_between( [10**8.4, 10**11.37], [-.041-0.03]*2,[-0.041+0.03]*2, facecolor='k', alpha=0.3)
+                    ax[i,j].plot( [10**8.4, 10**11.37], [-.041]*2, c='k', label='Rupke10')
                 if j>0:
                     ax[i,j].set_ylabel('')
                     ax[i,j].get_yaxis().set_ticks([])
@@ -2182,7 +2248,7 @@ class Experiment:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
             ax[3,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration4.png')
+        plt.savefig(self.name+'_calibration4.pdf')
         plt.close(fig)
 
         ### Not really callibration, but the same sort of plots
@@ -2204,7 +2270,7 @@ class Experiment:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
             ax[4,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration5.png')
+        plt.savefig(self.name+'_calibration5.pdf')
         plt.close(fig)
 
 
@@ -2227,65 +2293,114 @@ class Experiment:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
             ax[5,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration6.png')
+        plt.savefig(self.name+'_calibration6.pdf')
         plt.close(fig)
 
 
         fig,ax = plt.subplots(4,4, figsize=(8,9))
         fig.subplots_adjust(wspace=0.01, hspace=0.35)
+        cax = fig.add_axes([.9, .1, .05, .12])
         for j in range(4):
-            self.ptMovie(xvar='sfr', yvar=['mdotBulgeG'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
+            self.ptMovie(xvar='sfr', yvar=['LXProxy'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
             self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
             self.ptMovie(xvar='mbar', yvar=['vPhiOuter'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='gbar', yvar=['gtot'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
+            self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, caxIn=cax)
             ax[1,j].text(1.0e7, 2.0, r'$z=$'+str(j))
         for j in range(4):
             for i in range(4):
                 if j>0:
                     ax[i,j].set_ylabel('')
                     ax[i,j].get_yaxis().set_ticks([])
-        plt.savefig(self.name+'_calibration7.png')
+        plt.savefig(self.name+'_calibration7.pdf')
         plt.close(fig)
 
 
 
-        fig,ax = plt.subplots(4,4, figsize=(8,7))
+        fig,ax = plt.subplots(5,4, figsize=(8,9))
         fig.subplots_adjust(wspace=0.01, hspace=0.03)
         for j in range(4):
             self.radialPlot(timeIndex=[zinds[j]],variables=['colst'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[0,j])
             self.radialPlot(timeIndex=[zinds[j]],variables=['colsfr'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[1,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['colH2'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[2,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['colHI'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[3,j])
+            self.radialPlot(timeIndex=[zinds[j]],variables=['sSFRRadial'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[2,j])
+            self.radialPlot(timeIndex=[zinds[j]],variables=['colH2'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[3,j])
+            self.radialPlot(timeIndex=[zinds[j]],variables=['colHI'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[4,j])
             ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
         for j in range(4):
-            for i in range(4):
+            for i in range(5):
                 if j>0:
                     ax[i,j].set_ylabel('')
                     ax[i,j].get_yaxis().set_ticks([])
-                if i<3:
+                if i<4:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
-        plt.savefig(self.name+'_calibration8.png')
+        plt.savefig(self.name+'_calibration8.pdf')
         plt.close(fig)
 
 
-        fig,ax = plt.subplots(4,4, figsize=(8,7))
+        fig,ax = plt.subplots(6,4, figsize=(8,9))
         fig.subplots_adjust(wspace=0.01, hspace=0.03)
         for j in range(4):
             self.radialPlot(timeIndex=[zinds[j]],variables=['Z'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[0,j])
             self.radialPlot(timeIndex=[zinds[j]],variables=['fH2'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[1,j])
             self.radialPlot(timeIndex=[zinds[j]],variables=['sig'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[2,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[3,j])
+            self.radialPlot(timeIndex=[zinds[j]],variables=['hGas'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[3,j])
+            self.radialPlot(timeIndex=[zinds[j]],variables=['ageRadial'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[4,j])
+            self.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[5,j])
             ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
         for j in range(4):
-            for i in range(4):
+            for i in range(6):
                 if j>0:
                     ax[i,j].set_ylabel('')
                     ax[i,j].get_yaxis().set_ticks([])
-                if i<3:
+                if i<5:
                     ax[i,j].set_xlabel('')
                     ax[i,j].get_xaxis().set_ticks([])
-        plt.savefig(self.name+'_calibration9.png')
+        plt.savefig(self.name+'_calibration9.pdf')
+        plt.close(fig)
+
+
+        fig,ax = plt.subplots(1,1, figsize=(6,6))
+        #self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='rx', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
+        for model in self.models:
+            inner = model.var['rx'].sensible(timeIndex=zinds[0])<1.0 # within 1 half mass radius
+            ax.plot( model.var['gbar'].sensible(timeIndex=zinds[0])[inner], model.var['gtot'].sensible(timeIndex=zinds[0])[inner], c=cm((np.log10(model.var['mstar'].sensible(timeIndex=zinds[0]))-9)/3.0 ) )
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlim(1.0e-12, 3.0e-8)
+        ax.set_ylim(1.0e-12, 3.0e-8)
+        ax.set_xlabel(r'$g_\mathrm{bar} (\mathrm{m}/\mathrm{s}^2$')
+        ax.set_ylabel(r'$g_\mathrm{tot} (\mathrm{m}/\mathrm{s}^2$')
+
+        gbars = np.power(10.0, np.linspace(-12,-8, 100))
+        gdagger = 1.20e-10
+        gobss = gbars/(1.0 - np.exp(-np.sqrt(gbars/gdagger)))
+        ax.plot( gbars, gbars, ls='--', c='gray', lw=3)
+        ax.plot( gbars, gobss, label='McGaugh16', ls='-', c='b', lw=3 )
+        ax.legend(loc=0)
+        plt.savefig(self.name+'_calibration10.pdf')
+        plt.close(fig)
+
+        fig,ax = plt.subplots(1,1, figsize=(6,6))
+        self.ptMovie(xvar='ageRadial', yvar=['colst'], colorby='mstar', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
+        plt.savefig(self.name+'_calibration11.pdf')
+        plt.close(fig)
+
+        fig,ax = plt.subplots(1,1, figsize=(6,6))
+        self.ptMovie(xvar='ageRadial', yvar=['sigstR'], colorby='mstar', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
+        plt.savefig(self.name+'_calibration12.pdf')
+        plt.close(fig)
+
+
+        fig,ax = plt.subplots(1,1, figsize=(6,6))
+        self.ptMovie(xvar='colst', yvar=['colsfr'], colorby='mstar', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
+        plt.savefig(self.name+'_calibration13.pdf')
+        plt.close(fig)
+
+
+        fig,ax = plt.subplots(1,2, figsize=(8,5))
+        self.radialPlot(timeIndex=[zinds[0]], variables=['ageRadial'], colorby='Mh0', percentiles=None, logR=False, scaleR=True, light=True, movie=False, axIn=ax[0])
+        self.radialPlot(timeIndex=[zinds[0]], variables=['colst'], colorby='Mh0', percentiles=None, logR=False, scaleR=True, light=True, movie=False, axIn=ax[1])
+        plt.savefig(self.name+'_calibration14.pdf')
         plt.close(fig)
 
         ## To add: age-velocity dispersion correlation?
@@ -2332,7 +2447,6 @@ class Experiment:
             arr = np.loadtxt(fn)
             Mh = np.log10(arr[:,0]/0.7)
             dndlog10m = arr[:,7]*0.7**3
-            from scipy.interpolate import interp1d
             f = interp1d(Mh,dndlog10m, kind='cubic')
             return f
 
@@ -2791,7 +2905,7 @@ class Experiment:
 
 
 
-    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True, axIn=None, textsize=10):
+    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True, axIn=None, textsize=10, caxIn=None, arrows=False):
         if(yvar is None):
             variables = self.models[0].getTimeFunctions()
         else:
@@ -2836,13 +2950,15 @@ class Experiment:
             if(len(np.shape(overallVar))==1):
                 overallVar = np.tile(overallVar, (self.models[0].nTimeSteps(),1)).T
                 
+            model = self.models[0]
+            z=model.getData('z')
+            t=model.getData('t')
             for iti, ti in enumerate(timeIndex):
                 if movie:
                     fig,ax = plt.subplots(1,1)
                     if not axIn is None:
                         print "You asked for a movie and provided an axis. I don't know what to do!"
                         assert False
-                model = self.models[0]
                 try:
                     ax.set_xlabel(model.get(xvar).texString)
                 except:
@@ -2867,24 +2983,36 @@ class Experiment:
                     nx+=1
                 if(len(np.shape(overallX[:,ti]))==2 and len(np.shape(overallVar[:,ti]))==2):
                     # X and Y are 2D, so we have to flatten them, and adjust colorLoc.
-                    colorLoc = np.tile(colorLoc, (nx, 1)).T.flatten()
+                    if len(np.shape(colorLoc))!=2:
+                        colorLoc = np.tile(colorLoc, (nx, 1)).T.flatten()
+                    else:
+                        colorLoc = colorLoc.flatten()
                     xx = overallX[:,ti].flatten()
                     yy = overallVar[:,ti].flatten()
+                    xdot = np.zeros(len(xx))
+                    ydot = np.zeros(len(xx))
                 elif(len(np.shape(overallX[:,ti]))==1 and len(np.shape(overallVar[:,ti]))==2):
                     # Y is 2D but X is not, so we have to flatten them, and adjust colorLoc.
                     colorLoc = np.tile(colorLoc, (nx, 1)).T.flatten()
                     xx = np.tile(overallX[:,ti], (nx,1)).T.flatten()
                     yy = overallVar[:,ti].flatten()
+                    xdot = np.zeros(len(xx))
+                    ydot = np.zeros(len(xx))
                 elif(len(np.shape(overallX[:,ti]))==2 and len(np.shape(overallVar[:,ti]))==1):
                     # X is 2D but Y is not, so we have to flatten them, and adjust colorLoc.
                     colorLoc = np.tile(colorLoc, (nx, 1)).T.flatten()
                     xx = overallX[:,ti].flatten()
                     yy = np.tile(overallVar[:,ti], (nx,1)).T.flatten()
+                    xdot = np.zeros(len(xx))
+                    ydot = np.zeros(len(xx))
                 else:
                     xx=overallX[:,ti]
                     yy=overallVar[:,ti]
+                    xdot=(overallX[:,ti] - overallX[:,ti-1])/abs(z[ti]-z[ti-1])
+                    ydot=(overallVar[:,ti] - overallVar[:,ti-1])/abs(z[ti]-z[ti-1])
 
-                if np.max(colorLoc)-np.min(colorLoc)<(overallColorRange[1]-overallColorRange[0])*0.1 and len(xx)>200:
+                ## There are enough points and they're all the same color that we should histogram them
+                if np.max(colorLoc)-np.min(colorLoc)<(overallColorRange[1]-overallColorRange[0])*0.01 and len(xx)>200:
                     if(overallLog):
                         yscale = 'log'
                     else:
@@ -2926,10 +3054,34 @@ class Experiment:
                     #plt.hexbin( xx, yy, extent=, alpha = 1.0/float(len(timeIndex)), xscale='linear', yscale='linear', cmap=cmaps[counter] )
                 else:
                     histFlag=False
+                    if xvar=='gbar' and v=='gtot':
+                        #inner = colorLoc<2.0
+                        #xx=xx[inner]
+                        #yy=yy[inner]
+                        #xdot=xdot[inner]
+                        #ydot=ydot[inner]
+                        #xdot = np.zeros(np.shape(xx))
+                        #ydot = np.zeros(np.shape(xx))
+                        #colorLoc=colorLoc[inner]
+                        #overallColorRange=[0,2]
+                        #s=2
+                        pass
                     sc = ax.scatter(xx,yy,c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm,lw=lw,s=s)
+
+                    if arrows:
+                        for xi, xxi in enumerate(xx):
+                            #ax.arrow( xx[xi], yy[xi], xdot[xi], ydot[xi], color=cm((colorLoc[xi]-overallColorRange[0])/(overallColorRange[1]-overallColorRange[0])), lw=1 )  
+                            #ax.annotate('', xy=(xx[xi]+xdot[xi],yy[xi]+ydot[xi]), xytext=(xx[xi],yy[xi]), arrowprops=dict(color=cm((colorLoc[xi]-overallColorRange[0])/(overallColorRange[1]-overallColorRange[0])), width=1, headwidth=2) )
+                            ax.annotate('', xy=(xx[xi]+xdot[xi],yy[xi]+ydot[xi]), xytext=(xx[xi],yy[xi]), arrowprops=dict(color='k', width=1, headwidth=4) )
                     if movie or (not movie and counter==0):
                         if axIn is None:
                             cbar = plt.colorbar(sc,ax=ax)
+                            if(log):
+                                cbar.set_label(r'$\log_{10}$'+colorby)
+                            else:
+                                cbar.set_label(colorby)
+                        elif not caxIn is None:
+                            cbar = plt.colorbar(sc,cax=caxIn)
                             if(log):
                                 cbar.set_label(r'$\log_{10}$'+colorby)
                             else:
@@ -2941,8 +3093,6 @@ class Experiment:
                         for k in range(max(ti-prev,0),ti):
                             #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
                             ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
-                z=model.getData('z')
-                t=model.getData('t')
                 if(xvar=='Mh' and v=='efficiency'):
                     b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
                 elif (xvar=='Mh' and v=='mstar'):
@@ -3041,6 +3191,8 @@ class Experiment:
                                 thisLabel='Lee06'
                                 thisLS = '-'
                             ax.plot(mLee, ZLee, c='blue', ls=thisLS, label=thisLabel)
+                            if thisLS=='-':
+                                ax.fill_between(mLee, ZLee/10.0**0.117, ZLee*10.0**0.117, facecolor='blue', alpha=0.3)
                             mTremonti = np.power(10.0, np.array([8.57, 8.67, 8.76, 8.86, 8.96, 9.06, 9.16, 9.26, 9.36, 9.46, 9.57, 9.66, 9.76, 9.86, 9.96, 10.06, 10.16, 10.26, 10.36, 10.46, 10.56, 10.66, 10.76, 10.86, 10.95, 11.05, 11.15, 11.25]))
                             Z16Tremonti = np.power(10.0, np.array([8.25, 8.28, 8.32, 8.37, 8.46, 8.56, 8.59, 8.60,8.63, 8.66, 8.69, 8.72, 8.76, 8.80, 8.83, 8.85, 8.88, 8.92, 8.94, 8.96, 8.98, 9.00, 9.01, 9.02, 9.03, 9.03, 9.04, 9.03 ]) )
                             Z50Tremonti = np.power(10.0, np.array([8.44, 8.48, 8.57, 8.61, 8.63, 8.66, 8.68, 8.71, 8.74, 8.78, 8.82, 8.84, 8.87, 8.90, 8.94, 8.97, 8.99, 9.01, 9.03, 9.05, 9.07, 9.08, 9.09, 9.10, 9.11, 9.11, 9.12, 9.12 ]))
@@ -3087,10 +3239,20 @@ class Experiment:
                                 thisLabel='Fall13 Disks'
                                 thisLS='-'
                             ax.plot([1.0e9, 1.0e11], [10**2.3, 10**3.45], ls=thisLS, label=thisLabel, c='b')
+                            thisLS='--'
+                            thisLabel=None
                             if z[ti]<0.5 and v=='specificJStars':
                                 thisLabel='Fall13 Ellipticals'
                                 thisLS='-'
-                            ax.plot([1.0e9, 1.0e11], [10**1.55, 10**(3.45-(2.3-1.55))], ls=thisLS, label=thisLabel, c='r')
+                            ax.plot([1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], ls=thisLS, label=thisLabel, c='r')
+                            thisLS='--'
+                            thisLabel=None
+                            if z[ti]>0.8 and z[ti]<2.6 and v=='specificJStars' or movie:
+                                thisLabel='Burkert16'
+                                thisLS='-'
+                                ax.fill_between([10**9.8, 10**11.4], [10.0**(3.33+2.0/3.0*(9.8-11.0)-0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)-0.17)], [10.0**(3.33+2.0/3.0*(9.8-11.0)+0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)+0.17)] , facecolor='k', alpha=0.3)
+                            ax.plot([10**9.8, 10**11.4], [10.0**(3.33+2.0/3.0*(9.8-11.0)), 10.0**(3.33+2.0/3.0*(11.4-11.0))], c='k', ls=thisLS, label=thisLabel)
+                            labelled=True
                         if v=='halfMassStars' or v=='halfMassSFR':
                             #reff = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+z[ti],-0.6) # kpc (eq B3) at z=4
                             #ax.plot(mst,reff, c='k')
@@ -3098,38 +3260,113 @@ class Experiment:
                             #obsmst = np.array([1.0e9, 3.0e11])
                             obsmst = np.power(10.0, np.linspace(9.0, 11.5, 100))
                             if z[ti]<0.5:
-                                reffETGvdW = 10.0**0.60*np.power(obsmst/(5.0e10), 0.75)
-                                reffLTGvdW = 10.0**0.86*np.power(obsmst/(5.0e10), 0.25)
+                                obsmstETG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75, 11.25]))
+                                reffETGvdW16 = np.power(10.0, np.array([0.03, 0.04, 0.13, 0.42, 0.65]))
+                                reffETGvdW50 = np.power(10.0, np.array([0.27, 0.27, 0.38, 0.67, 0.76]))
+                                reffETGvdW84 = np.power(10.0, np.array([0.46, 0.46, 0.58, 0.92, 1.08]))
+
+                                obsmstLTG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75 ]))
+                                reffLTGvdW16 = np.power(10.0, np.array([0.24, 0.36, 0.42, 0.61]))
+                                reffLTGvdW50 = np.power(10.0, np.array([0.49, 0.61, 0.66, 0.83]))
+                                reffLTGvdW84 = np.power(10.0, np.array([0.70, 0.80, 0.85, 1.01]))
+                                
                             if 0.5<=z[ti] and z[ti]<1.0:
-                                reffETGvdW = 10.0**0.42*np.power(obsmst/(5.0e10), 0.71)
-                                reffLTGvdW = 10.0**0.78*np.power(obsmst/(5.0e10), 0.22)
+                                obsmstETG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75, 11.25]))
+                                reffETGvdW16 = np.power(10.0, np.array([-0.02, -0.14, 0.02, 0.26, 0.62]))
+                                reffETGvdW50 = np.power(10.0, np.array([0.23, 0.21, 0.23, 0.45, 0.81]))
+                                reffETGvdW84 = np.power(10.0, np.array([0.43, 0.44, 0.42, 0.64, 0.97]))
+
+                                obsmstLTG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75, 11.25]))
+                                reffLTGvdW16 = np.power(10.0, np.array([0.18, 0.32, 0.39, 0.51, 0.77]))
+                                reffLTGvdW50 = np.power(10.0, np.array([0.43, 0.56, 0.64, 0.75, 0.90]))
+                                reffLTGvdW84 = np.power(10.0, np.array([0.65, 0.76, 0.83, 0.90, 1.12]))
                             if 1.0<=z[ti] and z[ti]<1.5:
-                                reffETGvdW = 10.0**0.22*np.power(obsmst/(5.0e10), 0.76)
-                                reffLTGvdW = 10.0**0.70*np.power(obsmst/(5.0e10), 0.22)
+                                obsmstETG = np.power(10.0, np.array([9.75, 10.25, 10.75, 11.25]))
+                                reffETGvdW16 = np.power(10.0, np.array([-0.15, -0.15, 0.07, 0.41]))
+                                reffETGvdW50 = np.power(10.0, np.array([ 0.18, 0.09, 0.30, 0.58]))
+                                reffETGvdW84 = np.power(10.0, np.array([ 0.42, 0.36, 0.54, 0.81]))
+
+                                obsmstLTG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75, 11.25]))
+                                reffLTGvdW16 = np.power(10.0, np.array([0.11, 0.23, 0.33, 0.47, 0.62]))
+                                reffLTGvdW50 = np.power(10.0, np.array([0.37, 0.48, 0.57, 0.67, 0.82]))
+                                reffLTGvdW84 = np.power(10.0, np.array([0.60, 0.69, 0.77, 0.83, 0.96]))
                             if 1.5<=z[ti] and z[ti]<2.0:
-                                reffETGvdW = 10.0**0.09*np.power(obsmst/(5.0e10), 0.76)
-                                reffLTGvdW = 10.0**0.65*np.power(obsmst/(5.0e10), 0.23)
+                                obsmstETG = np.power(10.0, np.array([9.75, 10.25, 10.75, 11.25]))
+                                reffETGvdW16 = np.power(10.0, np.array([-0.02, -0.27, -0.04, 0.28]))
+                                reffETGvdW50 = np.power(10.0, np.array([ 0.22, 0.02, 0.19, 0.45]))
+                                reffETGvdW84 = np.power(10.0, np.array([ 0.48, 0.35, 0.50, 0.74]))
+
+                                obsmstLTG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75, 11.25]))
+                                reffLTGvdW16 = np.power(10.0, np.array([0.07, 0.16, 0.28, 0.35, 0.53]))
+                                reffLTGvdW50 = np.power(10.0, np.array([0.33, 0.42, 0.52, 0.61, 0.70]))
+                                reffLTGvdW84 = np.power(10.0, np.array([0.57, 0.65, 0.72, 0.80, 0.87]))
                             if 2.0<=z[ti] and z[ti]<2.5:
-                                reffETGvdW = 10.0**-0.05*np.power(obsmst/(5.0e10), 0.76)
-                                reffLTGvdW = 10.0**0.55*np.power(obsmst/(5.0e10), 0.22)
+                                obsmstETG = np.power(10.0, np.array([ 10.25, 10.75, 11.25]))
+                                reffETGvdW16 = np.power(10.0, np.array([-0.37, -0.20, 0.16]))
+                                reffETGvdW50 = np.power(10.0, np.array([-0.04, 0.08, 0.36]))
+                                reffETGvdW84 = np.power(10.0, np.array([ 0.36, 0.54, 0.55]))
+
+                                obsmstLTG = np.power(10.0, np.array([ 9.75, 10.25, 10.75, 11.25]))
+                                reffLTGvdW16 = np.power(10.0, np.array([ 0.10, 0.17, 0.26, 0.40]))
+                                reffLTGvdW50 = np.power(10.0, np.array([ 0.35, 0.44, 0.53, 0.64]))
+                                reffLTGvdW84 = np.power(10.0, np.array([ 0.57, 0.64, 0.70, 0.84]))
                             if 2.5<=z[ti] :
-                                reffETGvdW = 10.0**-0.06*np.power(obsmst/(5.0e10), 0.79)
-                                reffLTGvdW = 10.0**0.51*np.power(obsmst/(5.0e10), 0.18)
-                            if len(timeIndex)>4:
-                                lss = ['-']*len(timeIndex)
-                            else:
-                                lss = ['-','--','-.',':']
+                                obsmstETG = np.power(10.0, np.array([  10.75, 11.25]))
+                                reffETGvdW16 = np.power(10.0, np.array([-0.22, 0.07]))
+                                reffETGvdW50 = np.power(10.0, np.array([ 0.10, 0.39]))
+                                reffETGvdW84 = np.power(10.0, np.array([ 0.50, 0.68]))
+
+                                obsmstLTG = np.power(10.0, np.array([ 10.25, 10.75, 11.25]))
+                                reffLTGvdW16 = np.power(10.0, np.array([  0.16, 0.19, 0.33]))
+                                reffLTGvdW50 = np.power(10.0, np.array([  0.43, 0.47, 0.55]))
+                                reffLTGvdW84 = np.power(10.0, np.array([  0.65, 0.71, 0.76]))
                             thisLabel=None
                             if movie or iti==0 and z[ti]<0.5:
                                 thisLabel='vdWel14 ETG'
-                            ax.plot(obsmst,reffETGvdW, c='r', label=thisLabel, ls=lss[iti])
+                            ax.plot(obsmstETG,reffETGvdW50, c='r', label=thisLabel, ls='-')
+                            ax.fill_between(obsmstETG, reffETGvdW16, reffETGvdW84, facecolor='r', alpha=0.3)
                             if movie or iti==0 and z[ti]<0.5:
                                 thisLabel='vdWel14 LTG'
-                            ax.plot(obsmst,reffLTGvdW, c='b', label=thisLabel, ls=lss[iti])
+                            ax.plot(obsmstLTG,reffLTGvdW50, c='b', label=thisLabel, ls='-')
+                            ax.fill_between(obsmstLTG, reffLTGvdW16, reffLTGvdW84, facecolor='b', alpha=0.3)
                             labelled=True
 
                         if v=='sfr' or v=='sSFR':
-                    
+                            cos = halo.Cosmology()
+                            mstSpeagle = np.power(10.0, np.linspace(9.7,11.1, 10)) # just linear - no need for a large number of samples
+                            psiSpeagle = (0.84 - 0.026*cos.age(z[ti]))*np.log10(mstSpeagle) - (6.51 - 0.11*cos.age(z[ti]))
+                            fac = 1.0
+                            if v=='sSFR':
+                                fac = mstSpeagle*1.0e-9
+                            ax.fill_between(mstSpeagle, np.power(10.0,psiSpeagle-0.28)/fac, np.power(10.0, psiSpeagle+0.28)/fac, facecolor='gray', alpha=0.3)
+                            theLabel=None
+                            if z[ti]<0.5 or movie:
+                                theLabel='Speagle14'
+                            ax.plot(mstSpeagle, np.power(10.0, psiSpeagle)/fac, c='gray', label=theLabel)
+                            
+                            def plotBrinchmann(theAx, theLS, theColor, theLabel=None, fill=False, specific=True):
+                                brinchmannMode = np.loadtxt('brinchmann04_msmode.csv', delimiter=',')
+                                brinchmann975 = np.loadtxt('brinchmann04_ms975.csv', delimiter=',')
+                                fbmode = interp1d( brinchmannMode[:,0], brinchmannMode[:,1], kind='linear' )
+                                fb975 = interp1d( brinchmann975[:,0], brinchmann975[:,1], kind='linear' )
+                                brinchmannm = np.linspace( 6.51, 11.88, 1000 ) 
+                                fac = 1.0
+                                if specific:
+                                    fac = np.power(10.0, brinchmannm)*1.0e-9
+                                theAx.plot( np.power(10.0, brinchmannm), np.power(10.0, fbmode(brinchmannm))/fac, c=theColor, ls=theLS, label=theLabel)
+                                delt = fb975(brinchmannm) - fbmode(brinchmannm)
+                                if fill:
+                                    theAx.fill_between( np.power(10.0, brinchmannm), np.power(10.0, fbmode(brinchmannm)-delt/2.0)/fac, np.power(10.0, fbmode(brinchmannm)+delt/2.0)/fac , facecolor=theColor, alpha=0.3)
+
+
+                            theLabel=None
+                            theLS='--'
+                            if z[ti]<0.5 or movie:
+                                theLabel='Brinchmann04'
+                                theLS = '-'
+                            plotBrinchmann(ax, theLS, 'orange', theLabel=theLabel, fill=(not theLabel is None), specific=(v=='sSFR'))
+
+
                             thisMst = np.power(10.0, np.linspace(10,12,100))
                             whitaker12 = np.power(10.0, -1.12 + 1.14*z[ti] - 0.19*z[ti]*z[ti] - (0.3+0.13*z[ti])*(np.log10(thisMst)-10.5)) # Gyr^-1 -- Genzel+15 eq 1
                             mmin=None
@@ -3180,9 +3417,13 @@ class Experiment:
                                 if z[ti]<0.5:
                                     thisLS='--'
                                 if v=='sfr':
-                                    ax.plot( mwhitaker, np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0), c='b', label=thisLabel, lw=2, ls=thisLS )
+                                    ax.plot( mwhitaker, np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0), c='b', label=thisLabel, lw=1, ls=thisLS )
+                                    if thisLS!='--':
+                                        ax.fill_between( mwhitaker, np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0 - 0.34), np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0 + 0.34), facecolor='b', label=thisLabel )
                                 if v=='sSFR':
-                                    ax.plot( mwhitaker, (np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0))/mwhitaker * 1.0e9, c='b', label=thisLabel, lw=2, ls=thisLS )
+                                    ax.plot( mwhitaker, (np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0))/mwhitaker * 1.0e9, c='b', label=thisLabel, lw=1, ls=thisLS, alpha=0.3 )
+                                    if thisLS!='--':
+                                        ax.fill_between( mwhitaker, (np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0 - 0.34))/mwhitaker * 1.0e9, (np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0 + 0.34))/mwhitaker * 1.0e9, facecolor='b', alpha=0.3 )
                                 #ax.plot( mwhitaker, np.power(10.0, a+sa + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0), c='b', lw=1, ls=':' )
                                 #ax.plot( mwhitaker, np.power(10.0, a-sa + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0), c='b', lw=1, ls=':' )
                                 #ax.plot( mwhitaker, np.power(10.0, a + (b+sb)*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0), c='b', lw=1, ls=':' )
@@ -3293,6 +3534,22 @@ class Experiment:
                             ax.plot(thisMst, thisMHI/thisMst, c='red', label=thisLabel, ls=thisLS)
                             labelled=True
                         if v=='gasToStellarRatioHI':
+                            def plotPeeples(theAx, theLS, theColor, theLabel=None, fill=False):
+                                peeplesMode = np.loadtxt('peeples11_fgmode.csv', delimiter=',')
+                                peeples84 = np.loadtxt('peeples11_fg68.csv', delimiter=',')
+                                peeplesMass = peeplesMode[:,0]
+                                theAx.plot( np.power(10.0, peeplesMass), np.power(10.0, peeplesMode[:,1]), c=theColor, ls=theLS, label=theLabel)
+                                delt = peeples84[:,1] - peeplesMode[:,1]
+                                if fill:
+                                    theAx.fill_between( np.power(10.0, peeplesMass), np.power(10.0, peeplesMode[:,1]-delt), np.power(10.0, peeplesMode[:,1]+delt), facecolor=theColor, alpha=0.3 )
+
+                            theLabel=None
+                            theLS='--'
+                            if z[ti]<0.5 or movie:
+                                theLabel='Peeples11'
+                                theLS = '-'
+                            plotPeeples(ax, theLS, 'blue', theLabel=theLabel, fill=(not theLabel is None))
+
                             thisMst = np.power(10.0, np.linspace(7.0,11.5))
                             thisMHI = np.power(10.0, -0.43*np.log10(thisMst) + 3.75) * thisMst
                             fgThis = thisMHI/thisMst
@@ -3320,6 +3577,18 @@ class Experiment:
                             ax.plot(thisMst, molToStarGenzel(-1.05,2.6,0.54,-0.41), c='orange', label=thisLabel2)
                             #ax.plot(thisMst, ratioToFraction(molToStarGenzel(-1.05,2.6,0.54,-0.41)), c='orange', label=thisLabel2)
                             #ax.plot(thisMst, ratioToFraction(molToStarGenzel(-1.05,2.6,0.54,-0.41)), c='orange', label=thisLabel2)
+
+                            thisLabel3=None
+                            thisLS = '--'
+                            if z[ti]<0.5:
+                                thisLS = '-'
+                                thisLabel3 = 'Saintonge11'
+                            saintongeM = np.power(10.0, np.linspace(10.3, 11.4, 20))
+                            saintongeFr = np.power(10.0, -1.607 - 0.455*(np.log10(saintongeM) - 10.70))
+                            uncertainty = 10.0**.331 # uncertainty on b in Table 3 (undetected@upper limits) of Saintonge11.
+                            if z[ti]<0.5:
+                                ax.fill_between(saintongeM, saintongeFr/uncertainty, saintongeFr*uncertainty, facecolor='r', alpha=0.3)
+                            ax.plot(saintongeM, saintongeFr, ls=thisLS, label=thisLabel3, c='r')
                             labelled=True
                         #if v=='gasToStellarRatio' or v=='gasToStellarRatioH2':
                         #    thisLabel = 'Hayward16'
@@ -3335,6 +3604,18 @@ class Experiment:
                                 thisLS = '--'
                             ax.plot(mst,  147*np.power(mst/1.0e10, 0.23),c='k', label=thisLabel, ls=thisLS) # Hayward & Hopkins eq. B1
                             labelled=True
+                        if v=='vPhi22':
+                            thisLabel = 'Miller11'
+                            thisLS = '-'
+                            if not movie and z[ti]>1.25:
+                                thisLabel=None
+                                thisLS = '--'
+                            mstMiller = np.power(10.0, np.linspace(9.0, 11.5, 20))
+                            vMiller = np.power(10.0, (np.log10(mstMiller) - 1.718)/3.869)
+                            ax.plot(mstMiller, vMiller,c='k', label=thisLabel, ls=thisLS) 
+                            if thisLS=='-':
+                                ax.fill_between(mstMiller, vMiller/10**0.058, vMiller*10**0.058,facecolor='k', alpha=0.3) 
+                            labelled=True
 
 
                 if xvar=='gbar' and v=='gtot':
@@ -3346,8 +3627,12 @@ class Experiment:
                     if z[ti]<0.5:
                         thisLabel='McGaugh16'
                         thisLS = '-'
-                    ax.plot( gbars, gobss, label=thisLabel, ls=thisLS, c='b', lw=3 )
-                    ax.plot( gbars, gbars, ls='--', c='gray', lw=3)
+                    if histFlag:
+                        ax.plot( np.log10(gbars), np.log10(gobss), label=thisLabel, ls=thisLS, c='b', lw=3 )
+                        ax.plot( np.log10(gbars), np.log10(gbars), ls='--', c='gray', lw=3)
+                    else:
+                        ax.plot( gbars, gobss, label=thisLabel, ls=thisLS, c='b', lw=3 )
+                        ax.plot( gbars, gbars, ls='--', c='gray', lw=3)
                     labelled=True
 
                 ax.set_xlim(overallXRange[0],overallXRange[1])
@@ -3872,7 +4157,7 @@ class Experiment:
             if not (theRange[0]>0 and theRange[1]>0):
                 log=False
             if theRange[0]>0:
-                if(theRange[1]/theRange[0] < 10.0):
+                if(theRange[1]/theRange[0] < 3.0):
                     log=False
 
         if theRange[0]==theRange[1]:

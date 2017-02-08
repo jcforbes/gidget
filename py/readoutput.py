@@ -642,6 +642,9 @@ class SingleModel:
             st8ind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.8])[0] 
             
             r9ind = np.searchsorted(sfrcu[z,:ri10], [sfrcu[z,ri10]*0.9])[0] # radius containing 90% of SFR within 10 kpc.
+            if r9ind<=1:
+                r9ind=2 # if there's sooo much accretion into the central region that r90 is unresolved
+                print "WARNING: extremely concentrated SFR ",z
             r9 = self.var['r'].cgs(timeIndex=z, locIndex=r9ind)
             r9s.append(r9)
             rir904, _ = Nearest( self.var['r'].sensible(timeIndex=0), r9/4.0 ) # radial index of 1/4 of r90
@@ -649,7 +652,10 @@ class SingleModel:
             # Measure the metallicity gradients following Ma, Hopkins+ (2016)
             rgrid = np.arange( self.var['r'].sensible(timeIndex=0, locIndex=rir904), self.var['r'].sensible(timeIndex=0, locIndex=r9ind), 0.2 )
             Zgridded = self.var['Z'].atR(rgrid, self.var['r'].sensible(timeIndex=0), z, sensible=False)
-            m, b = np.polyfit(rgrid, np.log10(Zgridded), 1)
+            try:
+                m, b = np.polyfit(rgrid, np.log10(Zgridded), 1)
+            except:
+                pdb.set_trace()
             metallicityGradientsR90.append( m )
 
 
@@ -806,7 +812,7 @@ class SingleModel:
         m1kpc = self.var['mCentral'].cgs() + areaWeightedWithin('colst', 1.0) # mass within 1 kpc 
         self.var['Sigma1'] = TimeFunction( \
                 m1kpc/(1.0*cmperkpc)**2.0, 'Sigma1', cgsConv=1.0, sensibleConv = cmperkpc**2/gpermsun, \
-                texString=r'$\langle\Sigma_{*}\rangle_\mathrm{1 kpc}$')
+                texString=r'$\langle\Sigma_{*}\rangle_\mathrm{1 kpc}$', theRange=[1.0e7,1.0e10])
         self.var['rho'] = RadialFunction( self.var['col'].cgs()/self.var['hGas'].cgs(), 'rho', 1.0, 1.0, r'$\rho (\mathrm{g}\ \mathrm{cm}^{-3})$' )
         self.var['colHI']= RadialFunction(np.clip((1.0-np.copy(self.dataCube[:,:,47])) * self.var['col'].sensible()*0.8 - 2.0* 0.00876/(self.var['rho'].cgs()/gperH),1.0e-4,np.inf),'colHI', \
                 cgsConv = gpermsun/cmperpc**2, sensibleConv=1, texString=r'$\Sigma_{\mathrm{HI}} (M_\odot/\mathrm{pc}^2)$',log=True,theRange=[0.1,3000.0])
@@ -870,10 +876,10 @@ class SingleModel:
                 break
 
         self.var['stZ'] = TimeFunction(np.sum(stZ,axis=1)/np.sum(denom,axis=1), \
-                'stZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_* (Z_\odot)$') 
+                'stZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_* (Z_\odot)$', theRange=[1.0e-2, 3.0]) 
         sfRad = self.getData('colsfr',cgs=True)*self.getData('dA',cgs=True)
         self.var['sfZ'] = TimeFunction(np.sum(sfRad*self.getData('Z',cgs=True),axis=1)/np.sum(sfRad,axis=1), \
-                'sfZ',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$\langle Z_g \rangle_{\dot{M}_*} (Z_\odot)$')
+                'sfZ',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$\langle Z_g \rangle_{\dot{M}_*} (Z_\odot)$', theRange=[1.0e-2, 3.0])
         self.var['Z1'] = TimeFunction( np.sum(mg[:,:onekpc] * self.var['Z'].cgs(locIndex=range(onekpc)) ,axis=1)/np.sum(mg[:,:onekpc],axis=1), 'Z1', cgsConv=1.0, sensibleConv=1.0/0.02, texString=r'$Z_\mathrm{1 kpc} (Z_\odot)$' ) 
         self.var['sffg'] = TimeFunction(np.sum(sfRad*self.getData('fgRadial',cgs=True),axis=1)/np.sum(sfRad,axis=1), \
                 'sffg',cgsConv=1.0,sensibleConv=1.0,texString=r'$f_g$ weighted by SFR')
@@ -3063,10 +3069,12 @@ class Experiment:
 
                 labelled=False
 
-                applicableDatasets = observationalData.identifyApplicableDatasets(xvar,v, z[ti])
-                systematicColors = ['k', 'r', 'b', 'orange', 'purple', 'darkgreen'] 
+                applicableDatasets, dsColorIndices = observationalData.identifyApplicableDatasets(xvar,v, z[ti])
+                systematicColors = [  'b', 'orange', 'purple', 'r', 'darkgreen', 'lightblue', 'k'] 
                 for ids, ds in enumerate(applicableDatasets):
-                    observationalData.datasets[ds].plot(z[ti], axIn=ax, color=systematicColors[ids])
+                    observationalData.datasets[ds].plot(z[ti], axIn=ax, color=systematicColors[dsColorIndices[ids]])
+                if len(applicableDatasets)>0:
+                    labelled=True
 
 
                 if xvar=='gbar' and v=='gtot':

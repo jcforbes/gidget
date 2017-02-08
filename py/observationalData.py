@@ -87,11 +87,14 @@ class DataSet:
             fig,ax = plt.subplots()
         else:
             ax = axIn
+        label=None
+        if z<0.5:
+            label=self.label
         if z>self.zmin and z<self.zmax:
-            ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-')
-            ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=0.2)
+            ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-',label=label)
+            ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=0.1)
         else:
-            ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-.')
+            ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-.',label=label)
         if axIn is None:
             plt.savefig(self.label+'_'+self.xvar+'_'+self.yvar+'.png')
             plt.close(fig)
@@ -155,12 +158,20 @@ class DataSet:
         yf = f(xEval) # don't need this
         yfu = fu(xEval)
         yfl = fl(xEval)
+        sigmaAbove = yfu-yf
+        sigmaBelow = yf-yfl
         above = (yEval - yf)/(yfu-yf) # this will be positive for numbers above the median, and in units of the sigma above the median
         below = (yEval - yf)/(yf - yfl) # this will be negative for numbers below the median, and in units of the sigma below median
+        isAbove = above>0
         above = np.clip(above, 0, np.inf)
         below = np.clip(below, -np.inf, 0)
         ret = above+below 
-        return ret
+        inx = np.logical_and( np.min(xv) < xEval, xEval<np.max(xv) )
+        ret[ np.logical_not(inx) ] = 0 # if we're outside the given range, don't penalize us! 
+        retsigma = sigmaBelow
+        retsigma[isAbove] = sigmaAbove[isAbove]
+        retsigma[ np.logical_not(inx) ] = np.inf # if we're outside the given range, don't penalize us! 
+        return ret, retsigma
     def test(self, nx=1000, ny=1000):
         xv = self.xval 
         yv = self.yval 
@@ -260,7 +271,7 @@ def defineStructureRelations():
     gamma, M0, logn1, logn2 = (1.70, 10.0**10.41, 0.12, 0.61) # dutton09 blue galaxies
     lognBlue = logn2 + (logn1-logn2)/(1.0+np.power(10.0, gamma*np.log10(mstThis/M0)))
     c82s = [ nToC82( np.power(10.0,lognThis) ) for lognThis in lognAll]
-    datasets['Dutton09All'] = DataSet( 'mstar', 'c82', mstThis, c82s, label='Dutton09 All')
+    datasets['Dutton09All'] = DataSet( 'mstar', 'c82', mstThis, c82s, label='Dutton09 All', yLower=np.array(c82s)/1.2, yUpper=np.array(c82s)*1.2)
     c82s = [ nToC82( np.power(10.0,lognThis) ) for lognThis in lognRed]
     datasets['Dutton09Red'] = DataSet( 'mstar', 'c82', mstThis, c82s, label='Dutton09 Red')
     c82s = [ nToC82( np.power(10.0,lognThis) ) for lognThis in lognBlue]
@@ -369,7 +380,36 @@ def defineStructureRelations():
 def defineAngularMomenta():
     datasets['Fall13Disks'] = DataSet('mstar', 'specificJStars', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks')
     datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJStars', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals')
+
+
+    datasets['Fall13Disks'] = DataSet('mstar', 'specificJHI', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
+    datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJHI', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
+
+    datasets['Fall13Disks'] = DataSet('mstar', 'specificJH2', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
+    datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJH2', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
+
+    datasets['Fall13Disks'] = DataSet('mstar', 'specificJAccr', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
+    datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJAccr', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
+
+
     datasets['Burkert16'] = DataSet('mstar', 'specificJStars', [10**9.8, 10**11.4],[10.0**(3.33+2.0/3.0*(9.8-11.0)), 10.0**(3.33+2.0/3.0*(11.4-11.0))],  yLower=[10.0**(3.33+2.0/3.0*(9.8-11.0)-0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)-0.17)], yUpper=[10.0**(3.33+2.0/3.0*(9.8-11.0)+0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)+0.17)], zmin=0.8, zmax=2.6, label='Burkert16' )
+
+
+def defineBrinchmann(specific=True):
+    z=0
+    brinchmannMode = np.loadtxt('brinchmann04_msmode.csv', delimiter=',')
+    brinchmann975 = np.loadtxt('brinchmann04_ms975.csv', delimiter=',')
+    fbmode = interp1d( brinchmannMode[:,0], brinchmannMode[:,1], kind='linear' )
+    fb975 = interp1d( brinchmann975[:,0], brinchmann975[:,1], kind='linear' )
+    brinchmannm = np.linspace( 6.51, 11.88, 1000 ) 
+    delt = fb975(brinchmannm) - fbmode(brinchmannm)
+    fac = 1.0
+    if specific:
+        fac = np.power(10.0, brinchmannm)*1.0e-9
+    if specific:
+        datasets['Brinchmann04Specz'+str(z)] = DataSet('mstar', 'sSFR', np.power(10.0, brinchmannm), np.power(10.0, fbmode(brinchmannm))/fac, yLower = np.power(10.0, (fbmode(brinchmannm)-delt/2.0))/fac, yUpper=np.power(10.0, fbmode(brinchmannm)+delt/2.0)/fac, zmax=0.5, label='Brinchmann 04' )
+    else:
+        datasets['Brinchmann04z'+str(z)] = DataSet('mstar', 'sfr', np.power(10.0, brinchmannm), np.power(10.0, fbmode(brinchmannm))/fac, yLower = np.power(10.0, (fbmode(brinchmannm)-delt/2.0))/fac, yUpper=np.power(10.0, fbmode(brinchmannm)+delt/2.0)/fac, zmax=0.5, label='Brinchmann 04' )
 
 
 
@@ -387,20 +427,6 @@ def defineMS(z, specific=True):
         datasets['Speagle14z'+str(z)] = DataSet('mstar', 'sfr', mstSpeagle, np.power(10.0,psiSpeagle)/fac, yLower=np.power(10.0,psiSpeagle-0.28)/fac, yUpper=np.power(10.0,psiSpeagle+0.28)/fac, label='Speagle14', zmin=z-0.5, zmax=z+0.5)
 
             
-    brinchmannMode = np.loadtxt('brinchmann04_msmode.csv', delimiter=',')
-    brinchmann975 = np.loadtxt('brinchmann04_ms975.csv', delimiter=',')
-    fbmode = interp1d( brinchmannMode[:,0], brinchmannMode[:,1], kind='linear' )
-    fb975 = interp1d( brinchmann975[:,0], brinchmann975[:,1], kind='linear' )
-    brinchmannm = np.linspace( 6.51, 11.88, 1000 ) 
-    delt = fb975(brinchmannm) - fbmode(brinchmannm)
-    fac = 1.0
-    if specific:
-        fac = np.power(10.0, brinchmannm)*1.0e-9
-    if specific:
-        datasets['Brinchmann04Specz'+str(z)] = DataSet('mstar', 'sSFR', np.power(10.0, brinchmannm), np.power(10.0, fbmode(brinchmannm))/fac, yLower = np.power(10.0, (fbmode(brinchmannm)-delt/2.0))/fac, yUpper=np.power(10.0, fbmode(brinchmannm)+delt/2.0)/fac, zmax=0.5, label='Brinchmann 04' )
-    else:
-        datasets['Brinchmann04z'+str(z)] = DataSet('mstar', 'sfr', np.power(10.0, brinchmannm), np.power(10.0, fbmode(brinchmannm))/fac, yLower = np.power(10.0, (fbmode(brinchmannm)-delt/2.0))/fac, yUpper=np.power(10.0, fbmode(brinchmannm)+delt/2.0)/fac, zmax=0.5, label='Brinchmann 04' )
-
 
     thisMst = np.power(10.0, np.linspace(10,12,100))
     whitaker12 = np.power(10.0, -1.12 + 1.14*z - 0.19*z*z - (0.3+0.13*z)*(np.log10(thisMst)-10.5)) # Gyr^-1 -- Genzel+15 eq 1
@@ -558,6 +584,7 @@ defineStellarZ()
 defineStructureRelations()
 defineAngularMomenta()
 defineBroeils()
+defineBrinchmann()
 # Things where the relations change as a fn of reshift 
 for i in [0,1,2,3,4]:
     defineMetalRelations(i)
@@ -578,18 +605,28 @@ def identifyApplicableDatasets(xvar, yvar, z):
             if not datasets[ds].label in uniqueLabels:
                 uniqueLabels.append( datasets[ds].label )
     actualRes = []
-    for ul in uniqueLabels:
+    colors = []
+    for il, ul in enumerate(uniqueLabels):
+        # Get the datasets with the same label as ul.
+        # Labels are e.g. Moster10, Miller11,... i.e. specific papers
         selec = ul == np.array(labelsInOrder)
+        # For each such work, add in all of the datasets that overlap the requested reshift z.
+        # I guess this should only be at most 1 dataset/redshift...
         if np.any( np.array(validRedshift)[ selec ] ):
             for ele in np.array(res)[selec][np.array(validRedshift)[selec]]:
                 actualRes.append(ele)
+                colors.append(il)
         else:
             actualRes.append( np.array(res)[selec][0] )
+            colors.append(il)
 
-    return actualRes
+    return actualRes, colors
 
 
 
 if __name__=='__main__':
     for ds in datasets.keys():
         datasets[ds].test()
+
+
+

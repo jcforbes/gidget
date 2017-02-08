@@ -313,10 +313,10 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
         // these small adjustments to z avoid interpolation errors without really affecting anything.
         redshifts.push_back(z); 
 
-        if(MdotExt < 1.0e-10)
-            errormsg("Very low Mdot. If you're sure it's fine edit line 241ish of AccretionHistory.cpp");
+        if(MdotExt < 1.0e-15)
+            errormsg("Very low Mdot. Usually means an error was made in constructing accretion histories, e.g. a mismatch in the sequence of random factors and the number of new draws from the accretion history expected by gidget. If you're sure it's fine edit line 317ish of AccretionHistory.cpp");
         if(MdotExt > 1.0e6)
-            errormsg("Very large Mdot. If you're sure it's fine edit line 243ish of AccretionHistory.cpp");
+            errormsg("Very large Mdot. If you're sure it's fine edit line 319ish of AccretionHistory.cpp");
 
         tabulatedAcc.push_back(MdotExt);
         // tabulatedStAcc.push_back(dmstdt);

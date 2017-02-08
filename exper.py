@@ -169,7 +169,10 @@ class experiment:
             self.p[keyNum]=[typ(value) for value in values]
         else:
            # even though we weren't given a list, put our new value in a single-parameter list.
-            self.p[keyNum]=[typ(values)]
+            try:
+                self.p[keyNum]=[typ(values)]
+            except:
+                pdb.set_trace()
         # Next, we want to pass along the information we've been given on whether this parameter
         # should be covaried:
     	self.covariables[self.keys[name]] = cov
@@ -543,6 +546,110 @@ def NewSetOfExperiments(copyFrom, name, N=1):
 
     [theList[i].changeName(name+letter(i)) for i in range(len(theList))]
     return theList
+
+
+def experFromBroadMCMC(emceeparams, name=None):
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
+
+    Mhz0 = list(np.power(10.0, np.linspace(10.5,14,30)))
+
+    # create experiment
+    
+    assert not name is None, "Need a name!"
+    #if name is None:
+        #name = basename+str(runnumber).zfill(3)+'_'+str(rank).zfill(5)+'_'+str(proccounter).zfill(5)
+    thisexper = experiment(copy.copy(name))
+
+
+    # we need to put the random factors for the accretion history into a file for gidget to read.
+    #directory = chaindir[0:-len(chaindirrel)]+'/'+name+'/'
+    #if not os.path.exists(directory):
+    #    os.makedirs(directory)
+
+    #proccounter+=1
+
+    #### Paramters to vary:
+    # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC
+
+    thisexper.irregularVary('kappaMetals',kZ)
+    thisexper.irregularVary('xiREC',xiREC)
+    Mhz0 = np.array(Mhz0)
+    Mhz4 = Mhz0/(.75*33.3 * np.power(Mhz0/1.5e13,0.359)) # very roughly... We know for Mh0 = 3e11, Mhz4 =4e10, and same for Mh0=2e13->Mhz4=6e11. Using those 4 numbers and assuming a powerlaw, we get this relation.
+    def Moster(Mh, mparams):
+        M10, M11, N10, N11, beta10, beta11, gamma10, gamma11 = mparams
+        zti = 4.0
+        logM1z = M10 + M11*zti/(zti+1.0)
+        Nz = N10 + N11*zti/(zti+1.0)
+        betaz = beta10 + beta11*zti/(zti+1.0)
+        gammaz = gamma10 + gamma11*zti/(zti+1.0)
+        M1 = np.power(10.0, logM1z)
+        eff = 2.0*Nz / (np.power(Mh/M1,-betaz) + np.power(Mh/M1,gammaz))
+        return eff
+    central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
+    eff = Moster(Mhz4,central)
+    mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
+    f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
+    tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
+    fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
+    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    reff411 = 5.28*np.power(1.0e11/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    weight1 = np.exp(-Mhz0/1.0e12)  #the ad-hoc reductions in fg and fcool make things bad for high-mass galaxies. weight1 is for tiny galaxies.
+    weight2 = 1-weight1
+    rat4 = 1.0/(1.0/fgz4 - 1.0)
+    rat4 *= fg0mult # double the gas content
+    fgUsed =1.0/(1.0/rat4 + 1.0)*(1.0*weight1+1.0*weight2) 
+    thisexper.irregularVary( 'fg0', list(fgUsed), 5)
+    thisexper.irregularVary( 'Mh0', list(Mhz0), 5)
+    fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (0.8*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
+    thisexper.irregularVary('fcool', list(fcools), 5)
+    thisexper.irregularVary('NChanges', 1001)
+
+    width = 0.4/100000.0
+    asls = raccRvir*np.power(10.0, np.random.normal(0,1,len(Mhz0))*width)
+    #if asls<0.005:
+    #    asls=0.005
+    asls = np.clip(asls, 0.005, np.inf)
+    thisexper.irregularVary('accScaleLength', list(asls), 5)
+    thisexper.irregularVary( 'R', list(np.power(reff4/reff411, 1.0)*50* asls/0.042)  , 5)
+    bolweights = list( np.random.random(len(Mhz0)) )
+    thisexper.irregularVary('bolshoiWeight', bolweights ,5)
+    thisexper.irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7)
+    thisexper.irregularVary('Noutputs',400)
+    thisexper.irregularVary('zstart',3.98)
+    thisexper.irregularVary('zrelax',4.0)
+    thisexper.irregularVary('muNorm', list(0.005*muNorm*np.power(Mhz0/1.0e12,-1.0)), 5)
+    thisexper.irregularVary('muFgScaling', muFgScaling)
+    thisexper.irregularVary('muColScaling', muColScaling)
+    thisexper.irregularVary('fscatter', 1.0)
+    thisexper.irregularVary('accCeiling',accCeiling)
+    thisexper.irregularVary('NPassive',4)
+    thisexper.irregularVary('eta',eta)
+    thisexper.irregularVary('xmin',0.001)
+    thisexper.irregularVary('yREC',0.03)
+    thisexper.irregularVary( 'nx', 256 ) # FFT o'clock.
+    ZLee = np.power(10.0, 5.65 + 0.3*np.log10(mst) - 8.7 ) # Z in Zsun
+    thisexper.irregularVary('ZIGM', list(ZIGMfac*0.05*ZLee*0.02), 5)
+    thisexper.irregularVary('concentrationRandomFactor', conRF) ## units of dex! # 0.7
+
+    thisexper.irregularVary('whichAccretionHistory', -112)
+    thisexper.irregularVary('ksuppress', 10.0 )
+    thisexper.irregularVary('kpower', 2.0)
+    thisexper.irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    thisexper.irregularVary('fscatter', 1.0)
+    thisexper.irregularVary('MQuench', 2.0e12)
+    thisexper.irregularVary('epsquench', epsquench)
+    thisexper.irregularVary('muQuench', 0.0)
+    thisexper.irregularVary('gaScaleReduction', rgasRed )
+    thisexper.irregularVary('stScaleReduction', rstarRed )
+    thisexper.irregularVary('ZMix', zmix)
+    thisexper.irregularVary('alphaMRI', alphaMRI)
+    thisexper.irregularVary('Qlim', Qf+0.05)
+    thisexper.irregularVary('fixedQ', Qf)
+    thisexper.irregularVary('TOL', 6.0e-4)
+    thisexper.irregularVary('minSigSt', 10.0)
+    return thisexper
+
+
 
 if __name__ == "__main__":
 
@@ -2411,7 +2518,25 @@ if __name__ == "__main__":
     rf59[0].irregularVary('TOL', 6.0e-4)
     rf59[0].irregularVary('minSigSt', 10.0)
 
-    
+    logVars = [ 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0]
+    emceeparams = [-0.95820208,  0.12281711,  0.1966165,  -0.78667301,  0.00973009, 3.31282354, 0.10012698,  0.04621494,  0.55814651,  0.98668778,  0.18025846, -0.71183777, -0.29659053,  0.28670522,  0.9971759,   1.66382228,  0.42225522]
+    for i,lg in enumerate(logVars):
+        if lg==1:
+            emceeparams[i]=10.0**emceeparams[i]
+    rf60 = experFromBroadMCMC(emceeparams, name='rf60')
+
+
+    emceeparams = [-0.94768456, 0.33098108, -0.6839395, 0.81062651, 0.85924765, -0.78581627, 0.15923048, -0.07639685, 0.4621238, -0.01500173, 0.14515758, -2.04099439, -2.26236079, 0.41038537, 0.1742757, 1.35731629, 0.57266408]
+    for i,lg in enumerate(logVars):
+        if lg==1:
+            emceeparams[i]=10.0**emceeparams[i]
+    rf61 = experFromBroadMCMC(emceeparams, name='rf61')
+
+    emceeparams = [-0.54814292, 0.2800687, 0.82856872, -0.30015427, -1.13556896, -0.13497688, -0.57514515, -0.10468448, 0.23392629, -0.0296846, -0.38837726, -0.8771524, -6.868443, 0.90627398, -0.04635603, -1.14274305, 0.56011981]
+    for i,lg in enumerate(logVars):
+        if lg==1:
+            emceeparams[i]=10.0**emceeparams[i]
+    rf62 = experFromBroadMCMC(emceeparams, name='rf62')
     
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

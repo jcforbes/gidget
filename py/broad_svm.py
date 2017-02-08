@@ -1,10 +1,14 @@
 import numpy as np
+import copy
 import pickle
 import matplotlib.pyplot as plt
 import pdb
 import observationalData
 import emcee
-from sklearn import svm, linear_model
+from sklearn import svm, linear_model, ensemble
+
+import pyqt_fit.nonparam_regression as smooth
+from pyqt_fit import npr_methods
 
 # Useful information about the setup of the linear models and their fits....
 logVars = [1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0]
@@ -59,13 +63,133 @@ def samplefromuniformdensity(a,b):
     assert b>a
     return np.random.uniform(a,b)
 
+class xtransform:
+    def __init__(self, X_train):
+        xps = X_train[:,:] # All physical parameters and 
+        # now normalize ordinate variables so that we can sensibly evaluate distances
+        self.minxps = np.min(xps, axis=0)
+        self.maxxps = np.max(xps, axis=0)
+    def transform(self, X_other):
+        minxpsTiled = np.tile( self.minxps, (np.shape(X_other)[0],1))
+        maxxpsTiled = np.tile( self.maxxps, (np.shape(X_other)[0],1))
+        return (X_other - minxpsTiled)/(maxxpsTiled-minxpsTiled)
+    def inverseTransform(self, x_transformed):
+        minxpsTiled = np.tile( self.minxps, (np.shape(X_transformed)[0],1))
+        maxxpsTiled = np.tile( self.maxxps, (np.shape(X_transformed)[0],1))
+        return x_transformed*(maxxpsTiled-minxpsTiled) + minxpsTiled
+
+def plotResiduals():
+    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.25, validateFrac=0.1, fn='broad05_to_lasso.txt')
+    tra = xtransform(X_train)
+    X_train = tra.transform(X_train)
+    X_validate = tra.transform(X_validate)
+    X_test = tra.transform(X_test)
+    models = pickle.load( open( 'validatedRF.pickle', 'r' ) )
+    for i, model in enumerate(models):
+        Y_test_predict = model.predict(X_test)
+        Y_test_actual = Ys_test[:,i]
+        residuals = Y_test_predict-Y_test_actual
+
+        fig,ax = plt.subplots(1,2)
+        plt.hist( residuals, bins='auto' )
+        ax[0].scatter(X_test[:,0], residuals)
+        plt.savefig('residualsRF_'+labels[i]+'.png')
+        plt.close(fig)
+
+def ridgeCoeffsPlot():
+    models = pickle.load( open( 'validatedModels.pickle', 'r' ) )
+
+    fig,ax = plt.subplots()
+    cs=[]
+    for i in range(4):
+        a,b,c = (np.random.random(), np.random.random(), np.random.random())
+        cs.append( (a,b,c) )
+        cs.append( (a,b,c) )
+        cs.append( (a,b,c) )
+        cs.append( (a,b,c) )
+    for i, model in enumerate(models[:16]):
+        ax.plot(model.sklRidge.coef_, c=cs[i])
+    plt.savefig('ridge_coefs.png')
+    plt.close(fig)
+
+
+def fractionalVariancePlot(normalize=False):
+    models = pickle.load( open( 'validatedLassoModels_p85.pickle', 'r' ) )
+    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.25, validateFrac=0.1, fn='broad05_to_lasso.txt')
+    ## Transform the ordinates to (perhaps) improve behavior of the fitting algorithms
+    tra = xtransform(X_train)
+    X_train = tra.transform(X_train)
+    X_validate = tra.transform(X_validate)
+    X_test = tra.transform(X_test)
 
 
 
+    lefts = []
+    heights = []
+    bottoms = []
+    colors = []
+    runningleft = -0.2
+    for i, model in enumerate(models[:80]):
+        #print "i= ",i," model type is ", type(model)
+        if type(model) is type(None):
+            pass
+        else:
+            #lass, ridg, unex, tot = fractionalVariances(model, X_test, Ys_test[:,i])
+            tot = np.var(Ys_test[:,i])
+            ridg= 0.0
+            lass = np.var( model.predict(X_test) ) /tot
+            unex = np.var( Ys_test[:,i] - model.predict(X_test) ) / tot
+
+            actualTot = lass+ridg+unex
+            if normalize:
+                lass/=actualTot
+                ridg/=actualTot
+                unex/=actualTot
+            if i%4 == 0:
+                runningleft+=0.4
+            else:
+                runningleft+=0.2
+
+            heights.append( lass )
+            heights.append( ridg )
+            heights.append( unex )
+            bottoms.append( 0 )
+            bottoms.append( lass )
+            bottoms.append( (lass+ridg) )
+            colors.append( 'blue' )
+            colors.append( 'red' )
+            colors.append( 'gray' )
+            for j in range(3):
+                lefts.append(runningleft)
+
+    print "labels, lefts: ", len(labels), len(heights), len(lefts), len(models)
+    fig,ax = plt.subplots(figsize=(24,6))
+    ax.bar( lefts, heights, width=0.2, bottom=np.clip(bottoms, 0.01, np.inf), color=colors )
+    for i, label in enumerate(labels[:80]):
+        if i%4==0:
+            ax.text(lefts[i*3], heights[i*3+2] + bottoms[i*3+2]+0.05, label)
+    ax.xaxis.set_ticks([])
+    #ax.set_yscale('log')
+    #ax.set_ylim(0.0, 2.5)
+    plt.axhline(1.0, c='k', ls='--')
+    plt.savefig('variance_fractions_lassop85.png')
+    plt.close(fig)
 
 
+def fractionalVariances(model, X_test, Y_test):
+    '''  Report the fraction of the variance which is explained by ridge, lasso, and neither. Also just tell us the total var.'''
+    overallVariance = np.var(Y_test)
+    X_lasso = X_test[:, :-1000]    
+    X_ridge = X_test[:, -1000: ]
+    if model.expon:
+        X_ridge = np.exp(X_ridge)
+    Y_lasso = model.sklLasso.predict( X_lasso )
+    Y_ridge = model.sklRidge.predict( X_ridge )
+    lassoVariance = np.var(Y_lasso)
+    ridgeVariance = np.var(Y_ridge)
+    unexplainedVariance = np.var(Y_test - Y_ridge - Y_lasso)
 
-
+    return lassoVariance/overallVariance, ridgeVariance/overallVariance, unexplainedVariance/overallVariance, overallVariance
 
 
 
@@ -103,6 +227,7 @@ def runEmcee():
     import bolshoireader
     bolshoidir = '/Users/jforbes/bolshoi/'
     globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e14, bolshoidir)
+    globalBolshoiReader.storeAll()
     #bolshoiSize =  len(globalBolshoiReader.keys)
     MhGrid = np.power(10.0, np.linspace(10,13,1000))
 
@@ -216,16 +341,16 @@ def runEmcee():
             distancesHI = np.min( np.abs( [observationalData.datasets['papastergis12'].distance(10.0**logMst0, 10.0**loggasToStellarRatioHIz0), observationalData.datasets['peeples11'].interior(10.0**logMst0, 10.0**loggasToStellarRatioHIz0) ] ) )
 
             # Label points that fit structural relations
-            distancesSIG10 = np.min(np.abs([ observationalData.datasets['Fang13'].distance(10.0**logMst0, 10.0**logSigma1z0 ), observationalData.datasets['Barro15HS'].interior(10.0**logMst0, 10.0**logSigma1z0) , observationalData.datasets['Barro15HQ'].interior(10.0**logMst0, 10.0**logSigma1z0)]))
-            distancesSIG11 = np.min(np.abs([  observationalData.datasets['Barro151S'].interior(10.0**logMst1, 10.0**logSigma1z1) , observationalData.datasets['Barro151Q'].interior(10.0**logMst1, 10.0**logSigma1z1)]))
-            distancesSIG12 = np.min(np.abs([  observationalData.datasets['Barro152S'].interior(10.0**logMst2, 10.0**logSigma1z2) , observationalData.datasets['Barro152Q'].interior(10.0**logMst2, 10.0**logSigma1z2)]))
-            distancesSIG13 = np.min(np.abs([  observationalData.datasets['Barro153S'].interior(10.0**logMst3, 10.0**logSigma1z3) , observationalData.datasets['Barro153Q'].interior(10.0**logMst3, 10.0**logSigma1z3)]))
+            distancesSIG10 = np.min(np.abs([ observationalData.datasets['Fang13'].distance(10.0**logMst0, 10.0**logSigma1z0 ), observationalData.datasets['Barro15HS'].interior(10.0**logMst0, 10.0**logSigma1z0) , observationalData.datasets['Barro15HQ'].distance(10.0**logMst0, 10.0**logSigma1z0)]))
+            distancesSIG11 = np.min(np.abs([  observationalData.datasets['Barro151S'].distance(10.0**logMst1, 10.0**logSigma1z1) , observationalData.datasets['Barro151Q'].distance(10.0**logMst1, 10.0**logSigma1z1)]))
+            distancesSIG12 = np.min(np.abs([  observationalData.datasets['Barro152S'].distance(10.0**logMst2, 10.0**logSigma1z2) , observationalData.datasets['Barro152Q'].distance(10.0**logMst2, 10.0**logSigma1z2)]))
+            distancesSIG13 = np.min(np.abs([  observationalData.datasets['Barro153S'].distance(10.0**logMst3, 10.0**logSigma1z3) , observationalData.datasets['Barro153Q'].distance(10.0**logMst3, 10.0**logSigma1z3)]))
 
             # Label points that fit galaxy sizes
-            distancesMRE0 = np.min( np.abs( [ observationalData.datasets['vdW14ETG0'].distance(10.0**logMst0, 10.0**loghalfMassStarsz0), observationalData.datasets['vdW14LTG0'].interior(10.0**logMst0, 10.0**loghalfMassStarsz0)]) )
-            distancesMRE1 = np.min( np.abs( [ observationalData.datasets['vdW14ETG1'].distance(10.0**logMst1, 10.0**loghalfMassStarsz1), observationalData.datasets['vdW14LTG1'].interior(10.0**logMst1, 10.0**loghalfMassStarsz1)]) )
-            distancesMRE2 = np.min( np.abs( [ observationalData.datasets['vdW14ETG2'].distance(10.0**logMst2, 10.0**loghalfMassStarsz2), observationalData.datasets['vdW14LTG2'].interior(10.0**logMst2, 10.0**loghalfMassStarsz2)]) )
-            distancesMRE3 = np.min( np.abs( [ observationalData.datasets['vdW14ETG3'].distance(10.0**logMst3, 10.0**loghalfMassStarsz3), observationalData.datasets['vdW14LTG3'].interior(10.0**logMst3, 10.0**loghalfMassStarsz3)]) )
+            distancesMRE0 = np.min( np.abs( [ observationalData.datasets['vdW14ETG0'].distance(10.0**logMst0, 10.0**loghalfMassStarsz0), observationalData.datasets['vdW14LTG0'].distance(10.0**logMst0, 10.0**loghalfMassStarsz0)]) )
+            distancesMRE1 = np.min( np.abs( [ observationalData.datasets['vdW14ETG1'].distance(10.0**logMst1, 10.0**loghalfMassStarsz1), observationalData.datasets['vdW14LTG1'].distance(10.0**logMst1, 10.0**loghalfMassStarsz1)]) )
+            distancesMRE2 = np.min( np.abs( [ observationalData.datasets['vdW14ETG2'].distance(10.0**logMst2, 10.0**loghalfMassStarsz2), observationalData.datasets['vdW14LTG2'].distance(10.0**logMst2, 10.0**loghalfMassStarsz2)]) )
+            distancesMRE3 = np.min( np.abs( [ observationalData.datasets['vdW14ETG3'].distance(10.0**logMst3, 10.0**loghalfMassStarsz3), observationalData.datasets['vdW14LTG3'].distance(10.0**logMst3, 10.0**loghalfMassStarsz3)]) )
 
             # Label points that fit Broeils
             distancesHIR = observationalData.datasets['broeils97'].distance(10.0**(loggasToStellarRatioHIz0+logMst0),  10.0**logbroeilsHIz0  )
@@ -248,6 +373,7 @@ def runEmcee():
             lnlik -= distancesSTMZR0 **2.0 / 2.0
 
             lnlik -= distancesGMZR0**2.0 / 2.0
+
             lnlik -= distancesGMZR1**2.0 / 2.0
             lnlik -= distancesGMZR2 **2.0 / 2.0
             lnlik -= distancesGMZR3 **2.0 / 2.0
@@ -272,6 +398,9 @@ def runEmcee():
             lnlik -= distancesHIR**2.0 / 2.0
 
             lnlik -= distancesC82**2.0 / 2.0
+        print "Returning lnlik = ", lnlik
+        if not np.isfinite(lnlik):
+            return -np.inf
         return lnlik
 
 
@@ -301,18 +430,15 @@ def runEmcee():
         accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
         accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
     
-    
         if not np.isfinite(accum):
             return -np.inf
         return accum
 
 
-    def samplefromprior():
+    def samplefromprior( varRedFac=1.0):
         # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormaliza     tion, kappaMassScaling = emceeparams
         # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsqu     ench, accCeiling, conRF, kZ, xiREC = emceeparams
 
-        #varRedFac = 10000.0
-        varRedFac = 1.0
 
         return [ \
             samplefromlognormaldensity( np.log(0.141), np.log(3.0)**2.0/ varRedFac),
@@ -340,15 +466,15 @@ def runEmcee():
             #return constlikelihood(emceeparams) + pr
         return pr
     
-    ndim, nwalkers = 17, 64 
-    nsteps = 300
-    p0 = [ samplefromprior() for w in range(nwalkers) ]
+    ndim, nwalkers = 17, 40 
+    nsteps = 20 # test run
+    p0 = [ samplefromprior(varRedFac=1000.0) for w in range(nwalkers) ]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)
     sampler.run_mcmc(p0, nsteps) 
     chain = sampler.chain # nwalkers x nsteps x ndim
-    samples = chain[:,150:,:].reshape((-1,ndim))
+    samples = chain[:,15:,:].reshape((-1,ndim))
 
-    fig,ax = plt.subplots((4,5))
+    fig,ax = plt.subplots(4,5)
     for q in range(ndim):
         for r in range(nwalkers):
             ax.flatten()[q].plot( range(nsteps),chain[r,:,q], c=(np.random.random(), np.random.random(), np.random.random()) )
@@ -358,6 +484,306 @@ def runEmcee():
     import corner
     fig = corner.corner(samples, labels=[ 'raccRvir', 'rstarRed', 'rgasRed', 'fg0mult', 'muColScaling', 'muFgScaling', 'muNorm', 'ZIGMfac', 'zmix', 'eta', 'Qf', 'alphaMRI', 'epsquench', 'accCeiling', 'conRF', 'kZ', 'xiREC']) 
     fig.savefig("mcmc_fake_corner.png") 
+
+
+def singleRelationLikelihood(x,y,datasets):
+    lnlik = np.zeros(len(x))
+    distances = np.zeros((len(x),len(datasets)))
+    sigmas = np.zeros((len(x),len(datasets)))
+    finalResiduals = np.zeros(len(x))
+    for i,ds in enumerate(datasets):
+        distance, sigma = observationalData.datasets[ds].distance(x,y)
+        distances[:,i] = distance
+        sigmas[:,i] = sigma
+    finite = np.isfinite(sigmas)
+    mask = np.zeros(np.shape(sigmas))
+    mask[finite] = 1 
+    counts = np.sum(mask, axis=1)
+
+    nods = counts==0
+    oneds = counts==1
+    nds = counts>1
+
+    ## pick out the sigmas that are not infinity. These same pts will also have non-zero distances.
+    lnlik[oneds] = np.log(1.0/np.sqrt(2.0*np.pi* np.power(np.min(sigmas[oneds,:],axis=1),2.0))) - np.power(np.sum(distances[oneds,:],axis=1),2.0)/2.0
+    finalResiduals[oneds] = np.sum(distances[oneds,:],axis=1)
+
+    lnlik[nds] = np.log( 1.0/counts[nds] * np.sum(  1.0/np.sqrt(2.0*np.pi* np.power(sigmas[nds,:],2.0))*np.exp( - np.power(distances[nds,:],2.0)/2.0), axis=1) )
+    ndsnonzero = np.abs(distances[nds])>1.0e-5
+    finalResiduals[nds] = np.mean(distances[nds,:],axis=1)  ### this is a little sketchy
+
+    lnlik[np.logical_not(np.isfinite(lnlik))] = -1.0e20 # floor
+    lnlik[lnlik<-1.0e20] = -1.0e20
+
+    # because of the floor above, this trace should never be triggered...
+    if np.any(np.logical_not(np.isfinite(lnlik))):
+        pdb.set_trace()
+
+    return lnlik, finalResiduals
+
+def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
+    logMh0 = Ys_train[:,0]
+    logMh1 = Ys_train[:,1]
+    logMh2 = Ys_train[:,2]
+    logMh3 = Ys_train[:,3]
+    logsSFRz0  = Ys_train[:,8]
+    logsSFRz1 = Ys_train[:,9]
+    logsSFRz2 = Ys_train[:,10]
+    logsSFRz3 = Ys_train[:,11]
+    logsfZz0 = Ys_train[:,12]
+    logsfZz1 = Ys_train[:,13]
+    logsfZz2 = Ys_train[:,14]
+    logsfZz3 = Ys_train[:,15]
+    logstZz0 = Ys_train[:,16]
+    logstZz1 = Ys_train[:,17]
+    logstZz2 = Ys_train[:,18]
+    logstZz3 = Ys_train[:,19]
+    loggasToStellarRatioH2z0 = Ys_train[:,20]
+    loggasToStellarRatioH2z1 = Ys_train[:,21]
+    loggasToStellarRatioH2z2  = Ys_train[:,22]
+    loggasToStellarRatioH2z3  = Ys_train[:,23]
+    loggasToStellarRatioHIz0  = Ys_train[:,24]
+    loghalfMassStarsz0 = Ys_train[:,28] 
+    loghalfMassStarsz1 = Ys_train[:,29] 
+    loghalfMassStarsz2 = Ys_train[:,30] 
+    loghalfMassStarsz3 =Ys_train[:,31] 
+    logvPhi22z0  = Ys_train[:,32] 
+    logvPhi22z1 = Ys_train[:,33] 
+    logvPhi22z2  = Ys_train[:,34] 
+    logvPhi22z3 = Ys_train[:,35] 
+    logc82z0  = Ys_train[:,36] 
+    logSigma1z0  = Ys_train[:,40] 
+    logSigma1z1  = Ys_train[:,41] 
+    logSigma1z2  = Ys_train[:,42] 
+    logSigma1z3  = Ys_train[:,43] 
+    logspecificJStarsz0  = Ys_train[:,44] 
+    logspecificJStarsz1  = Ys_train[:,45] 
+    logspecificJStarsz2  = Ys_train[:,46] 
+    logspecificJStarsz3  = Ys_train[:,47] 
+    logbroeilsHIz0  = Ys_train[:,72]
+    logmStellarHaloz0  = Ys_train[:,76]
+    logmStellarHaloz1  = Ys_train[:,77]
+    logmStellarHaloz2  = Ys_train[:,78]
+    logmStellarHaloz3 = Ys_train[:,79]
+    #  logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
+    # corresponding to
+    # Mhz0 mstarz0 sSFRz0 sfZz0 stZz0 gasToStellarRatioH2z0 gasToStellarRatioHIz0 halfMassStarsz0 vPhi22z0 c82z0 Sigma1z0 specificJStarsz0 metallicityGradientR90z0 maxsigz0 mdotBulgeGz0 fractionGIz0 tdepz0 tDepH2z0 broeilsHIz0 mStellarHaloz0 
+    # i.e. only fractionGIz0 and metallicityGradientR90z0 are not logarithmic
+    logMst0 = np.log10( 10.0**Ys_train[:,4] + fh* 10.0**logmStellarHaloz0 )
+    logMst1 = np.log10( 10.0**Ys_train[:,5] + fh* 10.0**logmStellarHaloz1 )
+    logMst2 = np.log10( 10.0**Ys_train[:,6] + fh* 10.0**logmStellarHaloz2 )
+    logMst3 = np.log10( 10.0**Ys_train[:,7] + fh* 10.0**logmStellarHaloz3 )
+
+    # Label points that fit Moster SMHM
+
+    lnlik = np.zeros((len(Ys_train[:,0]),29) )
+
+    srlInd=0
+    if not returnlikelihood:
+        srlInd=1
+    lnlik[:,0] = singleRelationLikelihood(10.0**logMh0,10.0**logMst0,['Moster10z0'])[srlInd]
+    lnlik[:,1] = singleRelationLikelihood(10.0**logMh1,10.0**logMst1,['Moster10z1'])[srlInd]
+    lnlik[:,2] += singleRelationLikelihood(10.0**logMh2,10.0**logMst2,['Moster10z2'])[srlInd]
+    lnlik[:,3] += singleRelationLikelihood(10.0**logMh3,10.0**logMst3,['Moster10z3'])[srlInd]
+
+    lnlik[:,4] += singleRelationLikelihood(10.0**logMst0,10.0**logsSFRz0,['Brinchmann04Specz0'])[srlInd]
+    lnlik[:,5] += singleRelationLikelihood(10.0**logMst1,10.0**logsSFRz1,['whitaker14Specz1'])[srlInd]
+    lnlik[:,6] += singleRelationLikelihood(10.0**logMst2,10.0**logsSFRz2,['whitaker14Specz2'])[srlInd]
+    lnlik[:,7] += singleRelationLikelihood(10.0**logMst3,10.0**logsSFRz3,['lilly13Specz3'])[srlInd]
+
+    lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'])[srlInd]
+
+    lnlik[:,9] += singleRelationLikelihood(10.0**logMst0,10.0**logsfZz0,['Tremonti04','Lee06'])[srlInd]
+    lnlik[:,10] += singleRelationLikelihood(10.0**logMst1,10.0**logsfZz1,['Genzel15Z1'])[srlInd]
+    lnlik[:,11] += singleRelationLikelihood(10.0**logMst2,10.0**logsfZz2,['Genzel15Z2'])[srlInd]
+    lnlik[:,12] += singleRelationLikelihood(10.0**logMst3,10.0**logsfZz3,['Genzel15Z3'])[srlInd]
+
+    
+    lnlik[:,13] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioH2z0,['genzel15COz0','genzel15Dustz0'])[srlInd]
+    lnlik[:,14] += singleRelationLikelihood(10.0**logMst1,10.0**loggasToStellarRatioH2z1,['genzel15COz1','genzel15Dustz1'])[srlInd]
+    lnlik[:,15] += singleRelationLikelihood(10.0**logMst2,10.0**loggasToStellarRatioH2z2,['genzel15COz2','genzel15Dustz2'])[srlInd]
+    lnlik[:,16] += singleRelationLikelihood(10.0**logMst3,10.0**loggasToStellarRatioH2z3,['genzel15COz3','genzel15Dustz3'])[srlInd]
+
+    lnlik[:,17] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioHIz0,['papastergis12','peeples11'])[srlInd]
+
+    #lnlik += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13','Barro15HS','Barro15HQ'])
+    lnlik[:,18] += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13'])[srlInd]
+    lnlik[:,19] += singleRelationLikelihood(10.0**logMst1,10.0**logSigma1z1,['Barro151S','Barro151Q'])[srlInd]
+    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S','Barro152Q'])[srlInd]
+    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S','Barro153Q'])[srlInd]
+
+
+    # Label points that fit galaxy sizes
+    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14ETG0','vdW14LTG0'])[srlInd]
+    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14ETG1','vdW14LTG1'])[srlInd]
+    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14ETG2','vdW14LTG2'])[srlInd]
+    lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14ETG3','vdW14LTG3'])[srlInd]
+
+    lnlik[:,26] += singleRelationLikelihood(10.0**(logMst0+loggasToStellarRatioHIz0),10.0**logbroeilsHIz0,['broeils97'])[srlInd]
+
+    lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
+
+    lnlik[:,28] += singleRelationLikelihood(10.0**logMst0,10.0**logvPhi22z0,['miller11'])[srlInd]
+
+    if returnlikelihood:
+        return np.sum(lnlik,axis=1)
+    else:
+        return lnlik # in this case, these are the residuals
+
+
+
+def nuclearSearch(Nbins = 7, Niter=10000, Ninits=50):
+    X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=1.0, validateFrac=0.0, fn='broad06_to_lasso.txt')
+    logMh0s= Ys_train[:,0]
+    ## Set up Mh0 bins. These selections won't change throughout this process!
+    MhEdges = np.linspace(np.min(logMh0s), np.max(logMh0s), Nbins+1)
+    binSelections = []
+    for i in range(Nbins):
+        binSelections.append( np.logical_and(MhEdges[i]<logMh0s, logMh0s<MhEdges[i+1]) )
+
+    xps = X_train[:,1:18] # The physical parameters excluding mass
+    # now normalize ordinate variables so that we can sensibly evaluate distances
+    minxps = np.min(xps, axis=0)
+    maxxps = np.max(xps, axis=0)
+    minxpsTiled = np.tile( minxps, (np.shape(xps)[0],1))
+    maxxpsTiled = np.tile( maxxps, (np.shape(xps)[0],1))
+    normxps = (xps - minxpsTiled)/(maxxpsTiled-minxpsTiled)
+    
+    globalLikelihoodArray = globalLikelihood(Ys_train[:,:])
+    
+    def run():
+        sequenceOfXps = []
+        sequenceOfNormXps = []
+        sequenceOfLiks = []
+        sequenceOfFhs = []
+        normxp = np.random.random(17) #np.ones(17)/2.0
+        fh = np.random.random()
+
+        for i in range(Niter):
+            if i%100==0:
+                print "Running nuclear search iteration i=",i
+            normxp =  np.clip( np.random.multivariate_normal( normxp, np.diag(np.ones(len(normxp)))*1.0e-3 ), 0,1)
+            fh = np.clip( np.random.normal(fh,1.0e3), 0, 1 )
+
+            distances = np.sum( np.abs( normxps - np.tile(normxp, (np.shape(normxps)[0],1)) ), axis=1)
+            
+            sampleInds = []
+
+            for j in range( Nbins ):
+                closestInd = np.argmin(distances[ binSelections[j] ]) 
+                sampleInds.append( np.arange(len(distances))[binSelections[j]][closestInd] )
+
+            lnlik = np.sum( globalLikelihood(Ys_train[sampleInds,:], fh) )
+            #lnlik = np.sum(globalLikelihoodArray[sampleInds])
+
+            if i==0:
+                sequenceOfNormXps.append(normxp)
+                sequenceOfXps.append(normxp*(maxxps-minxps)+minxps)
+                sequenceOfLiks.append(lnlik)
+                sequenceOfFhs.append(fh)
+            else:
+                alpha= lnlik-sequenceOfLiks[-1]
+                if alpha>=0:
+                    sequenceOfNormXps.append(normxp)
+                    sequenceOfXps.append(normxp*(maxxps-minxps)+minxps)
+                    sequenceOfLiks.append(lnlik)
+                    sequenceOfFhs.append(fh)
+                elif np.random.random() < np.exp(alpha):
+                    sequenceOfNormXps.append(normxp)
+                    sequenceOfXps.append(normxp*(maxxps-minxps)+minxps)
+                    sequenceOfLiks.append(lnlik)
+                    sequenceOfFhs.append(fh)
+                else:
+                    sequenceOfXps.append( sequenceOfXps[-1] )
+                    sequenceOfNormXps.append( sequenceOfNormXps[-1] )
+                    sequenceOfLiks.append( sequenceOfLiks[-1] )
+                    normxp = sequenceOfNormXps[-1]
+                    sequenceOfFhs.append( sequenceOfFhs[-1] )
+                    fh = sequenceOfFhs[-1]
+            if i==Niter-1:
+                lastSetOfResiduals = globalLikelihood(Ys_train[sampleInds,:], fh, returnlikelihood=False)
+        return sequenceOfLiks, sequenceOfNormXps, sequenceOfXps, sequenceOfFhs, lastSetOfResiduals
+
+
+    likelihoods = np.zeros((Ninits, Niter))
+    chains = np.zeros(( Ninits, Niter, 17))
+    allFhs = np.zeros((Ninits,Niter))
+    residuals = np.zeros((Ninits,Nbins,29))
+    for j in range(Ninits):
+        lis, nXps, Xps, sfh, lsor = run()
+        likelihoods[j,:] = np.array(lis)
+        chains[j,:,:] = np.array(Xps)
+        residuals[j,:,:] = np.array(lsor)
+
+    fig,ax = plt.subplots()
+    for j in range(Ninits):
+        ax.plot(range(Niter), likelihoods[j,:], c='gray')
+    ax.set_xlabel('Iteration')
+    ax.set_ylabel('lnlikelihood')
+    plt.savefig('nuclear_mcmc_lnlik.png')
+    plt.close(fig)
+
+    fig,ax = plt.subplots(3,6)
+    for i in range(17):
+        for j in range(Ninits):
+            ax.flatten()[i].plot( range(Niter), chains[j,:,i]  )
+    for j in range(Ninits):
+        ax.flatten()[17].plot( range(Niter), allFhs[j,:] )
+    plt.savefig('nuclear_mcmc_trace.png')
+    plt.close(fig)
+
+    likind = np.argmax( likelihoods[:,-1] )
+
+    lkrange = [ np.min(likelihoods[:,-1]), np.max(likelihoods[:,-1]) ]
+    reslabels=['SMHM0','SMHM1','SMHM2','SMHM3','MS0','MS1','MS2','MS3','MZR*','MZR0','MZR1','MZR2','MZR3','FG0','FG1','FG2','FG3','FGHI','Den0','Den1','Den2','Den3','MRe0','MRe1','MRe2','MRe3','HIR','MC82','TF']
+    
+
+    fig,ax=plt.subplots(5,6, figsize=(14,14))
+    for j in range(Ninits):
+        cscalar = (likelihoods[j,-1] - lkrange[0])/(lkrange[1]-lkrange[0])
+        lw=1
+        color = (0.8, 0.8, 0.8)
+        if j==likind:
+            lw=3
+            color = (0.98-cscalar/2.0, .7, 0.5+cscalar/2.1 )
+        for k in range(29):
+            ax.flatten()[k].plot( range(Nbins), residuals[j,:,k], color=color, lw=lw )
+            ax.flatten()[k].set_ylabel(reslabels[k])
+            ax.flatten()[k].set_ylim(-6,6)
+    plt.savefig('nuclear_residuals.png')
+    plt.close(fig)
+
+
+    print "Maximum likelihood: ", likelihoods[likind,-1], chains[likind,-1,:], allFhs[likind,-1]
+
+
+
+
+def appendLikelihood():
+    ''' Use something analogous to lnlik in the faceMCMC above, but append it to our data file! '''
+    X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=1.0, validateFrac=0.0, fn='broad05_to_lasso.txt')
+    
+    lnlik = globalLikelihood(Ys_train)
+
+
+    arr = np.vstack([ X_train.T, Ys_train.T, lnlik.T]).T
+    header = "Mh0 raccRvir rstarRed rgasRed fg0mult muColScaling muFgScaling muNorm ZIGMfac zmix eta Qf alphaMRI epsquench accCeiling conRF kZ xiREC"
+    header += " Mh02 raccRvir2 rstarRed2 rgasRed2 fg0mult2 muColScaling2 muFgScaling2 muNorm2 ZIGMfac2 zmix2 eta2 Qf2 alphaMRI2 epsquench2 accCeiling2 conRF2 kZ2 xiREC2"
+    k0s = [0,250,500,750]
+    kss = [15,30,60,120,240]
+    for i, k0 in enumerate( k0s ):
+        for j, ks in enumerate( kss ):
+            header+=" k0-"+str(k0)+"ks-"+str(ks)
+    for label in labels:
+        header += " "+label
+    header += " lnlik"
+    #with open('broad05_to_lasso.txt', 'r') as f:
+    #    header = f.readline()
+    #header = header[2:-1] + 'lnlik'
+    np.savetxt('broad05_to_lasso_lnlik.txt', arr, header=header)
+
+
+
 
 def appendLabels():
     arr = np.loadtxt('broad_to_fail.txt')
@@ -509,12 +935,12 @@ def filterArrayRows(array, valid):
             new_arr.append(array[i,:])
     return np.array(new_arr)
 
-def readData(trainFrac=0.5, validateFrac=0.4):
+def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt'):
     ''' trainFrac denotes what fraction of the sample should be used for training 
         validateFrac denotes what fraction of the sample should be used for validation
         1 - trainFrac - validateFrac is the out-of-sample test.'''
-    arr = np.loadtxt('broad03_to_lasso.txt')
-    with open('broad03_to_lasso.txt', 'r') as f:
+    arr = np.loadtxt(fn)
+    with open(fn, 'r') as f:
         header = f.readline()[2:]
     labels = header.split()[nvars+1:nvars+1+len(logPreds)*nz+nRadii*len(logRadials)]
     X1 = arr[:,:nvars] # the 18 input variables we varied
@@ -527,12 +953,34 @@ def readData(trainFrac=0.5, validateFrac=0.4):
     nxv = np.shape(X1)[1]
     for i in range(nxv):
         for j in range(nxv):
-            # don't repeat combinations, only look at squares instead of cross-terms, or cross-terms with mass alone
-            if j>=i and (i==j or i==0):
+            # don't repeat combinations, only look at squares instead of cross-terms, or cross-terms with mass alone <--- no longer applies
+            # at this point we're just adding squares, e.g. M_h0^2, rgasRed^2, ...
+            if j>=i and (i==j):
                 to_add = X1[:,i]*X1[:,j]
                 X1 = np.vstack( [ X1.T, to_add ] ).T
+#    ## add in even higher order mass terms
+    #to_add = np.power(X1[:,0]-12, 2.0)
+    #X1 = np.vstack( [ X1.T, to_add] ).T
+    to_add = np.power(X1[:,0]-12, 3.0)
+    X1 = np.vstack( [ X1.T, to_add] ).T
+    to_add = np.power(X1[:,0]-12, 4.0)
+    X1 = np.vstack( [ X1.T, to_add] ).T
 
-    X = np.vstack( [ X1.T, X2.T ] ).T # mc params + random factors
+    X3 = np.zeros( (np.shape(X2)[0], 20) )
+    k0s = [0,250,500,750] # only sum up k's higher than these values. Causality argument: e.g. SFR at z=2 shouldn't be affected by accr. at z<2
+    kss = [15,30,60,120,240] # falloff rate of accretion random factor indices to 
+    for i, k0 in enumerate( k0s ):
+        for j, ks in enumerate( kss ):
+            ind = i*len(kss) + j
+            multArray = np.zeros( np.shape(X2)[1] )
+            multArray[k0:] = np.exp( - np.arange( np.shape(X2)[1] )[k0:]/float(ks) )
+            multArray = np.tile(multArray, (np.shape(X2)[0], 1) )
+            print np.shape(multArray), np.shape(X2) # should be the same!
+
+            # X3[:, ind] = np.log10( np.sum( np.power(10.0, X2) * multArray, axis=1 ) )
+            X3[:, ind] = np.sum( np.power(10.0, X2) * multArray, axis=1 ) 
+
+    X = np.vstack( [ X1.T, X3.T ] ).T # mc params + random factors
 
     #nxvOrig = np.shape(X)[1]
     Ys = arr[:,nvars+1:nvars+1+len(logPreds)*nz+nRadii*len(logRadials)]
@@ -540,7 +988,7 @@ def readData(trainFrac=0.5, validateFrac=0.4):
     valid = Ys[:,0]>0
     X =  filterArrayRows( X, valid )
     Ys = filterArrayRows( Ys, valid)
-    ns = np.shape(arr)[0]
+    ns = np.shape(X)[0]
     nv = np.shape(X)[1]
     trainingSubset = int(ns*trainFrac) # 
     validateSubset = int(ns*(validateFrac+trainFrac))
@@ -649,58 +1097,119 @@ def learnLassoRidge(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test,
             print "Failed for ", labels[k]
             errors_validate[k] = 1.0e10
             errors_train[k] = 1.0e10
-
-
-    return errors_train, errors_validate, errors_test, labels, lasso_coefs, ridge_coefs, test_residuals, theModel
-
-
-def learnLasso(X_train, X_test, Ys_train, Ys_test, alpha=0.1):
-
-
-
-#    Ymins = []
-#    Ymaxs = []
-#    for j in range(len(logPreds)):
-#        to_replace = Ys_train[:,j]
-#        if logPreds[j]==1:
-#            to_replace = np.log10(to_replace)
-#        miny = np.min(to_replace)
-#        maxy = np.max(to_replace)
-#        Ys_train[:,j] = (to_replace-miny)/(maxy-miny)
-#        Ymins.append(miny)
-#        Ymaxs.append(maxy)
-#        if logPreds[j]==1:
-#            Ys_test[:,j] = (np.log10(Ys_test[:,j]) - miny)/(maxy-miny)
-#        else:
-#            Ys_test[:,i] = (Ys_test[:,i] - miny)/(maxy-miny)
-    errors_train = np.zeros(len(labels))
-    errors_test = np.zeros(len(labels))
-    for k in range(len(labels)):
-        regOLS = linear_model.LinearRegression()
-        regLasso = linear_model.Lasso(alpha=alpha, selection='random', tol=1.0e-5, max_iter=1e6, normalize=True)
-        regRidge = linear_model.Ridge(alpha=alpha, tol=1.0e-5, max_iter=1e6, normalize=True)
-        invalid = Ys_train[:,k]!=Ys_train[:,k]
-        if np.any(invalid):
             pdb.set_trace()
-        regLasso.fit(X_train, Ys_train[:,k])
-        regRidge.fit(X_train, Ys_train[:,k])
-        regOLS.fit(X_train, Ys_train[:,k])
-        Y_pred_train = regLasso.predict(X_train)
-        Y_pred_test = regLasso.predict(X_test)
-        Y_pred_train_ols = regOLS.predict(X_train)
-        Y_pred_test_ols = regOLS.predict(X_test)
-        Y_pred_train_ridge = regRidge.predict(X_train)
-        Y_pred_test_ridge = regRidge.predict(X_test)
-        errors_train[k] = np.std(Y_pred_train - Ys_train[:,k])
-        errors_test[k] = np.std(Y_pred_test - Ys_test[:,k])
-        print labels[k], '--', np.std(Y_pred_train - Ys_train[:,k]), np.std(Y_pred_test - Ys_test[:,k]), '--', np.std(Y_pred_train_ols - Ys_train[:,k]), np.std(Y_pred_test_ols - Ys_test[:,k]), '--', np.std(Y_pred_train_ridge - Ys_train[:,k]), np.std(Y_pred_test_ridge - Ys_test[:,k])
-        print "L1 norm for lasso, ridge fit: ", np.sum(np.abs(regLasso.coef_)), np.sum(np.abs(regRidge.coef_))
-        print "Number of coeffs used in lasso/ridge fit: ", np.sum( np.ones(len(regLasso.coef_))[np.abs(regLasso.coef_)>1.0e-4] ),  np.sum( np.ones(len(regRidge.coef_))[np.abs(regRidge.coef_)>1.0e-4] ), "of", len(regLasso.coef_)
-        print "------"
-        #except:
-        #    print "Failed for k=",k, labels[k]
-        #    print " "
-    return errors_train, errors_test, labels
+
+
+    return errors_train, errors_validate, errors_test, labels, lasso_coefs, ridge_coefs, theModel
+
+
+
+def learnNPR(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, q=1):
+
+
+    errors_train = np.zeros(len(labels))
+    errors_validate= np.zeros(len(labels))
+    errors_test = np.zeros(len(labels))
+    theModel = np.empty( len(labels), dtype=object)
+    #lasso_coefs = np.zeros( (len(labels), np.shape(X_train)[1]) )
+    for k in range(len(labels)):
+        if True:
+            #kq = smooth.NonParamRegression(X_train.T, Ys_train[:,k].T, method=npr_methods.LocalPolynomialKernel(q=q))
+            kq = smooth.NonParamRegression(X_train.T, Ys_train[:,k].T, method=npr_methods.SpatialAverage())
+            #regLasso = linear_model.Lasso(alpha=alpha, selection='random', tol=1.0e-5, max_iter=1e6, normalize=True)
+            invalid = Ys_train[:,k]!=Ys_train[:,k]
+            if not np.all(np.isfinite(Ys_train[:,k])): 
+                pdb.set_trace()
+            #regLasso.fit(X_train, Ys_train[:,k])
+            kq.fit()
+            # pdb.set_trace()
+            Y_pred_train = np.zeros(np.shape(Ys_train[:,k].T))
+            kq(X_train.T, out=Y_pred_train)
+            Y_pred_validate = kq(X_validate.T)
+            Y_pred_test = kq(X_test.T)
+            #lasso_coefs[k, : ] = regLasso.coef_[:]
+            errors_train[k] = np.std(Y_pred_train - Ys_train[:,k])
+            errors_validate[k] = np.std(Y_pred_validate - Ys_validate[:,k])
+            errors_test[k] = np.std(Y_pred_test - Ys_test[:,k])
+            #theModel[k] = copy.deepcopy( kq )
+            theModel[k] = kq 
+            print "Success for ",labels[k]
+        else:
+            print "Failed for k=",k, labels[k]
+            print " "
+    return errors_train, errors_validate, errors_test, labels, theModel
+
+
+
+def learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, k=0, n_estimators=1000, max_depth=10, max_features=10):
+
+#    errors_train = np.zeros(len(labels))
+#    errors_validate= np.zeros(len(labels))
+#    errors_test = np.zeros(len(labels))
+#    theModel = np.empty( len(labels), dtype=object)
+    theModel= None
+#    feature_importances = np.zeros( (len(labels), np.shape(X_train)[1]) )
+#    for k in range(len(labels)):
+#        if True:
+    #regRF = ensemble.RandomForestRegressor(n_estimators=n_estimators, criterion='mae', max_depth=max_depth, max_features=max_features, warm_start=True)
+    regRF = ensemble.RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, oob_score=True, min_samples_leaf=5)
+    invalid = Ys_train[:,k]!=Ys_train[:,k]
+    if np.any(invalid):
+        pdb.set_trace()
+    regRF.fit(X_train, Ys_train[:,k])
+    Y_pred_train = copy.deepcopy( regRF.predict(X_train) )
+    Y_pred_validate = copy.deepcopy( regRF.predict(X_validate) )
+    Y_pred_test = copy.deepcopy( regRF.predict(X_test) )
+    feature_importances = copy.deepcopy( regRF.feature_importances_[:] )
+    errors_train = np.std(Y_pred_train - Ys_train[:,k])
+    errors_validate = np.std(Y_pred_validate - Ys_validate[:,k]) 
+    errors_test = np.std(Y_pred_test - Ys_test[:,k])
+    theModel = regRF
+    #theModel[k] = copy.deepcopy( regRF )
+    print "Finished learning ",labels[k], "for ntrees=",n_estimators
+#        else:
+#            print "Failed for k=",k, labels[k]
+#            print " "
+    return errors_train, errors_validate, errors_test, labels, feature_importances, theModel
+
+
+
+def learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, alpha=0.1):
+
+    errors_train = np.zeros(len(labels))
+    errors_validate= np.zeros(len(labels))
+    errors_test = np.zeros(len(labels))
+    theModel = np.empty( len(labels), dtype=object)
+    lasso_coefs = np.zeros( (len(labels), np.shape(X_train)[1]) )
+    for k in range(len(labels)):
+        if True:
+            #regOLS = linear_model.LinearRegression()
+            regLasso = linear_model.Lasso(alpha=alpha, selection='random', tol=1.0e-5, max_iter=1e6, normalize=True)
+            #regRidge = linear_model.Ridge(alpha=alpha, tol=1.0e-5, max_iter=1e6, normalize=True) 
+            invalid = Ys_train[:,k]!=Ys_train[:,k]
+            if np.any(invalid):
+                pdb.set_trace()
+            regLasso.fit(X_train, Ys_train[:,k])
+            #regRidge.fit(X_train, Ys_train[:,k])
+            #regOLS.fit(X_train, Ys_train[:,k])
+            Y_pred_train = regLasso.predict(X_train)
+            Y_pred_validate = regLasso.predict(X_validate)
+            Y_pred_test = regLasso.predict(X_test)
+            lasso_coefs[k, : ] = regLasso.coef_[:]
+            errors_train[k] = np.std(Y_pred_train - Ys_train[:,k])
+            errors_validate[k] = np.std(Y_pred_validate - Ys_validate[:,k])
+            errors_test[k] = np.std(Y_pred_test - Ys_test[:,k])
+            theModel[k] = copy.deepcopy( regLasso )
+            #print labels[k], '--', np.std(Y_pred_train - Ys_train[:,k]), np.std(Y_pred_test - Ys_test[:,k]), '--', np.std(Y_pred_train_ols - Ys_train[:,k]), np.std(Y_pred_test_ols - Ys_test[:,k]), '--', np.std(Y_pred_train_ridge - Ys_train[:,k]), np.std(Y_pred_test_ridge - Ys_test[:,k])
+            #print "L1 norm for lasso, ridge fit: ", np.sum(np.abs(regLasso.coef_)), np.sum(np.abs(regRidge.coef_))
+            #print "Number of coeffs used in lasso/ridge fit: ", np.sum( np.ones(len(regLasso.coef_))[np.abs(regLasso.coef_)>1.0e-4] ),  np.sum( np.ones(len(regRidge.coef_))[np.abs(regRidge.coef_)>1.0e-4] ), "of", len(regLasso.coef_)
+            print "------"
+        else:
+            print "Failed for k=",k, labels[k]
+            print " "
+    return errors_train, errors_validate, errors_test, labels, lasso_coefs, theModel
+        ####errors_train_this, errors_validate_this, errors_test_this, labels_this, lasso_coef_this, test_residuals_this, theModel = 
+        ### learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, aL )
     
 
 def learnSuccesses(C, gamma):
@@ -782,7 +1291,7 @@ def validateSVM():
     plt.close(fig)
 
 def validateLassoRidge():
-    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.15, validateFrac=0.4)
+    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.8, validateFrac=0.1)
 
     alphasLasso = np.power(10.0, np.linspace(-4, -1, 5))
     alphasRidge = np.power(10.0, np.linspace(-4, -1, 6))
@@ -832,29 +1341,205 @@ def validateLassoRidge():
     return models 
 
 
-def validateLasso():
-    alphas = np.power(10.0, np.linspace(-9,-1.5,30))
-    npar = 19
-    cs=[ (1.0 - float(i)/npar/2.0, 0.5, 0.5+float(i)/npar/2.0) for i in range(npar)]
-    fig,ax = plt.subplots()
-    errors_train = np.zeros((npar, len(alphas)))
-    errors_test = np.zeros((npar, len(alphas)))
-    labels=None
-    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData() 
-    for i, a in enumerate(alphas):
-        errors_train_this, errors_test_this, labels_this = learnLasso(X_train, X_test, X_validate, Ys_validate, Ys_train, Ys_test, labels, alpha=a)
+
+
+
+def validateNPR():
+    ## Read in data
+    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.1, validateFrac=0.4)
+
+    ## For now we're only going to fit the first 80 variables
+    labels=labels[:80]
+
+    ## Choose the order of polynomials we'll use in the nonparametric fit
+    #qs = range(1,3)
+    qs = [1]
+    
+    ## Transform the ordinates to (perhaps) improve behavior of the fitting algorithms
+    tra = xtransform(X_train)
+    X_train = tra.transform(X_train)
+    X_validate = tra.transform(X_validate)
+    X_test = tra.transform(X_test)
+
+
+    ## Initialize arrays to store results from each choice of hyperparameters for the learning algorithm
+    errors_train = np.zeros((len(labels), len(qs)))
+    errors_validate = np.zeros((len(labels), len(qs)))
+    errors_test = np.zeros((len(labels), len(qs)))
+    residuals_test = np.zeros((len(labels), len(qs)))
+    model_array = np.empty((len(labels), len(qs)), dtype=object)
+    minIs = np.zeros( len(labels), dtype=int )
+    minValErrors = np.zeros( len(labels) ) + 1.0e30
+
+    for i, q in enumerate(qs):
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, theModel = learnNPR(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, q )
         errors_train[:,i] = errors_train_this[:]
+        errors_validate[:,i] = errors_validate_this[:]
         errors_test[:,i] = errors_test_this[:]
-        labels=labels_this
-    for j in range(npar):
-        ax.plot(alphas, errors_train[j,:], c=cs[j], ls='--', lw=2)
-        ax.plot(alphas, errors_test[j,:], c=cs[j], ls='-', lw=2, label=labels[j])
-    #ax.legend(loc=0)
-    ax.set_xlabel(r'$\alpha$')
-    ax.set_xscale('log')
-    ax.set_ylabel(r'$\sigma_{y-y_\mathrm{pred}}$')
-    plt.savefig('lasso_validate.png')
-    plt.close(fig)
+        model_array[:,i] = theModel[:]
+    for i in range(len(qs)):
+        for k in range(len(labels)):
+            if errors_validate[k,i] < minValErrors[k]:
+                minValErrors[k] = errors_validate[k,i]
+                minIs[k] = i
+    print "DependentVar, q, testErr, validationErr, trainingErr, "
+    models = []
+    for k in range(len(labels)):
+        # For each dependent variable, show number of lasso coeffs, minimum validation error, corresponding training error, mean/std of ridge coeffs.
+        toprint = labels[k]
+        toprint += ' ' + str(qs[minIs[k]])
+        toprint += ' ' + str(errors_test[k,minIs[k]])
+        toprint += ' ' + str(minValErrors[k])
+        toprint += ' ' + str(errors_train[k,minIs[k]]) #,  lasso_coefs[k,:,minIs[k]]
+        print toprint
+        models.append( model_array[k, minIs[k]] )
+
+    pickle.dump(models, open('validatedNPRModels.pickle', 'w'))
+    return models 
+
+
+
+
+
+def validateLasso():
+    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.85, validateFrac=0.1)
+
+    labels = labels[:80] # only look at first 80 variables for the moment
+    #alphasLasso = np.power(10.0, np.linspace(-8, 1, 12)) # 3 just to test something out
+    alphasLasso = [1.0e-7]
+
+    ## Transform the ordinates to (perhaps) improve behavior of the fitting algorithms
+    tra = xtransform(X_train)
+    X_train = tra.transform(X_train)
+    X_validate = tra.transform(X_validate)
+    X_test = tra.transform(X_test)
+
+
+
+    errors_train = np.zeros((len(labels), len(alphasLasso)))
+    errors_validate = np.zeros((len(labels), len(alphasLasso)))
+    errors_test = np.zeros((len(labels), len(alphasLasso)))
+    residuals_test = np.zeros((len(labels), len(alphasLasso)))
+    model_array = np.empty((len(labels), len(alphasLasso)), dtype=object)
+    #ridge_coefs = np.zeros( (len(labels), np.shape(X_train)[1]-19) )
+    #lasso_coefs = np.zeros( (len(labels), 19) )
+    lasso_coefs = np.zeros((len(labels), np.shape(X_train)[1], len(alphasLasso)))
+    print "lasso_coefs shape: ", np.shape(lasso_coefs)
+    minIs = np.zeros( len(labels) )
+    minValErrors = np.zeros( len(labels) ) + 1.0e30
+    for i, aL in enumerate(alphasLasso):
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, lasso_coef_this, theModel = learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, aL )
+        errors_train[:,i] = errors_train_this[:]
+        errors_validate[:,i] = errors_validate_this[:]
+        errors_test[:,i] = errors_test_this[:]
+        lasso_coefs[:,:, i] = lasso_coef_this[:,:]
+        model_array[:,i] = theModel[:]
+    for i in range(len(alphasLasso)):
+        for k in range(len(labels)):
+            if errors_validate[k,i] < minValErrors[k]:
+                minValErrors[k] = errors_validate[k,i]
+                minIs[k] = i
+    print "DependentVar, alphaLasso, alphaRidge, #Lasso, testErr, validationErr, trainingErr, avgRidgeCoef, stdRidgeCoef"
+    models = []
+    for k in range(len(labels)):
+        # For each dependent variable, show number of lasso coeffs, minimum validation error, corresponding training error, mean/std of ridge coeffs.
+        print labels[k], alphasLasso[minIs[k]], np.sum(np.ones(len(lasso_coefs[0,:,0]))[np.abs(lasso_coefs[k,:,minIs[k]])>1.0e-4]), errors_test[k,minIs[k]], minValErrors[k], errors_train[k,minIs[k]] #,  lasso_coefs[k,:,minIs[k]]
+        models.append( model_array[k, minIs[k]] )
+
+    pickle.dump(models, open('validatedLassoModels_p85.pickle', 'w'))
+    return models 
+
+
+
+def validateRF():
+    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.25, validateFrac=0.1)
+
+    labels = labels[:80] # only look at first 80 variables for the moment
+    # nfeatures = [100,1000,10000,100000] # 3 just to test something out
+    ntrees = [200]
+    max_depths = [10, 40, 160 ]
+    max_features = ['auto'] 
+    #max_features = ['dummy']
+
+    ## Transform the ordinates to (perhaps) improve behavior of the fitting algorithms
+    tra = xtransform(X_train)
+    X_train = tra.transform(X_train)
+    X_validate = tra.transform(X_validate)
+    X_test = tra.transform(X_test)
+
+
+
+    errors_train = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
+    errors_validate = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
+    errors_test = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
+    #residuals_test = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
+    model_array = np.empty((len(labels), len(ntrees), len(max_depths), len(max_features)), dtype=object)
+    #ridge_coefs = np.zeros( (len(labels), np.shape(X_train)[1]-19) )
+    #lasso_coefs = np.zeros( (len(labels), 19) )
+    feature_importances = np.zeros((len(labels), np.shape(X_train)[1], len(ntrees), len(max_depths), len(max_features)))
+    print "lasso_coefs shape: ", np.shape(feature_importances)
+    minIs = np.zeros( len(labels), dtype=int )
+    minJs = np.zeros( len(labels), dtype=int )
+    minQs = np.zeros( len(labels), dtype=int )
+    minValErrors = np.zeros( len(labels) ) + 1.0e30
+    for i, ntree in enumerate(ntrees):
+        for j, max_depth in enumerate(max_depths):
+            for q, max_feature in enumerate(max_features):
+                for k,label in enumerate(labels):
+                    errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=ntree, k=k, max_depth=max_depth, max_features=max_feature )
+                    errors_train[k,i,j,q] = errors_train_this
+                    errors_validate[k,i,j,q] = errors_validate_this
+                    errors_test[k,i,j,q] = errors_test_this
+                    feature_importances[k,:, i,j,q] = feature_importances_this[:]
+                    model_array[k,i,j,q] = theModel
+    for i in range(len(ntrees)):
+        for j in range(len(max_depths)):
+            for q in range(len(max_features)):
+                for k in range(len(labels)):
+                    if errors_validate[k,i,j,q] < minValErrors[k]:
+                        minValErrors[k] = errors_validate[k,i,j,q]
+                        minIs[k] = i
+                        minJs[k] = j
+                        minQs[k] = q
+    models = []
+    for k in range(len(labels)):
+        # For each dependent variable, show number of lasso coeffs, minimum validation error, corresponding training error, mean/std of ridge coeffs.
+        print '--------'
+        print labels[k]
+        print ntrees[minIs[k]], max_depths[minJs[k]], max_features[minQs[k]], errors_test[k,minIs[k],minJs[k],minQs[k]], minValErrors[k], errors_train[k,minIs[k],minJs[k],minQs[k]] #,  lasso_coefs[k,:,minIs[k]]
+        models.append( model_array[k, minIs[k], minJs[k], minQs[k]] )
+
+    pickle.dump(models, open('validatedRF.pickle', 'w'))
+    return models 
+
+
+
+
+
+
+#def validateLasso():
+#    alphas = np.power(10.0, np.linspace(-9,-1.5,30))
+#    npar = 19
+#    cs=[ (1.0 - float(i)/npar/2.0, 0.5, 0.5+float(i)/npar/2.0) for i in range(npar)]
+#    fig,ax = plt.subplots()
+#    errors_train = np.zeros((npar, len(alphas)))
+#    errors_test = np.zeros((npar, len(alphas)))
+#    labels=None
+#    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData() 
+#    for i, a in enumerate(alphas):
+#        errors_train_this, errors_test_this, labels_this = learnLasso(X_train, X_test, X_validate, Ys_validate, Ys_train, Ys_test, labels, alpha=a)
+#        errors_train[:,i] = errors_train_this[:]
+#        errors_test[:,i] = errors_test_this[:]
+#        labels=labels_this
+#    for j in range(npar):
+#        ax.plot(alphas, errors_train[j,:], c=cs[j], ls='--', lw=2)
+#        ax.plot(alphas, errors_test[j,:], c=cs[j], ls='-', lw=2, label=labels[j])
+#    #ax.legend(loc=0)
+#    ax.set_xlabel(r'$\alpha$')
+#    ax.set_xscale('log')
+#    ax.set_ylabel(r'$\sigma_{y-y_\mathrm{pred}}$')
+#    plt.savefig('lasso_validate.png')
+#    plt.close(fig)
 
 if __name__=='__main__':
     #learn(1.0e4, 1.0e-5)
@@ -862,10 +1547,17 @@ if __name__=='__main__':
     #appendLabels()
     #ksTestAnalysis()
     #learnLasso(alpha=1.0e-3)
-    #validateLasso()
+    validateLasso()
+    #validateRF()
     #validateLassoRidge()
 
-    runEmcee()
+    #runEmcee()
+    fractionalVariancePlot()
+    #ridgeCoeffsPlot()
 
+    #validateNPR()
+    #plotResiduals()
 
+    #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 
+    #appendLikelihood()

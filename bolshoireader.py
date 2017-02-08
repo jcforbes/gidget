@@ -1,6 +1,5 @@
 import numpy as np
 import pdb
-
 class bolshoireader:
     def __init__(self,fn, minmass, maxmass, bolshoidir):
         self.filename = fn
@@ -21,6 +20,31 @@ class bolshoireader:
         self.masses = np.log10([tree[1] for tree in self.trees]) # log10(M_h)
         self.minimumMass = np.min(self.masses)
         self.maximumMass = np.max(self.masses)
+        self.stored = False
+
+    def storeAll(self):
+        self.xs = np.zeros( (len(self.trees), 1000) )
+        with open(self.bolshoidir+'rf_data4.txt', 'r') as f:
+            all_lines = f.readlines()
+        treecounter = 0
+        bad_rows = []
+        for treei, tree in enumerate(self.trees):
+            treecounter+=1
+            if treecounter % 100 == 0:
+                print "Loading up tree ", treecounter, ' of ', len(self.trees)
+            treestring = 'tree '+repr(tree[0])+'\n'
+            treeind = all_lines.index(treestring)
+            try:
+                self.xs[treei, : ] = [float( all_lines[lineind].split()[0] ) for lineind in range(treeind+1,treeind+1001) ]
+            except:
+                print "Ran into trouble!"
+                bad_rows.append(treei)
+        for k, row in enumerate(bad_rows):
+            random_ind = int((len(self.trees)-1)*np.random.random())
+            if not random_ind in bad_rows:
+                self.xs[row, :] = self.xs[random_ind, :]
+        self.stored = True
+                    
 
     def returnnearest(self, dirname, filename, value, logMh0):
         ''' copy a file with the closest value of tree[2]'''
@@ -47,29 +71,34 @@ class bolshoireader:
         # Once found, the subsequent lines (containing the values of the random factors
         #  for the main progenitor accretion history of that tree) are copied to a file
         #  in the working directory of the gidget run.
-        xs = []
-        with open(self.bolshoidir+'rf_data4.txt','r') as f:
-            line = f.readline()
-            while line!='':
-                if 'tree '+repr(self.trees[ind][0]) in line:
-                    print "Copying tree with index ",ind," and Bolshoi ID ",self.trees[ind][0]
-                    break # we found the tree we're looking for
+
+        # If we've already cached the x values, use that!
+        if self.stored:
+            return self.xs[ind,:]
+        else:
+            xs = []
+            with open(self.bolshoidir+'rf_data4.txt','r') as f:
                 line = f.readline()
-            if line=='':
-                print "Failed to find line tree "+repr(self.trees[ind][0])
-            line = f.readline()
-            collectlines=[]
-            while not 'tree' in line and line!='':
-                xs.append( float(line.split()[0]) )
-                collectlines.append(line)
+                while line!='':
+                    if 'tree '+repr(self.trees[ind][0]) in line:
+                        print "Copying tree with index ",ind," and Bolshoi ID ",self.trees[ind][0]
+                        break # we found the tree we're looking for
+                    line = f.readline()
+                if line=='':
+                    print "Failed to find line tree "+repr(self.trees[ind][0])
                 line = f.readline()
-#            with open(dirname+'/'+filename,'w') as ff:
-#                assert len(collectlines)>0
-#                ### Major change! Add in a line at the beginning which tells us the z=0 halo mass of the bolshoi tree from which these random factors are drawn
-#                ff.write(str(self.trees[ind][1])+'\n')
-#                for line in collectlines:
-#                    ff.write(line)
-        return xs[:-1]
+                collectlines=[]
+                while not 'tree' in line and line!='':
+                    xs.append( float(line.split()[0]) )
+                    collectlines.append(line)
+                    line = f.readline()
+    #            with open(dirname+'/'+filename,'w') as ff:
+    #                assert len(collectlines)>0
+    #                ### Major change! Add in a line at the beginning which tells us the z=0 halo mass of the bolshoi tree from which these random factors are drawn
+    #                ff.write(str(self.trees[ind][1])+'\n')
+    #                for line in collectlines:
+    #                    ff.write(line)
+            return xs[:-1]
     def copynearest(self, dirname, filename, value, logMh0):
         ''' copy a file with the closest value of tree[2]'''
         #ind = np.searchsorted(self.keys, value)

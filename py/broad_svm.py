@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import copy
 import pickle
 import matplotlib.pyplot as plt
@@ -7,13 +8,16 @@ import observationalData
 import emcee
 from sklearn import svm, linear_model, ensemble
 
-import pyqt_fit.nonparam_regression as smooth
-from pyqt_fit import npr_methods
+#import pyqt_fit.nonparam_regression as smooth
+#from pyqt_fit import npr_methods
 
 # Useful information about the setup of the linear models and their fits....
 logVars = [1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0]
 logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
 logRadials = [1,1,1,1,1,1]
+#logVars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+#logPreds = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+#logRadials = [0, 0, 0, 0, 0, 0]
 nRadii=20
 nz=4
 nvars = len(logVars)
@@ -74,8 +78,8 @@ class xtransform:
         maxxpsTiled = np.tile( self.maxxps, (np.shape(X_other)[0],1))
         return (X_other - minxpsTiled)/(maxxpsTiled-minxpsTiled)
     def inverseTransform(self, x_transformed):
-        minxpsTiled = np.tile( self.minxps, (np.shape(X_transformed)[0],1))
-        maxxpsTiled = np.tile( self.maxxps, (np.shape(X_transformed)[0],1))
+        minxpsTiled = np.tile( self.minxps, (np.shape(x_transformed)[0],1))
+        maxxpsTiled = np.tile( self.maxxps, (np.shape(x_transformed)[0],1))
         return x_transformed*(maxxpsTiled-minxpsTiled) + minxpsTiled
 
 def plotResiduals():
@@ -84,7 +88,7 @@ def plotResiduals():
     X_train = tra.transform(X_train)
     X_validate = tra.transform(X_validate)
     X_test = tra.transform(X_test)
-    models = pickle.load( open( 'validatedRF.pickle', 'r' ) )
+    models = pickle.load( open( 'validatedRF_nolog.pickle', 'r' ) )
     for i, model in enumerate(models):
         Y_test_predict = model.predict(X_test)
         Y_test_actual = Ys_test[:,i]
@@ -114,7 +118,7 @@ def ridgeCoeffsPlot():
 
 
 def fractionalVariancePlot(normalize=False):
-    models = pickle.load( open( 'validatedLassoModels_p85.pickle', 'r' ) )
+    models = pickle.load( open( 'validatedRF_nolog.pickle', 'r' ) )
     X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.25, validateFrac=0.1, fn='broad05_to_lasso.txt')
     ## Transform the ordinates to (perhaps) improve behavior of the fitting algorithms
     tra = xtransform(X_train)
@@ -122,6 +126,10 @@ def fractionalVariancePlot(normalize=False):
     X_validate = tra.transform(X_validate)
     X_test = tra.transform(X_test)
 
+    Ytra = xtransform(Ys_train)
+    Ys_train = Ytra.transform(Ys_train)
+    Ys_validate = Ytra.transform(Ys_validate)
+    Ys_test = Ytra.transform(Ys_test)
 
 
     lefts = []
@@ -172,7 +180,7 @@ def fractionalVariancePlot(normalize=False):
     #ax.set_yscale('log')
     #ax.set_ylim(0.0, 2.5)
     plt.axhline(1.0, c='k', ls='--')
-    plt.savefig('variance_fractions_lassop85.png')
+    plt.savefig('variance_fractions_RF_nolog.png')
     plt.close(fig)
 
 
@@ -222,255 +230,296 @@ class lassoRidge:
 #
 #        return lassoVariance/overallVariance, ridgeVariance/overallVariance, unexplainedVariance/overallVariance, overallVariance
 
-def runEmcee():
-    models = pickle.load( open( 'validatedModels.pickle', 'r' ) )
-    import bolshoireader
-    bolshoidir = '/Users/jforbes/bolshoi/'
-    globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e14, bolshoidir)
-    globalBolshoiReader.storeAll()
+def lnlikelihood(emceeparams, models):
+    # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
+    # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
+    nmh = 5
+    MhGrid = np.power(10.0, np.linspace(10.5,14,nmh))
+    lnlik = 0.0
+    for k,Mh in enumerate(MhGrid):
+        X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
+        for i in range(len(logVars)):
+            # Take the log of the input variable if it makes sense to do so
+            if logVars[i] == 1:
+                X1[:,i] = np.log10(X1[:,i])
+        Y_eval = np.array( [models[j].predictFill(X1)[0][j] for j in range(80)] ).reshape(1,80)
+        lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
+
+
+    print "Returning lnlik = ", lnlik
+    if not np.isfinite(lnlik):
+        return -np.inf
+    return lnlik
+def samplefromprior( varRedFac=1.0):
+    # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormaliza     tion, kappaMassScaling = emceeparams
+    # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsqu     ench, accCeiling, conRF, kZ, xiREC = emceeparams
+
+
+    return [ \
+        samplefromlognormaldensity( np.log(0.141), np.log(3.0)**2.0/ varRedFac),
+        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
+        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
+        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
+        samplefromnormaldensity( 0.6, 1.0**2.0 / varRedFac ),
+        samplefromnormaldensity( -0.1, 1.0**2.0 / varRedFac ),
+        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac),
+        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac ),
+        samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
+        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
+        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
+        samplefromlognormaldensity( np.log(0.05), np.log(2.0)**2.0/ varRedFac),
+        samplefromlognormaldensity( np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac),
+        samplefrombetadensity( 1.0 * varRedFac, 1.0 ),
+        samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
+        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
+        samplefrombetadensity( 1.0, 2.0*varRedFac ),
+        samplefrombetadensity( 1.0 *varRedFac, 1.0*varRedFac) ]
+
+def lnprob(emceeparams, models):
+    pr = lnprior(emceeparams)
+    if np.isfinite(pr):
+        return lnlikelihood(emceeparams, models) + pr
+        #return constlikelihood(emceeparams) + pr
+    return pr
+
+def lnprior(emceeparams):
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, fh = emceeparams
+    #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
+    accum = 0.0
+
+    #varRedFac = 10000.0
+    varRedFac = 1.0
+
+    accum += lnlognormaldensity( raccRvir, np.log(0.141), np.log(3.0)**2.0 )
+    accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
+    accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
+    accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
+    accum += lnnormaldensity( muColScaling, 0.6, 1.0**2.0 / varRedFac )
+    accum += lnnormaldensity( muFgScaling, -0.1, 1.0**2.0 / varRedFac )
+    accum += lnlognormaldensity( muNorm, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
+    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
+    accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
+    accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
+    accum += lnlognormaldensity( Qf, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
+    accum += lnlognormaldensity( alphaMRI, np.log(0.05), np.log(2.0)**2.0/ varRedFac )
+    accum += lnlognormaldensity( epsquench, np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac )
+    accum += lnbetadensity( accCeiling, 1.0, 1.0 ) # not accurate
+    accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
+    accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
+    accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
+    accum += lnbetadensity( fh, 1.0, 1.0 )
+
+    if not np.isfinite(accum):
+        return -np.inf
+    return accum
+
+
+def saveRestart(fn,restart):
+    with open(fn,'wb') as f:
+        print "checkpoint to "+fn
+        pickle.dump(restart,f,2)
+
+def updateRestart(fn,restart):
+    if os.path.isfile(fn):
+        with open(fn,'rb') as f:
+            tmp_dict = pickle.load(f)
+            restart.update(tmp_dict)
+
+### some functions to make plots of mcmc
+def tracePlots(restart, fn, burnIn=0):
+    chain = restart['chain']
+    ndim = np.shape(chain)[2]
+    sq = np.sqrt(float(ndim))
+    nr = int(np.ceil(sq))
+    nc=nr
+    while nr*(nc-1)>ndim:
+        nc=nc-1
+
+    # Plot the trace for every parameter, for a subset of the walkers.
+    fig,ax = plt.subplots(nrows=nr,ncols=nc, figsize=(nc*4,nr*4))
+    for dim in range(ndim):
+        i = np.mod(dim, nr)
+        j = ( dim -i )/nr
+        for walker in range(np.shape(chain)[0]):
+            if np.random.uniform(0,1) <= 1.0: # print every one ----tenth-ish----
+                ax[i,j].plot(chain[walker,burnIn:,dim],alpha=.3,ls='--')
+
+    plt.tight_layout()
+    plt.savefig(fn+'.png')
+    plt.close(fig)
+
+def probsPlots(restart, fn, burnIn=0):
+    allProbs = restart['allProbs']
+    
+    ndim = np.shape(allProbs)[0]
+    iters = np.shape(allProbs)[1]
+
+    # Plot the trace of the probabilities for every walker.
+    fig,ax = plt.subplots()
+    for walker in range(ndim):
+        ax.plot(allProbs[walker,burnIn:],alpha=.3,ls='--')
+    plt.savefig(fn+'_probs.png')
+    plt.close(fig)
+    print "Saved "+fn+'_probs.png'
+
+    changes = np.zeros(ndim)
+    for walker in range(ndim):
+        for iter in range(iters-1):
+            if allProbs[walker,iter]!=allProbs[walker,iter+1]:
+                changes[walker]+=1.0
+    changes = changes/float(iters-1.0)
+    print "Long-term acceptance fraction stats: "
+    stats(changes)
+
+    try:
+        acor = np.zeros(ndim)
+        for walker in range(ndim):
+            acor[walker] = emcee.autocorr.integrated_time(allProbs[walker,burnIn:] )#,  window=min([50,iters/2]))
+        print "acor stats: "
+        stats(acor)
+    except:
+        print "failed to compute acor."
+
+def stats(array):
+    print "Length: ",len(array)
+    print "Mean: ",np.mean(array)
+    print "Gauss percentiles: ",np.percentile(array,[2.5,16,50,84,97.5])
+    print "5-spaced percentiles: ",np.percentile(array,range(96)[1::5])
+    print "Min,Max: ",np.min(array), np.max(array)
+    print "********************************"
+
+def printRestart(restart):
+    ''' Print quick summary info about the current state of the sampler. '''
+    print "restart info: "
+    print " current shape of chain: (nwalkers x niterations x ndim) ",np.shape(restart['chain'])
+    #print " autocorrelation lengths for each parameter: ",restart['acor']
+    #stats(restart['acor'])
+    print " acceptance rate for each walker: ",restart['accept']
+    stats(restart['accept'])
+
+def trianglePlot(restart,fn,burnIn=0, nspace=10):
+    shp = np.shape(restart['chain'])
+    prs = shp[0]*(shp[1]-burnIn)*shp[2]
+    prior = np.array([sampleFromPrior() for i in range(prs)])
+    shape = np.shape(restart['chain'])
+    ndim = shape[2]
+    labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$",r"$\mu_{M_h}$",r"Q",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
+            r"$f_\mathrm{cool}$", r"$M_{h,0}$", r"$\sigma$ (dex)", \
+            r"$x_0$",r"$x_1$",r"$x_2$",r"$x_3$",r'Error scaling',r'c offset', r'$\mu_{h_g}$']
+
+    logs = [1,1,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0]
+
+    ### This code selects a fraction frac of the samples after burnIn iterations.
+    ### The selection is random, meaning consecutive samples from the same walker
+    ### will be common. In this case we had a kwarg frac instead of nspace.
+    #sampleRed = restart['chain'][:,burnIn:,:].reshape((-1,ndim)) # (nwalkers*(niterations-burnIn)) x ndim
+
+    #ns = np.shape(sampleRed)[0]
+    #selection = np.empty((int(ns*frac),) , dtype='int')
+    #np.fix(np.random.uniform(0,ns-1,int(ns*frac)), y=selection)
+    #sampleRed = sampleRed[selection, :]
+
+    ### Instead we take a sample not at random, but evenly spaced:
+    sampleRed = restart['chain'][:,burnIn::nspace,:].reshape((-1,ndim))
+
+
+    extents=[]
+    for i in range(np.shape(sampleRed)[1]):
+        if logs[i]==1:
+            sampleRed[:,i] = np.log10(np.clip(sampleRed[:,i],1.0e-5,np.inf))
+            prior[:,i] = np.log10(prior[:,i])
+            labels[i] = r'$\log_{10}$ '+labels[i]
+
+        mi = np.min(sampleRed[:,i])
+        ma = np.max(sampleRed[:,i])
+        if(mi==ma):
+            extents.append([mi-1,ma+1])
+        else:
+            extents.append([mi,ma])
+
+    import corner
+    trifig = corner.corner(sampleRed, labels=labels, extents=extents)
+    #trifigPrior = triangle.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig, extents=extents)
+    trifig.savefig(fn)
+
+
+
+def runEmcee(mpi=False, continueRun=False):
+    import sys
+    if mpi:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        from emcee.utils import MPIPool
+
+    models = [ pickle.load( open( 'rfnt_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+    #import bolshoireader
+    #bolshoidir = '/Users/jforbes/bolshoi/'
+    #globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e14, bolshoidir)
+    #globalBolshoiReader.storeAll()
     #bolshoiSize =  len(globalBolshoiReader.keys)
-    MhGrid = np.power(10.0, np.linspace(10,13,1000))
-
-    def lnlikelihood(emceeparams):
-        # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
-        # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
-        lnlik = 0.0
-        for k,Mh in enumerate(MhGrid):
-            X1 = np.array([Mh]+list(emceeparams)).reshape((1,len(emceeparams)+1))
-            for i in range(len(logVars)):
-                # Take the log of the input variable if it makes sense to do so
-                if logVars[i] == 1:
-                    X1[:,i] = np.log10(X1[:,i])
-            # Add in squares and cross-terms for every pair of input parameters
-            nxv = np.shape(X1)[1]
-            for i in range(nxv):
-                for j in range(nxv):
-                    # don't repeat combinations, only look at squares instead of cross-terms, or cross-terms with mass alone
-                    if j>=i and (i==j or i==0):
-                        to_add = X1[:,i]*X1[:,j]
-                        X1 = np.vstack( [ X1.T, to_add ] ).T
-            # OK, we've now successfully constructed X1, i.e. the part that's fit with Lasso. Now let's get X2:
-            X2 = globalBolshoiReader.returnnearest( '', '', np.random.random(), np.log10(Mh))
-            while len(X2)!=1000:
-                print "X2 wasn't the right length! ", len(X2)
-                X2 = globalBolshoiReader.returnnearest( '', '', np.random.random(), np.log10(Mh))
-            X2 = np.array(X2).reshape((1,1000))
-            X = np.vstack( [ X1.T, X2.T ] ).T # mc params + random factors
-
-            # Then use the linear models to make predicitons for every quantity we will compare to observations!
-            logMh0 = models[0].predict(X)
-            logMh1 = models[1].predict(X)
-            logMh2 = models[2].predict(X)
-            logMh3 = models[3].predict(X)
-            logMst0 = models[4].predict(X)
-            logMst1 = models[5].predict(X)
-            logMst2 = models[6].predict(X)
-            logMst3 = models[7].predict(X)
-            logsSFRz0  = models[8].predict(X)
-            logsSFRz1 = models[9].predict(X)
-            logsSFRz2 = models[10].predict(X)
-            logsSFRz3 = models[11].predict(X)
-            logsfZz0 = models[12].predict(X)
-            logsfZz1 = models[13].predict(X)
-            logsfZz2 = models[14].predict(X)
-            logsfZz3 = models[15].predict(X)
-            logstZz0 = models[16].predict(X)
-            logstZz1 = models[17].predict(X)
-            logstZz2 = models[18].predict(X)
-            logstZz3 = models[19].predict(X)
-            loggasToStellarRatioH2z0 = models[20].predict(X)
-            loggasToStellarRatioH2z1 = models[21].predict(X)
-            loggasToStellarRatioH2z2  = models[22].predict(X)
-            loggasToStellarRatioH2z3  = models[23].predict(X)
-            loggasToStellarRatioHIz0  = models[24].predict(X)
-            loghalfMassStarsz0 = models[28].predict(X)
-            loghalfMassStarsz1  = models[29].predict(X)
-            loghalfMassStarsz2 = models[30].predict(X)
-            loghalfMassStarsz3 = models[31].predict(X)
-            logvPhi22z0  = models[32].predict(X)
-            logvPhi22z1 = models[33].predict(X)
-            logvPhi22z2  = models[34].predict(X)
-            logvPhi22z3 = models[35].predict(X)
-            logc82z0  = models[36].predict(X)
-            logSigma1z0  = models[40].predict(X)
-            logSigma1z1  = models[41].predict(X)
-            logSigma1z2  = models[42].predict(X)
-            logSigma1z3  = models[43].predict(X)
-            logspecificJStarsz0  = models[44].predict(X)
-            logspecificJStarsz1  = models[45].predict(X)
-            logspecificJStarsz2  = models[46].predict(X)
-            logspecificJStarsz3  = models[47].predict(X)
-            logbroeilsHIz0  = models[72].predict(X)
-            logmStellarHaloz0  = models[76].predict(X)
-            logmStellarHaloz1  = models[77].predict(X)
-            logmStellarHaloz2  = models[78].predict(X)
-            logmStellarHaloz3 = models[79].predict(X)
-            #  logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
-            # corresponding to
-            # Mhz0 mstarz0 sSFRz0 sfZz0 stZz0 gasToStellarRatioH2z0 gasToStellarRatioHIz0 halfMassStarsz0 vPhi22z0 c82z0 Sigma1z0 specificJStarsz0 metallicityGradientR90z0 maxsigz0 mdotBulgeGz0 fractionGIz0 tdepz0 tDepH2z0 broeilsHIz0 mStellarHaloz0 
-            # i.e. only fractionGIz0 and metallicityGradientR90z0 are not logarithmic
-
-            # Label points that fit Moster SMHM
-            distancesSMHM0 = observationalData.datasets['Moster10z0'].distance(10.0**logMh0,10.0**logMst0)
-            distancesSMHM1 = observationalData.datasets['Moster10z1'].distance(10.0**logMh1,10.0**logMst1)
-            distancesSMHM2 = observationalData.datasets['Moster10z2'].distance(10.0**logMh2,10.0**logMst2)
-            distancesSMHM3 = observationalData.datasets['Moster10z3'].distance(10.0**logMh3,10.0**logMst3)
-
-            # Label points that fit Brinchmann04 
-            distancesMS0 = observationalData.datasets['Brinchmann04Specz0'].distance(10.0**logMst0, 10.0**logsSFRz0)
-            distancesMS1 = observationalData.datasets['whitaker14Specz1'].distance(10.0**logMst1, 10.0**logsSFRz1)
-            distancesMS2 = observationalData.datasets['whitaker14Specz2'].distance(10.0**logMst2, 10.0**logsSFRz2)
-            distancesMS3 = observationalData.datasets['lilly13Specz3'].distance(10.0**logMst3, 10.0**logsSFRz3)
-
-            # Label points that fit stellar MZR 
-            distancesSTMZR0 = np.min(np.abs( [observationalData.datasets['kirby13'].distance(10.0**logMst0,  10.0**logstZz0 ), observationalData.datasets['gallazi05'].interior(10.0**logMst0, 10.0**logstZz0) ] ))
-
-            # Label points that fit gas MZR 
-            distancesGMZR0 = np.min( np.abs([observationalData.datasets['Tremonti04'].distance(10.0**logMst0, 10.0**logsfZz0 ), observationalData.datasets['Lee06'].distance(10.0**logMst0, 10.0**logsfZz0)] ) )
-            distancesGMZR1 = observationalData.datasets['Genzel15Z1'].distance(10.0**logMst1, 10.0**logsfZz1)
-            distancesGMZR2 = observationalData.datasets['Genzel15Z2'].distance(10.0**logMst2, 10.0**logsfZz2)
-            distancesGMZR3 = observationalData.datasets['Genzel15Z3'].distance(10.0**logMst3, 10.0**logsfZz3)
-
-            # Label points that fit gas fractions
-            distancesHMOL0 = np.min(np.abs([ observationalData.datasets['genzel15COz0'].distance(10.0**logMst0, 10.0**loggasToStellarRatioH2z0), observationalData.datasets['genzel15Dustz0'].interior(10.0**logMst0, 10.0**loggasToStellarRatioH2z0)] ))
-            distancesHMOL1 = np.min(np.abs([ observationalData.datasets['genzel15COz1'].distance(10.0**logMst1, 10.0**loggasToStellarRatioH2z1), observationalData.datasets['genzel15Dustz1'].interior(10.0**logMst1, 10.0**loggasToStellarRatioH2z1)] ))
-            distancesHMOL2 = np.min(np.abs([ observationalData.datasets['genzel15COz2'].distance(10.0**logMst2, 10.0**loggasToStellarRatioH2z2), observationalData.datasets['genzel15Dustz2'].interior(10.0**logMst2, 10.0**loggasToStellarRatioH2z2)] ))
-            distancesHMOL3 = np.min(np.abs([ observationalData.datasets['genzel15COz3'].distance(10.0**logMst3, 10.0**loggasToStellarRatioH2z3), observationalData.datasets['genzel15Dustz3'].interior(10.0**logMst3, 10.0**loggasToStellarRatioH2z3)] ))
-
-            # Label points that fit gas fractions
-            distancesHI = np.min( np.abs( [observationalData.datasets['papastergis12'].distance(10.0**logMst0, 10.0**loggasToStellarRatioHIz0), observationalData.datasets['peeples11'].interior(10.0**logMst0, 10.0**loggasToStellarRatioHIz0) ] ) )
-
-            # Label points that fit structural relations
-            distancesSIG10 = np.min(np.abs([ observationalData.datasets['Fang13'].distance(10.0**logMst0, 10.0**logSigma1z0 ), observationalData.datasets['Barro15HS'].interior(10.0**logMst0, 10.0**logSigma1z0) , observationalData.datasets['Barro15HQ'].distance(10.0**logMst0, 10.0**logSigma1z0)]))
-            distancesSIG11 = np.min(np.abs([  observationalData.datasets['Barro151S'].distance(10.0**logMst1, 10.0**logSigma1z1) , observationalData.datasets['Barro151Q'].distance(10.0**logMst1, 10.0**logSigma1z1)]))
-            distancesSIG12 = np.min(np.abs([  observationalData.datasets['Barro152S'].distance(10.0**logMst2, 10.0**logSigma1z2) , observationalData.datasets['Barro152Q'].distance(10.0**logMst2, 10.0**logSigma1z2)]))
-            distancesSIG13 = np.min(np.abs([  observationalData.datasets['Barro153S'].distance(10.0**logMst3, 10.0**logSigma1z3) , observationalData.datasets['Barro153Q'].distance(10.0**logMst3, 10.0**logSigma1z3)]))
-
-            # Label points that fit galaxy sizes
-            distancesMRE0 = np.min( np.abs( [ observationalData.datasets['vdW14ETG0'].distance(10.0**logMst0, 10.0**loghalfMassStarsz0), observationalData.datasets['vdW14LTG0'].distance(10.0**logMst0, 10.0**loghalfMassStarsz0)]) )
-            distancesMRE1 = np.min( np.abs( [ observationalData.datasets['vdW14ETG1'].distance(10.0**logMst1, 10.0**loghalfMassStarsz1), observationalData.datasets['vdW14LTG1'].distance(10.0**logMst1, 10.0**loghalfMassStarsz1)]) )
-            distancesMRE2 = np.min( np.abs( [ observationalData.datasets['vdW14ETG2'].distance(10.0**logMst2, 10.0**loghalfMassStarsz2), observationalData.datasets['vdW14LTG2'].distance(10.0**logMst2, 10.0**loghalfMassStarsz2)]) )
-            distancesMRE3 = np.min( np.abs( [ observationalData.datasets['vdW14ETG3'].distance(10.0**logMst3, 10.0**loghalfMassStarsz3), observationalData.datasets['vdW14LTG3'].distance(10.0**logMst3, 10.0**loghalfMassStarsz3)]) )
-
-            # Label points that fit Broeils
-            distancesHIR = observationalData.datasets['broeils97'].distance(10.0**(loggasToStellarRatioHIz0+logMst0),  10.0**logbroeilsHIz0  )
-
-            distancesC82 = observationalData.datasets['Dutton09All'].distance(10.0**logMst0, 10.0**logc82z0) 
 
 
 
-
-            lnlik -= distancesSMHM0**2.0 / 2.0 
-            lnlik -= distancesSMHM1**2.0 / 2.0
-            lnlik -= distancesSMHM2**2.0 / 2.0
-            lnlik -= distancesSMHM3**2.0 / 2.0
-
-            lnlik -= distancesMS0**2.0 / 2.0
-            lnlik -= distancesMS1**2.0 / 2.0
-            lnlik -= distancesMS2**2.0 / 2.0
-            lnlik -= distancesMS3**2.0 / 2.0
-
-            lnlik -= distancesSTMZR0 **2.0 / 2.0
-
-            lnlik -= distancesGMZR0**2.0 / 2.0
-
-            lnlik -= distancesGMZR1**2.0 / 2.0
-            lnlik -= distancesGMZR2 **2.0 / 2.0
-            lnlik -= distancesGMZR3 **2.0 / 2.0
-
-            lnlik -= distancesHMOL0**2.0 / 2.0
-            lnlik -= distancesHMOL1**2.0 / 2.0
-            lnlik -= distancesHMOL2**2.0 / 2.0
-            lnlik -= distancesHMOL3**2.0 / 2.0
-
-            lnlik -= distancesHI**2.0 / 2.0
-
-            lnlik -= distancesSIG10**2.0 / 2.0
-            lnlik -= distancesSIG11**2.0 / 2.0
-            lnlik -= distancesSIG12**2.0 / 2.0
-            lnlik -= distancesSIG13**2.0 / 2.0
-
-            lnlik -= distancesMRE0**2.0 / 2.0
-            lnlik -= distancesMRE1**2.0 / 2.0
-            lnlik -= distancesMRE2**2.0 / 2.0
-            lnlik -= distancesMRE3**2.0 / 2.0
-
-            lnlik -= distancesHIR**2.0 / 2.0
-
-            lnlik -= distancesC82**2.0 / 2.0
-        print "Returning lnlik = ", lnlik
-        if not np.isfinite(lnlik):
-            return -np.inf
-        return lnlik
-
-
-    def lnprior(emceeparams):
-        raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
-        #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
-        accum = 0.0
+    if mpi:
+        pool = MPIPool(comm=comm, loadbalance=True)
+        if not pool.is_master():
+            pool.wait()
+            sys.exit()
     
-        #varRedFac = 10000.0
-        varRedFac = 1.0
-    
-        accum += lnlognormaldensity( raccRvir, np.log(0.141), np.log(3.0)**2.0 )
-        accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-        accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-        accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-        accum += lnnormaldensity( muColScaling, 0.6, 1.0**2.0 / varRedFac )
-        accum += lnnormaldensity( muFgScaling, -0.1, 1.0**2.0 / varRedFac )
-        accum += lnlognormaldensity( muNorm, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
-        accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
-        accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
-        accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
-        accum += lnlognormaldensity( Qf, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
-        accum += lnlognormaldensity( alphaMRI, np.log(0.05), np.log(2.0)**2.0/ varRedFac )
-        accum += lnlognormaldensity( epsquench, np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac )
-        accum += lnbetadensity( accCeiling, 1.0, 1.0 ) # not accurate
-        accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
-        accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
-        accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
-    
-        if not np.isfinite(accum):
-            return -np.inf
-        return accum
-
-
-    def samplefromprior( varRedFac=1.0):
-        # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormaliza     tion, kappaMassScaling = emceeparams
-        # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsqu     ench, accCeiling, conRF, kZ, xiREC = emceeparams
-
-
-        return [ \
-            samplefromlognormaldensity( np.log(0.141), np.log(3.0)**2.0/ varRedFac),
-            samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-            samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-            samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-            samplefromnormaldensity( 0.6, 1.0**2.0 / varRedFac ),
-            samplefromnormaldensity( -0.1, 1.0**2.0 / varRedFac ),
-            samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac),
-            samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac ),
-            samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
-            samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
-            samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
-            samplefromlognormaldensity( np.log(0.05), np.log(2.0)**2.0/ varRedFac),
-            samplefromlognormaldensity( np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac),
-            samplefrombetadensity( 1.0 * varRedFac, 1.0 ),
-            samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
-            samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
-            samplefrombetadensity( 1.0, 2.0*varRedFac ) ]
-
-    def lnprob(emceeparams):
-        pr = lnprior(emceeparams)
-        if np.isfinite(pr):
-            return lnlikelihood(emceeparams) + pr
-            #return constlikelihood(emceeparams) + pr
-        return pr
-    
-    ndim, nwalkers = 17, 40 
-    nsteps = 20 # test run
+    ndim, nwalkers = 18, 40 
+    fn = 'fakemcmc_restart.pickle'
+    restart = {}
+    nsteps = 3000 # test run
     p0 = [ samplefromprior(varRedFac=1000.0) for w in range(nwalkers) ]
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)
-    sampler.run_mcmc(p0, nsteps) 
+
+    restart['currentPosition'] = p0
+    restart['chain' ] = None
+    restart['state' ] = None
+    restart['prob'] = None
+    restart['iterationCounter'] = 0
+    restart['mcmcRunCounter'] = 0
+
+    if continueRun:
+        updateRestart(fn, restart)
+
+    restart['iterationCounter'] += nsteps
+    restart['mcmcRunCounter'] += 1
+
+
+    if mpi:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool, args=[models])
+    else:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=[models])
+    
+    for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], rstate0=restart['state']) :
+        pos, prob, state = result
+
+        #restart['acor'] = sampler.acor[:] # autocorr length for each param (ndim)
+        restart['accept'] = sampler.acceptance_fraction[:]  # acceptance frac for each walker.
+        restart['currentPosition'] = pos # same shape as p0: nwalkers x ndim
+        restart['state'] = state # random number generator state
+        restart['prob'] = prob # nwalkers x __
+        if restart['chain'] is None:
+            restart['chain'] = np.expand_dims(sampler.chain[:,0,:],1) # nwalkers x niterations x ndim
+            restart['allProbs'] = np.expand_dims(prob,1)  # nwalkers x niterations
+        else:
+            print np.shape(restart['chain']), np.shape(sampler.chain[:,-1,:]), np.shape(sampler.chain)
+            print restart['mcmcRunCounter'], restart['iterationCounter']
+            #restart['chain'] = np.concatenate((restart['chain'], sampler.chain[:,-1,:]), axis=1)
+            print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(np.expand_dims(pos,1))
+            restart['chain'] = np.concatenate((restart['chain'], np.expand_dims(pos, 1)),axis=1)
+            restart['allProbs'] = np.concatenate((restart['allProbs'], np.expand_dims(prob, 1)),axis=1)
+
+        
+        saveRestart(fn,restart)
+
+
+
+
+    #sampler.run_mcmc(p0, nsteps) 
+
+
     chain = sampler.chain # nwalkers x nsteps x ndim
     samples = chain[:,15:,:].reshape((-1,ndim))
 
@@ -482,8 +531,11 @@ def runEmcee():
     plt.close(fig)
 
     import corner
-    fig = corner.corner(samples, labels=[ 'raccRvir', 'rstarRed', 'rgasRed', 'fg0mult', 'muColScaling', 'muFgScaling', 'muNorm', 'ZIGMfac', 'zmix', 'eta', 'Qf', 'alphaMRI', 'epsquench', 'accCeiling', 'conRF', 'kZ', 'xiREC']) 
+    fig = corner.corner(samples, labels=[ 'raccRvir', 'rstarRed', 'rgasRed', 'fg0mult', 'muColScaling', 'muFgScaling', 'muNorm', 'ZIGMfac', 'zmix', 'eta', 'Qf', 'alphaMRI', 'epsquench', 'accCeiling', 'conRF', 'kZ', 'xiREC', 'fh']) 
     fig.savefig("mcmc_fake_corner.png") 
+
+    if mpi:
+        pool.close()
 
 
 def singleRelationLikelihood(x,y,datasets):
@@ -935,52 +987,83 @@ def filterArrayRows(array, valid):
             new_arr.append(array[i,:])
     return np.array(new_arr)
 
-def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt'):
+def loglin(x,p):
+    return np.log10(x) #### for debugging purposes
+    # p is a parameter varying from 0 to 1, with zero corresponding to log, and 1 corresponding to linear.
+    assert 0<=p and p<=1
+    if p==0:
+        return np.log(x)
+    else:
+        return (np.power(x,p)-1)/p
+
+def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=50, arr=None, kscale=10, logscale=0, includeCrossTerms=False):
     ''' trainFrac denotes what fraction of the sample should be used for training 
         validateFrac denotes what fraction of the sample should be used for validation
         1 - trainFrac - validateFrac is the out-of-sample test.'''
-    arr = np.loadtxt(fn)
+    if arr is None:
+        arr = np.loadtxt(fn)
     with open(fn, 'r') as f:
         header = f.readline()[2:]
     labels = header.split()[nvars+1:nvars+1+len(logPreds)*nz+nRadii*len(logRadials)]
     X1 = arr[:,:nvars] # the 18 input variables we varied
     X2 = arr[:, nvars+1+len(logPreds)*nz+nRadii*len(logRadials):] # the random factors that define the accretion history
+    #X1[:,0] = X1[:,0]/1.0e12
     for i in range(len(logVars)):
         # Take the log of the input variable if it makes sense to do so
         if logVars[i] == 1:
-            X1[:,i] = np.log10(X1[:,i])
+            #X1[:,i] = np.log10(X1[:,i])
+            X1[:,i] = loglin(X1[:,i], logscale)
     # Add in squares and cross-terms for every pair of input parameters
     nxv = np.shape(X1)[1]
-    for i in range(nxv):
-        for j in range(nxv):
-            # don't repeat combinations, only look at squares instead of cross-terms, or cross-terms with mass alone <--- no longer applies
-            # at this point we're just adding squares, e.g. M_h0^2, rgasRed^2, ...
-            if j>=i and (i==j):
-                to_add = X1[:,i]*X1[:,j]
-                X1 = np.vstack( [ X1.T, to_add ] ).T
-#    ## add in even higher order mass terms
-    #to_add = np.power(X1[:,0]-12, 2.0)
-    #X1 = np.vstack( [ X1.T, to_add] ).T
-    to_add = np.power(X1[:,0]-12, 3.0)
-    X1 = np.vstack( [ X1.T, to_add] ).T
-    to_add = np.power(X1[:,0]-12, 4.0)
-    X1 = np.vstack( [ X1.T, to_add] ).T
+#### In this block add squares of various quantities (useful for linear models, but superfluous (I think!) for tree-based methods
+    if includeCrossTerms:
+        for i in range(nxv):
+            for j in range(nxv):
+                # don't repeat combinations, only look at squares instead of cross-terms, or cross-terms with mass alone <--- no longer applies
+                # at this point we're just adding squares, e.g. M_h0^2, rgasRed^2, ...
+                if j>=i and (i==0):
+                    to_add = X1[:,i]*X1[:,j]
+                    X1 = np.vstack( [ X1.T, to_add ] ).T
+    #    ## add in even higher order mass terms
+        #to_add = np.power(X1[:,0]-12, 2.0)
+        #X1 = np.vstack( [ X1.T, to_add] ).T
+        to_add = np.power(X1[:,0], 3.0)
+        X1 = np.vstack( [ X1.T, to_add] ).T
+        to_add = np.power(X1[:,0], 4.0)
+        X1 = np.vstack( [ X1.T, to_add] ).T
 
-    X3 = np.zeros( (np.shape(X2)[0], 20) )
-    k0s = [0,250,500,750] # only sum up k's higher than these values. Causality argument: e.g. SFR at z=2 shouldn't be affected by accr. at z<2
-    kss = [15,30,60,120,240] # falloff rate of accretion random factor indices to 
+##### In this block, add in various weights of the accretion history.
+    #k0s = [0,250,500,750] # only sum up k's higher than these values. Causality argument: e.g. SFR at z=2 shouldn't be affected by accr. at z<2
+    k0s = [0]
+    #kss = [4, 8, 16, 32, 64, 128] # falloff rate of accretion random factor indices to 
+    kss = [kscale]
+    X3 = np.zeros( (np.shape(X2)[0], len(kss)*len(k0s)) )
     for i, k0 in enumerate( k0s ):
         for j, ks in enumerate( kss ):
             ind = i*len(kss) + j
             multArray = np.zeros( np.shape(X2)[1] )
-            multArray[k0:] = np.exp( - np.arange( np.shape(X2)[1] )[k0:]/float(ks) )
+            multArray[k0:] = np.exp( - (np.arange( np.shape(X2)[1] )[k0:] - k0)/float(ks) )
             multArray = np.tile(multArray, (np.shape(X2)[0], 1) )
             print np.shape(multArray), np.shape(X2) # should be the same!
 
             # X3[:, ind] = np.log10( np.sum( np.power(10.0, X2) * multArray, axis=1 ) )
-            X3[:, ind] = np.sum( np.power(10.0, X2) * multArray, axis=1 ) 
+            #X3[:, ind] = np.sum( np.power(10.0, X2) * multArray, axis=1 ) 
+            X3[:, ind] = loglin( np.sum( np.power(10.0, X2) * multArray, axis=1 ) , logscale )
 
-    X = np.vstack( [ X1.T, X3.T ] ).T # mc params + random factors
+##### In this block, just take the accretion history and reduce it down to a more manageable number by simple averaging.
+    X4 = np.zeros( (np.shape(X2)[0], naccr) )
+    for i in range(naccr):
+        ind0 = i*int(1000/naccr)
+        ind1 = (i+1)*int(1000/naccr)
+        multArray = np.zeros( np.shape(X2)[1] )
+        multArray[ind0:ind1] = 1.0
+        multArray = np.tile(multArray, (np.shape(X2)[0], 1) )
+
+        # X4[:, ind] = np.log10( np.sum( np.power(10.0, X2) * multArray, axis=1 ) )
+        # X4[:, i] = np.sum( np.power(10.0, X2) * multArray, axis=1 ) 
+        X4[:, i] = loglin( np.sum( np.power(10.0, X2) * multArray, axis=1 ) , logscale )
+
+    X = np.vstack( [ X1.T, X3.T, X4.T ] ).T # mc params + random factors
 
     #nxvOrig = np.shape(X)[1]
     Ys = arr[:,nvars+1:nvars+1+len(logPreds)*nz+nRadii*len(logRadials)]
@@ -999,30 +1082,9 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt'):
     Ys_validate = Ys[trainingSubset:validateSubset, :]
     X_test = X[validateSubset: , :]
     Ys_test = Ys[validateSubset: , :]
-#    for i in range(len(logVars)):
-#        to_replace = X_train[:,i]
-#        if logVars[i]==1:
-#            to_replace = np.log10(to_replace)
-#        minx = np.min(to_replace)
-#        maxx = np.max(to_replace)
-#        X_train[:,i] = (to_replace-minx)/(maxx-minx)
-#        if logVars[i]==1:
-#            X_test[:,i] = (np.log10(X_test[:,i]) - minx)/(maxx-minx)
-#        else:
-#            X_test[:,i] = (X_test[:,i] - minx)/(maxx-minx)
-    # Add terms \propto x1*x2
-    #for i in range(nxv):
-    #    for j in range(nxv):
-    #        if j>=i and i==0 :
-    #            if (j>nvars and j%3==0) or j<=nvars:
-    #                to_add = X_train[:,i]*X_train[:,j]
-    #                X_train = np.vstack([X_train.T, to_add]).T
-    #                to_add = X_test[:,i]*X_test[:,j]
-    #                X_test = np.vstack([X_test.T, to_add]).T
 
     for j in range(len(logPreds)):
         if logPreds[j] == 1:
-            print "Taking log for ", labels[j*nz+0]
             for k in range(nz):
                 # mStellarHalo is sometimes identically zero which is bad for taking the log!
                 if j==19:
@@ -1039,6 +1101,7 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt'):
                 Ys_validate[:,j] = np.log10(Ys_validate[:,j])
                 Ys_test[:,j] = np.log10(Ys_test[:,j])
 
+    print "Are all X data finite? ", np.all(np.isfinite(X_train)), np.all(np.isfinite(X_test))
     return X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels
 
 
@@ -1141,7 +1204,7 @@ def learnNPR(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels
 
 
 
-def learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, k=0, n_estimators=1000, max_depth=10, max_features=10):
+def learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, k=0, n_estimators=1000, max_depth=10, max_features=10, min_per_leaf=5):
 
 #    errors_train = np.zeros(len(labels))
 #    errors_validate= np.zeros(len(labels))
@@ -1151,12 +1214,15 @@ def learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels,
 #    feature_importances = np.zeros( (len(labels), np.shape(X_train)[1]) )
 #    for k in range(len(labels)):
 #        if True:
-    #regRF = ensemble.RandomForestRegressor(n_estimators=n_estimators, criterion='mae', max_depth=max_depth, max_features=max_features, warm_start=True)
-    regRF = ensemble.RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, oob_score=True, min_samples_leaf=5)
+    regRF = ensemble.RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, min_samples_leaf=min_per_leaf, n_jobs=3)
+    #regRF = ensemble.ExtraTreesRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, min_samples_leaf=min_per_leaf, n_jobs=3)
     invalid = Ys_train[:,k]!=Ys_train[:,k]
     if np.any(invalid):
         pdb.set_trace()
-    regRF.fit(X_train, Ys_train[:,k])
+    try:
+        regRF.fit(X_train, Ys_train[:,k])
+    except:
+        pdb.set_trace()
     Y_pred_train = copy.deepcopy( regRF.predict(X_train) )
     Y_pred_validate = copy.deepcopy( regRF.predict(X_validate) )
     Y_pred_test = copy.deepcopy( regRF.predict(X_test) )
@@ -1174,39 +1240,31 @@ def learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels,
 
 
 
-def learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, alpha=0.1):
+def learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, alpha=0.1, k=0, tol=1.0e-5, l1_ratio=0.5):
 
-    errors_train = np.zeros(len(labels))
-    errors_validate= np.zeros(len(labels))
-    errors_test = np.zeros(len(labels))
-    theModel = np.empty( len(labels), dtype=object)
-    lasso_coefs = np.zeros( (len(labels), np.shape(X_train)[1]) )
-    for k in range(len(labels)):
-        if True:
-            #regOLS = linear_model.LinearRegression()
-            regLasso = linear_model.Lasso(alpha=alpha, selection='random', tol=1.0e-5, max_iter=1e6, normalize=True)
-            #regRidge = linear_model.Ridge(alpha=alpha, tol=1.0e-5, max_iter=1e6, normalize=True) 
-            invalid = Ys_train[:,k]!=Ys_train[:,k]
-            if np.any(invalid):
-                pdb.set_trace()
-            regLasso.fit(X_train, Ys_train[:,k])
-            #regRidge.fit(X_train, Ys_train[:,k])
-            #regOLS.fit(X_train, Ys_train[:,k])
-            Y_pred_train = regLasso.predict(X_train)
-            Y_pred_validate = regLasso.predict(X_validate)
-            Y_pred_test = regLasso.predict(X_test)
-            lasso_coefs[k, : ] = regLasso.coef_[:]
-            errors_train[k] = np.std(Y_pred_train - Ys_train[:,k])
-            errors_validate[k] = np.std(Y_pred_validate - Ys_validate[:,k])
-            errors_test[k] = np.std(Y_pred_test - Ys_test[:,k])
-            theModel[k] = copy.deepcopy( regLasso )
-            #print labels[k], '--', np.std(Y_pred_train - Ys_train[:,k]), np.std(Y_pred_test - Ys_test[:,k]), '--', np.std(Y_pred_train_ols - Ys_train[:,k]), np.std(Y_pred_test_ols - Ys_test[:,k]), '--', np.std(Y_pred_train_ridge - Ys_train[:,k]), np.std(Y_pred_test_ridge - Ys_test[:,k])
-            #print "L1 norm for lasso, ridge fit: ", np.sum(np.abs(regLasso.coef_)), np.sum(np.abs(regRidge.coef_))
-            #print "Number of coeffs used in lasso/ridge fit: ", np.sum( np.ones(len(regLasso.coef_))[np.abs(regLasso.coef_)>1.0e-4] ),  np.sum( np.ones(len(regRidge.coef_))[np.abs(regRidge.coef_)>1.0e-4] ), "of", len(regLasso.coef_)
-            print "------"
-        else:
-            print "Failed for k=",k, labels[k]
-            print " "
+    lasso_coefs = np.zeros(  np.shape(X_train)[1]) 
+
+    #regOLS = linear_model.LinearRegression()
+    #regLasso = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio, selection='random', tol=tol, max_iter=1e6, normalize=True, warm_start=True)
+    regLasso = linear_model.Lasso(alpha=alpha, selection='random', tol=tol, max_iter=1e6, normalize=True, warm_start=True)
+    #regRidge = linear_model.Ridge(alpha=alpha, tol=1.0e-5, max_iter=1e6, normalize=True) 
+    invalid = Ys_train[:,k]!=Ys_train[:,k]
+    if np.any(invalid):
+        pdb.set_trace()
+    regLasso.fit(X_train, Ys_train[:,k])
+    #regRidge.fit(X_train, Ys_train[:,k])
+    #regOLS.fit(X_train, Ys_train[:,k])
+    Y_pred_train = regLasso.predict(X_train)
+    Y_pred_validate = regLasso.predict(X_validate)
+    Y_pred_test = regLasso.predict(X_test)
+    lasso_coefs[ : ] = regLasso.coef_[:]
+    errors_train = np.std(Y_pred_train - Ys_train[:,k])
+    errors_validate = np.std(Y_pred_validate - Ys_validate[:,k])
+    errors_test = np.std(Y_pred_test - Ys_test[:,k])
+    theModel = copy.deepcopy( regLasso )
+    #print labels[k], '--', np.std(Y_pred_train - Ys_train[:,k]), np.std(Y_pred_test - Ys_test[:,k]), '--', np.std(Y_pred_train_ols - Ys_train[:,k]), np.std(Y_pred_test_ols - Ys_test[:,k]), '--', np.std(Y_pred_train_ridge - Ys_train[:,k]), np.std(Y_pred_test_ridge - Ys_test[:,k])
+    #print "L1 norm for lasso, ridge fit: ", np.sum(np.abs(regLasso.coef_)), np.sum(np.abs(regRidge.coef_))
+    #print "Number of coeffs used in lasso/ridge fit: ", np.sum( np.ones(len(regLasso.coef_))[np.abs(regLasso.coef_)>1.0e-4] ),  np.sum( np.ones(len(regRidge.coef_))[np.abs(regRidge.coef_)>1.0e-4] ), "of", len(regLasso.coef_)
     return errors_train, errors_validate, errors_test, labels, lasso_coefs, theModel
         ####errors_train_this, errors_validate_this, errors_test_this, labels_this, lasso_coef_this, test_residuals_this, theModel = 
         ### learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, aL )
@@ -1425,7 +1483,7 @@ def validateLasso():
     #lasso_coefs = np.zeros( (len(labels), 19) )
     lasso_coefs = np.zeros((len(labels), np.shape(X_train)[1], len(alphasLasso)))
     print "lasso_coefs shape: ", np.shape(lasso_coefs)
-    minIs = np.zeros( len(labels) )
+    minIs = np.zeros( len(labels), dtype=int )
     minValErrors = np.zeros( len(labels) ) + 1.0e30
     for i, aL in enumerate(alphasLasso):
         errors_train_this, errors_validate_this, errors_test_this, labels_this, lasso_coef_this, theModel = learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, aL )
@@ -1450,66 +1508,549 @@ def validateLasso():
     return models 
 
 
+def searchLinearModels(maxiter = 1000):
+    #ntrees, max_depth, min_per_leaf, naccr = 200, 1240, 3, 5 # initial guesses
+    #hyperparams = [ ntrees, max_depth, min_per_leaf, naccr ]
+    #hyperparambounds = [[3, 2000], [2, 30000], [1,200], [1,1000]]
+
+    alpha, tol, kscale, naccr, logscale, l1_ratio = 1.0e-8, 1.0e-5, 10, 10, 0.1, 0.5
+    hyperparams = [ alpha, tol, kscale, naccr, logscale, l1_ratio ]
+    hyperparambounds = [[1.0e-15, 100.0], [1.0e-10, 1.0e-1], [1,1000], [1,1000], [0,1], [0,1]]
+
+    history = np.zeros( (len(hyperparams)+3, maxiter) )
+    standardErrors = np.zeros( (3,maxiter) )
+
+    arr = np.loadtxt('broad567.txt')
+
+    def trial(hyperparams):
+        print "Beginning trial with hyperparams: ", hyperparams
+        #readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=50, arr=None, kscale=10, logscale=0):
+        X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.85, validateFrac=0, kscale=hyperparams[2], logscale=0, naccr=int(hyperparams[3]), arr=copy.deepcopy(arr), fn='broad567.txt')
+        ### Select a random subset of the X_train to be the validation set for this iteration
+        nsamples = np.shape(X_train)[0]
+        validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1))
+        vi = [int(v) for v in validationIndices]
+        validationSample = np.array([k in vi for k in range(nsamples)])
+        X_validate = X_train[validationSample, :]
+        X_train = X_train[np.logical_not(validationSample), :]
+        Ys_validate = Ys_train[validationSample,:]
+        Ys_train = Ys_train[np.logical_not(validationSample),:]
+
+        # Regularize the input and output vectors to give the learning algorithm an easier time
+        Xtra = xtransform(X_train)
+        X_train = Xtra.transform(X_train)
+        X_validate = Xtra.transform(X_validate)
+        X_test = Xtra.transform(X_test)
+
+        Ytra = xtransform(Ys_train)
+        Ys_train = Ytra.transform(Ys_train)
+        Ys_validate = Ytra.transform(Ys_validate)
+        Ys_test = Ytra.transform(Ys_test)
+
+
+        # k=8 corresponds to z=0 sfr. Try really hard to get this right!
+        ###errors_train, errors_validate, errors_test, labels, lasso_coefs, theModel
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, coefs, theModel = learnLasso(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, alpha=hyperparams[0], k=8, tol=hyperparams[1], l1_ratio=hyperparams[5] )
+
+        return errors_train_this, errors_validate_this, errors_test_this, np.std(Ys_train[:,8]), np.std(Ys_validate[:,8]), np.std(Ys_test[:,8])
+
+    # initialize history
+    history[:-3,0] = hyperparams[:]
+    history[-3,0] = 100
+    history[-2,0] = 100
+    history[-1,0] = 100
+    nacceptances=0
+
+    for i in np.arange(1,maxiter):
+        proposal = np.array(hyperparams) * np.power(10.0, np.random.normal(0,1,size=len(hyperparams))*0.1) # log-normal w/ 10% variance
+        # clean up the proposal: make sure it's in bounds and is composed of integers
+        for k in range(len(hyperparams)):
+            if proposal[k]>hyperparambounds[k][1]:
+                proposal[k] = hyperparambounds[k][1]
+            if proposal[k]<hyperparambounds[k][0]:
+                proposal[k] = hyperparambounds[k][0]
+
+        tre, ve, tee, sTr, sV, sTe = trial(proposal)
+        standardErrors[0,i] = sTr
+        standardErrors[1,i] = sV
+        standardErrors[2,i] = sTe
+        accept=False
+        # if this trial is better (in the sense that its validation error is lower), accept it
+        if ve < history[-2,i-1]:
+            accept=True
+        # even if this trial is worse, accept with a probability which gets drastically lower as ve gets worse
+        #if np.power(history[-2,i-1]/ve, 8) > np.random.uniform():
+        #    accept=True
+        if np.power(10.0, (history[-2,i-1]-ve)/0.003) > np.random.uniform():
+            accept=True
+
+        if accept:
+            hyperparams = copy.deepcopy(proposal)
+            history[:-3,i] = copy.deepcopy(proposal)
+            history[-3,i] = tre
+            history[-2,i] = ve
+            history[-1,i] = tee
+            nacceptances += 1
+        else:
+            history[:,i] = copy.deepcopy(history[:,i-1])
+        print "finished iteration ",i," of ",maxiter," acceptance fraction = ",float(nacceptances)/float(i)
+
+        if i%10==0 or i==maxiter-1:
+            # now plot the results
+            fig,ax = plt.subplots(7,1, figsize=(8,12))
+            for j in range(len(hyperparams)):
+                ax[j].plot(history[j,1:i], c='k')
+            color=[ 'k', 'r', 'b']
+            labels=[ 'train', 'validate', 'test']
+            for j in range(3):
+                ax[6].plot(history[6+j,1:i], c=color[j], label=labels[j])
+                ax[6].plot(standardErrors[j,1:i], ls='--', color=color[j])
+            #hyperparams = [ alpha, tol, kscale, naccr, logscale, l1_ratio ]
+            ax[0].set_ylabel('Penalty')
+            ax[0].set_yscale('log')
+            ax[1].set_yscale('log')
+            ax[1].set_ylabel('Tolerance')
+            ax[2].set_ylabel('Accretion Timescale')
+            ax[3].set_ylabel('Number of Accr Divisions')
+            ax[4].set_ylabel('Log-Linear interpolation')
+            ax[5].set_ylabel('L1 Ratio')
+            ax[6].set_ylabel('Errors')
+            ax[6].set_xlabel('Number of Iterations')
+            plt.legend()
+            plt.savefig('searchNetParams_forcelog_forcelasso.png')
+            plt.close(fig)
+
+
+def printTable(arr, columnnames, rownames, fn='table.tex'):
+    assert len(np.shape(arr))==2
+    nrows, ncols = np.shape(arr)
+    #if not (nrows==len(rownames) and ncols==len(columnnames)):
+    #    pdb.set_trace()
+
+    with open(fn,'w') as f:
+        f.write( r'\begin{table*}'+'\n' )
+        f.write( r'\tiny'+'\n' )
+        f.write( r'\begin{tabular}{'+'l'*(ncols+1)+r'}'+'\n' )
+        line = r' '
+        for i in range(ncols):
+            line+= r' & '+columnnames[i]
+        line+=r'\\'+'\n'
+        f.write(line)
+        f.write(r'\hline'+'\n')
+        f.write(r'\hline'+'\n')
+        for j in range(nrows):
+            line = rownames[j]
+            for i in range(ncols):
+                color='black'
+                if j==np.argmax(arr[:,i]): # the maximum in this column, i.e. the target most influenced by this feature
+                    color='blue'
+                if i==np.argmax(arr[j,:]): # the maximum in this row, i.e. most important feature for this target
+                    color='red'
+                if color=='black':
+                    line += r' & '+str(np.round(arr[j,i],2))
+                else:
+                    line += r' & { \bf \textcolor{'+color+r'}{'+str(np.round(arr[j,i],4)) + r'}}'
+            line+= r'\\'+'\n'
+            f.write(line)
+        f.write(r'\end{tabular}'+'\n')
+        f.write(r'\end{table*}'+'\n')
+
+class fntModel:
+    ### a simple wrapper for models that have been transformed/predict transformed quantities:
+    def __init__(self, skModel, xtr, ytr):
+        self.model = skModel
+        self.xtr = xtr
+        self.ytr = ytr
+    def predict(self, x):
+        return self.ytr.inverseTransform( self.model.predict( self.xtr.transform(x)))
+    def predictFill(self,x):
+        if np.shape(x)[1]<len(self.xtr.minxps):
+            tofill =  len(self.xtr.minxps) - np.shape(x)[1]
+            fillers = np.random.random(size=(np.shape(x)[0], tofill))
+            thisx = np.vstack([x.T, fillers.T]).T
+            transformed_thisx = self.xtr.transform(thisx)
+            #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
+            transformed_thisx[:,-tofill:] = fillers[:,:]
+            pred = self.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
+            yinv = self.ytr.inverseTransform(pred)
+            return yinv
+        else:
+            return self.predict(x)
+
+            
+
+
+def estimateFeatureImportances(analyze=True, pick=True):
+    ### Start with a model we like after our experience w/ searchTreeParams
+    ### Train and score the model
+    ### Predict Y, but shuffle values of one feature at a time in one mass bin at a time.
+    ### Record score reduction at each shuffle.
+    ### Plot score reduction as fn of mass for each feature.
+    from sklearn.metrics import r2_score
+
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad05_to_lasso_fix.txt') # no need to feed in arr, since we're just reading the data once.
+    nsamples = np.shape(X_train_orig)[0]
+    nfeatures = np.shape(X_train_orig)[1]
+
+    # 10x cross-validation
+    nmasses = 1 # debug
+    ntargets = np.shape(Ys_train_orig)[1] # len(labels)
+    #ntargets=2 # debug
+    ncv =  1 # for debuggerino
+    neval = 10
+    scores = np.zeros((nfeatures, nmasses, ntargets))
+    r2scores = np.zeros(ntargets)
+    feature_importances = np.zeros((nfeatures, ntargets))
+    derivs_mass = np.zeros((nfeatures,ntargets, nmasses))
+    predictions_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
+    ordinates_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
+
+    #feature_names = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC"]
+    feature_names = [r'$M_{h,0}$', r'$r_\mathrm{acc}/R_v$', r'$r_{\mathrm{acc},0}/r_{*,0}$',  r'$r_{\mathrm{acc},0}/r_{g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{quench}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$']
+    texlabels = labels[:]
+    for i in range(nfeatures-len(feature_names)):
+        #feature_names.append("AccHist"+str(i))
+        feature_names.append(r'$\dot{M}_'+str(i)+r'$')
+
+
+    for k in range(ntargets):
+        for cvi in range(ncv):
+            ### Select a random subset of the X_train to be the validation set for this iteration
+            validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1))
+            vi = [int(v) for v in validationIndices]
+            validationSample = np.array([ss in vi for ss in range(nsamples)])
+            X_validate = X_train_orig.copy()[validationSample, :]
+            X_train = X_train_orig.copy()[np.logical_not(validationSample), :]
+            Ys_validate = Ys_train_orig.copy()[validationSample,:]
+            Ys_train = Ys_train_orig.copy()[np.logical_not(validationSample),:]
+
+            # Regularize the input and output vectors to give the learning algorithm an easier time
+            Xtra = xtransform(X_train)
+            X_train = Xtra.transform(X_train)
+            X_validate = Xtra.transform(X_validate)
+            X_test = Xtra.transform(X_test_orig.copy()) 
+
+            Ytra = xtransform(Ys_train)
+            Ys_train = Ytra.transform(Ys_train)
+            Ys_validate = Ytra.transform(Ys_validate)
+            Ys_test = Ytra.transform(Ys_test_orig.copy())
+
+
+            # k=8 corresponds to z=0 sfr. Try really hard to get this right!
+            errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
+            if pick:
+                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+
+            if analyze: 
+                feature_importances[:,k] += feature_importances_this[:]/float(ncv)
+                massmin, massmax = np.min(X_train[:,0]), np.max(X_train[:,0])
+                massminOrig, massmaxOrig = np.min(X_train_orig[:,0]), np.max(X_train_orig[:,0])
+                massbins = np.linspace(massminOrig, massmaxOrig, num=nmasses+1)
+                bincenters = (massbins[1:]+massbins[:-1])/2.0
+                acc = r2_score(Ys_validate[:,k], theModel.predict(X_validate))
+                r2scores[k]+=acc/float(ncv)
+                print "r2 score, errors: ",cvi, acc, errors_train_this, errors_validate_this, errors_test_this
+
+                for nm in range(nmasses):
+                    binmin = massmin + (massmax-massmin)*float(nm)/float(nmasses)
+                    binmax = massmin + (massmax-massmin)*float(nm+1)/float(nmasses)
+                    binselec = np.logical_and( X_validate[:,0]>binmin, X_validate[:,0]<binmax )
+
+                    #Xvm = X_validate[binselec,:]
+                    #Yvm = Ys_validate[binselec,:]
+                    for nfi in range(nfeatures):
+
+                        X_construct_0 = np.mean(Xtra.inverseTransform(X_validate[binselec,:]), axis=0)
+                        X_construct_min = np.min(Xtra.inverseTransform(X_validate[binselec,:]), axis=0)
+                        X_construct_max = np.max(Xtra.inverseTransform(X_validate[binselec,:]), axis=0)
+                        X_construct_1 = X_construct_0.copy()
+                        X_construct_1[nfi] = X_construct_1[nfi]*1.1
+                        y1 = Ytra.inverseTransform(theModel.predict( Xtra.transform( X_construct_1.reshape(1,nfeatures)) ))[0,k]
+                        y0 = Ytra.inverseTransform(theModel.predict( Xtra.transform( X_construct_0.reshape(1,nfeatures)) ))[0,k]
+                        val = (y1-y0)/(X_construct_1[nfi] - X_construct_0[nfi])
+                        derivs_mass[nfi,k,nm] = val
+                        
+                        for ne in range(neval):
+                            xnfi = X_construct_min[nfi] + (X_construct_max[nfi]-X_construct_min[nfi])*float(ne)/float(neval-1)
+                            X_construct_1[nfi] = xnfi
+                            predictions_mass[nfi,k,nm,ne] = Ytra.inverseTransform(theModel.predict( Xtra.transform( X_construct_1.reshape(1,nfeatures))))[0,k]
+                            ordinates_mass[nfi,k,nm,ne] = xnfi
+
+
+                        X_v = X_validate.copy()
+                        X_vb = X_v[binselec,:]
+                        X_vnb = X_v[np.logical_not(binselec),:]
+                        #pdb.set_trace()
+                        np.random.shuffle(X_vb[:,nfi])
+                        X_v[binselec,nfi] = X_vb[:,nfi]
+                        shuffle_acc = r2_score(Ys_validate[:,k], theModel.predict(X_v))
+                        scores[nfi,nm,k] += ((acc-shuffle_acc)/acc)/float(ncv)
+
+
+
+        if analyze:
+            try:
+                fig,ax = plt.subplots()
+                #colors = [(1.0-0.9*float(i)/float(nfeatures), 0.7, 0.1+0.9*float(i)/float(nfeatures)) for i in range(nfeatures)]
+                meanscores = np.mean(scores[:,:,k], axis=1)
+                sortedscores = sorted(meanscores)[::-1]
+                importantfeatures = []
+                for impfi in range(len(meanscores)):
+                    if meanscores[impfi] in sortedscores[:3]:
+                        importantfeatures.append(impfi)
+                #for nfi in range(nfeatures):
+                    #if np.mean(scores[nfi,:,k])>0.004:
+                for nfi in np.array(importantfeatures).flatten():
+                    ax.plot(bincenters, scores[nfi,:,k], label=feature_names[nfi])
+                ax.text( np.max(bincenters)*0.8, np.max(scores[:,:,k])*0.8, r'$R^2 = $'+str(r2scores[k])[:5] )
+                ax.set_yscale('log')
+                ax.set_xlabel(r'$\log_{10} M_{h,0}$')
+                ax.set_ylabel('Mean decrease accuracy')
+                ax.legend(loc=0)
+                plt.savefig('feature_importances_'+labels[k]+'.png')
+                plt.close(fig)
+
+
+                fig,ax = plt.subplots()
+                #for nfi in range(nfeatures):
+                #    if np.mean(scores[nfi,:,k])>0.004:
+                for nfi in np.array(importantfeatures).flatten():
+                    y = derivs_mass[nfi,k,:]
+                    print "y: ",y
+                    ax.plot(bincenters, y, label=feature_names[nfi])
+                ax.set_xlabel(r'$\log_{10} M_{h,0}$')
+                ax.set_ylabel(r'$\partial$'+labels[k]+r'$/\partial$ feature')
+                ax.legend(loc=0)
+                plt.savefig('feature_derivs_'+labels[k]+'.png')
+                plt.close(fig)
+
+                #for nfi in range(nfeatures):
+                for nfi in np.array(importantfeatures).flatten():
+                    fig,ax = plt.subplots()
+                    for nm in range(nmasses):
+                        y = predictions_mass[nfi,k,nm, :]
+                        x = ordinates_mass[nfi,k,nm, :]
+                        ax.plot(x, y, label='Mass Bin '+str(nm))
+                    ax.set_xlabel(feature_names[nfi])
+                    ax.set_ylabel(labels[k])
+                    ax.legend(loc=0)
+                    plt.savefig('feature_predictions_'+str(nfi)+'_'+labels[k]+'.png')
+                    plt.close(fig)
+
+            except:
+                print "FAILED to make plots for k=",k
+
+    if analyze:
+        printFeatureImportances(feature_importances.T*10.0, r2scores, feature_names, texlabels)
+        printTable(feature_importances.T*10.0, feature_names, texlabels, fn='feature_importances.tex')
+        printTable(np.mean(scores,axis=1).T, feature_names, texlabels, fn='avg_swap_scores.tex')
+
+    #print "Average feature importances from skl: ",feature_importances
+
+def printFeatureImportances(arr, rsquared, feature_names, texLabels, fn='feature_importance_compact.tex'):
+    assert len(np.shape(arr))==2
+    nrows, ncols = np.shape(arr)
+    #if not (nrows==len(rownames) and ncols==len(columnnames)):
+    #    pdb.set_trace()
+
+    with open(fn,'w') as f:
+        f.write( r'\begin{table*}'+'\n' )
+        f.write( r'\tiny'+'\n' )
+        f.write( r'\begin{tabular}{'+'l'*(5+1+1)+r'}'+'\n' )
+        #line = r' '
+        #for i in range(ncols):
+        #    line+= r' & '+columnnames[i]
+        line = r' & 0 & 1 & 2 & 3 & 4' ## the 5 most important features and their scores
+        line+=r'\\'+'\n'
+        f.write(line)
+        f.write(r'\hline'+'\n')
+        f.write(r'\hline'+'\n')
+        for j in range(nrows):
+            if j<=80 or ( j>80 and j%5==0 ):
+                # only do the radially resolved quantities at a few points 
+                line = rownames[j]
+                #for i in range(ncols):
+                zipped = zip(arr[j,:], range(ncols))
+                zsorted = sorted(zipped, key=lambda x: x[1])
+                for i in range(5):
+                    line += r' & '+columnnames[zsorted[i][1]] + r': ' + str(np.round(zsorted[i][0],4)) 
+                line+= r'& R$^2 = $'+str(np.round(rsquared[j],4))+r' \\'+'\n'
+                f.write(line)
+        f.write(r'\end{tabular}'+'\n')
+        f.write(r'\end{table*}'+'\n')
+
+def searchTreeParams(maxiter = 1000):
+    ntrees, max_depth, min_per_leaf, naccr = 200, 1240, 3, 5 # initial guesses
+    hyperparams = [ ntrees, max_depth, min_per_leaf, naccr ]
+    hyperparambounds = [[3, 2000], [2, 30000], [1,200], [1,1000]]
+
+    history = np.zeros( (len(hyperparams)+3, maxiter) )
+    standardErrors = np.zeros( (3,maxiter) )
+
+    arr = np.loadtxt('broad567.txt')
+
+    def trial(hyperparams):
+        print "Beginning trial with hyperparams: ", hyperparams
+        X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.85, validateFrac=0, naccr=int(hyperparams[3]), arr=copy.deepcopy(arr), fn='broad567.txt')
+        ### Select a random subset of the X_train to be the validation set for this iteration
+        nsamples = np.shape(X_train)[0]
+        validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1))
+        vi = [int(v) for v in validationIndices]
+        validationSample = np.array([k in vi for k in range(nsamples)])
+        X_validate = X_train[validationSample, :]
+        X_train = X_train[np.logical_not(validationSample), :]
+        Ys_validate = Ys_train[validationSample,:]
+        Ys_train = Ys_train[np.logical_not(validationSample),:]
+
+        # Regularize the input and output vectors to give the learning algorithm an easier time
+        Xtra = xtransform(X_train)
+        X_train = Xtra.transform(X_train)
+        X_validate = Xtra.transform(X_validate)
+        X_test = Xtra.transform(X_test)
+
+        Ytra = xtransform(Ys_train)
+        Ys_train = Ytra.transform(Ys_train)
+        Ys_validate = Ytra.transform(Ys_validate)
+        Ys_test = Ytra.transform(Ys_test)
+
+
+        # k=8 corresponds to z=0 sfr. Try really hard to get this right!
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=int(hyperparams[0]), k=8, max_depth=int(hyperparams[1]), max_features='auto', min_per_leaf=int(hyperparams[2]) )
+
+        return errors_train_this, errors_validate_this, errors_test_this, np.std(Ys_train[:,8]), np.std(Ys_validate[:,8]), np.std(Ys_test[:,8])
+
+    # initialize history
+    history[:-3,0] = hyperparams[:]
+    history[-3,0] = 100
+    history[-2,0] = 100
+    history[-1,0] = 100
+    nacceptances=0
+
+    for i in np.arange(1,maxiter):
+        proposal = np.array(hyperparams) * np.power(10.0, np.random.normal(0,1,size=len(hyperparams))*0.05) # log-normal w/ 10% variance
+        # clean up the proposal: make sure it's in bounds and is composed of integers
+        for k in range(len(hyperparams)):
+            if proposal[k]>hyperparambounds[k][1]:
+                proposal[k] = hyperparambounds[k][1]
+            if proposal[k]<hyperparambounds[k][0]:
+                proposal[k] = hyperparambounds[k][0]
+
+        tre, ve, tee, sTr, sV, sTe = trial(proposal)
+        standardErrors[0,i] = sTr
+        standardErrors[1,i] = sV
+        standardErrors[2,i] = sTe
+        accept=False
+        # if this trial is better (in the sense that its validation error is lower), accept it
+        if ve < history[-2,i-1]:
+            accept=True
+        # even if this trial is worse, accept with a probability which gets drastically lower as ve gets worse
+        #if np.power(history[-2,i-1]/ve, 8) > np.random.uniform():
+        #    accept=True
+        if np.power(10.0, (history[-2,i-1]-ve)/0.003) > np.random.uniform():
+            accept=True
+
+        if accept:
+            hyperparams = copy.deepcopy(proposal)
+            history[:-3,i] = copy.deepcopy(proposal)
+            history[-3,i] = tre
+            history[-2,i] = ve
+            history[-1,i] = tee
+            nacceptances += 1
+        else:
+            history[:,i] = copy.deepcopy(history[:,i-1])
+        print "finished iteration ",i," of ",maxiter," acceptance fraction = ",float(nacceptances)/float(i)
+
+    # now plot the results
+    fig,ax = plt.subplots(5,1, figsize=(8,12))
+    for i in range(len(hyperparams)):
+        ax[i].plot(history[i,:], c='k')
+    color=[ 'k', 'r', 'b']
+    labels=[ 'train', 'validate', 'test']
+    for i in range(3):
+        ax[4].plot(history[4+i,1:], c=color[i], label=labels[i])
+        ax[4].plot(standardErrors[i,1:], ls='--', color=color[i])
+    ax[0].set_ylabel('Number of Trees')
+    ax[1].set_ylabel('Maximum Depth')
+    ax[2].set_ylabel('Minimum per Leaf')
+    ax[3].set_ylabel('Number of Accretion Divisions')
+    ax[4].set_ylabel('Errors')
+    ax[4].set_xlabel('Number of Iterations')
+    plt.legend()
+    plt.savefig('searchTreeParams.png')
+    plt.close(fig)
+
+
+
 
 def validateRF():
-    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.25, validateFrac=0.1)
+    X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=0.85, validateFrac=0.1)
 
     labels = labels[:80] # only look at first 80 variables for the moment
     # nfeatures = [100,1000,10000,100000] # 3 just to test something out
-    ntrees = [200]
-    max_depths = [10, 40, 160 ]
+    ntrees = [400]
+    max_depths = [ 640 ]
     max_features = ['auto'] 
+    min_per_leaf = [ 6 ]
     #max_features = ['dummy']
 
     ## Transform the ordinates to (perhaps) improve behavior of the fitting algorithms
-    tra = xtransform(X_train)
-    X_train = tra.transform(X_train)
-    X_validate = tra.transform(X_validate)
-    X_test = tra.transform(X_test)
+    Xtra = xtransform(X_train)
+    X_train = Xtra.transform(X_train)
+    X_validate = Xtra.transform(X_validate)
+    X_test = Xtra.transform(X_test)
+
+    Ytra = xtransform(Ys_train)
+    Ys_train = Ytra.transform(Ys_train)
+    Ys_validate = Ytra.transform(Ys_validate)
+    Ys_test = Ytra.transform(Ys_test)
 
 
-
-    errors_train = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
-    errors_validate = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
-    errors_test = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
+    errors_train = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features), len(min_per_leaf)))
+    errors_validate = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features), len(min_per_leaf)))
+    errors_test = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features), len(min_per_leaf)))
     #residuals_test = np.zeros((len(labels), len(ntrees), len(max_depths), len(max_features)))
-    model_array = np.empty((len(labels), len(ntrees), len(max_depths), len(max_features)), dtype=object)
+    model_array = np.empty((len(labels), len(ntrees), len(max_depths), len(max_features), len(min_per_leaf)), dtype=object)
     #ridge_coefs = np.zeros( (len(labels), np.shape(X_train)[1]-19) )
     #lasso_coefs = np.zeros( (len(labels), 19) )
-    feature_importances = np.zeros((len(labels), np.shape(X_train)[1], len(ntrees), len(max_depths), len(max_features)))
+    feature_importances = np.zeros((len(labels), np.shape(X_train)[1], len(ntrees), len(max_depths), len(max_features), len(min_per_leaf)))
     print "lasso_coefs shape: ", np.shape(feature_importances)
     minIs = np.zeros( len(labels), dtype=int )
     minJs = np.zeros( len(labels), dtype=int )
     minQs = np.zeros( len(labels), dtype=int )
+    minRs = np.zeros( len(labels), dtype=int )
     minValErrors = np.zeros( len(labels) ) + 1.0e30
     for i, ntree in enumerate(ntrees):
         for j, max_depth in enumerate(max_depths):
             for q, max_feature in enumerate(max_features):
-                for k,label in enumerate(labels):
-                    errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=ntree, k=k, max_depth=max_depth, max_features=max_feature )
-                    errors_train[k,i,j,q] = errors_train_this
-                    errors_validate[k,i,j,q] = errors_validate_this
-                    errors_test[k,i,j,q] = errors_test_this
-                    feature_importances[k,:, i,j,q] = feature_importances_this[:]
-                    model_array[k,i,j,q] = theModel
+                for rr, minpl in enumerate(min_per_leaf):
+                    for k,label in enumerate(labels):
+                        errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=ntree, k=k, max_depth=max_depth, max_features=max_feature, min_per_leaf=minpl )
+                        errors_train[k,i,j,q,rr] = errors_train_this
+                        errors_validate[k,i,j,q,rr] = errors_validate_this
+                        errors_test[k,i,j,q,rr] = errors_test_this
+                        feature_importances[k,:, i,j,q,rr] = feature_importances_this[:]
+                        model_array[k,i,j,q,rr] = theModel
     for i in range(len(ntrees)):
         for j in range(len(max_depths)):
             for q in range(len(max_features)):
-                for k in range(len(labels)):
-                    if errors_validate[k,i,j,q] < minValErrors[k]:
-                        minValErrors[k] = errors_validate[k,i,j,q]
-                        minIs[k] = i
-                        minJs[k] = j
-                        minQs[k] = q
+                for rr in range(len(min_per_leaf)):
+                    for k in range(len(labels)):
+                        if errors_validate[k,i,j,q,rr] < minValErrors[k]:
+                            minValErrors[k] = errors_validate[k,i,j,q,rr]
+                            minIs[k] = i
+                            minJs[k] = j
+                            minQs[k] = q
+                            minRs[k] = rr
     models = []
     for k in range(len(labels)):
+        yvar = np.std(Ys_train[:,k])
         # For each dependent variable, show number of lasso coeffs, minimum validation error, corresponding training error, mean/std of ridge coeffs.
         print '--------'
         print labels[k]
-        print ntrees[minIs[k]], max_depths[minJs[k]], max_features[minQs[k]], errors_test[k,minIs[k],minJs[k],minQs[k]], minValErrors[k], errors_train[k,minIs[k],minJs[k],minQs[k]] #,  lasso_coefs[k,:,minIs[k]]
-        models.append( model_array[k, minIs[k], minJs[k], minQs[k]] )
+        print ntrees[minIs[k]], max_depths[minJs[k]], max_features[minQs[k]], min_per_leaf[minRs[k]], errors_test[k,minIs[k],minJs[k],minQs[k],minRs[k]]/yvar, minValErrors[k]/yvar, errors_train[k,minIs[k],minJs[k],minQs[k],minRs[k]]/yvar, yvar #,  lasso_coefs[k,:,minIs[k]]
+        models.append( model_array[k, minIs[k], minJs[k], minQs[k], minRs[k]] )
 
-    pickle.dump(models, open('validatedRF.pickle', 'w'))
+    pickle.dump(models, open('validatedRFdeep.pickle', 'w'))
     return models 
 
 
@@ -1547,17 +2088,41 @@ if __name__=='__main__':
     #appendLabels()
     #ksTestAnalysis()
     #learnLasso(alpha=1.0e-3)
-    validateLasso()
+    #validateLasso()
     #validateRF()
     #validateLassoRidge()
 
-    #runEmcee()
-    fractionalVariancePlot()
+    #searchTreeParams(400)
+    #searchLinearModels(800)
+
+    #runEmcee(mpi=True, continueRun=True)
+    #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 
     #validateNPR()
     #plotResiduals()
 
+    #estimateFeatureImportances(analyze=False, pick=True) # just generate the pickled models 
+    #estimateFeatureImportances(analyze=True, pick=False) # just generate the pickled models 
+    
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 
     #appendLikelihood()
+
+    ### analyze the fake mcmc run
+    if True:
+        restart={}
+        updateRestart('fakemcmc_restart.pickle', restart)
+        printRestart(restart)
+        tracePlots(restart, 'fakemcmc_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc_allProb', burnIn=0)
+        #trianglePlot(restart,'fakemcmc_triangle.png', burnin=50, nspace=10)
+
+        # Find the maximum among all models sampled so far.
+        allProbs = restart['allProbs'].flatten()
+        index = np.argmax(allProbs)
+        print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
+        print allProbs[index]
+        indices = np.unravel_index(index, np.shape(restart['allProbs']))
+        xmax = restart['chain'][indices[0],indices[1],:]
+        print "Favorite coordinates: ", xmax

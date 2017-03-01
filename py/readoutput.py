@@ -370,11 +370,11 @@ class SingleModel:
                         age = np.zeros((NABp1, self.nsteps))
                         startingAge = np.zeros((NABp1, self.nsteps))
                         endingAge = np.zeros((NABp1, self.nsteps))
-                        col = np.zeros((NABp1, self.nsteps, self.p['nx']))
-                        sigR = np.zeros((NABp1, self.nsteps, self.p['nx']))
-                        sigZ = np.zeros((NABp1, self.nsteps, self.p['nx']))
-                        Zst = np.zeros((NABp1, self.nsteps, self.p['nx']))
-                        VarZst = np.zeros((NABp1, self.nsteps, self.p['nx']))
+                        col = np.zeros((NABp1, self.nsteps, nnx))
+                        sigR = np.zeros((NABp1, self.nsteps, nnx))
+                        sigZ = np.zeros((NABp1, self.nsteps, nnx))
+                        Zst = np.zeros((NABp1, self.nsteps, nnx))
+                        VarZst = np.zeros((NABp1, self.nsteps, nnx))
                     for j in range(sz):
                         temp = np.fromstring( stars.read(8*1))
                         age[j,i] = temp[0]

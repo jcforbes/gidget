@@ -134,7 +134,8 @@ class DiskContents {
   // A few self-explanatory functions...
   double GetDlnx() {return dlnx;};
   double GetMinSigSt() { return minsigst; };
-  double GetRfREC() {return RfREC; };
+  double GetRfRECinst() {return RfRECinst; };
+  double GetRfRECasym() {return RfRECasym; };
   std::vector<double>& GetX() {return x;};
   std::vector<double>& GetUu() { return uu;};
   std::vector<double>& GetBeta() {return beta;};
@@ -344,7 +345,12 @@ class DiskContents {
   double MHalo;
 
   // parameters controlling the instantaneous recycling approx.
-  double yREC, RfREC, xiREC; 
+  // RfREC is split into inst (instantaneous) and asymptotic (asym).
+  //  the former is the short-term remnant fraction. This is arbitrary/for numerical reasons < 1. For
+  //  a truly non-instantaneous recycling process, we'd just set this to 1 and let the stellar population
+  //  return material as needs be.
+  //  asym is the long-term remnant fraction - how much remains after a long (cosmological) timescale.
+  double yREC, RfRECinst, RfRECasym, xiREC; 
   
   double Z_IGM; // absolute units
 

@@ -549,9 +549,9 @@ def NewSetOfExperiments(copyFrom, name, N=1):
 
 
 def experFromBroadMCMC(emceeparams, name=None):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
 
-    Mhz0 = list(np.power(10.0, np.linspace(10.5,14,30)))
+    Mhz0 = list(np.power(10.0, np.linspace(10.0,14,100)))
 
     # create experiment
     
@@ -598,13 +598,17 @@ def experFromBroadMCMC(emceeparams, name=None):
     rat4 = 1.0/(1.0/fgz4 - 1.0)
     rat4 *= fg0mult # double the gas content
     fgUsed =1.0/(1.0/rat4 + 1.0)*(1.0*weight1+1.0*weight2) 
+    assert np.all(fgUsed<=1.0)
     thisexper.irregularVary( 'fg0', list(fgUsed), 5)
     thisexper.irregularVary( 'Mh0', list(Mhz0), 5)
     fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (0.8*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
+
+    if not np.all(fcools<=1.0):
+        pdb.set_trace()
     thisexper.irregularVary('fcool', list(fcools), 5)
     thisexper.irregularVary('NChanges', 1001)
 
-    width = 0.4/100000.0
+    width = 0.1
     asls = raccRvir*np.power(10.0, np.random.normal(0,1,len(Mhz0))*width)
     #if asls<0.005:
     #    asls=0.005
@@ -617,7 +621,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('Noutputs',400)
     thisexper.irregularVary('zstart',3.98)
     thisexper.irregularVary('zrelax',4.0)
-    thisexper.irregularVary('muNorm', list(0.005*muNorm*np.power(Mhz0/1.0e12,-1.0)), 5)
+    thisexper.irregularVary('muNorm', list(0.005*muNorm*np.power(Mhz0/1.0e12,muMhScaling)), 5)
     thisexper.irregularVary('muFgScaling', muFgScaling)
     thisexper.irregularVary('muColScaling', muColScaling)
     thisexper.irregularVary('fscatter', 1.0)
@@ -2519,25 +2523,76 @@ if __name__ == "__main__":
     rf59[0].irregularVary('minSigSt', 10.0)
 
     logVars = [ 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0]
-    emceeparams = [-0.95820208,  0.12281711,  0.1966165,  -0.78667301,  0.00973009, 3.31282354, 0.10012698,  0.04621494,  0.55814651,  0.98668778,  0.18025846, -0.71183777, -0.29659053,  0.28670522,  0.9971759,   1.66382228,  0.42225522]
-    for i,lg in enumerate(logVars):
-        if lg==1:
-            emceeparams[i]=10.0**emceeparams[i]
-    rf60 = experFromBroadMCMC(emceeparams, name='rf60')
+#    emceeparams = [-0.95820208,  0.12281711,  0.1966165,  -0.78667301,  0.00973009, 3.31282354, 0.10012698,  0.04621494,  0.55814651,  0.98668778,  0.18025846, -0.71183777, -0.29659053,  0.28670522,  0.9971759,   1.66382228,  0.42225522]
+#    for i,lg in enumerate(logVars):
+#        if lg==1:
+#            emceeparams[i]=10.0**emceeparams[i]
+#    rf60 = experFromBroadMCMC(emceeparams, name='rf60')
+#
+#
+#    emceeparams = [-0.94768456, 0.33098108, -0.6839395, 0.81062651, 0.85924765, -0.78581627, 0.15923048, -0.07639685, 0.4621238, -0.01500173, 0.14515758, -2.04099439, -2.26236079, 0.41038537, 0.1742757, 1.35731629, 0.57266408]
+#    for i,lg in enumerate(logVars):
+#        if lg==1:
+#            emceeparams[i]=10.0**emceeparams[i]
+#    rf61 = experFromBroadMCMC(emceeparams, name='rf61')
+#
+#    emceeparams = [-0.54814292, 0.2800687, 0.82856872, -0.30015427, -1.13556896, -0.13497688, -0.57514515, -0.10468448, 0.23392629, -0.0296846, -0.38837726, -0.8771524, -6.868443, 0.90627398, -0.04635603, -1.14274305, 0.56011981]
+#    for i,lg in enumerate(logVars):
+#        if lg==1:
+#            emceeparams[i]=10.0**emceeparams[i]
+#    rf62 = experFromBroadMCMC(emceeparams, name='rf62')
+
+    #emceeparams = [0.26995166, 1.70114322, 2.30873267, 0.27856887, 0.33193819, -0.24731145, 1.6723297, 2.45477307, 0.50113889, 1.51510048, 1.5418113, 0.044828, 0.01765032, 0.55969964, 0.42431146, 1.19370591, 0.20405244 ]
+    emceeparams = [ 1.67282517e-01,   4.28844668e+00,   1.36805656e+00,   2.69675101e+00, -4.16293369e-01,  -1.14871782e-01,   3.43607914e+00,   3.00678314e+00, 1.73255938e-01,   1.18432465e+00,   1.46326173e+00,   5.22146369e-02, 4.15303418e-03,   4.87055898e-01,   3.25786672e-01,   7.03059668e-01,
+   3.20891765e-01]
+    #for i,lg in enumerate(logVars):
+    #    if lg==1:
+    #        emceeparams[i]=10.0**emceeparams[i]
+    #rf63 = experFromBroadMCMC(emceeparams, name='rf63')
+
+    # include 0.3 dex scatter in accretion radius
+    #rf64 = experFromBroadMCMC(emceeparams, name='rf64')
+
+    # include 0.1 dex scatter in accretion radius
+    #rf65 = experFromBroadMCMC(emceeparams, name='rf65')
 
 
-    emceeparams = [-0.94768456, 0.33098108, -0.6839395, 0.81062651, 0.85924765, -0.78581627, 0.15923048, -0.07639685, 0.4621238, -0.01500173, 0.14515758, -2.04099439, -2.26236079, 0.41038537, 0.1742757, 1.35731629, 0.57266408]
-    for i,lg in enumerate(logVars):
-        if lg==1:
-            emceeparams[i]=10.0**emceeparams[i]
-    rf61 = experFromBroadMCMC(emceeparams, name='rf61')
+    # include 0.15 dex scatter in accretion radius
+    #rf66 = experFromBroadMCMC(emceeparams, name='rf66')
 
-    emceeparams = [-0.54814292, 0.2800687, 0.82856872, -0.30015427, -1.13556896, -0.13497688, -0.57514515, -0.10468448, 0.23392629, -0.0296846, -0.38837726, -0.8771524, -6.868443, 0.90627398, -0.04635603, -1.14274305, 0.56011981]
-    for i,lg in enumerate(logVars):
-        if lg==1:
-            emceeparams[i]=10.0**emceeparams[i]
-    rf62 = experFromBroadMCMC(emceeparams, name='rf62')
-    
+    # steepen dependence of muNorm on halo mass.
+    emceeparams = [ 1.67282517e-01,   4.28844668e+00,   1.36805656e+00,   2.69675101e+00, -4.16293369e-01,  -1.14871782e-01,   3.43607914e+01,   3.00678314e+00, 1.73255938e-01,   1.18432465e+00,   1.46326173e+00,   5.22146369e-02, 4.15303418e-03,   4.87055898e-01,   3.25786672e-01,   7.03059668e-01,
+   3.20891765e-01]
+    #rf67 = experFromBroadMCMC(emceeparams, name='rf67')
+
+
+    emceeparams = [  1.81771436e-01, 2.40347748e+00, 2.49619543e+00, 1.76206344e+00, 3.28755338e-02, -5.28290494e-01, 5.98066114e+00, 3.66100610e-01, 3.90118770e-01, 1.09498184e+00, 1.43065291e+00, 4.29138804e-02, 3.80797987e-03, 3.81670627e-01, 2.04179431e-01, 2.74669519e+00, 3.51085258e-01] 
+    #rf68 = experFromBroadMCMC(emceeparams, name='rf68')
+
+    emceeparams = [2.48980815e-01, 2.53913046e+00, 1.94713503e+00,  1.73487193e+00, 1.22752777e-01, 1.89173574e-01, 8.57394429e+01, -9.46127811e-01, 3.09692786e+00, 6.24628784e-01, 1.15853145e+00, 1.62254103e+00, 1.03954926e-01, 8.14383174e-03, 6.01172382e-01, 3.44383014e-01, 2.96100846e+00, 3.88973404e-01]
+    rf69 = experFromBroadMCMC(emceeparams, name='rf69')
+
+    emceeparams = [1.73170283e-01,   2.14054038e+00,   1.83573302e+00,  2.61271723e+00, 7.30987984e-01, 1.32267757e+00, 2.24417353e+00,  -5.28408649e-01, 1.24067677e+00, 7.51881042e-01, 1.43512791e+00,   1.22244535e+00, 1.21011874e-01, 4.10263377e-04, 4.81557504e-01, 3.69617294e-01, 5.54974644e-01, 3.58057205e-01 ]
+    rf70 = experFromBroadMCMC(emceeparams, name='rf70')
+
+    emceeparams[-3] = -0.1 # adjust the offset in the concentration relation
+    rf71 = experFromBroadMCMC(emceeparams, name='rf71')
+
+    emceeparams[7] = -0.4284  # adjust the scaling of MLF with halo mass
+    rf72 = experFromBroadMCMC(emceeparams, name='rf72')
+
+
+    # the optimizer found a better fit!
+    emceeparams = [0.11179691,  3.97940566,  1.11597102,  3.81029117,  1.07708097,  2.34905049,
+  0.21486323, -1.94169391,  1.24917886,  0.90404624,  2.59248226,  1.12908429,
+  0.06523725,  0.04544116,  0.31328032,  0.32170412,  0.57426263,  0.02801333]
+    rf73 = experFromBroadMCMC(emceeparams, name='rf73')
+
+    rf74 = NewSetOfExperiments( rf73, 'rf74')[0]
+    rf74.irregularVary('RfREC', 0.9)
+    rf74.irregularVary('dbg', 2**4 + 2**1 + 2**0 + 2**13 + 2**7 + 2**6)
+
+
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())
         # for each such key (aModel) check whether this inputString is contained in its name

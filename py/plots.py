@@ -18,7 +18,7 @@ def makeThePlots(args):
     if(args.angularMomentum):
         AMargs = ['colTr','r','vPhi','dA']
     if(args.quick):
-        MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl']
+        MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov']
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)

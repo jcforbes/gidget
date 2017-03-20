@@ -112,7 +112,8 @@ void StellarPop::ComputeRecycling(DiskContents& disk, double z)
     unsigned int nx=spcol.size()-1;
     double C0 = 0.046;
     double lambda = 2.76e5 * speryear;
-    double RfREC = disk.GetRfREC();
+    double RfREC = disk.GetRfRECinst();
+    // double RfREC = 0.9; //// override the user.
     // At this time step, frac will be ~constant over the whole disk.
     double frac = C0/((ageAtz0 - disk.GetCos().lbt(z) + lambda)*disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));
     // RfREC is an input parameter, namely the remnant fraction.

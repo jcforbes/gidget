@@ -1,4 +1,5 @@
 import numpy as np
+import time
 import os
 import copy
 import pickle
@@ -12,7 +13,7 @@ from sklearn import svm, linear_model, ensemble
 #from pyqt_fit import npr_methods
 
 # Useful information about the setup of the linear models and their fits....
-logVars = [1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0]
+logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0]
 logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
 logRadials = [1,1,1,1,1,1]
 #logVars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -230,19 +231,118 @@ class lassoRidge:
 #
 #        return lassoVariance/overallVariance, ridgeVariance/overallVariance, unexplainedVariance/overallVariance, overallVariance
 
-def lnlikelihood(emceeparams, models):
+def fakeEmceeResiduals(emceeparams, models):
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
-    nmh = 5
-    MhGrid = np.power(10.0, np.linspace(10.5,14,nmh))
+    nmh = 10 
+    MhGrid = np.power(10.0, np.linspace(10.0,14,nmh))
     lnlik = 0.0
+
+    residuals=[]
     for k,Mh in enumerate(MhGrid):
         X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
         for i in range(len(logVars)):
             # Take the log of the input variable if it makes sense to do so
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
-        Y_eval = np.array( [models[j].predictFill(X1)[0][j] for j in range(80)] ).reshape(1,80)
+        Y_eval = np.array( [predictFill(models[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
+        residuals.append( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=False) )
+
+    return residuals 
+
+def residualsFromGidget(bn, fh=0.3):
+    ''' Read in models with basename bn and construct "Y_eval," then pass that to the globalLikelihood fn. You also need to specify a value for fh, the fraction of mStellarHalo to be included in mstar. '''
+    import readoutput
+    output = readoutput.Experiment(bn) 
+    output.read(keepStars=True, fh=0)
+
+    # borrow some code from mcmc_broad.py on hyades.
+    zinds = [readoutput.Nearest( output.models[0].var['z'].sensible(), z)[0] for z in [0,1,2,3]]
+    residuals=[]
+    mhs = []
+    variables = ['Mh', 'mstar', 'sSFR', 'sfZ', 'stZ', 'gasToStellarRatioH2', 'gasToStellarRatioHI', 'halfMassStars', 'vPhi22', 'c82', 'Sigma1', 'specificJStars', 'metallicityGradientR90', 'maxsig', 'mdotBulgeG', 'fractionGI', 'tdep', 'tDepH2', 'broeilsHI', 'mStellarHalo'] ## variables to read from the gidget models
+    for model in output.models:
+        Y_eval = np.zeros((1,80))
+        for j in range(len(variables)):
+            for k in range(nz):
+                Y_eval[0, j*nz+k ] = model.var[variables[j]].sensible(timeIndex=zinds[k])
+        for ii in range(80):
+            if logPreds[ ii/4 ] == 1:
+                Y_eval[0, ii] = np.log10(Y_eval[0,ii])
+        residuals.append( globalLikelihood(Y_eval, fh=fh, returnlikelihood=False) )
+
+        mhs.append(model.var['Mh'].sensible(timeIndex=zinds[0]))
+    return mhs, residuals
+
+
+def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None):
+    models = [ pickle.load( open( 'rfnt09_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+
+    # Find the maximum among all models sampled so far.
+    allProbs = restart['allProbs'].flatten()
+    zipped = zip(allProbs, range(len(allProbs)))
+    zsorted = sorted(zipped, key=lambda x: -x[0])
+    highProbInds = [zsorted[i][1] for i in range(10)]
+
+    labels = ['SMHM 0', 'SMHM 1', 'SMHM 2', 'SMHM 3', 'sSFR 0', 'sSFR 1', 'sSFR 2', 'sSFR 3', 'Zst', 'Zg 0', 'Zg 1', 'Zg 2', 'Zg 3', 'fH2 0', 'fH2 1', 'fH2 2', 'fH2 3', 'fHI 0', 'Sigma1 0', 'Sigma1 1', 'Sigma1 2', 'Sigma1 3', 'Rst 0', 'Rst 1', 'Rst 2', 'Rst 3', 'RHI', 'c82', 'TF']
+
+    fig,ax = plt.subplots(nrows=5, ncols=6, figsize=(14,14))
+
+    for i in range(5):
+        indices = np.unravel_index(highProbInds[i], np.shape(restart['allProbs']))
+        xmax = restart['chain'][indices[0],indices[1],:]
+
+        residuals = np.array( fakeEmceeResiduals(xmax, models) )
+
+        lw=2
+        c='k'
+        alpha=1.0
+        if i>0:
+            lw=1
+            c='r'
+            alpha=0.5
+        for j in range(29):
+            ax.flatten()[j].plot( np.power(10.0, np.linspace(10,14,np.shape(residuals)[0])), residuals[:,0,j], c=c, lw=lw, alpha=alpha ) 
+
+    if gidgetmodels is not None:
+        mhs, residuals = residualsFromGidget(gidgetmodels, fh=0.38)
+        npresiduals = np.array(residuals)
+        for j in range(29):
+            ax.flatten()[j].scatter( mhs, npresiduals[:,0,j], c='b', s=20, lw=0 )
+
+
+    for j in range(29):
+        ax.flatten()[j].set_xlabel(r'$M_{h,0}$')
+        ax.flatten()[j].set_ylabel(labels[j])
+        ax.flatten()[j].set_xscale('log')
+        ax.flatten()[j].plot([10**10,10**14], [0,0], ls='--', c='gray')
+        ax.flatten()[j].set_xlim(10**10,10**14)
+
+        #plt.axhline(0.0, lw=2, ls='--', c='gray')
+    
+
+    plt.tight_layout()
+    plt.savefig(basefn+'.pdf')
+    plt.close(fig)
+
+
+
+    
+def lnlikelihood(emceeparams, models=None):
+    models = [ pickle.load( open( 'rfnt09_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+    # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
+    # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
+    nmh = 5
+    MhGrid = np.power(10.0, np.linspace(10.0,14,nmh))
+    lnlik = 0.0
+
+    for k,Mh in enumerate(MhGrid):
+        X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
+        for i in range(len(logVars)):
+            # Take the log of the input variable if it makes sense to do so
+            if logVars[i] == 1:
+                X1[:,i] = np.log10(X1[:,i])
+        Y_eval = np.array( [predictFill(models[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
 
 
@@ -250,6 +350,7 @@ def lnlikelihood(emceeparams, models):
     if not np.isfinite(lnlik):
         return -np.inf
     return lnlik
+
 def samplefromprior( varRedFac=1.0):
     # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormaliza     tion, kappaMassScaling = emceeparams
     # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsqu     ench, accCeiling, conRF, kZ, xiREC = emceeparams
@@ -260,9 +361,10 @@ def samplefromprior( varRedFac=1.0):
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromnormaldensity( 0.6, 1.0**2.0 / varRedFac ),
-        samplefromnormaldensity( -0.1, 1.0**2.0 / varRedFac ),
+        samplefromnormaldensity( 0.0, 2.0**2.0 / varRedFac ),
+        samplefromnormaldensity( -0.0, 2.0**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac),
+        samplefromnormaldensity( -1.0, 1.0**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac ),
         samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
         samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
@@ -275,15 +377,15 @@ def samplefromprior( varRedFac=1.0):
         samplefrombetadensity( 1.0, 2.0*varRedFac ),
         samplefrombetadensity( 1.0 *varRedFac, 1.0*varRedFac) ]
 
-def lnprob(emceeparams, models):
+def lnprob(emceeparams, models=None):
     pr = lnprior(emceeparams)
     if np.isfinite(pr):
-        return lnlikelihood(emceeparams, models) + pr
+        return lnlikelihood(emceeparams, models=models) + pr
         #return constlikelihood(emceeparams) + pr
     return pr
 
 def lnprior(emceeparams):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, fh = emceeparams
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, fh = emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
     accum = 0.0
 
@@ -294,9 +396,10 @@ def lnprior(emceeparams):
     accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muColScaling, 0.6, 1.0**2.0 / varRedFac )
-    accum += lnnormaldensity( muFgScaling, -0.1, 1.0**2.0 / varRedFac )
+    accum += lnnormaldensity( muColScaling, 0.0, 2.0**2.0 / varRedFac )
+    accum += lnnormaldensity( muFgScaling, 0.0, 2.0**2.0 / varRedFac )
     accum += lnlognormaldensity( muNorm, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
+    accum += lnnormaldensity( muMhScaling, -1.0, 1.0**2.0 / varRedFac )
     accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
     accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
     accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
@@ -452,7 +555,7 @@ def runEmcee(mpi=False, continueRun=False):
         rank = comm.Get_rank()
         from emcee.utils import MPIPool
 
-    models = [ pickle.load( open( 'rfnt_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+    #models = [ pickle.load( open( 'rfnt09_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     #import bolshoireader
     #bolshoidir = '/Users/jforbes/bolshoi/'
     #globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e14, bolshoidir)
@@ -467,11 +570,11 @@ def runEmcee(mpi=False, continueRun=False):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 18, 40 
-    fn = 'fakemcmc_restart.pickle'
+    ndim, nwalkers = 19, 800 
+    fn = 'fakemcmc09full_restart.pickle'
     restart = {}
     nsteps = 3000 # test run
-    p0 = [ samplefromprior(varRedFac=1000.0) for w in range(nwalkers) ]
+    p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
 
     restart['currentPosition'] = p0
     restart['chain' ] = None
@@ -488,9 +591,9 @@ def runEmcee(mpi=False, continueRun=False):
 
 
     if mpi:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool, args=[models])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)#, args=[models])
     else:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=[models])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)#, args=[models])
     
     for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], rstate0=restart['state']) :
         pos, prob, state = result
@@ -538,13 +641,13 @@ def runEmcee(mpi=False, continueRun=False):
         pool.close()
 
 
-def singleRelationLikelihood(x,y,datasets):
+def singleRelationLikelihood(x,y,datasets, fixedSigma=-1):
     lnlik = np.zeros(len(x))
     distances = np.zeros((len(x),len(datasets)))
     sigmas = np.zeros((len(x),len(datasets)))
     finalResiduals = np.zeros(len(x))
     for i,ds in enumerate(datasets):
-        distance, sigma = observationalData.datasets[ds].distance(x,y)
+        distance, sigma = observationalData.datasets[ds].distance(x,y, fixedSigma=fixedSigma)
         distances[:,i] = distance
         sigmas[:,i] = sigma
     finite = np.isfinite(sigmas)
@@ -633,17 +736,17 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
     srlInd=0
     if not returnlikelihood:
         srlInd=1
-    lnlik[:,0] = singleRelationLikelihood(10.0**logMh0,10.0**logMst0,['Moster10z0'])[srlInd]
-    lnlik[:,1] = singleRelationLikelihood(10.0**logMh1,10.0**logMst1,['Moster10z1'])[srlInd]
-    lnlik[:,2] += singleRelationLikelihood(10.0**logMh2,10.0**logMst2,['Moster10z2'])[srlInd]
-    lnlik[:,3] += singleRelationLikelihood(10.0**logMh3,10.0**logMst3,['Moster10z3'])[srlInd]
+    lnlik[:,0] += singleRelationLikelihood(10.0**logMh0,10.0**logMst0,['Moster13z0'])[srlInd]
+    lnlik[:,1] += singleRelationLikelihood(10.0**logMh1,10.0**logMst1,['Moster13z1'])[srlInd]
+    lnlik[:,2] += singleRelationLikelihood(10.0**logMh2,10.0**logMst2,['Moster13z2'])[srlInd]
+    lnlik[:,3] += singleRelationLikelihood(10.0**logMh3,10.0**logMst3,['Moster13z3'])[srlInd]
 
     lnlik[:,4] += singleRelationLikelihood(10.0**logMst0,10.0**logsSFRz0,['Brinchmann04Specz0'])[srlInd]
     lnlik[:,5] += singleRelationLikelihood(10.0**logMst1,10.0**logsSFRz1,['whitaker14Specz1'])[srlInd]
     lnlik[:,6] += singleRelationLikelihood(10.0**logMst2,10.0**logsSFRz2,['whitaker14Specz2'])[srlInd]
     lnlik[:,7] += singleRelationLikelihood(10.0**logMst3,10.0**logsSFRz3,['lilly13Specz3'])[srlInd]
 
-    lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'])[srlInd]
+    lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'], fixedSigma=0.17)[srlInd]
 
     lnlik[:,9] += singleRelationLikelihood(10.0**logMst0,10.0**logsfZz0,['Tremonti04','Lee06'])[srlInd]
     lnlik[:,10] += singleRelationLikelihood(10.0**logMst1,10.0**logsfZz1,['Genzel15Z1'])[srlInd]
@@ -676,6 +779,9 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
     lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
 
     lnlik[:,28] += singleRelationLikelihood(10.0**logMst0,10.0**logvPhi22z0,['miller11'])[srlInd]
+
+    if np.any(np.isnan(lnlik)):
+        pdb.set_trace()
 
     if returnlikelihood:
         return np.sum(lnlik,axis=1)
@@ -1677,6 +1783,19 @@ class fntModel:
         else:
             return self.predict(x)
 
+def predictFill( model, x):
+    if np.shape(x)[1]<len(model.xtr.minxps):
+        tofill =  len(model.xtr.minxps) - np.shape(x)[1]
+        fillers = np.random.random(size=(np.shape(x)[0], tofill))
+        thisx = np.vstack([x.T, fillers.T]).T
+        transformed_thisx = model.xtr.transform(thisx)
+        #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
+        transformed_thisx[:,-tofill:] = fillers[:,:]
+        pred = model.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
+        yinv = model.ytr.inverseTransform(pred)
+        return yinv
+    else:
+        return model.predict(x)
             
 
 
@@ -1688,7 +1807,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad05_to_lasso_fix.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad09full_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -1706,7 +1825,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ordinates_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
 
     #feature_names = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC"]
-    feature_names = [r'$M_{h,0}$', r'$r_\mathrm{acc}/R_v$', r'$r_{\mathrm{acc},0}/r_{*,0}$',  r'$r_{\mathrm{acc},0}/r_{g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{quench}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$']
+    feature_names = [r'$M_{h,0}$', r'$r_\mathrm{acc}/R_v$', r'$r_{\mathrm{acc},0}/r_{*,0}$',  r'$r_{\mathrm{acc},0}/r_{g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{quench}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$']
     texlabels = labels[:]
     for i in range(nfeatures-len(feature_names)):
         #feature_names.append("AccHist"+str(i))
@@ -1739,7 +1858,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
             # k=8 corresponds to z=0 sfr. Try really hard to get this right!
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt09_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -1840,14 +1959,34 @@ def estimateFeatureImportances(analyze=True, pick=True):
             except:
                 print "FAILED to make plots for k=",k
 
+    ## assemble the tex labels for the tables below
+    texlabels=[]
+    tl0=[r'$M_h$', r'$M_*$', r'sSFR', r'$\langle Z\rangle_\mathrm{SFR}$', r'$Z_*$', r'$M_{\mathrm{H}_2}/M_*$', r'$M_{\mathrm{HI}}/M_*$', r'$r_*$', r'$v_{\phi, 2.2}$', r'$c_{82}$', r'$\Sigma_1$', r'$j_*$', r'$\partial\log_{10}Z/\partial r$', r'$\sigma_\mathrm{max}$', r'$\dot{M}_{\mathrm{bulge, gas}}$', r'$r_{GI}/r_*$', r'$t_\mathrm{dep}$', r'$t_{\mathrm{dep},\mathrm{H}_2}$', r'$r_{\mathrm{HI}}$', r'$M_{*,\mathrm{merge}}$']
+    for tl in tl0:
+        texlabels.append(tl)
+        texlabels.append(' ')
+        texlabels.append(' ')
+        texlabels.append(' ')
+        #texlabels.append( tl+ r'$(z=0)$')
+        #texlabels.append( tl+ r'$(z=1)$')
+        #texlabels.append( tl+ r'$(z=2)$')
+        #texlabels.append( tl+ r'$(z=3)$')
+    tl1 = [r'$v_\phi$', r'$\Sigma$', r'$\Sigma_*$', r'$\Sigma_\mathrm{SFR}$', r'$Z$', r'Age']
+    for tl in tl1:
+        texlabels.append(tl)
+        for ri in range(1,20):
+            #texlabels.append( tl+r'$(r/r_*='+ str(np.round(float(ri)/5.0, 2)) +r')$' )
+            texlabels.append( '' )
     if analyze:
-        printFeatureImportances(feature_importances.T*10.0, r2scores, feature_names, texlabels)
-        printTable(feature_importances.T*10.0, feature_names, texlabels, fn='feature_importances.tex')
+        printFeatureImportances(feature_importances.T*1.0, r2scores, feature_names, texlabels)
+        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, feature_names, texlabels, fn='avg_swap_scores_compact.tex')
+        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores, feature_names, texlabels, fn='avg_derivs_compact.tex')
+        printTable(feature_importances.T*1.0, feature_names, texlabels, fn='feature_importances.tex')
         printTable(np.mean(scores,axis=1).T, feature_names, texlabels, fn='avg_swap_scores.tex')
 
     #print "Average feature importances from skl: ",feature_importances
 
-def printFeatureImportances(arr, rsquared, feature_names, texLabels, fn='feature_importance_compact.tex'):
+def printFeatureImportances(arr, rsquared, columnnames, rownames, fn='feature_importance_compact.tex'):
     assert len(np.shape(arr))==2
     nrows, ncols = np.shape(arr)
     #if not (nrows==len(rownames) and ncols==len(columnnames)):
@@ -1856,26 +1995,42 @@ def printFeatureImportances(arr, rsquared, feature_names, texLabels, fn='feature
     with open(fn,'w') as f:
         f.write( r'\begin{table*}'+'\n' )
         f.write( r'\tiny'+'\n' )
-        f.write( r'\begin{tabular}{'+'l'*(5+1+1)+r'}'+'\n' )
-        #line = r' '
-        #for i in range(ncols):
-        #    line+= r' & '+columnnames[i]
-        line = r' & 0 & 1 & 2 & 3 & 4' ## the 5 most important features and their scores
+        f.write( r'\begin{tabular}{'+'l'*(5+2)+r'|l'+r'}'+'\n' )
+        line = r' & z & 0 & 1 & 2 & 3 & 4 & R$^2$' ## the 5 most important features and their scores
         line+=r'\\'+'\n'
         f.write(line)
         f.write(r'\hline'+'\n')
         f.write(r'\hline'+'\n')
         for j in range(nrows):
             if j<=80 or ( j>80 and j%5==0 ):
+                if j==80:
+                    ### split the table between integrated quantities and radial quantities
+                    f.write(r'\end{tabular}'+'\n')
+                    f.write(r'\end{table*}'+'\n')
+
+                    f.write( r'\begin{table*}'+'\n' )
+                    f.write( r'\tiny'+'\n' )
+                    f.write( r'\begin{tabular}{'+'l'*(5+2)+r'|l'+r'}'+'\n' )
+                    line = r' & $r/r_*$ & 0 & 1 & 2 & 3 & 4 & R$^2$' ## the 5 most important features and their scores
+                    line+=r'\\'+'\n'
+                    f.write(line)
+                    f.write(r'\hline'+'\n')
+                    f.write(r'\hline'+'\n')
+
                 # only do the radially resolved quantities at a few points 
                 line = rownames[j]
+
+                line += r' & '+ str(j%4)
+
                 #for i in range(ncols):
                 zipped = zip(arr[j,:], range(ncols))
-                zsorted = sorted(zipped, key=lambda x: x[1])
+                zsorted = sorted(zipped, key=lambda x: x[0])
                 for i in range(5):
-                    line += r' & '+columnnames[zsorted[i][1]] + r': ' + str(np.round(zsorted[i][0],4)) 
-                line+= r'& R$^2 = $'+str(np.round(rsquared[j],4))+r' \\'+'\n'
+                    line += r' & '+columnnames[zsorted[-i-1][1]] + r': ' + str(np.round(zsorted[-i-1][0],4)) 
+                line+= r'& ' +str(np.round(rsquared[j],4))+r' \\'+'\n'
                 f.write(line)
+                if j%4==3:
+                    f.write(r'\hline'+ '\n')
         f.write(r'\end{tabular}'+'\n')
         f.write(r'\end{table*}'+'\n')
 
@@ -2095,7 +2250,7 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    #runEmcee(mpi=True, continueRun=True)
+    #runEmcee(mpi=True, continueRun=False)
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 
@@ -2103,7 +2258,7 @@ if __name__=='__main__':
     #plotResiduals()
 
     #estimateFeatureImportances(analyze=False, pick=True) # just generate the pickled models 
-    #estimateFeatureImportances(analyze=True, pick=False) # just generate the pickled models 
+    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 
@@ -2112,10 +2267,10 @@ if __name__=='__main__':
     ### analyze the fake mcmc run
     if True:
         restart={}
-        updateRestart('fakemcmc_restart.pickle', restart)
+        updateRestart('fakemcmc09full_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc_allProb', burnIn=0)
+        tracePlots(restart, 'fakemcmc09full_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc09full_allProb', burnIn=0)
         #trianglePlot(restart,'fakemcmc_triangle.png', burnin=50, nspace=10)
 
         # Find the maximum among all models sampled so far.
@@ -2126,3 +2281,8 @@ if __name__=='__main__':
         indices = np.unravel_index(index, np.shape(restart['allProbs']))
         xmax = restart['chain'][indices[0],indices[1],:]
         print "Favorite coordinates: ", xmax
+
+
+
+
+        fakeEmceePlotResiduals(restart, 'fakemcmc09full_residuals', gidgetmodels='rf73')

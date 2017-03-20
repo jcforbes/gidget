@@ -141,7 +141,7 @@ DiskContents::DiskContents(double tH, double eta,
     spsActive(std::vector<StellarPop*>(0)),
     spsPassive(std::vector<StellarPop*>(0)),
     dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(ZIGM),
-    yREC(yrec),RfREC(rfrec),xiREC(xirec), 
+    yREC(yrec),RfRECinst(rfrec),RfRECasym(0.46),xiREC(xirec), 
     analyticQ(aq),
     tDepH2SC(tdeph2sc),
     fH2Min(fh2min),
@@ -393,7 +393,7 @@ void DiskContents::Initialize(double fcool, double fg0,
     //                            = pi x0^2 R^2 S0 Mdotext/(vphiR R) / [ Mdotext *2pi R/vphiR]
     //                            = 0.5 x0^2 S0
     // MBulge = M_PI*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!
-    MBulge = 0.5*x[1]*x[1]*(col[1]*RfREC/(MassLoadingFactor[1]+RfREC)+initialStarsA->spcol[1]); // dimensionless!
+    MBulge = 0.5*x[1]*x[1]*(col[1]*RfRECasym/(MassLoadingFactor[1]+RfRECasym)+initialStarsA->spcol[1]); // dimensionless!
     MHalo = 0.0;
     initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
     initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
@@ -619,7 +619,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
     double inflowingMass = 0.0;
     for(unsigned int n=1; n<=nx; ++n) {
         double mu = MassLoadingFactor[n]; //dSdtOutflows(n)/colSFR[n];
-        double Zej = ZDisk[n] + xiREC * yREC*RfREC / max(mu, 1.0-RfREC);
+        double Zej = ZDisk[n] + xiREC * yREC*RfRECasym / max(mu, 1.0-RfRECasym);
         outflowingMetalMass += colSFR[n] *mu * Zej * mesh.area(n);
         inflowingMass += accProf[n]*AccRate * mesh.area(n);
         // double Zacc = ZMix * mu* colSFR[n]/(accProf[n]*AccRate) *Zej + Z_IGM;
@@ -675,7 +675,7 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         }
 
         dcoldt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n]- MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) / (mesh.dx(n) * x[n])
-            -RfREC * colSFR[n] - ColOutflows[n] + accProf[n]*AccRate;
+            -RfRECinst * colSFR[n] - ColOutflows[n] + accProf[n]*AccRate;
 
         dsigdtPrev[n] = dsigdt[n];
         double ddxSig = ddx(sig,n,x,true,!dbg.opt(9));
@@ -727,27 +727,27 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         else
             Znm1=ZBulge; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
         double mu = MassLoadingFactor[n]; //dSdtOutflows(n)/colSFR[n];
-        double Zej = ZDisk[n] + xiREC * yREC*RfREC / max(mu, 1.0-RfREC);
+        double Zej = ZDisk[n] + xiREC * yREC*RfRECasym / max(mu, 1.0-RfRECasym);
         //double Zacc = ZMix * mu* colSFR[n]/(accProf[n]*AccRate) *Zej + Z_IGM;
         //double ZAccFac = 0.5;
         dZDiskdtPrev[n] = dZDiskdt[n];
         if (dbg.opt(5)) {
             dMZdt[n] = 
                         accProf[n]*AccRate*Zacc *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
-                        ((yREC-ZDisk[n])*RfREC - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
+                        ((yREC-ZDisk[n])*RfRECasym - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
                         PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
                             - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
                             + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
                             - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*Znm1;
             dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
                 * dlnZdx *tauvec[2][n] 
-                + yREC*(1.0-RfREC)*colSFR[n]/(col[n])
+                + yREC*(1.0-RfRECasym)*colSFR[n]/(col[n])
                 + accProf[n]*AccRate * (Zacc - ZDisk[n])/col[n];
         }
         else {
             dMZdt[n] = 
                         accProf[n]*AccRate*Z_IGM *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
-                        ((yREC-ZDisk[n])*RfREC - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
+                        ((yREC-ZDisk[n])*RfRECasym - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
                         PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
                             - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
                             + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
@@ -755,13 +755,10 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
 
             dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
                 * dlnZdx *tauvec[2][n] 
-                + yREC*(1.0-RfREC)*colSFR[n]/(col[n])
+                + yREC*(1.0-RfRECasym)*colSFR[n]/(col[n])
                 + accProf[n]*AccRate * (Z_IGM - ZDisk[n])/col[n];
 
         }
-
-
-
 
         // Terms for non-instantaneous-recycling
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
@@ -769,8 +766,6 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             dMZdt[n] += yREC*spsPassive[i]->dcoldtREC[n] * x[n]*x[n]*sinh(dlnx); /// THIS IS PROBABLY WRONG (the other two lines too)
             dcoldt[n] += spsPassive[i]->dcoldtREC[n];
         }
-
-
 
 
         // Check to make sure the results of this method are reasonable..
@@ -822,7 +817,7 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
         }
 
         for(unsigned int i=0; i!=sa; ++i) {
-            double dcolst = dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol) + RfREC*colSFR[n];
+            double dcolst = dSMigdt(n,tauvecStar,(*this),spsActive[i]->spcol) + RfRECinst*colSFR[n];
             if(fabs( dcolst /spsActive[i]->spcol[n]) > dmax) {
                 dmax=fabs( dcolst/spsActive[i]->spcol[n] );
                 *whichVar=6;
@@ -950,7 +945,7 @@ void DiskContents::AddNewStellarPop(const double redshift,
 void DiskContents::FormNewStars(StellarPop & currentlyForming, double dt, double redshift)
 {
     for(unsigned int n=1; n<=nx; ++n) {
-        currentlyForming.spcol[n] = RfREC * colSFR[n] * dt;
+        currentlyForming.spcol[n] = RfRECinst * colSFR[n] * dt;
         currentlyForming.spZ[n] = ZDisk[n];
         currentlyForming.spZV[n] = 0.0;
         if(!dbg.opt(16)) {
@@ -991,7 +986,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
         dColStDtMeasured[n] = -activeColSt(n)/dt; // we'll subtract from this number in a bit..
         dSigStRDtMeasured[n] = -activeSigStR(n)/dt;
         dSigStZDtMeasured[n] = -activeSigStZ(n)/dt;
-        dColStDtNominal[n] = dSMigdt(n,tauvecStar, (*this), spsActive[0]->spcol) + RfREC*colSFR[n];
+        dColStDtNominal[n] = dSMigdt(n,tauvecStar, (*this), spsActive[0]->spcol) + RfRECinst*colSFR[n];
         dSigStRDtNominal[n] = dSigStRdt(n,0,spsActive,tauvecStar,MdotiPlusHalfStar);
         dSigStZDtNominal[n] = dSigStZdt(n,0,spsActive,tauvecStar,MdotiPlusHalfStar);
 
@@ -1019,7 +1014,7 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     if(MdotiPlusHalf[0] < -1.0e-10 || MdotiPlusHalfMRI[0] < -1.0e-10 || MdotiPlusHalfStar[0] < -1.0e-10 || fracAccInner*AccRate < -1.0e-10)
         errormsg("Nonphysical mass flux at inner boundary.");
 
-    double reduce = RfREC/(RfREC+MassLoadingFactor[1]);
+    double reduce = RfRECasym/(RfRECasym+MassLoadingFactor[1]);
     double MGasIn = dt*PosOnly(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0]);
     double MStarsIn = dt*PosOnly(MdotiPlusHalfStar[0]);
     double MGasAcc = dt*fracAccInner*AccRate;
@@ -1948,21 +1943,21 @@ double DiskContents::dSigStRdt(unsigned int n, unsigned int sp,std::vector<Stell
     if(sps.size()-1==sp) { // i.e. this population is having stars added presently.
         if(!dbg.opt(16)) {
             if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
-                val += (sig[n]*sig[n] - sigth*sigth - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
+                val += (sig[n]*sig[n] - sigth*sigth - sig_stR[n]*sig_stR[n])*RfRECinst*colSFR[n]
                     /(2.0*col_st[n]*sig_stR[n]);
             }
             else { // in this case, the new stellar population will have velocity dispersion = minsigst
-                val += (minsigst*minsigst - sig_stR[n]*sig_stR[n] ) *RfREC * colSFR[n]
+                val += (minsigst*minsigst - sig_stR[n]*sig_stR[n] ) *RfRECinst * colSFR[n]
                     /(2.0*col_st[n]*sig_stR[n]);
             }
         }
         else {
             if(minsigst*minsigst <= sig[n]*sig[n]) {
-                val += (sig[n]*sig[n] - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
+                val += (sig[n]*sig[n] - sig_stR[n]*sig_stR[n])*RfRECinst*colSFR[n]
                     /(2.0*col_st[n]*sig_stR[n]);
             }
             else {
-                val += (minsigst*minsigst - sig_stR[n]*sig_stR[n])*RfREC*colSFR[n]
+                val += (minsigst*minsigst - sig_stR[n]*sig_stR[n])*RfRECinst*colSFR[n]
                     /(2.0*col_st[n]*sig_stR[n]);
             }
     
@@ -1995,21 +1990,21 @@ double DiskContents::dSigStZdt(unsigned int n, unsigned int sp,std::vector<Stell
     if(sps.size()-1==sp) { // i.e. this population is forming stars
         if(!dbg.opt(16)) {
             if(sigth*sigth+minsigst*minsigst <= sig[n]*sig[n]) {
-                val += (sig[n]*sig[n] - sigth*sigth - sig_stZ[n]*sig_stZ[n])*RfREC*colSFR[n]
+                val += (sig[n]*sig[n] - sigth*sigth - sig_stZ[n]*sig_stZ[n])*RfRECinst*colSFR[n]
                     /(2.0*col_st[n]*sig_stZ[n]);
             }
             else { // in this case, the new stellar population will have velocity dispersion = minsigst
-                val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfREC * colSFR[n]
+                val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfRECinst * colSFR[n]
                     /(2.0*col_st[n]*sig_stZ[n]);
             }
         }
         else {
             if(minsigst*minsigst <= sig[n]*sig[n]) {
-                val += (sig[n]*sig[n] - sig_stZ[n]*sig_stZ[n])*RfREC*colSFR[n]
+                val += (sig[n]*sig[n] - sig_stZ[n]*sig_stZ[n])*RfRECinst * colSFR[n]
                     /(2.0*col_st[n]*sig_stZ[n]);
             }
             else {
-                val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfREC*colSFR[n]
+                val += (minsigst*minsigst - sig_stZ[n]*sig_stZ[n] ) *RfRECinst * colSFR[n]
                     /(2.0*col_st[n]*sig_stZ[n]);
             }
         }
@@ -2110,7 +2105,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         // We start with terms related to obvious source terms, i.e. the terms which 
         // appear in the continuity equation unrelated to transport through the disk.
         if(!dbg.opt(4)) {
-            FF[n] = RfREC*dQdS[n]*colSFR[n] + dQdS[n]*ColOutflows[n] - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n] - dQdu[n]*dudt[n];
+            FF[n] = RfRECinst*dQdS[n]*colSFR[n] + dQdS[n]*ColOutflows[n] - dQdS[n]*diffused_dcoldt[n] - dQdS[n]*AccRate*accProf[n] - dQdu[n]*dudt[n];
             // Now we add the contribution from the changing velocity dispersion
             if(sigth<=sig[n]) {
                 double Qg=  sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
@@ -2128,7 +2123,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
             unsigned int sa = spsActive.size();
             for(unsigned int i=0; i!=sa; ++i) {
                 if(sa-1 == i) { // i.e. population i is forming stars
-                    FF[n] -= spsActive[i]->dQdS[n] * RfREC * colSFR[n];
+                    FF[n] -= spsActive[i]->dQdS[n] * RfRECinst * colSFR[n];
                 }
                 FF[n] -= spsActive[i]->dQdsR[n] * dSigStRdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar) 
                     + spsActive[i]->dQdsZ[n] *dSigStZdt(n,i,spsActive,tauvecStar,MdotiPlusHalfStar)
@@ -2364,7 +2359,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         Mt = lambdaT*lambdaT*col[n];
         Mts.push_back(Mt);
         double yy = tauvecStar[2][n]/(2.0*M_PI*x[n]*col_st[n]*uu[n]*(1+beta[n]));
-        double dcolst = dSMigdt(n,tauvecStar,(*this),spsActive[0]->spcol) + RfREC*colSFR[n];
+        double dcolst = dSMigdt(n,tauvecStar,(*this),spsActive[0]->spcol) + RfRECinst*colSFR[n];
   
         // actually this might not be the correct definition:
         //alpha = (-tauvec[2][nx])* dim.chi()/(3. * sig[n]*sig[n]*sig[n]);

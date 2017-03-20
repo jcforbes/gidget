@@ -272,7 +272,7 @@ class SingleModel:
             sums[ti] = theSum
         return sums
 
-    def read(self, keepOnly=[], keepStars=False, paramsOnly=False, computeFit=False):
+    def read(self, keepOnly=[], keepStars=False, paramsOnly=False, computeFit=False, fh=0.3):
         with open(self.path+'_comment.txt','r') as comment:
             lines = comment.readlines()
             # paramnames - copied from exper.py's experiment class.
@@ -428,7 +428,7 @@ class SingleModel:
                 ageTile = np.tile( self.var['ageSt'+stj].cgs(), (int(self.p['nx']),1) ).T
                 ageAccum += self.var['colst'+stj].cgs()*ageTile
                 colAccum += self.var['colst'+stj].cgs()
-            self.var['ageRadial'] = RadialFunction( ageAccum/colAccum, 'ageRadial', cgsConv=1.0, sensibleConv=1.0/speryear, texString=r'Age at $z=0$ (yr)', log=True)
+            self.var['ageRadial'] = RadialFunction( ageAccum/colAccum, 'ageRadial', cgsConv=1.0, sensibleConv=1.0/speryear/1.0e9, texString=r'Age at $z=0$ (Gyr)', log=True, theRange=[0, 14])
             starList.append('ageRadial')
             
 
@@ -595,7 +595,7 @@ class SingleModel:
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
                 r'$M_\mathrm{center}\ (M_\odot)$')
         self.var['mstar'] = TimeFunction( \
-                self.var['mCentral'].sensible() + 0.1*self.var['mStellarHalo'].sensible() + ## try a version where we don't add this in
+                self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + ## try a version where we don't add this in
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
 
@@ -658,7 +658,10 @@ class SingleModel:
                 pdb.set_trace()
             metallicityGradientsR90.append( m )
 
-
+            
+            if ri2<=1:
+                ri2 = 2
+                print "WARNING: 2 kpc not resolved"
             rgrid = np.arange( self.var['r'].sensible(timeIndex=0, locIndex=0), self.var['r'].sensible(timeIndex=0, locIndex=ri2), 0.2 )
             Zgridded = self.var['Z'].atR(rgrid, self.var['r'].sensible(timeIndex=0), z, sensible=False)
             m, b = np.polyfit(rgrid, np.log10(Zgridded), 1)
@@ -823,7 +826,7 @@ class SingleModel:
                 HIradius.append( np.max(self.var['r'].sensible(timeIndex=z)[HIdisk]) )
             else:
                 HIradius.append( self.var['r'].sensible(timeIndex=z,locIndex=-1))
-        self.var['broeilsHI'] = TimeFunction(HIradius, 'broeilsHI', cgsConv=cmperkpc,texString=r'$R_\mathrm{HI, Broeils97}\ \mathrm{kpc}$')
+        self.var['broeilsHI'] = TimeFunction(HIradius, 'broeilsHI', cgsConv=cmperkpc,texString=r'$R_{\Sigma_\mathrm{HI} = 1 M_\odot/\mathrm{pc}^2 }\ \mathrm{kpc}$')
         r1 = np.searchsorted(self.var['r'].sensible(timeIndex=-1), 1.0) # find the index of the cell closest to 1 kpc
         r1 = np.max([r1,2]) # guarantee that quantities defined within 1 kpc are not NaN if xmin>1 kpc. Ideally the user would have specified parameters such that the mesh is resolved further in that 1 kpc, but what can you do?
         if r1==2:
@@ -1004,6 +1007,10 @@ class SingleModel:
         self.var['BTcen'] = TimeFunction( self.var['mCentral'].sensible()/self.var['mstar'].sensible(), 'BTcen', log=False, texString=r'$M_\mathrm{cen}/M_*$')
         self.var['BTmin'] = TimeFunction( (self.var['mCentral'].cgs()-self.var['colst'].cgs(locIndex=0)*np.pi*self.var['rb'].cgs(locIndex=0)**2.0)/self.var['mstar'].cgs(), 'BTcen', log=False, texString=r'BT min')
 
+        colNtile = np.tile( (0.448*self.var['mgas'].cgs()/np.power(0.015*self.var['Rvir'].cgs(),2.0)), (int(self.p['nx']),1) ).T
+        self.var['colNormalizedKravtsov'] = RadialFunction( self.var['col'].cgs()/colNtile, 'colNormalizedKravtsov', log=True, texString=r'$\Sigma/\Sigma_n$')
+        colstNtile = np.tile( (0.448*self.var['mstar'].cgs()/np.power(0.015*self.var['Rvir'].cgs(),2.0)), (int(self.p['nx']),1) ).T
+        self.var['colstNormalizedKravtsov'] = RadialFunction( self.var['colst'].cgs()/colstNtile, 'colstNormalizedKravtsov', log=True, texString=r'$\Sigma_*/\Sigma_{*,n}$')
 
         theKeys = self.var.keys()
         whitelist = ['rb','r','dA','rx','dr'] + keepOnly + starList
@@ -1450,11 +1457,11 @@ class Experiment:
 
         # return 
 
-    def read(self, keepOnly=[],paramsOnly=False,keepStars=False, computeFit=False):
+    def read(self, keepOnly=[],paramsOnly=False,keepStars=False, computeFit=False, fh=0.3):
         ''' Read in every model in the experiment. '''
         n=0
         for model in self.models:
-            model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars,computeFit=computeFit)
+            model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars,computeFit=computeFit, fh=fh)
             n+=1
             if(n % 50 == 0):
                 print "Reading in model ",n," of ",len(self.models)
@@ -1698,10 +1705,11 @@ class Experiment:
                     if v=='colst':
                         pass
                         #ax.plot(r[k], theVar[k][len(theVar[k])/2] *  np.exp( -r[k] / model.getData('scaleLength',timeIndex=ti)),ls='--')
-                    if v=='vPhi':
-                        ax.plot(r[k], model.var['vPhiDM'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
-                        ax.plot(r[k], model.var['vPhiBulge'].sensible( timeIndex=ti), ls=':', c=theRGB[k])
-                        ax.plot(r[k], model.var['vPhiDisk'].sensible( timeIndex=ti), ls='-.', c=theRGB[k])
+                    ## This makes the plot a bit too messy
+                    #if v=='vPhi':
+                    #    ax.plot(r[k], model.var['vPhiDM'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
+                    #    ax.plot(r[k], model.var['vPhiBulge'].sensible( timeIndex=ti), ls=':', c=theRGB[k])
+                    #    ax.plot(r[k], model.var['vPhiDisk'].sensible( timeIndex=ti), ls='-.', c=theRGB[k])
                     if v=='colvPhiDisk':
                         ax.plot( r[k], model.var['col'].sensible( timeIndex=ti), ls='--', c=theRGB[k])
                     if v=='colstvPhiDisk':
@@ -2093,17 +2101,18 @@ class Experiment:
         colorby = 'Mh0'
 
         # just try making the plots you want directly!
-        fig,ax = plt.subplots(1,4, figsize=(8,3.5))
+        fig,ax = plt.subplots(2,4, figsize=(8,5.5))
         fig.subplots_adjust(wspace=0.01, hspace=0.35, bottom=0.2)
         for j in range(4):
-            self.ptMovie(xvar='Mh', yvar=['mstar'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[j], textsize=6)
-            ax[j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
+            self.ptMovie(xvar='Mh', yvar=['mstar'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
+            ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
+            self.ptMovie(xvar='Rvir', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
         for j in range(4):
-            for i in range(1):
+            for i in range(2):
                 if j>0:
-                    ax[j].set_ylabel('')
-                    ax[j].get_yaxis().set_ticks([])
-            ax[j].get_xaxis().set_ticks([1.0e11,1.0e13])
+                    ax[i,j].set_ylabel('')
+                    ax[i,j].get_yaxis().set_ticks([])
+            ax[0,j].get_xaxis().set_ticks([1.0e11,1.0e13])
         plt.savefig(self.name+'_calibration0.pdf')
         plt.close(fig)
 
@@ -2264,17 +2273,17 @@ class Experiment:
         plt.close(fig)
 
 
-        fig,ax = plt.subplots(4,4, figsize=(8,9))
+        fig,ax = plt.subplots(3,4, figsize=(8,9))
         fig.subplots_adjust(wspace=0.01, hspace=0.35)
-        cax = fig.add_axes([.9, .1, .05, .12])
+        #cax = fig.add_axes([.9, .1, .05, .12])
         for j in range(4):
             self.ptMovie(xvar='sfr', yvar=['LXProxy'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
             self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='mbar', yvar=['vPhiOuter'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, caxIn=cax)
+            #self.ptMovie(xvar='mbar', yvar=['vPhiOuter'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
+            self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
             ax[1,j].text(1.0e7, 2.0, r'$z=$'+str(j))
         for j in range(4):
-            for i in range(4):
+            for i in range(3):
                 if j>0:
                     ax[i,j].set_ylabel('')
                     ax[i,j].get_yaxis().set_ticks([])
@@ -2313,15 +2322,15 @@ class Experiment:
             self.radialPlot(timeIndex=[zinds[j]],variables=['hGas'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[3,j])
             self.radialPlot(timeIndex=[zinds[j]],variables=['ageRadial'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[4,j])
             self.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby='Mh0',percentiles=None,logR=False,scaleR=True,movie=False, axIn=ax[5,j])
-            ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
+            ax[2,j].text(2, 70.0, r'$z=$'+str(j))
         for j in range(4):
             for i in range(6):
                 if j>0:
                     ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
+                    ax[i,j].set_yticks([])
                 if i<5:
                     ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
+                    ax[i,j].set_xticks([])
         plt.savefig(self.name+'_calibration9.pdf')
         plt.close(fig)
 
@@ -2329,7 +2338,7 @@ class Experiment:
         fig,ax = plt.subplots(1,1, figsize=(6,6))
         #self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='rx', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
         for model in self.models:
-            inner = model.var['rx'].sensible(timeIndex=zinds[0])<1.0 # within 1 half mass radius
+            inner = model.var['rx'].sensible(timeIndex=zinds[0])<2.0 # within 1 half mass radius
             ax.plot( model.var['gbar'].sensible(timeIndex=zinds[0])[inner], model.var['gtot'].sensible(timeIndex=zinds[0])[inner], c=cm((np.log10(model.var['mstar'].sensible(timeIndex=zinds[0]))-9)/3.0 ) )
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -2369,6 +2378,39 @@ class Experiment:
         self.radialPlot(timeIndex=[zinds[0]], variables=['colst'], colorby='Mh0', percentiles=None, logR=False, scaleR=True, light=True, movie=False, axIn=ax[1])
         plt.savefig(self.name+'_calibration14.pdf')
         plt.close(fig)
+
+        fig,ax = plt.subplots(2,4, figsize=(8,6))
+        fig.subplots_adjust(wspace=0.01, hspace=0.03)
+        for j in range(4):
+            for model in self.models:
+                ax[0,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colstNormalizedKravtsov'].cgs(timeIndex=zinds[j]), c=cm((np.log10(model.var['Mh'].sensible(timeIndex=0))-10)/4.0), alpha=0.3, lw=1 )
+                kravtsovr = np.linspace(0,6, 200)
+                kravtsovcolst = 0.6308*np.exp(-kravtsovr/(0.011/0.015))
+                kravtsovcol = 0.099944*np.exp(-kravtsovr/(0.029/0.015))
+                ls = '-'
+                if j>0:
+                    ls='--'
+                ax[0,j].plot( kravtsovr, kravtsovcolst, lw=2, c='k', ls=ls)
+                ax[1,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colNormalizedKravtsov'].cgs(timeIndex=zinds[j]), c=cm((np.log10(model.var['Mh'].sensible(timeIndex=0))-10)/4.0), alpha=0.3, lw=1 )
+                ax[1,j].plot( kravtsovr, kravtsovcol, lw=2, c='k', ls=ls)
+            ax[0,j].set_xlim(0,6)
+            ax[1,j].set_xlim(0,6)
+            ax[0,j].set_ylim(1.0e-4, 10.0)
+            ax[1,j].set_ylim(1.0e-4, 10.0)
+            ax[0,j].get_xaxis().set_ticklabels([])
+            ax[0,j].set_yscale('log')
+            ax[1,j].set_yscale('log')
+            ax[1,j].set_xlabel(r'$r/(0.015 R_\mathrm{vir})$')
+            if j>0:
+                ax[0,j].get_yaxis().set_ticklabels([])
+                ax[1,j].get_yaxis().set_ticklabels([])
+        ax[0,0].set_ylabel(self.models[0].var['colstNormalizedKravtsov'].texString)
+        ax[1,0].set_ylabel(self.models[0].var['colNormalizedKravtsov'].texString)
+        plt.savefig(self.name+'_calibration15.pdf')
+        plt.close(fig)
+
+
+
 
         ## To add: age-velocity dispersion correlation?
 
@@ -2893,9 +2935,9 @@ class Experiment:
             colors=np.log10(colors)
             overallColorRange = np.log10(overallColorRange)
         for i,v in enumerate(variables):
-            if((xvar=='Mh' and v=='efficiency') or (xvar=='Mh' and v=='mstar')):
-                b = behroozi()
-                b.readSmmr()
+            #if((xvar=='Mh' and v=='efficiency') or (xvar=='Mh' and v=='mstar')):
+            #    b = behroozi()
+            #    b.readSmmr()
             dirname = 'movie_'+self.name+'_vs'+xvar+'_'+v+'_cb'+colorby
             if(not os.path.exists(dirname) and movie):
                 os.makedirs(dirname)
@@ -3060,10 +3102,10 @@ class Experiment:
                         for k in range(max(ti-prev,0),ti):
                             #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
                             ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
-                if(xvar=='Mh' and v=='efficiency'):
-                    b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
-                elif (xvar=='Mh' and v=='mstar'):
-                    b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1],eff=False)
+                #if(xvar=='Mh' and v=='efficiency'):
+                #    b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
+                #elif (xvar=='Mh' and v=='mstar'):
+                #    b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1],eff=False)
                 if('specificJ' in xvar and 'specficJ' in v or 'dimensionlessSpin' in xvar and 'dimensionlessSpin' in v):
                     ax.plot([overallXRange[0],overallXRange[0]], [overallRange[0],overallRange[1]], c='k',ls='--')
 

@@ -130,7 +130,7 @@ class DataSet:
         inx = np.logical_and( np.min(xv) < xEval, xEval<np.max(xv) )
         ret = np.logical_and( np.logical_and( yfl<yEval, yEval < yfu ), inx)
         return ret
-    def distance(self, x,y):
+    def distance(self, x,y, fixedSigma=-1):
         ''' Return the distance in sigma (above or below) the relation'''
         sigma = 1.0
         xv = copy.deepcopy( self.xval )
@@ -158,10 +158,17 @@ class DataSet:
         yf = f(xEval) # don't need this
         yfu = fu(xEval)
         yfl = fl(xEval)
-        sigmaAbove = yfu-yf
-        sigmaBelow = yf-yfl
-        above = (yEval - yf)/(yfu-yf) # this will be positive for numbers above the median, and in units of the sigma above the median
-        below = (yEval - yf)/(yf - yfl) # this will be negative for numbers below the median, and in units of the sigma below median
+        if fixedSigma<=0:
+            sigmaAbove = yfu-yf
+            sigmaBelow = yf-yfl
+            above = (yEval - yf)/(yfu-yf) # this will be positive for numbers above the median, and in units of the sigma above the median
+            below = (yEval - yf)/(yf - yfl) # this will be negative for numbers below the median, and in units of the sigma below median
+        else:
+            sigmaAbove = yf*0 + fixedSigma
+            sigmaBelow = yf*0 + fixedSigma
+            above = (yEval - yf)/fixedSigma
+            below = (yEval - yf)/fixedSigma
+
         isAbove = above>0
         above = np.clip(above, 0, np.inf)
         below = np.clip(below, -np.inf, 0)
@@ -197,6 +204,14 @@ class DataSet:
         plt.close(fig)
 
 
+def defineKravtsov13():
+    Rvirs = np.power(10.0, np.linspace(-1, np.log10(25.0), 100))/0.015
+    #rhalfs = 0.015* np.power(Rvirs, 0.95)
+    #scatter = 10.0**0.2 # .2 dex
+    rhalfs = 0.015*Rvirs
+    scatter = 10.0**0.25
+    datasets['Kravtsov13rvir'] = DataSet('Rvir', 'halfMassStars', Rvirs, rhalfs, yLower=rhalfs/scatter, yUpper=rhalfs*scatter, zmin=-0.5, zmax=0.5, label='Kravtsov13')
+
 
 def defineMoster(z0):
     def Moster(Mh,z, mparams):
@@ -224,10 +239,33 @@ def defineMoster(z0):
     effM = np.min(eff, axis=0)
     effP = np.max(eff, axis=0)
 
-    mosterDS = DataSet('Mh', 'efficiency', Mhs, effC, yLower=effM, yUpper=effP, zmin=z0-0.5, zmax=z0+0.5, label='Moster10')
-    mosterDS2 = DataSet('Mh', 'mstar', Mhs, effC*Mhs, yLower=effM*Mhs, yUpper=effP*Mhs, zmin=z0-0.5, zmax=z0+0.5, label='Moster10')
-    datasets['Moster10effz'+str(z0)] = mosterDS
-    datasets['Moster10z'+str(z0)] = mosterDS2
+    mosterDS = DataSet('Mh', 'efficiency', Mhs, effC, yLower=effC/10.0**0.15, yUpper=effC*10.0**0.15, zmin=z0-0.5, zmax=z0+0.5, label='Moster13')
+    mosterDS2 = DataSet('Mh', 'mstar', Mhs, effC*Mhs, yLower=effC*Mhs/10.0**0.15, yUpper=effC*Mhs*10.0**0.15, zmin=z0-0.5, zmax=z0+0.5, label='Moster13')
+    datasets['Moster13effz'+str(z0)] = mosterDS
+    datasets['Moster13z'+str(z0)] = mosterDS2
+
+def defineGarrisonKimmel():
+    def behrooziFn( epsilon, M1, alpha, delta, gamma, Mh ):
+        def f(x):
+            return - np.log10( np.power(10.0, -alpha*x) + 1.0) + delta*np.power(np.log10(1.0+np.exp(x)),gamma)/(1.0+np.exp(np.power(10.0, -x)))
+        return np.log10(epsilon*M1) + f(np.log10(Mh/M1)) - f(0.0)
+    
+    Mh = np.power(10.0, np.linspace(10.0, 15.0, 200) )
+    Mst = np.power(10.0, behrooziFn( 10.0**(-1.777), 10.0**11.514, 1.412, 3.508, 0.316, Mh))
+    datasets['Behroozi13'] = DataSet( 'Mh', 'mstar', Mh, Mst, yLower=Mst/10.0**0.2, yUpper=Mst*10.0**0.2, zmin=-0.5, zmax=0.5, label='Behroozi13' )
+
+    Mh = np.power(10.0, np.linspace(8.0, 11.5, 200) )
+    for i, sigma in enumerate(np.linspace( 0.2, 1.0, 2 )):
+        alpha = 0.24*sigma*sigma + 0.16*sigma + 1.99
+        Mst = np.power(10.0, behrooziFn( 10.0**(-1.777), 10.0**11.514, alpha, 3.508, 0.316, Mh))
+        datasets['GarrisonKimmel16_'+str(i)] = DataSet( 'Mh', 'mstar', Mh, Mst, yLower=Mst/np.power(10.0,sigma), yUpper=Mst*np.power(10.0,sigma), zmin=-0.5, zmax=0.5, label='Garrison-Kimmel16 '+r'$\sigma='+str(sigma)+r'$' )
+#    for i, nu in enumerate(np.linspace( 0, 1.0, 3 )):
+#        #alpha = 0.24*sigma*sigma + 0.16*sigma + 1.99
+#        alpha = 0.47*nu*nu - 1.48*nu + 1.81
+#        sigma = 0.2 + nu*(np.log10(Mh) - 11.514)
+#        Mst = np.power(10.0, behrooziFn( 10.0**(-1.777), 10.0**11.514, alpha, 3.508, 0.316, Mh))
+#        datasets['GarrisonKimmel16_'+str(i)] = DataSet( 'Mh', 'mstar', Mh, Mst, yLower=Mst/np.power(10.0,sigma), yUpper=Mst*np.power(10.0, sigma), zmin=-0.5, zmax=0.5, label='Garrison-Kimmel16 '+r'$\nu ='+str(nu)+r'$' )
+   
 
 
 def defineBroeils():
@@ -382,17 +420,20 @@ def defineAngularMomenta():
     datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJStars', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals')
 
 
-    datasets['Fall13Disks'] = DataSet('mstar', 'specificJHI', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
-    datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJHI', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
+    datasets['Fall13Disks1'] = DataSet('mstar', 'specificJHI', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
+    datasets['Fall13Ellipticals1'] = DataSet('mstar', 'specificJHI', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
 
-    datasets['Fall13Disks'] = DataSet('mstar', 'specificJH2', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
-    datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJH2', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
+    datasets['Fall13Disks2'] = DataSet('mstar', 'specificJH2', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
+    datasets['Fall13Ellipticals2'] = DataSet('mstar', 'specificJH2', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
 
-    datasets['Fall13Disks'] = DataSet('mstar', 'specificJAccr', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
-    datasets['Fall13Ellipticals'] = DataSet('mstar', 'specificJAccr', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
+    datasets['Fall13Disks3'] = DataSet('mstar', 'specificJAccr', [1.0e9,1.0e11], [10**2.3, 10**3.45], label='Fall13 Disks', zmin=0.5, zmax=0.6)
+    datasets['Fall13Ellipticals3'] = DataSet('mstar', 'specificJAccr', [1.0e10, 5.0e11], [10**2.1, 10**2.1*50**0.6], label='Fall13 Ellipticals', zmin=0.5, zmax=0.6)
 
 
     datasets['Burkert16'] = DataSet('mstar', 'specificJStars', [10**9.8, 10**11.4],[10.0**(3.33+2.0/3.0*(9.8-11.0)), 10.0**(3.33+2.0/3.0*(11.4-11.0))],  yLower=[10.0**(3.33+2.0/3.0*(9.8-11.0)-0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)-0.17)], yUpper=[10.0**(3.33+2.0/3.0*(9.8-11.0)+0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)+0.17)], zmin=0.8, zmax=2.6, label='Burkert16' )
+    datasets['Burkert16a'] = DataSet('mstar', 'specificJHI', [10**9.8, 10**11.4],[10.0**(3.33+2.0/3.0*(9.8-11.0)), 10.0**(3.33+2.0/3.0*(11.4-11.0))],  yLower=[10.0**(3.33+2.0/3.0*(9.8-11.0)-0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)-0.17)], yUpper=[10.0**(3.33+2.0/3.0*(9.8-11.0)+0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)+0.17)], zmin=0.5, zmax=.6, label='Burkert16' )
+    datasets['Burkert16b'] = DataSet('mstar', 'specificJH2', [10**9.8, 10**11.4],[10.0**(3.33+2.0/3.0*(9.8-11.0)), 10.0**(3.33+2.0/3.0*(11.4-11.0))],  yLower=[10.0**(3.33+2.0/3.0*(9.8-11.0)-0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)-0.17)], yUpper=[10.0**(3.33+2.0/3.0*(9.8-11.0)+0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)+0.17)], zmin=0.5, zmax=.6, label='Burkert16' )
+    datasets['Burkert16c'] = DataSet('mstar', 'specificJAccr', [10**9.8, 10**11.4],[10.0**(3.33+2.0/3.0*(9.8-11.0)), 10.0**(3.33+2.0/3.0*(11.4-11.0))],  yLower=[10.0**(3.33+2.0/3.0*(9.8-11.0)-0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)-0.17)], yUpper=[10.0**(3.33+2.0/3.0*(9.8-11.0)+0.17), 10.0**(3.33+2.0/3.0*(11.4-11.0)+0.17)], zmin=0.5, zmax=.6, label='Burkert16' )
 
 
 def defineBrinchmann(specific=True):
@@ -585,6 +626,8 @@ defineStructureRelations()
 defineAngularMomenta()
 defineBroeils()
 defineBrinchmann()
+defineGarrisonKimmel()
+defineKravtsov13()
 # Things where the relations change as a fn of reshift 
 for i in [0,1,2,3,4]:
     defineMetalRelations(i)

@@ -42,6 +42,7 @@ class StellarPop {
   void extract(StellarPop& sp2, double f);
 
   void ComputeRecycling(DiskContents& , double z);
+  void ComputeSNIArate(DiskContents& , double z);
 
   void ComputeSpatialDerivs();
 
@@ -51,8 +52,9 @@ class StellarPop {
   std::vector<double> GetdSigRdr() const { return dSigRdr; };
   std::vector<double> GetdSigZdr() const { return dSigZdr; };
   std::vector<double> GetdColdr() const {return dColdr; };
-  std::vector<double> GetSpZ() const { return spZ; };
-  std::vector<double> GetSpZV() const { return spZV; };
+  std::vector<double> GetSpZO() const { return spZO; };
+  std::vector<double> GetSpZFe() const { return spZFe; };
+ // std::vector<double> GetSpZV() const { return spZV; };
   std::vector<double> GetdQdS() const { return dQdS; };
   std::vector<double> GetdQdsR() const { return dQdsR; };
   std::vector<double> GetdQdsZ() const { return dQdsZ; };
@@ -64,14 +66,16 @@ class StellarPop {
   double GetAgeAtz0() const { return ageAtz0; };
 
  private:
-  std::vector<double> spcol; // column density as a function of position.
+  std::vector<double> spcol; // column density as a function of position. Dynamical mass (enters into gravity etc.)
   std::vector<double> spsigR; // R-direction stellar velocity dispersion as a function of position.
   std::vector<double> spsigZ; // phi- (and z-) direction stellar velocity dispersion.
   std::vector<double> dcoldtREC;
+  std::vector<double> dcoldtIA;
   double ageAtz0; // i.e. lookback time at creation of these stars, in seconds
   double startingAge, endingAge; // lookback time in seconds when stars started (stopped) being added to this pop
-  std::vector<double> spZ; // metallicity of the stars as a function of position.
-  std::vector<double> spZV; // metallicity variance
+  std::vector<double> spZO; // metallicity of the stars as a function of position.
+  std::vector<double> spZFe; // metallicity of the stars as a function of position.
+  //std::vector<double> spZV; // metallicity variance -- too cumbersome to be worthwhile IMO
   std::vector<double> dQdS; // The partial derivative of Q wrt this population's S_*
   std::vector<double> dQdsR; // The partial derivative of Q wrt this population's s_*
   std::vector<double> dQdsZ;

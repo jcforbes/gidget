@@ -11,7 +11,8 @@ def GetDirnames(listOfFiles):
         # Split the filename by _
         parsed = f.rsplit('_')
         dirname=parsed[0]
-        dirs.add(dirname)
+        if 'fake' not in dirname:
+            dirs.add(dirname)
     return list(dirs)
 
 def moveFiles(keyname=None):

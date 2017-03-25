@@ -17,14 +17,16 @@ StellarPop::StellarPop(FixedMesh & m) :
   dSigRdr(std::vector<double>(m.nx()+1,0.)),
   dSigZdr(std::vector<double>(m.nx()+1,0.)),
   dColdr(std::vector<double>(m.nx()+1,0.)),
-  spZ(std::vector<double>(m.nx()+1,0.)), 
-  spZV(std::vector<double>(m.nx()+1,0.)),
+  spZFe(std::vector<double>(m.nx()+1,0.)), 
+  spZO(std::vector<double>(m.nx()+1,0.)), 
+  //spZV(std::vector<double>(m.nx()+1,0.)),
   dQdS(std::vector<double>(m.nx()+1,0.)),
   dQdsR(std::vector<double>(m.nx()+1,0.)), 
   dQdsZ(std::vector<double>(m.nx()+1,0.)),
   dQdSerr(std::vector<double>(m.nx()+1,0.)),
   dQdserr(std::vector<double>(m.nx()+1,0.)),
   dcoldtREC(std::vector<double>(m.nx()+1,0.)),
+  dcoldtIA(std::vector<double>(m.nx()+1,0.)),
   ageAtz0(-1.0),startingAge(-1.0),endingAge(-1.0),
   mesh(m)
 { }
@@ -58,20 +60,22 @@ void StellarPop::MergeStellarPops(const StellarPop& sp2,DiskContents& disk)
 		      /(spcol[i]+sp2.spcol[i]));
       //    (*this).spZ[i] = ((*this).spZ[i] * (*this).spcol[i] + sp2.spZ[i] * sp2.spcol[i]) / ((*this).spcol[i] + sp2.spcol[i]);
       // explicitly state the moments of each metallicity distribution:
-      double wtdAvg = (spZ[i]*spcol[i] + sp2.spZ[i]*sp2.spcol[i])/(spcol[i] + sp2.spcol[i]);
-      double avg1 = spZ[i];
-      double avg2 = sp2.spZ[i];
-      double var1 = spZV[i];
-      double var2 = sp2.spZV[i];
+      double wtdAvgFe = (spZFe[i]*spcol[i] + sp2.spZFe[i]*sp2.spcol[i])/(spcol[i] + sp2.spcol[i]);
+      double wtdAvgO = (spZO[i]*spcol[i] + sp2.spZO[i]*sp2.spcol[i])/(spcol[i] + sp2.spcol[i]);
+      //double avg1 = spZ[i];
+      //double avg2 = sp2.spZ[i];
+      //double var1 = spZV[i];
+      //double var2 = sp2.spZV[i];
       double wt1 = spcol[i];
       double wt2 = sp2.spcol[i];
       
       // Merge the two distributions:
-      (*this).spZ[i] = wtdAvg;
+      (*this).spZFe[i] = wtdAvgFe;
+      (*this).spZO[i] = wtdAvgO;
  //     (*this).spZV[i] = wt1/(wt1+wt2) * (avg1*avg1 + var1 - 2*wtdAvg*avg1 + wtdAvg*wtdAvg)
  //       + wt2/(wt1+wt2) * (avg2*avg2 + var2 - 2*wtdAvg*avg2 + wtdAvg*wtdAvg);
-      spZV[i] = ComputeVariance(spcol[i],0.0, sp2.spcol[i],
-				spZ[i],sp2.spZ[i],spZV[i],sp2.spZV[i]);
+ //     spZV[i] = ComputeVariance(spcol[i],0.0, sp2.spcol[i],
+//				spZ[i],sp2.spZ[i],spZV[i],sp2.spZV[i]);
       
       if((*this).spsigR[i]!=(*this).spsigR[i] || spsigZ[i]!=spsigZ[i])
         errormsg("Error merging populations:  this spcol,spsig  sp2 spcol,spsig  "+str((*this).spcol[i])+" "+str((*this).spsigR[i])+"  "+str(sp2.spcol[i])+" "+str(sp2.spsigR[i]));
@@ -99,20 +103,39 @@ void StellarPop::extract(StellarPop& sp2, double frac)
     spsigR[n] = sp2.spsigR[n];
     spsigZ[n] = sp2.spsigZ[n];
     spcol[n] = frac*sp2.spcol[n];
-    spZ[n] = sp2.spZ[n];
-    spZV[n] = sp2.spZV[n];
+    spZFe[n] = sp2.spZFe[n];
+    spZO[n] = sp2.spZO[n];
+    // spZV[n] = sp2.spZV[n];
     sp2.spcol[n] -= spcol[n];;
   }
   ageAtz0 = sp2.ageAtz0;
 
 }
 
+void StellarPop::ComputeSNIArate(DiskContents& disk, double z)
+{
+    unsigned int nx=spcol.size()-1;
+    double C0=0.046;
+    double lambda = 2.76e5 * speryear;
+    double RfREC = 0.77;
+    double current_age  = (ageAtz0 - disk.GetCos().lbt(z));// in seconds
+    double fml = C0 * log(1.0 + current_age/lambda) ;
+    for( unsigned int n=1; n<=nx; ++n) {
+        double col_orig_est = spcol[n]/(1-fml); // estimate of the column density of stars formed originally.
+	if (current_age>0.1*speryear*1.0e9 && current_age<10.0*speryear*1.0e9) 
+	    dcoldtIA[n] = col_orig_est * 0.0013 * 0.14476/(current_age * disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));  //// this is the surface density of SNIA explosions per time, in code units.
+        else
+	    dcoldtIA[n] = 0.0;
+    }
+
+}
 void StellarPop::ComputeRecycling(DiskContents& disk, double z)
 {
     unsigned int nx=spcol.size()-1;
     double C0 = 0.046;
     double lambda = 2.76e5 * speryear;
-    double RfREC = disk.GetRfRECinst();
+    //double RfREC = disk.GetRfRECinst();
+    double RfREC = 0.77; // 1- fractional mass lost at 40 Myr
     // double RfREC = 0.9; //// override the user.
     // At this time step, frac will be ~constant over the whole disk.
     double frac = C0/((ageAtz0 - disk.GetCos().lbt(z) + lambda)*disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));
@@ -130,7 +153,8 @@ void StellarPop::ComputeRecycling(DiskContents& disk, double z)
     // Whereas if the user specifies a low remnant fraction, an artificially large fraction of the gas
     // is immediately returned, which is similar to just artificially slowing the star formation rate 
     // at fixed gas column density.
-    if(C0 * log(1.0 + (ageAtz0 - disk.GetCos().lbt(z))/lambda) < 1.0 - RfREC) frac=0.0;
+    if(C0 * log(1.0 + (ageAtz0 - disk.GetCos().lbt(z))/lambda) < 1.0 - RfREC) 
+        frac=0.0;
     for(unsigned int n=1; n<=nx; ++n) {
         dcoldtREC[n] = spcol[n] * frac;
     }
@@ -143,7 +167,8 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
   // These hold derivatives:
   std::vector<double> dcoldt(spcol.size());
   std::vector<double> dsigRdt(spcol.size());
-  std::vector<double> dZdt(spcol.size());
+  std::vector<double> dZOdt(spcol.size());
+  std::vector<double> dZFedt(spcol.size());
   //std::vector<double> MdotiPlusHalf(spcol.size());
   // These refer back to mesh variables referenced by the disk object:
   std::vector<double>& uu = disk.GetUu();
@@ -153,8 +178,8 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
   // These store information about the metal fluxes to calculate the new variance of Z, spZV.
   std::vector<double> incomingMass(spcol.size(),0.0);
   std::vector<double> outgoingMass(spcol.size(),0.0);
-  std::vector<double> incomingZ(spcol.size());
-  std::vector<double> incomingZV(spcol.size());
+  std::vector<double> incomingZFe(spcol.size());
+  std::vector<double> incomingZO(spcol.size());
   std::vector<double> cellMass(spcol.size());
   Debug& dbg = disk.GetDbg();
   double spsigZp1,spsigRp1,spcolp1;
@@ -194,15 +219,17 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     if(spcol[n] > 0.0) {
         dsigRdt[n] =  1.0/(x[n]*spcol[n]*(spsigR[n]+spsigZ[n])) * ((beta[n]-1.)*uu[n]*f*tauvecStar[1][n]/(x[n]*x[n]) + (3.0*spsigR[n]*dSigRdr[n] + 2.0*spsigZ[n]*dSigZdr[n]) *(-tauvecStar[2][n]*f/(uu[n]*(1.+beta[n]))) + spsigR[n]*spsigR[n]*f*(MdotiPlusHalf[n]-MdotiPlusHalf[n])*2.0*M_PI/mesh.area(n));
 
-        dZdt[n] =  MdotCentered*ddx(spZ,n,x,true,true)/(x[n]*spcol[n]);
+        dZOdt[n] =  MdotCentered*ddx(spZO,n,x,true,true)/(x[n]*spcol[n]);
+        dZFedt[n] =  MdotCentered*ddx(spZFe,n,x,true,true)/(x[n]*spcol[n]);
     }
     else { 
         dsigRdt[n] = 0.0;
-        dZdt[n] = 0.0;
+        dZOdt[n] = 0.0;
+        dZFedt[n] = 0.0;
     }
 
 
-    if(dsigRdt[n]!=dsigRdt[n] || dZdt[n]!=dZdt[n] || dcoldt[n]!=dcoldt[n]) {
+    if(dsigRdt[n]!=dsigRdt[n] || dZOdt[n]!=dZOdt[n] ||  dZFedt[n]!=dZFedt[n] ||  dcoldt[n]!=dcoldt[n]) {
         errormsg("Something has gone wrong in calculating time derivs (MigrateStellarPop, StellarPop.cpp)");
     }
 
@@ -211,28 +238,31 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     bool fromRight = MdotiPlusHalf[n]>0.0;
     bool fromLeft = MdotiPlusHalf[n-1]<0.0;
     unsigned nx = spcol.size()-1;
-    double spZp1, spZVp1, spZm1, spZVm1;
+    double spZFep1, spZOp1, spZFem1, spZOm1;
     if(n<nx) { 
-      spZp1=spZ[n+1];
-      spZVp1=spZ[n+1];
+      spZFep1=spZFe[n+1];
+      spZOp1=spZO[n+1];
     }
     else { // these values shouldn't matter in theory.
-      spZp1 = 0.0;
-      spZVp1 = 0.0;
+      spZFep1 = 0.0;
+      spZOp1 = 0.0;
     }
     if(n>1) {
-      spZm1=spZ[n-1];
-      spZVm1=spZV[n-1];
+      spZOm1=spZO[n-1];
+      spZFem1=spZFe[n-1];
+      //spZVm1=spZV[n-1];
     }
     else { // again, these values should not affect the calculation.
-      spZm1= 0.0;
-      spZVm1= 0.0;
+      spZOm1= 0.0;
+      spZFem1= 0.0;
+      //spZVm1= 0.0;
     }
     if(fromRight) {
       incomingMass[n] += MdotiPlusHalf[n]*dt;
       if( !fromLeft) {
-        incomingZ[n] = spZ[n+1];
-        incomingZV[n] = spZV[n+1];
+        incomingZO[n] = spZO[n+1];
+        incomingZFe[n] = spZFe[n+1];
+        //incomingZV[n] = spZV[n+1];
       }
     }
     if(!fromRight) {
@@ -241,17 +271,19 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     if(fromLeft) {
       incomingMass[n] -= MdotiPlusHalf[n-1]*dt;
       if(n>1 && !fromRight) {
-        incomingZ[n] = spZ[n-1];
-        incomingZV[n] = spZV[n-1];
+        incomingZO[n] = spZO[n-1];
+        incomingZFe[n] = spZFe[n-1];
+        //incomingZV[n] = spZV[n-1];
       }
     }
     if(!fromLeft) {
       outgoingMass[n] += MdotiPlusHalf[n-1]*dt;
     }
     if(fromLeft && fromRight) {
-      incomingZ[n] = (MdotiPlusHalf[n]*dt*spZp1 - MdotiPlusHalf[n-1]*dt*spZm1)/incomingMass[n];
-      incomingZV[n] = ComputeVariance(MdotiPlusHalf[n]*dt,0.0,-MdotiPlusHalf[n-1]*dt,
-                                      spZp1, spZm1, spZVp1, spZVm1);
+      incomingZFe[n] = (MdotiPlusHalf[n]*dt*spZFep1 - MdotiPlusHalf[n-1]*dt*spZFem1)/incomingMass[n];
+      incomingZO[n] = (MdotiPlusHalf[n]*dt*spZOp1 - MdotiPlusHalf[n-1]*dt*spZOm1)/incomingMass[n];
+      //incomingZV[n] = ComputeVariance(MdotiPlusHalf[n]*dt,0.0,-MdotiPlusHalf[n-1]*dt,
+      //                                spZp1, spZm1, spZVp1, spZVm1);
     }
 
   }
@@ -260,12 +292,13 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     spcol[n] += dcoldt[n]*dt;
     spsigR[n] += dsigRdt[n]*dt;
     spsigZ[n] += .5*dsigRdt[n]*dt;
-    spZ[n] += dZdt[n]*dt;
-    spZV[n] = ComputeVariance(cellMass[n],outgoingMass[n],incomingMass[n],
-                              spZ[n],incomingZ[n],spZV[n],incomingZV[n]);
-    if(spcol[n]<0 || spsigR[n]<0 || spsigZ[n]<0 || spZ[n]<0 || spZV[n]<0 ||
+    spZO[n] += dZFedt[n]*dt;
+    spZFe[n] += dZOdt[n]*dt;
+    //spZV[n] = ComputeVariance(cellMass[n],outgoingMass[n],incomingMass[n],
+    //                          spZ[n],incomingZ[n],spZV[n],incomingZV[n]);
+    if(spcol[n]<0 || spsigR[n]<0 || spsigZ[n]<0 || spZO[n]<0  || spZFe[n]<0 ||
        spcol[n]!=spcol[n] || spsigR[n]!=spsigR[n] || spsigZ[n]!=spsigZ[n] ||
-       spZ[n]!=spZ[n] || spZV[n]!=spZV[n])
+       spZFe[n]!=spZFe[n] || spZO[n]!=spZO[n] )
        errormsg("Migrating the populations has produced nonsensical results!");
   }
 }

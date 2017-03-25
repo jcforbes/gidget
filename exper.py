@@ -617,8 +617,8 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary( 'R', list(np.power(reff4/reff411, 1.0)*50* asls/0.042)  , 5)
     bolweights = list( np.random.random(len(Mhz0)) )
     thisexper.irregularVary('bolshoiWeight', bolweights ,5)
-    thisexper.irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7)
-    thisexper.irregularVary('Noutputs',400)
+    thisexper.irregularVary('dbg',2**4+2**2+2**1+2**0+2**13 + 2**7)
+    thisexper.irregularVary('Noutputs',400) ## why so many??
     thisexper.irregularVary('zstart',3.98)
     thisexper.irregularVary('zrelax',4.0)
     thisexper.irregularVary('muNorm', list(0.005*muNorm*np.power(Mhz0/1.0e12,muMhScaling)), 5)
@@ -626,7 +626,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('muColScaling', muColScaling)
     thisexper.irregularVary('fscatter', 1.0)
     thisexper.irregularVary('accCeiling',accCeiling)
-    thisexper.irregularVary('NPassive',4)
+    thisexper.irregularVary('NPassive',20)
     thisexper.irregularVary('eta',eta)
     thisexper.irregularVary('xmin',0.001)
     thisexper.irregularVary('yREC',0.03)
@@ -2590,7 +2590,21 @@ if __name__ == "__main__":
 
     rf74 = NewSetOfExperiments( rf73, 'rf74')[0]
     rf74.irregularVary('RfREC', 0.9)
-    rf74.irregularVary('dbg', 2**4 + 2**1 + 2**0 + 2**13 + 2**7 + 2**6)
+    rf74.irregularVary('dbg', 2**4 + 2**2 + 2**1 + 2**0 + 2**13 + 2**7 + 2**6)
+
+    ## same run, but now we've altered a few bits of the code to disitnguish between instantaneous and asymptotic RfREC.
+    rf75=NewSetOfExperiments(rf74, 'rf75')[0]
+
+    # go from 4 to 20 passive stellar populations to get finer gradation of mass return
+    rf76=NewSetOfExperiments(rf75, 'rf76')[0]
+
+
+    ### first optimizer result from broad10, same as the last except with non-instantaneous recylcing.
+    #emceeparams = [1.51177585e-01, 2.13587733e+00, 1.72771535e+00, 2.48777103e+00, 5.14946703e-01, 1.42377424e+00, 6.24287175e+00, -1.64962558e+00, 4.31974567e+00, 8.94772733e-01, 1.43807107e+00, 1.51001976e+00, 5.53001724e-02, 2.83883300e-03, 3.29797917e-01, 2.69280628e-01, 2.41255451e+00, 4.63265827e-01]
+    #rf77 = experFromBroadMCMC(emceeparams, name='rf77')
+
+    # re-run the best fit from previous optimizer with updated recycling parameters
+    rf78 = NewSetOfExperiments(rf74, 'rf78')
 
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

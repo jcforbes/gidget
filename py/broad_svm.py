@@ -68,6 +68,44 @@ def samplefromuniformdensity(a,b):
     assert b>a
     return np.random.uniform(a,b)
 
+class fntModel:
+    ### a simple wrapper for models that have been transformed/predict transformed quantities:
+    def __init__(self, skModel, xtr, ytr):
+        self.model = skModel
+        self.xtr = xtr
+        self.ytr = ytr
+    def predict(self, x):
+        return self.ytr.inverseTransform( self.model.predict( self.xtr.transform(x)))
+    def predictFill(self,x):
+        if np.shape(x)[1]<len(self.xtr.minxps):
+            tofill =  len(self.xtr.minxps) - np.shape(x)[1]
+            fillers = np.random.random(size=(np.shape(x)[0], tofill))
+            thisx = np.vstack([x.T, fillers.T]).T
+            transformed_thisx = self.xtr.transform(thisx)
+            #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
+            transformed_thisx[:,-tofill:] = fillers[:,:]
+            pred = self.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
+            yinv = self.ytr.inverseTransform(pred)
+            return yinv
+        else:
+            return self.predict(x)
+
+def predictFill( model, x):
+    if np.shape(x)[1]<len(model.xtr.minxps):
+        tofill =  len(model.xtr.minxps) - np.shape(x)[1]
+        fillers = np.random.random(size=(np.shape(x)[0], tofill))
+        thisx = np.vstack([x.T, fillers.T]).T
+        transformed_thisx = model.xtr.transform(thisx)
+        #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
+        transformed_thisx[:,-tofill:] = fillers[:,:]
+        pred = model.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
+        yinv = model.ytr.inverseTransform(pred)
+        return yinv
+    else:
+        return model.predict(x)
+
+
+
 class xtransform:
     def __init__(self, X_train):
         xps = X_train[:,:] # All physical parameters and 
@@ -326,10 +364,11 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None):
     plt.close(fig)
 
 
+models10 = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
     
 def lnlikelihood(emceeparams, models=None):
-    models = [ pickle.load( open( 'rfnt09_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+    #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
     nmh = 5
@@ -342,7 +381,12 @@ def lnlikelihood(emceeparams, models=None):
             # Take the log of the input variable if it makes sense to do so
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
-        Y_eval = np.array( [predictFill(models[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
+        Y_eval = np.zeros((1,80))
+        neededModels = [0,1,2,3,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,28,29,30,31,32,33,34,35,36,40,41,42,43,44,45,46,47,72,76,77,78,79]
+        for j in range(80):
+            if j in neededModels:
+                Y_eval[0,j] = predictFill(models10[j], X1)[0][j]
+        #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
 
 
@@ -556,12 +600,6 @@ def runEmcee(mpi=False, continueRun=False):
         from emcee.utils import MPIPool
 
     #models = [ pickle.load( open( 'rfnt09_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
-    #import bolshoireader
-    #bolshoidir = '/Users/jforbes/bolshoi/'
-    #globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e14, bolshoidir)
-    #globalBolshoiReader.storeAll()
-    #bolshoiSize =  len(globalBolshoiReader.keys)
-
 
 
     if mpi:
@@ -571,7 +609,7 @@ def runEmcee(mpi=False, continueRun=False):
             sys.exit()
     
     ndim, nwalkers = 19, 800 
-    fn = 'fakemcmc09full_restart.pickle'
+    fn = 'fakemcmc10_restart.pickle'
     restart = {}
     nsteps = 3000 # test run
     p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
@@ -592,8 +630,10 @@ def runEmcee(mpi=False, continueRun=False):
 
     if mpi:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)#, args=[models])
+        #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool, args=[models])
     else:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)#, args=[models])
+        #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=[models])
     
     for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], rstate0=restart['state']) :
         pos, prob, state = result
@@ -1761,41 +1801,6 @@ def printTable(arr, columnnames, rownames, fn='table.tex'):
         f.write(r'\end{tabular}'+'\n')
         f.write(r'\end{table*}'+'\n')
 
-class fntModel:
-    ### a simple wrapper for models that have been transformed/predict transformed quantities:
-    def __init__(self, skModel, xtr, ytr):
-        self.model = skModel
-        self.xtr = xtr
-        self.ytr = ytr
-    def predict(self, x):
-        return self.ytr.inverseTransform( self.model.predict( self.xtr.transform(x)))
-    def predictFill(self,x):
-        if np.shape(x)[1]<len(self.xtr.minxps):
-            tofill =  len(self.xtr.minxps) - np.shape(x)[1]
-            fillers = np.random.random(size=(np.shape(x)[0], tofill))
-            thisx = np.vstack([x.T, fillers.T]).T
-            transformed_thisx = self.xtr.transform(thisx)
-            #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
-            transformed_thisx[:,-tofill:] = fillers[:,:]
-            pred = self.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
-            yinv = self.ytr.inverseTransform(pred)
-            return yinv
-        else:
-            return self.predict(x)
-
-def predictFill( model, x):
-    if np.shape(x)[1]<len(model.xtr.minxps):
-        tofill =  len(model.xtr.minxps) - np.shape(x)[1]
-        fillers = np.random.random(size=(np.shape(x)[0], tofill))
-        thisx = np.vstack([x.T, fillers.T]).T
-        transformed_thisx = model.xtr.transform(thisx)
-        #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
-        transformed_thisx[:,-tofill:] = fillers[:,:]
-        pred = model.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
-        yinv = model.ytr.inverseTransform(pred)
-        return yinv
-    else:
-        return model.predict(x)
             
 
 
@@ -1807,7 +1812,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad09full_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad10_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -1858,7 +1863,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
             # k=8 corresponds to z=0 sfr. Try really hard to get this right!
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt09_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt10_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2267,10 +2272,10 @@ if __name__=='__main__':
     ### analyze the fake mcmc run
     if True:
         restart={}
-        updateRestart('fakemcmc09full_restart.pickle', restart)
+        updateRestart('fakemcmc10_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc09full_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc09full_allProb', burnIn=0)
+        tracePlots(restart, 'fakemcmc10_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc10_allProb', burnIn=0)
         #trianglePlot(restart,'fakemcmc_triangle.png', burnin=50, nspace=10)
 
         # Find the maximum among all models sampled so far.
@@ -2285,4 +2290,4 @@ if __name__=='__main__':
 
 
 
-        fakeEmceePlotResiduals(restart, 'fakemcmc09full_residuals', gidgetmodels='rf73')
+        fakeEmceePlotResiduals(restart, 'fakemcmc10_residuals', gidgetmodels='rf73')

@@ -120,7 +120,7 @@ DiskContents::DiskContents(double tH, double eta,
         double minSigSt,
 		double rfrec, double xirec,
 		double fh2min, double tdeph2sc,
-        double ZIGM, double yrec,
+        double Z_IGM_O, double Z_IGM_Fe, double yrec,
         double ksup, double kpow,
         double mq, double muq,
         double Zmx) :
@@ -130,18 +130,20 @@ DiskContents::DiskContents(double tH, double eta,
     uDM(std::vector<double>(m.nx()+1,0.)),
     uBulge(std::vector<double>(m.nx()+1,0.)),
     dim(d), mesh(m), dbg(ddbg),
-    XMIN(m.xmin()),ZDisk(std::vector<double>(m.nx()+1,Z_IGM)),
+    XMIN(m.xmin()),ZDiskO(std::vector<double>(m.nx()+1,Z_IGM_O)),
+    ZDiskFe(std::vector<double>(m.nx()+1,Z_IGM_Fe)),
     cos(c),tauHeat(tH),sigth(sflr),
     EPS_ff(epsff),ETA(eta),constMassLoadingFactor(mlf),
     mlfColScaling(mlfColScal),
     mlfFgScaling(mlfFgScal),
     MQuench(mq), muQuench(muq),
+    Z_IGMO(Z_IGM_O), Z_IGMFe(Z_IGM_Fe),
     //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
     //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
     spsActive(std::vector<StellarPop*>(0)),
     spsPassive(std::vector<StellarPop*>(0)),
-    dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulge(ZIGM),
-    yREC(yrec),RfRECinst(rfrec),RfRECasym(0.46),xiREC(xirec), 
+    dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulgeFe(Z_IGM_Fe), ZBulgeO(Z_IGM_O),
+    yRECFe(0.0011), yRECO(0.0133),RfRECinst(0.77),RfRECasym(0.503),xiREC(xirec), 
     analyticQ(aq),
     tDepH2SC(tdeph2sc),
     fH2Min(fh2min),
@@ -165,11 +167,16 @@ DiskContents::DiskContents(double tH, double eta,
     dcoldt(std::vector<double>(m.nx()+1,0.)),
     dsigdtPrev(std::vector<double>(m.nx()+1,0.)),
     dsigdt(std::vector<double>(m.nx()+1,0.)),
-    dZDiskdtPrev(std::vector<double>(m.nx()+1,0.)),
-    dZDiskdtDiff(std::vector<double>(m.nx()+1,0.)),
-    dZDiskdtAdv(std::vector<double>(m.nx()+1,0.)),
-    dZDiskdt(std::vector<double>(m.nx()+1,0.)),
-    dMZdt(std::vector<double>(m.nx()+1,0.)),
+    dZDiskFedtPrev(std::vector<double>(m.nx()+1,0.)),
+    dZDiskFedtDiff(std::vector<double>(m.nx()+1,0.)),
+    dZDiskFedtAdv(std::vector<double>(m.nx()+1,0.)),
+    dZDiskFedt(std::vector<double>(m.nx()+1,0.)),
+    dZDiskOdtPrev(std::vector<double>(m.nx()+1,0.)),
+    dZDiskOdtDiff(std::vector<double>(m.nx()+1,0.)),
+    dZDiskOdtAdv(std::vector<double>(m.nx()+1,0.)),
+    dZDiskOdt(std::vector<double>(m.nx()+1,0.)),
+    dMZOdt(std::vector<double>(m.nx()+1,0.)),
+    dMZFedt(std::vector<double>(m.nx()+1,0.)),
     colSFR(std::vector<double>(m.nx()+1,0.)),
     ColOutflows(std::vector<double>(m.nx()+1,0.)),
     MassLoadingFactor(std::vector<double>(m.nx()+1,0.)),
@@ -208,7 +215,6 @@ DiskContents::DiskContents(double tH, double eta,
     dmm1(-expm1(-m.dlnx())),   // dmm1 = 1 -d^-1
     dmdinv(expm1(2.*m.dlnx())/exp(m.dlnx())),  // dmdinv = d -d^-1
     sqd(exp(m.dlnx()/2.)), // sqd = square root of d
-    Z_IGM(ZIGM),
     ZMix(Zmx)
 {
     accel_colst = gsl_interp_accel_alloc();
@@ -260,21 +266,22 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 
 
     for(unsigned int n=1; n<=nx; ++n) {
-        ZDisk[n] = Z_IGM;
+        ZDiskO[n] = Z_IGMO;
+        ZDiskFe[n] = Z_IGMFe;
 
         col[n] = in.col[n];
         sig[n] = in.sig[n];
         initialStarsA->spcol[n] = in.col_st[n];
         initialStarsA->spsigR[n] = in.sig_stR[n];
         initialStarsA->spsigZ[n] = in.sig_stZ[n];
-        initialStarsA->spZ[n]   = Z_IGM;
-        initialStarsA->spZV[n]  = 0.0;
+        initialStarsA->spZO[n]   = Z_IGMO;
+        initialStarsA->spZFe[n]   = Z_IGMFe;
 
         initialStarsP->spcol[n] = initialStarsA->spcol[n];
         initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
         initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
-        initialStarsP->spZ[n]   = initialStarsA->spZ[n];
-        initialStarsP->spZV[n]  = initialStarsA->spZV[n];
+        initialStarsP->spZO[n]   = initialStarsA->spZO[n];
+        initialStarsP->spZFe[n]   = initialStarsA->spZFe[n];
     }
 
     // MBulge here is dimensionless:
@@ -310,7 +317,8 @@ void DiskContents::Initialize(double fcool, double fg0,
 
     double fg4 = fg0;
     double fc = fcool;
-    double Z0 = Z_IGM;
+    double Z0Fe = Z_IGMFe;
+    double Z0O = Z_IGMO;
     double xdstars = stScaleLength/dim.d(1.0)/stScaleReduction; // 2.0 -- make the initial size much smaller than the initial accr. radius
     double xdgas = stScaleLength/dim.d(1.0)/gaScaleReduction; // 1.4 -- make the initial size much smaller than the initial accr. radius
     // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
@@ -349,7 +357,8 @@ void DiskContents::Initialize(double fcool, double fg0,
         double reff4 = 5.28*pow(mst/1.0e10, 0.25)*pow(1.0+4.0,-0.6); // kpc (eq B3) at z=4
         double ZHayward = -8.69 + 9.09*pow(1.0+4.0,-0.017) - 0.0864*pow(log10(mst) - 11.07*pow(1.0+4.0,0.094),2.0);
         ZHayward = pow(10.0, ZHayward) * 0.02;
-        Z0 = ZHayward;
+        Z0Fe = ZHayward * (1.00/(2.09+1.06));
+        Z0O = ZHayward * (1.00/(2.09+1.06));
         fc = 1.0/(1.0-fgz4) * mst/(0.17*Mh);
         fg4 = fgz4;
         xdstars = reff4/dim.d(1.0)/1.67835; // is scale length = reff? Numerical solution says reff/rd = 1.67835.
@@ -362,20 +371,21 @@ void DiskContents::Initialize(double fcool, double fg0,
     double floorval = 1.0e-15;
 
     for(unsigned int n=1; n<=nx; ++n) {
-        ZDisk[n] = Z0;
+        ZDiskFe[n] = Z0Fe;
+        ZDiskO[n] = Z0O;
         initialStarsA->spcol[n] = S0stars*exp(-x[n]/xdstars);
         if(initialStarsA->spcol[n] < S0stars*floorval)
             initialStarsA->spcol[n] = S0stars*floorval; // floor the initial value to avoid very small timesteps
         initialStarsA->spsigR[n] = max(sig0 * phi0, minsigst);
         initialStarsA->spsigZ[n] = max(sig0 * phi0, minsigst);
-        initialStarsA->spZ[n] = Z_IGM;
-        initialStarsA->spZV[n] = 0.0;
+        initialStarsA->spZFe[n] = Z_IGMFe;
+        initialStarsA->spZO[n] = Z_IGMO;
 
         initialStarsP->spcol[n] = initialStarsA->spcol[n];
         initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
         initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
-        initialStarsP->spZ[n] = initialStarsA->spZ[n];
-        initialStarsP->spZV[n] = initialStarsA->spZV[n];
+        initialStarsP->spZFe[n] = initialStarsA->spZFe[n];
+        initialStarsP->spZO[n] = initialStarsA->spZO[n];
 
         col[n] = S0gas*exp(-x[n]/xdgas);
         if(col[n] < S0gas*floorval)
@@ -420,182 +430,6 @@ void DiskContents::Initialize(double fcool, double fg0,
 }
 
 
-// Mh0 in solar masses
-// sigst0 is in units of vphiR. stScaleLength is, as usual in units of kpc, as is BulgeRadius.
-void DiskContents::Initialize(double fcool, double fg0,
-        double sigst0, double Mh0,double MhZs,
-        double stScaleLength)
-{			     
-    StellarPop * initialStarsA = new StellarPop(mesh);
-    StellarPop * initialStarsP = new StellarPop(mesh);
-
-
-    if(true) {
-        //  InitializeGrid(BulgeRadius);
-
-        double maxsig=0.0;
-        unsigned int maxsign=1;
-        bool lowQst;
-
-        double fc = 1.0/6.0;
-        double xd = stScaleLength/dim.d(1.0);
-        double S0 = 0.17 * fc * (1-fg0) * MhZs*MSol/(dim.MdotExt0) * dim.vphiR/(2.0*M_PI*dim.Radius) * (1.0/(xd*xd));
-
-        //// For each cell...
-        for(unsigned int n=1; n<=nx; ++n) {
-            ZDisk[n] = Z_IGM;
-
-            // Put in the exponential stellar profile.
-            initialStarsA->spcol[n] = S0 *exp(-x[n]/xd);
-            initialStarsA->spsigR[n] = max(sigst0,minsigst);
-            initialStarsA->spsigZ[n] = max(sigst0,minsigst);
-
-
-
-            // if the initial conditions are such that Q_* < Q_lim, set Q_*=Q_lim by 
-            // heating the stars beyond what the user requested.
-            if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n] / (initialStarsA->spcol[n]*M_PI*x[n]*dim.chi()) < Qlim) {
-                lowQst = true;
-                initialStarsA->spsigR[n] = max(Qlim*M_PI*x[n]*initialStarsA->spcol[n]*dim.chi()/(sqrt(2.*(beta[n]+1.))*uu[n]),minsigst);
-            }
-
-            if(initialStarsA->spsigR[n] > maxsig) { 
-                maxsig=initialStarsA->spsigR[n];
-                maxsign=n;
-            }
-            initialStarsA->spZ[n] = Z_IGM;
-            initialStarsA->spZV[n] = 0.0;
-
-            initialStarsP->spcol[n] = initialStarsA->spcol[n];
-            initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
-            initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
-            initialStarsP->spZ[n] = initialStarsA->spZ[n];
-            initialStarsP->spZV[n] = initialStarsA->spZV[n];
-
-            sig[n] = max(pow(dim.chi() / (ETA*fg0), 1./3.)/sqrt(2.),  sigth);
-
-            col[n] = ((thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))/(M_PI*dim.chi()*x[n]) - initialStarsA->spcol[n]/initialStarsA->spsigR[n]) *sig[n];
-
-
-            if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA->spcol[n]<0.0 
-                    || initialStarsA->spsigR[n]<0.0 || initialStarsA->spcol[n]!=initialStarsA->spcol[n] 
-                    || initialStarsA->spsigR[n]!=initialStarsA->spsigR[n]) 
-            {
-                errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "
-                        +str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA->spcol[n])+" "
-                        +str(initialStarsA->spsigR[n])+" "
-                        +str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA->spsigR[n]
-                            /(M_PI*x[n]*initialStarsA->spcol[n]*dim.chi())));
-            }
-        } // end loop over all cells
-
-        if(lowQst) {
-            // make sig_st monotonically increasing towards the center of the disk.
-            for(unsigned int n=1; n<=maxsign; ++n ) {
-                if(initialStarsA->spsigR[n] < maxsig) { 
-                    initialStarsA->spsigR[n] = max(maxsig,minsigst);
-                    initialStarsP->spsigR[n] = max(maxsig,minsigst);
-                    initialStarsA->spsigZ[n] = max(maxsig,minsigst);
-                    initialStarsP->spsigZ[n] = max(maxsig,minsigst);
-
-                }
-            }
-
-        }
-
-        double minQst=1.0e30;
-        unsigned int minQstN=0;
-        // locate the minimum value of Q_*
-        for(unsigned int n=1; n<=nx; ++n) {
-            if(sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n]/(initialStarsA->spcol[n]*M_PI*x[n]*dim.chi()) < minQst) { 
-                minQst = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n] / (initialStarsA->spcol[n]*M_PI*x[n]*dim.chi());
-                minQstN = n;
-            }
-        }
-        if(minQst < Qlim*.99999) errormsg("Minimum Qst is somehow below Qlim. "+str(Qlim)+" "+str(minQst));
-
-        // Inwards of minQstN, set col_* such that Q_* doesn't turn back up at small radii.
-        for(unsigned int n=1; n<=minQstN; ++n) {
-            initialStarsA->spcol[n] = sqrt(2.*(beta[n]+1.0))*uu[n]*initialStarsA->spsigR[n] / (minQst*M_PI*x[n]*dim.chi());
-            initialStarsP->spcol[n] = initialStarsA->spcol[n];
-        }
-        for(unsigned int n=1; n<=nx; ++n) {
-            initialStarsA->spsigR[n] = max(initialStarsA->spsigR[n] * Qlim / minQst,minsigst);
-            initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
-            initialStarsA->spsigZ[n] = max(initialStarsA->spsigZ[n] * Qlim / minQst,minsigst);
-            initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
-        }
-    }
-
-
-
-    MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA->spcol[1]); // dimensionless!
-    MHalo = 0.0;
-    initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
-    initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
-
-    initialStarsA->ComputeSpatialDerivs();
-    initialStarsP->ComputeSpatialDerivs();
-
-    spsActive.push_back(initialStarsA);
-    spsPassive.push_back(initialStarsP);
-    EnforceFixedQ(false,true);
-
-    initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
-        (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
-    initialGasMass = TotalWeightedByArea(col) * 
-        (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
-}
-
-void DiskContents::Initialize(double tempRatio, double fg0)
-{
-    // an active and passive stellar population..
-    StellarPop * initialStarsA = new StellarPop(mesh);
-    StellarPop * initialStarsP = new StellarPop(mesh);
-
-    //  InitializeGrid(BulgeRadius);
-
-    // Metallicity
-    for(unsigned int n=1; n<=nx; ++n) {
-        ZDisk[n] = Z_IGM;
-        sig[n] = pow(dim.chi()/(ETA*fg0),1./3.)/sqrt(2.);
-        col[n] = (thickness/fixedQ)*uu[n]*sqrt(2.*(beta[n]+1.))*sig[n]*
-            tempRatio/(x[n]*M_PI*dim.chi() * (tempRatio + (1.-fg0)/fg0));
-        initialStarsA->spcol[n] = col[n]*(1.-fg0)/fg0;
-        initialStarsA->spsigR[n] = max(tempRatio*sig[n],minsigst);
-        initialStarsA->spsigZ[n] = initialStarsA->spsigR[n];
-        initialStarsA->spZ[n]   = Z_IGM;
-        initialStarsA->spZV[n]  = 0.0;
-        initialStarsP->spcol[n] = initialStarsA->spcol[n];
-        initialStarsP->spsigR[n] = initialStarsA->spsigR[n];
-        initialStarsP->spsigZ[n] = initialStarsA->spsigZ[n];
-        initialStarsP->spZ[n]   = initialStarsA->spZ[n];
-        initialStarsP->spZV[n]  = initialStarsA->spZV[n];
-
-        if(col[n]<0 || sig[n] <0 || col[n]!=col[n] || sig[n]!=sig[n] || initialStarsA->spcol[n]<0.0 || initialStarsA->spsigR[n]<0.0 || initialStarsA->spcol[n]!=initialStarsA->spcol[n] || initialStarsA->spsigR[n]!=initialStarsA->spsigR[n]) {
-            errormsg("Error initializing disk- nonphysical state vars: n, col, sig, spcol, spsig, Qst: "+str(n)+" "+str(col[n])+" "+str(sig[n])+" "+str(initialStarsA->spcol[n])+" "+str(initialStarsA->spsigR[n])+" "+str(sqrt(2.*(beta[n]+1.))*uu[n]*initialStarsA->spsigR[n]/(M_PI*x[n]*initialStarsA->spcol[n]*dim.chi())));
-        }
-
-    }
-
-    MBulge = M_PI*x[1]*x[1]*(col[1]+initialStarsA->spcol[1]); // dimensionless!
-    MHalo = 0.0;
-    initialStarsA->ageAtz0 = cos.lbt(cos.ZStart());
-    initialStarsP->ageAtz0 = cos.lbt(cos.ZStart());
-    initialStarsA->ComputeSpatialDerivs();
-    initialStarsP->ComputeSpatialDerivs();
-    spsActive.push_back(initialStarsA);
-    spsPassive.push_back(initialStarsP);
-    //  EnforceFixedQ(true); // this is no longer reasonable given the floor, minsigst.
-    bool fixedPhi0 = initialStarsA->spsigR[1] > 2.0*minsigst;
-    EnforceFixedQ(fixedPhi0,true); // only allow sig and sigst to covary if initial stellar velocity dispersion is far above minsigst.
-    if(!fixedPhi0)  std::cerr << "WARNING: minsigst set too high to allow intiial conditions to be set by covarying gas and stellar velocity dispersions.";
-
-    initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
-        (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
-    initialGasMass = TotalWeightedByArea(col) * 
-        (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
-}
 
 
 
@@ -615,39 +449,56 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         dcoldtOutgoing[n] = 0;
     }
     // Add up outgoing metallicity
-    double outflowingMetalMass = 0.0;
+    double outflowingMetalMassO = 0.0;
+    double outflowingMetalMassFe = 0.0;
     double inflowingMass = 0.0;
     for(unsigned int n=1; n<=nx; ++n) {
         double mu = MassLoadingFactor[n]; //dSdtOutflows(n)/colSFR[n];
-        double Zej = ZDisk[n] + xiREC * yREC*RfRECasym / max(mu, 1.0-RfRECasym);
-        outflowingMetalMass += colSFR[n] *mu * Zej * mesh.area(n);
+        double ZFeej = ZDiskFe[n] + xiREC * yRECFe/ max(mu, 1.0-RfRECinst);
+        outflowingMetalMassFe += colSFR[n] *mu * ZFeej * mesh.area(n);
+        double ZOej = ZDiskO[n] + xiREC * yRECO/ max(mu, 1.0-RfRECinst);
+        outflowingMetalMassO += colSFR[n] *mu * ZOej * mesh.area(n);
         inflowingMass += accProf[n]*AccRate * mesh.area(n);
         // double Zacc = ZMix * mu* colSFR[n]/(accProf[n]*AccRate) *Zej + Z_IGM;
     }
-    double Zacc = ZMix * outflowingMetalMass/inflowingMass + Z_IGM;
+    double ZFeacc = ZMix * outflowingMetalMassFe/inflowingMass + Z_IGMFe;
+    double ZOacc = ZMix * outflowingMetalMassO/inflowingMass + Z_IGMO;
 
     for(unsigned int n=1; n<=nx; ++n) {
-        double dlnZdx; double dlnZdxL; double dlnZdxR;
+        double dlnZOdx; double dlnZOdxL; double dlnZOdxR;
         // dlnx=dx/x 
         // => dlnZ/dx = dlnZ/(x dlnx) ~ (lnZ_{n+1}-lnZ_{n-1})/(2 x[n] dlnx)
         if(n==1) {
-            //      dlnZdxL=(log(ZDisk[1])-log(ZBulge))/(x[n]*dlnx);
-            //      dlnZdxR=(log(ZDisk[2])-log(ZBulge))/(2.*x[n]*dlnx);
-            //      dlnZdxL=0.0;
-            //      dlnZdxR=0.0;
-            dlnZdxL = (1.0/x[1]); // (1/Z1) (Z1-0)/x
-            dlnZdxR = (log(ZDisk[2])-log(ZDisk[1]))/(x[2]-x[1]);
+            dlnZOdxL = (1.0/x[1]); // (1/Z1) (Z1-0)/x
+            dlnZOdxR = (log(ZDiskO[2])-log(ZDiskO[1]))/(x[2]-x[1]);
         }
         else if(n==nx) {
-            dlnZdxR=(log(Z_IGM)-log(ZDisk[nx]))/(x[n]*dlnx);
-            dlnZdxL=(log(Z_IGM)-log(ZDisk[nx-1]))/(2*x[n]*dlnx);
+            dlnZOdxR=(log(Z_IGMO)-log(ZDiskO[nx]))/(x[n]*dlnx);
+            dlnZOdxL=(log(Z_IGMO)-log(ZDiskO[nx-1]))/(2*x[n]*dlnx);
         }
         else {
-            dlnZdxL=(log(ZDisk[n])-log(ZDisk[n-1]))/(x[n]-x[n-1]);
-            dlnZdxR=(log(ZDisk[n+1])-log(ZDisk[n]))/(x[n+1]-x[n]);
+            dlnZOdxL=(log(ZDiskO[n])-log(ZDiskO[n-1]))/(x[n]-x[n-1]);
+            dlnZOdxR=(log(ZDiskO[n+1])-log(ZDiskO[n]))/(x[n+1]-x[n]);
         }
-        dlnZdx = ddx(dlnZdxL,dlnZdxR);
+        dlnZOdx = ddx(dlnZOdxL,dlnZOdxR);
         //    double taupp = ddx(tauvec[2],n,x);
+
+
+        double dlnZFedx; double dlnZFedxL; double dlnZFedxR;
+        if(n==1) {
+            dlnZFedxL = (1.0/x[1]); // (1/Z1) (Z1-0)/x
+            dlnZFedxR = (log(ZDiskFe[2])-log(ZDiskFe[1]))/(x[2]-x[1]);
+        }
+        else if(n==nx) {
+            dlnZFedxR=(log(Z_IGMFe)-log(ZDiskFe[nx]))/(x[n]*dlnx);
+            dlnZFedxL=(log(Z_IGMFe)-log(ZDiskFe[nx-1]))/(2*x[n]*dlnx);
+        }
+        else {
+            dlnZFedxL=(log(ZDiskFe[n])-log(ZDiskFe[n-1]))/(x[n]-x[n-1]);
+            dlnZFedxR=(log(ZDiskFe[n+1])-log(ZDiskFe[n]))/(x[n+1]-x[n]);
+        }
+        dlnZFedx = ddx(dlnZFedxL,dlnZFedxR);
+
 
         double Qg= sqrt(2.*(beta[n]+1.))*uu[n]*sig[n]/(M_PI*dim.chi()*x[n]*col[n]);
 
@@ -721,67 +572,90 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         }
 
         //    colSFR[n] = dSSFdt(n);
-        dZDiskdtAdv[n] =  -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n]  * dlnZdx *tauvec[2][n] ;
+        dZDiskOdtAdv[n] =  -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDiskO[n]  * dlnZOdx *tauvec[2][n] ;
+        dZDiskFedtAdv[n] =  -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDiskFe[n]  * dlnZFedx *tauvec[2][n] ;
 
-        double Znp1,Znm1;
+        double ZOnp1,ZOnm1;
         if(n<nx) 
-            Znp1=ZDisk[n+1];
+            ZOnp1=ZDiskO[n+1];
         else
-            Znp1=Z_IGM;
+            ZOnp1=Z_IGMO;
         if(n>1)
-            Znm1=ZDisk[n-1];
+            ZOnm1=ZDiskO[n-1];
         else
-            Znm1=ZBulge; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
+            ZOnm1=ZBulgeO; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
+
+        double ZFenp1,ZFenm1;
+        if(n<nx) 
+            ZFenp1=ZDiskFe[n+1];
+        else
+            ZFenp1=Z_IGMFe;
+        if(n>1)
+            ZFenm1=ZDiskFe[n-1];
+        else
+            ZFenm1=ZBulgeFe; // THIS SHOULD NOT MATTER, since there should be no mass exiting the bulge.
+
         double mu = MassLoadingFactor[n]; //dSdtOutflows(n)/colSFR[n];
-        double Zej = ZDisk[n] + xiREC * yREC*RfRECasym / max(mu, 1.0-RfRECasym);
+        double ZejO = ZDiskO[n] + xiREC * yRECO / max(mu, 1.0-RfRECinst);
+        double ZejFe = ZDiskFe[n] + xiREC * yRECFe/ max(mu, 1.0-RfRECinst);
         //double Zacc = ZMix * mu* colSFR[n]/(accProf[n]*AccRate) *Zej + Z_IGM;
         //double ZAccFac = 0.5;
-        dZDiskdtPrev[n] = dZDiskdt[n];
-        if (dbg.opt(5)) {
-            dMZdt[n] = 
-                        accProf[n]*AccRate*Zacc *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
-                        ((yREC-ZDisk[n])*RfRECasym - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
-                        PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
-                            - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
-                            + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
-                            - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*Znm1;
-            dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
-                * dlnZdx *tauvec[2][n] 
-                + yREC*(1.0-RfRECasym)*colSFR[n]/(col[n])
-                + accProf[n]*AccRate * (Zacc - ZDisk[n])/col[n];
-        }
-        else {
-            dMZdt[n] = 
-                        accProf[n]*AccRate*Z_IGM *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
-                        ((yREC-ZDisk[n])*RfRECasym - mu*Zej)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
-                        PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*Znp1 
-                            - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDisk[n]
-                            + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDisk[n]
-                            - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*Znm1;
 
-            dZDiskdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDisk[n] 
-                * dlnZdx *tauvec[2][n] 
-                + yREC*(1.0-RfRECasym)*colSFR[n]/(col[n])
-                + accProf[n]*AccRate * (Z_IGM - ZDisk[n])/col[n];
+        dZDiskOdtPrev[n] = dZDiskOdt[n];
+        dMZOdt[n] = 
+                    accProf[n]*AccRate*ZOacc *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
+                    (yRECO-ZDiskO[n]*RfRECinst - mu*ZejO)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
+                    PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZOnp1 
+                        - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDiskO[n]
+                        + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDiskO[n]
+                        - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZOnm1;
 
-        }
+        dZDiskOdt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDiskO[n] 
+            * dlnZOdx *tauvec[2][n] 
+            + (yRECO-ZDiskO[n])*colSFR[n]/(col[n])
+	    - (ZejO-ZDiskO[n])*mu*colSFR[n]/col[n]
+            + accProf[n]*AccRate * (ZOacc - ZDiskO[n])/col[n];
+
+
+        dZDiskFedtPrev[n] = dZDiskFedt[n];
+        dMZFedt[n] = 
+                    accProf[n]*AccRate*ZFeacc *x[n]*x[n]*sinh(dlnx) +  // new metals from the IGM ;
+                    (yRECFe-ZDiskFe[n]*RfRECinst - mu*ZejFe)*colSFR[n]*x[n]*x[n]*sinh(dlnx) +
+                    PosOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZFenp1 
+                        - PosOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZDiskFe[n]
+                        + NegOnly(MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*ZDiskFe[n]
+                        - NegOnly(MdotiPlusHalf[n-1]+MdotiPlusHalfMRI[n-1])*ZFenm1;
+
+        dZDiskFedt[n] = -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDiskFe[n] 
+            * dlnZFedx *tauvec[2][n] 
+            + (yRECFe-ZDiskFe[n])*colSFR[n]/(col[n])
+	    - (ZejFe-ZDiskFe[n])*mu*colSFR[n]/col[n]
+            + accProf[n]*AccRate * (ZFeacc - ZDiskFe[n])/col[n];
+
 
         // Terms for non-instantaneous-recycling
+	double yIAO = 0.14;
+	double yIAFe = 0.63;
         for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-            dZDiskdt[n] += yREC*spsPassive[i]->dcoldtREC[n]/col[n];
-            dMZdt[n] += yREC*spsPassive[i]->dcoldtREC[n] * x[n]*x[n]*sinh(dlnx); /// THIS IS PROBABLY WRONG (the other two lines too)
+            dZDiskOdt[n] += (spsPassive[i]->spZO[n] - ZDiskO[n])*spsPassive[i]->dcoldtREC[n]/col[n] + (yIAO-ZDiskO[n])*spsPassive[i]->dcoldtIA[n]/col[n];
+            dMZOdt[n] += (spsPassive[i]->spZO[n]*spsPassive[i]->dcoldtREC[n] + yIAO*spsPassive[i]->dcoldtIA[n]) * x[n]*x[n]*sinh(dlnx); 
+            dZDiskFedt[n] += (spsPassive[i]->spZFe[n] - ZDiskFe[n])*spsPassive[i]->dcoldtREC[n]/col[n]  + (yIAFe-ZDiskFe[n])*spsPassive[i]->dcoldtIA[n]/col[n] ;
+            dMZFedt[n] += (spsPassive[i]->spZFe[n]*spsPassive[i]->dcoldtREC[n] + yIAFe*spsPassive[i]->dcoldtIA[n]) * x[n]*x[n]*sinh(dlnx); 
             dcoldt[n] += spsPassive[i]->dcoldtREC[n];
+
+
+	    //std::cout << dZDiskOdt[n] <<" "<<dMZOdt[n]<<" "<<dZDiskFedt[n]<<" "<<dMZFedt[n]<<" "<< dcoldt[n]<<" "<<spsPassive[i]->dcoldtREC[n]<<" "<<spsPassive[i]->spZO[n]<<" "<<spsPassive[i]->spZFe[n]<<" "<<spsPassive[i]->dcoldtIA[n]<<" "<<col[n]<<std::endl;
         }
 
 
         // Check to make sure the results of this method are reasonable..
         if(dcoldt[n]!=dcoldt[n] || 
                 dsigdt[n]!=dsigdt[n] ||  
-                dZDiskdt[n]!=dZDiskdt[n]) {
+                dZDiskOdt[n]!=dZDiskOdt[n]) {
             std::string space(" ");
             errormsg(std::string("Error computing derivatives - n,dcoldt,dsigdt,dZDiskdt,")
                     +std::string("tau[1],tau[2],  col,sig,taupp: ")+str(n)+" "+str(dcoldt[n])+" "
-                    +str(dsigdt[n])+space+str(dZDiskdt[n])+space+str(tauvec[1][n])
+                    +str(dsigdt[n])+space+str(dZDiskOdt[n])+space+str(tauvec[1][n])
                     +space+str(tauvec[2][n])+space+str(col[n])+space+str(sig[n])+" "
                     );
         }
@@ -795,8 +669,8 @@ double DiskContents::ComputeTimeStep(const double redshift,int * whichVar, int *
     double dmax=0.;
 
     for(unsigned int n=1; n<=nx; ++n) {
-        if(fabs(dZDiskdt[n]/ZDisk[n]) > dmax) {
-            dmax = fabs(dZDiskdt[n]/ZDisk[n]);
+        if(fabs(dZDiskOdt[n]/ZDiskO[n]) > dmax) {
+            dmax = fabs(dZDiskOdt[n]/ZDiskO[n]);
             *whichVar=1;
             *whichCell=n;
         }
@@ -952,8 +826,8 @@ void DiskContents::FormNewStars(StellarPop & currentlyForming, double dt, double
 {
     for(unsigned int n=1; n<=nx; ++n) {
         currentlyForming.spcol[n] = RfRECinst * colSFR[n] * dt;
-        currentlyForming.spZ[n] = ZDisk[n];
-        currentlyForming.spZV[n] = 0.0;
+        currentlyForming.spZFe[n] = ZDiskFe[n];
+        currentlyForming.spZO[n] = ZDiskO[n];
         if(!dbg.opt(16)) {
             if(sigth*sigth+minsigst*minsigst<=sig[n]*sig[n])
                 currentlyForming.spsigR[n] = sqrt(sig[n]*sig[n]-sigth*sigth); // the turbulent velocity dispersion of the gas
@@ -1028,11 +902,15 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     MHalo += MstAcc;
     double MIn = MGasIn*reduce + MStarsIn + MGasAcc*reduce;
     //  double MIn = cumulativeMassAccreted -(MassLoadingFactor+RfREC)* cumulativeStarFormationMass - MBulge - (TotalWeightedByArea(col) - initialGasMass) - (TotalWeightedByArea());
-    ZBulge = (ZBulge*MBulge + (yREC+ ZDisk[1])*MGasIn*reduce + (yREC+ Z_IGM)*MGasAcc*reduce + spsActive[0]->spZ[1]*MStarsIn)/(MBulge+MIn);
-    double dummy = spsActive[0]->spZ[1]*MStarsIn;
-    double dummy2 = spsActive[0]->spZ[1];
-    if(ZBulge <= 0.0 || ZBulge >1.0) {
-      errormsg(std::string("Nonphysical ZBulge- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulge)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDisk[1])+" "+str(fracAccInner*(AccRate)));
+    ZBulgeFe = (ZBulgeFe*MBulge + (yRECFe+ ZDiskFe[1])*MGasIn*reduce + (yRECFe+ Z_IGMFe)*MGasAcc*reduce + spsActive[0]->spZFe[1]*MStarsIn)/(MBulge+MIn);
+    ZBulgeO = (ZBulgeO*MBulge + (yRECO+ ZDiskO[1])*MGasIn*reduce + (yRECO+ Z_IGMO)*MGasAcc*reduce + spsActive[0]->spZO[1]*MStarsIn)/(MBulge+MIn);
+    //double dummy = spsActive[0]->spZ[1]*MStarsIn;
+    //double dummy2 = spsActive[0]->spZ[1];
+    if(ZBulgeFe <= 0.0 || ZBulgeFe >1.0) {
+      errormsg(std::string("Nonphysical ZBulge Fe- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulgeFe)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDiskFe[1])+" "+str(fracAccInner*(AccRate)));
+    }
+    if(ZBulgeO <= 0.0 || ZBulgeO >1.0) {
+      errormsg(std::string("Nonphysical ZBulge O- ZBulge,MBulge,dt,Mdot0,ZD1,dmdtCosInner,MIn:   ")+str(ZBulgeO)+" "+str(MBulge)+" "+str(dt)+" "+str(MdotiPlusHalf[0])+" "+str(ZDiskO[1])+" "+str(fracAccInner*(AccRate)));
     }
     MBulge += MIn;
     CumulativeTorque+= tauvec[1][nx]*dt;
@@ -1060,7 +938,8 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
         //	dt * 2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR * (1.0/MSol);
         //    }
 
-        double MZ = ZDisk[n]*x[n]*x[n]*sinh(dlnx)*col[n];
+        double MZO = ZDiskO[n]*x[n]*x[n]*sinh(dlnx)*col[n];
+        double MZFe = ZDiskFe[n]*x[n]*x[n]*sinh(dlnx)*col[n];
 
         if(!dbg.opt(11))
             col[n] += dcoldt[n] * dt; //Euler step
@@ -1086,8 +965,10 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 //        else
 //            ZDisk[n] += dZDiskdt[n] * dt; // -- Euler step
 //
-        MZ += dMZdt[n]*dt;
-        ZDisk[n] = MZ/ (x[n]*x[n]*sinh(dlnx)*col[n]);
+        MZO += dMZOdt[n]*dt;
+        ZDiskO[n] = MZO/ (x[n]*x[n]*sinh(dlnx)*col[n]);
+        MZFe += dMZFedt[n]*dt;
+        ZDiskFe[n] = MZFe/ (x[n]*x[n]*sinh(dlnx)*col[n]);
         CumulativeSF[n] += colSFR[n] * dt;
 
         double totalLost=0.0;
@@ -1100,21 +981,22 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
 
 
         // Check that this method hasn't made the state variables non-physical
-        if(col[n]<0. || sig[n]<0. || ZDisk[n]<0. || 
-                col[n]!=col[n] || sig[n]!=sig[n] || ZDisk[n]!=ZDisk[n]) {
+        if(col[n]<0. || sig[n]<0. || ZDiskO[n]<0. || 
+                col[n]!=col[n] || sig[n]!=sig[n] || ZDiskO[n]!=ZDiskO[n]) {
             std::string spc(" ");
             errormsg(std::string("Error updating statevars- dt,col,sig,ZDisk,dcoldt,dsigdt")
                     +std::string(",dZDiskdt: ")+str(dt)+spc+str(col[n])+spc+str(sig[n])+spc
-                    +str(ZDisk[n])+spc+spc+str(dcoldt[n])+spc+str(dsigdt[n])+spc
-                    +str(dZDiskdt[n])+spc+spc+str(spsActive[szA-1]->spcol[n])+spc
-                    +str(spsActive[szA-1]->spsigR[n])+spc+str(spsActive[szA-1]->spZ[n]));
+                    +str(ZDiskO[n])+spc+spc+str(dcoldt[n])+spc+str(dsigdt[n])+spc
+                    +str(dZDiskOdt[n])+spc+spc+str(spsActive[szA-1]->spcol[n])+spc
+                    +str(spsActive[szA-1]->spsigR[n])+spc+str(spsActive[szA-1]->spZO[n]));
         }
     }
 
     // Artificially diffuse metals in the gas phase 
     // to maintain numerical stability
     //  DiffuseMetallicity(dt,.005);
-    DiffuseMetals(dt);  
+    DiffuseMetals(dt, 0);  
+    DiffuseMetals(dt, 1);  
 
     // Record a few numbers to check things like mass conservation...
     cumulativeStarFormationMass += TotalWeightedByArea(currentlyForming.spcol)  
@@ -1308,7 +1190,7 @@ void ComputeFluxes(double ** tauvec, std::vector<double>& MdotiPlusHalf, FixedMe
       errormsg("Negative MdotiPlusHalf:  "+str(mesh.u1pbPlusHalf(0))+" "+str(tauvec[1][1])+" "+str(tauvec[1][0])+" "+str(mesh.x((unsigned int) 1))+" "+str(mesh.x((unsigned int) 0)) );
 }
 
-void DiskContents::DiffuseMetals(double dt)
+void DiskContents::DiffuseMetals(double dt, int species)
 {
     gsl_vector *lr, *diag, *ur;
     gsl_vector *MetalMass1, *MetalMass2;
@@ -1351,13 +1233,25 @@ void DiskContents::DiffuseMetals(double dt)
     gsl_vector_set(diag, nx, 1.0+dt*etas[nx]);
 
     std::vector<double> ZFlux(nx+1);
-    for(unsigned int n=1; n<=nx; ++n) {
-        gsl_vector_set(MetalMass1,n-1, ZDisk[n]*col[n]*x[n]*x[n]*dlnx);
+    if (species==0) {
+        for(unsigned int n=1; n<=nx; ++n) {
+            gsl_vector_set(MetalMass1,n-1, ZDiskO[n]*col[n]*x[n]*x[n]*dlnx);
+        }
+    }
+    if (species==1) {
+        for(unsigned int n=1; n<=nx; ++n) {
+            gsl_vector_set(MetalMass1,n-1, ZDiskFe[n]*col[n]*x[n]*x[n]*dlnx);
+        }
     }
 
     // Now the default is to set Z_boundary = Z_IGM - dbg.opt(1) is being used for something else
     //    if(dbg.opt(1)) { // Z_boundary = Z_IGM, i.e. metals are free to flow off the edge of the disk.
-        gsl_vector_set(MetalMass1,nx,Z_IGM*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+    if(species==0) {
+        gsl_vector_set(MetalMass1,nx,Z_IGMO*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+    }
+    if(species==1) {
+        gsl_vector_set(MetalMass1,nx,Z_IGMFe*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+    }
 	//    }
 	//    else { // Zero flux condition
 	//        gsl_vector_set(MetalMass1,nx,ZDisk[nx]*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
@@ -1375,118 +1269,29 @@ void DiskContents::DiffuseMetals(double dt)
 
     gsl_linalg_solve_tridiag(diag,ur,lr,MetalMass1,MetalMass2);
 
-    for(unsigned int n=1; n<=nx; ++n) {
-        dZDiskdtDiff[n] = -ZDisk[n]/dt;
-        ZDisk[n] = gsl_vector_get(MetalMass2,n-1)/ (col[n]*x[n]*x[n]*dlnx);
-        dZDiskdtDiff[n] += ZDisk[n]/dt;
-        if(ZDisk[n]!=ZDisk[n] || ZDisk[n]<0.0 || ZDisk[n]>0.5)
-            errormsg("Error diffusing the metals. Printing n, ZDisk[n], col[n]:  "+str(n)+" "+str(ZDisk[n])+" "+str(col[n]));
+    if (species==0) {
+        for(unsigned int n=1; n<=nx; ++n) {
+            dZDiskOdtDiff[n] = -ZDiskO[n]/dt;
+            ZDiskO[n] = gsl_vector_get(MetalMass2,n-1)/ (col[n]*x[n]*x[n]*dlnx);
+            dZDiskOdtDiff[n] += ZDiskO[n]/dt;
+            if(ZDiskO[n]!=ZDiskO[n] || ZDiskO[n]<0.0 || ZDiskO[n]>0.5)
+                errormsg("Error diffusing the Oxygen. Printing n, ZDisk[n], col[n]:  "+str(n)+" "+str(ZDiskO[n])+" "+str(col[n]));
+        }
+    }
+    if (species==1) {
+        for(unsigned int n=1; n<=nx; ++n) {
+            dZDiskFedtDiff[n] = -ZDiskFe[n]/dt;
+            ZDiskFe[n] = gsl_vector_get(MetalMass2,n-1)/ (col[n]*x[n]*x[n]*dlnx);
+            dZDiskFedtDiff[n] += ZDiskFe[n]/dt;
+            if(ZDiskFe[n]!=ZDiskFe[n] || ZDiskFe[n]<0.0 || ZDiskFe[n]>0.5)
+                errormsg("Error diffusing the Iron. Printing n, ZDisk[n], col[n]:  "+str(n)+" "+str(ZDiskFe[n])+" "+str(col[n]));
+        }
     }
     gsl_vector_free(lr); gsl_vector_free(diag); gsl_vector_free(ur);
     gsl_vector_free(MetalMass1); gsl_vector_free(MetalMass2);
 }
 
 
-void DiskContents::DiffuseMetalsUnstable(double dt, double km)
-{
-    gsl_vector *lr, *diag, *ur;
-    gsl_vector *MetalMass1, *MetalMass2;
-
-    lr=gsl_vector_alloc(nx-1);
-    diag=gsl_vector_alloc(nx);
-    ur=gsl_vector_alloc(nx-1);
-    MetalMass1=gsl_vector_alloc(nx); MetalMass2=gsl_vector_alloc(nx);
-
-    unsigned int n;
-    if(ZBulge<Z_BBN || ZBulge!=ZBulge) {
-        std::cerr<<"Warning: ZBulge hit the metallicity floor"<<std::endl;
-        ZBulge=Z_BBN;
-    }
-    //  gsl_vector_set(MetalMass1,0, ZDisk[n]*MBulge);
-    for(n=1; n<=nx; ++n) {
-        if(ZDisk[n]<Z_BBN || ZDisk[n]!=ZDisk[n]) {
-            std::cerr<<"Warning:ZDisk["<<n<<"] hit the metallicity floor"<<std::endl;
-            ZDisk[n]=Z_IGM;
-        }
-        // note that ZDisk is indexed from 1 but MetalMass1 is indexed from 0.
-        gsl_vector_set(MetalMass1,n-1,  ZDisk[n]*col[n]*x[n]*x[n]);
-
-    }
-    for(n=1; n<nx-1; ++n) {
-        gsl_vector_set(lr, n-1, -dt*km/(x[n]*x[n]*dlnx*dlnx));
-        gsl_vector_set(diag,n, 1+dt*km*2/(x[n]*x[n]*dlnx*dlnx));
-        gsl_vector_set(ur,n,   -dt*km/(x[n]*x[n]*dlnx*dlnx));
-    }
-    gsl_vector_set(diag,0, 1.+dt*km/(x[1]*x[1]*dlnx*dlnx));
-    gsl_vector_set(ur,0,  -dt*km/(x[1]*x[1]*dlnx*dlnx));
-    gsl_vector_set(lr,nx-2, -dt*km/(x[nx]*x[nx]*dlnx*dlnx));
-    gsl_vector_set(diag,nx-1, 1.+dt*km/(x[nx]*x[nx]*dlnx*dlnx));
-
-    gsl_linalg_solve_tridiag(diag,ur,lr,MetalMass1,MetalMass2);
-
-    for(n=1; n<=nx; ++n) {
-        ZDisk[n]=gsl_vector_get(MetalMass2,n-1)/ (col[n]*x[n]*x[n]);
-        if(ZDisk[n]!=ZDisk[n])
-            errormsg("Nonphysical metallicity: n,ZDisk2: "+str(n)+" "+str(ZDisk[n]));
-    }
-
-    gsl_vector_free(lr); gsl_vector_free(diag); gsl_vector_free(ur);
-    gsl_vector_free(MetalMass1), gsl_vector_free(MetalMass2);
-}
-
-// This is not correct because logZ is not what is conserved
-void DiskContents::DiffuseMetallicity(double dt,double km)
-{
-    gsl_vector *lr, * diag, *ur;
-    gsl_vector *diffLogZ1, *diffLogZ2;
-
-    lr=gsl_vector_alloc(nx); 
-    diag=gsl_vector_alloc(nx+1); 
-    ur=gsl_vector_alloc(nx);
-    diffLogZ1=gsl_vector_alloc(nx+1); diffLogZ2=gsl_vector_alloc(nx+1);
-
-    unsigned int n;
-    if(ZBulge<Z_BBN || ZBulge!=ZBulge) {
-        std::cerr<<"Warning: ZBulge hit the metallicity floor"<<std::endl;
-        ZBulge=Z_BBN;
-    }
-    gsl_vector_set(diffLogZ1,0,log10(ZBulge));
-
-    for(n=1; n<=nx; ++n) {
-        if(ZDisk[n]<Z_BBN || ZDisk[n]!=ZDisk[n]) {
-            std::cerr << "Warning: ZDisk["<<n
-                <<"] hit the metallicity floor"<<std::endl;
-            ZDisk[n]=Z_IGM;
-        }
-
-        // note that ZDisk is indexed from1 but diffLogZ1 is indexed from 0.
-        gsl_vector_set(diffLogZ1,n,log10(ZDisk[n])); 
-    }
-
-    for(n=1; n<nx; ++n) {
-        gsl_vector_set(lr,n-1,  -dt*km/(x[n]*x[n]*dlnx*dlnx));
-        gsl_vector_set(diag,n,  1+dt*km*2/(x[n]*x[n]*dlnx*dlnx));
-        gsl_vector_set(ur,n,  -dt*km/(x[n]*x[n]*dlnx*dlnx));
-    }
-    gsl_vector_set(diag,0,  1.+dt*km/(x[1]*x[1]*dlnx*dlnx));
-    gsl_vector_set(ur,0,  -dt*km/(x[1]*x[1]*dlnx*dlnx));
-    gsl_vector_set(lr,nx-1,  -dt*km/(x[nx]*x[nx]*dlnx*dlnx));
-    gsl_vector_set(diag,nx,  1.+dt*km/(x[nx]*x[nx]*dlnx*dlnx));
-
-    gsl_linalg_solve_tridiag(diag,ur,lr,diffLogZ1,diffLogZ2);
-
-    for(n=1; n<=nx; ++n) {
-        ZDisk[n]=pow(10.0,gsl_vector_get(diffLogZ2,n));
-        if(ZDisk[n]!=ZDisk[n])
-            errormsg("Nonphysical metallicity: n,ZDisk2,ZBulge: "+str(n)
-                    +" "+str(ZDisk[n])+" "+str(ZBulge));
-    }
-
-    ZBulge=pow(10.0,gsl_vector_get(diffLogZ2,0));
-
-    gsl_vector_free(lr); gsl_vector_free(diag); gsl_vector_free(ur);
-    gsl_vector_free(diffLogZ1); gsl_vector_free(diffLogZ2);
-}
 
 
 // Note that the KMT09 model sets ch as in the commented line below,
@@ -1508,7 +1313,7 @@ double DiskContents::ComputeH2Fraction(double ch, double thisCol, double thisZ)
         errormsg("Nonphysical H2 Fraction :" + str(val) + 
                 ", ch,tauc,ss,ZDisk,ZBulge,col= " +
                 " "+str(ch)+" "+str(tauc)+" "+str(ss)+" "
-                +str(thisZ)+" "+str(ZBulge)+" "+str(thisCol));
+                +str(thisZ)+" "+str(ZBulgeFe)+" "+str(thisCol));
     return val;
 }
 
@@ -1724,7 +1529,7 @@ double DiskContents::ComputeColSFRapprox(double Mh, double z)
              * sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))
              * sqrt(32.0 / (3.0*M_PI))) *2.0*M_PI*dim.Radius/dim.vphiR; // seconds
          double tdyn = min(tToomre,tff);
-         double nCNM_2p_perG0p_1 = 2.30 *4.1 / (1.0+3.1*pow(ZDisk[n]/Z_Sol, 0.365)); // n/(10/cc)  --- this won't change during the iterations
+         double nCNM_2p_perG0p_1 = 2.30 *4.1 / (1.0+3.1*pow((2.09*ZDiskO[n]+1.06*ZDiskFe[n])/Z_Sol, 0.365)); // n/(10/cc)  --- this won't change during the iterations
          double colHI = (col[n])*colConv;
          double RH2 = 1.0;
          double rhosd = ComputeRhoSD(n);
@@ -1732,9 +1537,9 @@ double DiskContents::ComputeColSFRapprox(double Mh, double z)
          double nCNM_Hydro_1_HIdom = M_PI*G*colHI*colHI/20.0 * (1.0 + 2.0*RH2 + sqrt((1.0+2.0*RH2)*(1.0+2.0*RH2) + thirdTerm)) / (11.0*( kB )*243.0);
          double n1;
 
-         double tdepHD = 3.0*tdyn/(2.0*EPS_ff) + 22.0*speryear*1.0e9/(5.0*nCNM_Hydro_1_HIdom*ZDisk[n]/Z_Sol);
+         double tdepHD = 3.0*tdyn/(2.0*EPS_ff) + 22.0*speryear*1.0e9/(5.0*nCNM_Hydro_1_HIdom*(2.09*ZDiskO[n]+1.06*ZDiskFe[n])/Z_Sol);
          double chGuess = 7.2/nCNM_2p_perG0p_1;
-         double tdep2p = tdyn/(ComputeH2Fraction(chGuess, col[n], ZDisk[n]) * EPS_ff);
+         double tdep2p = tdyn/(ComputeH2Fraction(chGuess, col[n], 2.09*ZDiskO[n]+1.06*ZDiskFe[n]) * EPS_ff);
 
          double colSF;
          if(tdep2p < tdepHD) {
@@ -1782,7 +1587,7 @@ double DiskContents::ComputeColSFR(double Mh, double z)
             * sqrt(1.0 + activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))
             * sqrt(32.0 / (3.0*M_PI))) *2.0*M_PI*dim.Radius/dim.vphiR; // seconds
         double tdyn = min(tToomre,tff);
-        double nCNM_2p_perG0p_1 = 2.30 *4.1 / (1.0+3.1*pow(ZDisk[n]/Z_Sol, 0.365)); // n/(10/cc)  --- this won't change during the iterations
+        double nCNM_2p_perG0p_1 = 2.30 *4.1 / (1.0+3.1*pow((2.09*ZDiskO[n]+1.06*ZDiskFe[n])/Z_Sol, 0.365)); // n/(10/cc)  --- this won't change during the iterations
         double nCNM_Hydro_1;
         double n1;
         int nIter = 0; // number of guesses of G0p.
@@ -1817,7 +1622,7 @@ double DiskContents::ComputeColSFR(double Mh, double z)
                 nCNM_Hydro_1 = M_PI*G*colHI*colHI/20.0 * (1.0 + 2.0*RH2 + sqrt((1.0+2.0*RH2)*(1.0+2.0*RH2) + thirdTerm)) / (11.0*( kB )*243.0);
                 n1 = max(nCNM_2p_perG0p_1*G0p_currentIteration, nCNM_Hydro_1);
                 chGuess = 7.2*G0p_currentIteration/n1;
-                fH2_proposed = ComputeH2Fraction(chGuess, col[n], ZDisk[n]);
+                fH2_proposed = ComputeH2Fraction(chGuess, col[n], 2.09*ZDiskO[n]+1.06*ZDiskFe[n]);
                 //continueFlag2 = (fabs((newfH2Guess - fH2Guess)/newfH2Guess ) > 1.0e-3);
                 fH2_nextIteration = exp( 0.5 * log(fH2_currentIteration) + 0.5* log(fH2_proposed) );
                 continueFlag2 = (fabs((fH2_proposed- fH2_currentIteration)/fH2_currentIteration) > 1.0e-3);
@@ -2253,35 +2058,22 @@ void DiskContents::WriteOutStarsFile(std::string filename,
             starsFile.write((char *) &(sps[i]->spsigZ[n]),sizeof(sps[i]->spsigZ[n]));
         }
         for(unsigned int n=1; n<=nx; ++n) {
-            if(sps[i]->spZ[n]!=sps[i]->spZ[n]) {
+            if(sps[i]->spZO[n]!=sps[i]->spZO[n]) {
                 nError = n;
                 kError = 3;
             }
-            starsFile.write((char *) &(sps[i]->spZ[n]),sizeof(sps[i]->spZ[n]));
+            starsFile.write((char *) &(sps[i]->spZO[n]),sizeof(sps[i]->spZO[n]));
         }
-
         for(unsigned int n=1; n<=nx; ++n) {
-            double zv = sqrt(sps[i]->spZV[n]);
-            if(zv!=zv) {
+            if(sps[i]->spZFe[n]!=sps[i]->spZFe[n]) {
                 nError = n;
                 kError = 4;
             }
-            starsFile.write((char *) &(zv),sizeof(zv));
+            starsFile.write((char *) &(sps[i]->spZFe[n]),sizeof(sps[i]->spZFe[n]));
         }
+
 	if(kError >= 0)
 	  errormsg("Attempted to write out NaN to starsfile. n,k: "+str(nError)+" "+str(kError));
-        //    for(unsigned int n=1; n<=nx; ++n) {
-        //      starsFile.write((char *) &(sps[i].dQdS[n]),sizeof(sps[i].dQdS[n]));
-        //    }
-        //    for(unsigned int n=1; n<=nx; ++n) {
-        //      starsFile.write((char *) &(sps[i].dQds[n]),sizeof(sps[i].dQds[n]));
-        //    }
-        //    for(unsigned int n=1; n<=nx; ++n) {
-        //      starsFile.write((char *) &(sps[i].dQdSerr[n]),sizeof(sps[i].dQdSerr[n]));
-        //    }
-        //    for(unsigned int n=1; n<=nx; ++n) {
-        //      starsFile.write((char *) &(sps[i].dQdserr[n]),sizeof(sps[i].dQdserr[n]));
-        //    }
     }
     starsFile.close();
 }
@@ -2375,10 +2167,10 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(col[n]);wrt.push_back(sig[n]);wrt.push_back(col_st[n]);         // 4..6
         wrt.push_back(sig_stR[n]);wrt.push_back(dcoldt[n]);wrt.push_back(dsigdt[n]);   // 7..9
         wrt.push_back(dcolst);wrt.push_back(0.0);wrt.push_back(currentQ);    // 10..12
-        wrt.push_back(dZDiskdtAdv[n]);wrt.push_back(MdotiPlusHalfMRI[n]*dim.MdotExt0*speryear/MSol);wrt.push_back(beta[n]);   // 13..15
+        wrt.push_back(dZDiskOdtAdv[n]);wrt.push_back(MdotiPlusHalfMRI[n]*dim.MdotExt0*speryear/MSol);wrt.push_back(beta[n]);   // 13..15
         wrt.push_back(uu[n]);wrt.push_back(col[n]/(col[n]+col_st[n]));wrt.push_back(temp2); // 16..18
-        wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskdt[n]); // 19..21
-        wrt.push_back(ZDisk[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
+        wrt.push_back(lambdaT);wrt.push_back(Mt);wrt.push_back(dZDiskOdt[n]); // 19..21
+        wrt.push_back(ZDiskO[n]);wrt.push_back(Qst);wrt.push_back(Qg);        // 22..24
         wrt.push_back(Q_R);wrt.push_back(Q_WS);wrt.push_back(Q_RW);          // 25..27
         wrt.push_back(sig_stZ[n]);wrt.push_back(colSFR[n]);wrt.push_back(accProf[n]*accr.AccOfZ(z)); // 28..30
         wrt.push_back(dQdS[n]);wrt.push_back(dQds[n]);wrt.push_back(dQdSerr[n]); // 31..33
@@ -2386,11 +2178,12 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(vrg);wrt.push_back(CuStarsOut[n]);wrt.push_back((MdotiPlusHalf[n]+MdotiPlusHalfMRI[n])*dim.MdotExt0*speryear/MSol); // 37..39
         wrt.push_back(dsigdtTrans[n]);wrt.push_back(dsigdtDdx[n]);wrt.push_back(dsigdtHeat[n]);//40..42
         wrt.push_back(ddx(tauvec[2],n,x,false,true));wrt.push_back(ddx(sig,n,x,true,!dbg.opt(9)));wrt.push_back(dsigdtCool[n]); // 43..45
-        wrt.push_back(dZDiskdtDiff[n]);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
+        wrt.push_back(dZDiskOdtDiff[n]);wrt.push_back(alpha);wrt.push_back(fh2); // 46..48
         wrt.push_back(CumulativeTorqueErr[n]); wrt.push_back(CumulativeTorqueErr2[n]);// 49..50
         wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52
         wrt.push_back(dcoldtIncoming[n]); wrt.push_back(dcoldtOutgoing[n]); // 53..54
         wrt.push_back(MassLoadingFactor[n]); wrt.push_back(colvPhiDisk[n]); wrt.push_back(colstvPhiDisk[n]); // 55..57
+	wrt.push_back(ZDiskFe[n]); // 58
         
         if(n==1 ) {
             int ncol = wrt.size();
@@ -2428,7 +2221,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         totalMass+= TotalWeightedByArea(spsActive[aa]->spcol);
     }
     wrt2.push_back((double) step);wrt2.push_back(t);wrt2.push_back(dt); // 1..3
-    wrt2.push_back(MBulge);wrt2.push_back(ZBulge);wrt2.push_back(MHalo); // 4..6
+    wrt2.push_back(MBulge);wrt2.push_back(ZBulgeFe);wrt2.push_back(MHalo); // 4..6
     wrt2.push_back(gasMass/totalMass);wrt2.push_back(arrmax(Mts));wrt2.push_back(MdotiPlusHalf[0]+MdotiPlusHalfMRI[0]); // 7..9
     wrt2.push_back(z); wrt2.push_back(TotalWeightedByArea(colSFR)); // 10..11
     double currentStellarMass=0.0;
@@ -2448,6 +2241,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
     wrt2.push_back(accr.AccOfZ(z) * dim.MdotExt0/MSol * speryear); // 20
     wrt2.push_back(fAccInner*accr.AccOfZ(z)); // 21
     wrt2.push_back(accr.AccStOfZ(z)); // 22
+    wrt2.push_back(ZBulgeO); // 23
     if(step==1) {
         int ncol = wrt2.size();
         file2.write((char *) &ncol,sizeof(ncol));

@@ -125,17 +125,21 @@ int Simulation::runToConvergence(const double fCondition,
     std::vector<double> irfY(0);
     int rfcounter=0;
     if(readIn) inputRandomFactors.open(fnIn.c_str());
-    bool readFlag = true;
-    while (readFlag && readIn) {
+    bool readFlag = false;
+    while (readFlag  && readIn) {
         std::cout << "Attempting to read in random factor "<<rfcounter<<std::endl;
         ++rfcounter;
         std::string line;
         readFlag = getline(inputRandomFactors, line);
-        if (!readFlag)
+	double y;
+        if (!readFlag) {
             std::cout << "Failed to read in random factor " << rfcounter<<std::endl;
-        double y = atof(line.c_str());
+	    y = 0.0;
+	}
+	else
+            y = atof(line.c_str());
         irfY.push_back(y);
-        std::cout << "Successfully read in y = "<<y<<" at z="<<z<<std::endl;
+        std::cout << "Successfully obtained y = "<<y<<" at z="<<z<<std::endl;
     }
     if(readIn) inputRandomFactors.close();
 
@@ -194,6 +198,7 @@ int Simulation::runToConvergence(const double fCondition,
         if(dbg.opt(6)) {
             for(unsigned int i=0; i!=theDisk.passive().size(); ++i) {
                 theDisk.passive()[i]->ComputeRecycling(theDisk,z);
+                theDisk.passive()[i]->ComputeSNIArate(theDisk,z);
             }
         }
 

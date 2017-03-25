@@ -373,8 +373,8 @@ class SingleModel:
                         col = np.zeros((NABp1, self.nsteps, nnx))
                         sigR = np.zeros((NABp1, self.nsteps, nnx))
                         sigZ = np.zeros((NABp1, self.nsteps, nnx))
-                        Zst = np.zeros((NABp1, self.nsteps, nnx))
-                        VarZst = np.zeros((NABp1, self.nsteps, nnx))
+                        ZOst = np.zeros((NABp1, self.nsteps, nnx))
+                        ZFest = np.zeros((NABp1, self.nsteps, nnx))
                     for j in range(sz):
                         temp = np.fromstring( stars.read(8*1))
                         age[j,i] = temp[0]
@@ -383,8 +383,8 @@ class SingleModel:
                         col[j,i,:] = np.fromstring(stars.read(8*nnx))
                         sigR[j,i,:] = np.fromstring(stars.read(8*nnx))
                         sigZ[j,i,:] = np.fromstring(stars.read(8*nnx))
-                        Zst[j,i,:] = np.fromstring(stars.read(8*nnx))
-                        VarZst[j,i,:] = np.fromstring(stars.read(8*nnx))
+                        ZOst[j,i,:] = np.fromstring(stars.read(8*nnx))
+                        ZFest[j,i,:] = np.fromstring(stars.read(8*nnx))
 
         # Alright, at this point we've read in the critical data.
         # Let's try to store it in a more comprehensible manner.
@@ -409,11 +409,8 @@ class SingleModel:
                         np.copy(sigZ[j]*self.p['vphiR']), 'sigstZ'+stj, \
                         1.0e5,1.0, r'$\sigma_{z,*,'+stj+'}$ (km s$^{-1}$)',log=True)
                 self.var['Zst'+stj] = RadialFunction( \
-                        np.copy(Zst[j]),'Zst'+stj,cgsConv=1.0,sensibleConv=1.0/.02, \
+                        np.copy(ZFest[j])*1.06+np.copy(ZOst[j])*2.09,'Zst'+stj,cgsConv=1.0,sensibleConv=1.0/.02, \
                         texString=r'$Z_{*,'+stj+'} (Z_\odot)$')
-                self.var['VarZst'+stj] = RadialFunction( \
-                        np.copy(np.sqrt(VarZst[j])),'VarZst'+stj, \
-                        cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_{*,'+stj+'} (Z_\odot)$')
                 self.var['ageSt'+stj] = TimeFunction( \
                         np.copy(age[j]), 'ageSt'+stj, \
                         cgsConv = speryear, texString='Age (Gyr)',log=False)
@@ -576,7 +573,7 @@ class SingleModel:
                 cgsConv = gpermsun/cmperpc**2, texString=r'$\Sigma_{\mathrm{H}_2}$',log=True,theRange=[0.1,3000.0])
         self.var['MH2'] = TimeFunction( np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs(),axis=1), 'MH2', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$M_{\mathrm{H}_2}\ M_\odot$')
         HIradius=[]
-        self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21]),'Z',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$')
+        self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21])*2.09+np.copy(self.dataCube[:,:,57])*1.06,'Z',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$')
         self.var['vPhi'] = RadialFunction(np.copy(self.dataCube[:,:,15]),'vPhi',self.p['vphiR']*1.0e5,self.p['vphiR'], \
                  r'$v_\phi$ (km/s)',log=True)
         self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')

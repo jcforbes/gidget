@@ -33,7 +33,7 @@ class DiskContents {
 	           double minSigSt, 
                double rfrec, double zetarec,
     	       double fh2min, double tdeph2sc,
-               double Z_IGM, double yrec,
+               double Z_IGM_O, double Z_IGM_Fe, double yrec,
                double ksupp, double kpow,
                double mq, double muq, 
                double ZMx);
@@ -69,13 +69,8 @@ class DiskContents {
             std::vector<std::vector<int> >& flagList);
 
   // Diffuse metals in such a way that the total mass in 
-  // metals is conserved. This diffusion is not meant to 
-  // model a physical process and is only used to maintain 
-  // numerical stability.
-  void DiffuseMetals(double dt);
-//  void ComputeMetalFluxes();
-  void DiffuseMetallicity(double dt, double km);
-  void DiffuseMetalsUnstable(double dt, double km);
+  // metals is conserved. 
+  void DiffuseMetals(double dt, int species);
 
   double activeColSt(unsigned int n);
   double activeSigStR(unsigned int n);
@@ -239,14 +234,16 @@ class DiskContents {
   std::vector<double> dQdS,dQds; // partial derivatives dQ/dS and dQ/ds
   std::vector<double> dQdu,dudt; // necessary for computing the forcing term coming from a changing rotation curve
   std::vector<double> dQdSerr,dQdserr; //.. and their errors
-  std::vector<double> dcoldt,dsigdt,dZDiskdt,colSFR; // time derivatives
+  std::vector<double> dcoldt,dsigdt,dZDiskFedt, dZDiskOdt,colSFR; // time derivatives
   std::vector<double> mBubble,ColOutflows, MassLoadingFactor;
   std::vector<double> dSdtMig;
-  std::vector<double> dZDiskdtDiff, dZDiskdtAdv; // components of the metallicity time derivative
-  std::vector<double> dMZdt, MZ;
+  std::vector<double> dZDiskOdtDiff, dZDiskOdtAdv; // components of the metallicity time derivative
+  std::vector<double> dZDiskFedtDiff, dZDiskFedtAdv; // components of the metallicity time derivative
+  std::vector<double> dMZOdt, MZO;
+  std::vector<double> dMZFedt, MZFe;
 //  std::vector<double> colZ, dcolZdt;
   std::vector<double> dcoldtIncoming, dcoldtOutgoing; // mass balances in a single cell (dimensionless!)
-  std::vector<double> dcoldtPrev,dsigdtPrev,dZDiskdtPrev; // time derivatives at the previous timestep.
+  std::vector<double> dcoldtPrev,dsigdtPrev,dZDiskFedtPrev, dZDiskOdtPrev; // time derivatives at the previous timestep.
 //  std::vector<double> MdotiPlusHalf;
 //  std::vector<double> MstarDotIPlusHalf;
 
@@ -271,7 +268,7 @@ class DiskContents {
   // affect the gas dynamics.
   std::vector<StellarPop*> spsPassive; 
   
-  std::vector<double> ZDisk; // metallicity at each cell
+  std::vector<double> ZDiskO, ZDiskFe; // metallicity at each cell
   unsigned int nx; // number of cells
 
   unsigned int ksuppress; // k at which to begin exponentially suppressing modes to caclulate vPhiDisk
@@ -340,7 +337,7 @@ class DiskContents {
 
   // properties of the "bulge", i.e. the region inside the inner
   // truncation radius of the disk
-  double ZBulge,MBulge;
+  double ZBulgeFe,ZBulgeO,MBulge;
 
   double MHalo;
 
@@ -350,9 +347,9 @@ class DiskContents {
   //  a truly non-instantaneous recycling process, we'd just set this to 1 and let the stellar population
   //  return material as needs be.
   //  asym is the long-term remnant fraction - how much remains after a long (cosmological) timescale.
-  double yREC, RfRECinst, RfRECasym, xiREC; 
+  double yRECFe, yRECO, RfRECinst, RfRECasym, xiREC; 
   
-  double Z_IGM; // absolute units
+  double Z_IGMFe, Z_IGMO; // absolute units
 
   bool analyticQ;  // use analytic (Romeo-Wiegert 2011) or numerical (Rafikov 2001) Q
   std::vector<double> CumulativeSF; // Total number of cells ever formed in each cell

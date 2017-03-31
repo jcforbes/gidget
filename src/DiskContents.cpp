@@ -357,8 +357,8 @@ void DiskContents::Initialize(double fcool, double fg0,
         double reff4 = 5.28*pow(mst/1.0e10, 0.25)*pow(1.0+4.0,-0.6); // kpc (eq B3) at z=4
         double ZHayward = -8.69 + 9.09*pow(1.0+4.0,-0.017) - 0.0864*pow(log10(mst) - 11.07*pow(1.0+4.0,0.094),2.0);
         ZHayward = pow(10.0, ZHayward) * 0.02;
-        Z0Fe = ZHayward * (1.00/(2.09+1.06));
-        Z0O = ZHayward * (1.00/(2.09+1.06));
+        Z0Fe = ZHayward * 0.0013/0.02;
+        Z0O = ZHayward * 0.0057/0.02;
         fc = 1.0/(1.0-fgz4) * mst/(0.17*Mh);
         fg4 = fgz4;
         xdstars = reff4/dim.d(1.0)/1.67835; // is scale length = reff? Numerical solution says reff/rd = 1.67835.
@@ -2158,6 +2158,12 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         Mts.push_back(Mt);
         double yy = tauvecStar[2][n]/(2.0*M_PI*x[n]*col_st[n]*uu[n]*(1+beta[n]));
         double dcolst = dSMigdt(n,tauvecStar,(*this),spsActive[0]->spcol) + RfRECinst*colSFR[n];
+	double dcolREC = 0.0;
+	double dcolIArec = 0.0;
+	for(unsigned int i=0; i!=spsPassive.size(); ++i) {
+            dcolREC += spsPassive[i]->dcoldtREC[n];
+	    dcolIArec += spsPassive[i]->dcoldtIA[n] ; ///// xxxxxx
+	}
   
         // actually this might not be the correct definition:
         //alpha = (-tauvec[2][nx])* dim.chi()/(3. * sig[n]*sig[n]*sig[n]);
@@ -2183,7 +2189,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(d2taudx2[n]); wrt.push_back(CumulativeSF[n]); // 51..52
         wrt.push_back(dcoldtIncoming[n]); wrt.push_back(dcoldtOutgoing[n]); // 53..54
         wrt.push_back(MassLoadingFactor[n]); wrt.push_back(colvPhiDisk[n]); wrt.push_back(colstvPhiDisk[n]); // 55..57
-	wrt.push_back(ZDiskFe[n]); // 58
+	wrt.push_back(ZDiskFe[n]); wrt.push_back( dcolREC ); wrt.push_back( dcolIArec ); // 58..60
         
         if(n==1 ) {
             int ncol = wrt.size();

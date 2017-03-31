@@ -122,8 +122,13 @@ void StellarPop::ComputeSNIArate(DiskContents& disk, double z)
     double fml = C0 * log(1.0 + current_age/lambda) ;
     for( unsigned int n=1; n<=nx; ++n) {
         double col_orig_est = spcol[n]/(1-fml); // estimate of the column density of stars formed originally.
-	if (current_age>0.1*speryear*1.0e9 && current_age<10.0*speryear*1.0e9) 
-	    dcoldtIA[n] = col_orig_est * 0.0013 * 0.14476/(current_age * disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));  //// this is the surface density of SNIA explosions per time, in code units.
+	if (current_age>0.1*speryear*1.0e9 && current_age<10.0*speryear*1.0e9)  {
+	    dcoldtIA[n] = col_orig_est * 0.0013* 0.14476/(current_age * disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));  //// this is the surface density of SNIA explosions per time, in code units.
+
+	    
+	    //std::cout << "IA rate: "<<dcoldtIA[n]<<" "<<col_orig_est<<" "<<disk.GetColSFR()[n] << std::endl;
+	}
+
         else
 	    dcoldtIA[n] = 0.0;
     }
@@ -138,7 +143,7 @@ void StellarPop::ComputeRecycling(DiskContents& disk, double z)
     double RfREC = 0.77; // 1- fractional mass lost at 40 Myr
     // double RfREC = 0.9; //// override the user.
     // At this time step, frac will be ~constant over the whole disk.
-    double frac = C0/((ageAtz0 - disk.GetCos().lbt(z) + lambda)*disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));
+    double fracDot = C0/((ageAtz0 - disk.GetCos().lbt(z) + lambda)*disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));
     // RfREC is an input parameter, namely the remnant fraction.
     // For an instantaneous recycling approximation, this should equal 1 - return fraction,
     // where return fraction is the fraction of mass returned after some specified time.
@@ -153,10 +158,13 @@ void StellarPop::ComputeRecycling(DiskContents& disk, double z)
     // Whereas if the user specifies a low remnant fraction, an artificially large fraction of the gas
     // is immediately returned, which is similar to just artificially slowing the star formation rate 
     // at fixed gas column density.
-    if(C0 * log(1.0 + (ageAtz0 - disk.GetCos().lbt(z))/lambda) < 1.0 - RfREC) 
-        frac=0.0;
+    double frac = C0 * log(1.0 + (ageAtz0 - disk.GetCos().lbt(z))/lambda);
+    if( frac < 1.0 - RfREC)  {
+        fracDot=0.0;
+	frac = 1.0 - RfREC;
+    }
     for(unsigned int n=1; n<=nx; ++n) {
-        dcoldtREC[n] = spcol[n] * frac;
+        dcoldtREC[n] = spcol[n]/(1.0-frac) * fracDot;
     }
 }
 
@@ -292,14 +300,14 @@ void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents
     spcol[n] += dcoldt[n]*dt;
     spsigR[n] += dsigRdt[n]*dt;
     spsigZ[n] += .5*dsigRdt[n]*dt;
-    spZO[n] += dZFedt[n]*dt;
-    spZFe[n] += dZOdt[n]*dt;
+    spZO[n] += dZOdt[n]*dt;
+    spZFe[n] += dZFedt[n]*dt;
     //spZV[n] = ComputeVariance(cellMass[n],outgoingMass[n],incomingMass[n],
     //                          spZ[n],incomingZ[n],spZV[n],incomingZV[n]);
     if(spcol[n]<0 || spsigR[n]<0 || spsigZ[n]<0 || spZO[n]<0  || spZFe[n]<0 ||
        spcol[n]!=spcol[n] || spsigR[n]!=spsigR[n] || spsigZ[n]!=spsigZ[n] ||
        spZFe[n]!=spZFe[n] || spZO[n]!=spZO[n] )
-       errormsg("Migrating the populations has produced nonsensical results!");
+       errormsg("Migrating the populations has produced nonsensical results! "+str(n)+" "+str(spcol[n]) +" "+str(spsigR[n])+" "+str(spsigZ[n])+" "+str(spZO[n])+" "+str(spZFe[n])+" "+str(dZOdt[n])+" "+str(dZFedt[n]));
   }
 }
 

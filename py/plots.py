@@ -14,14 +14,15 @@ def makeThePlots(args):
     AMargs=[]
     MONDargs=[]
     if(args.balance):
-        balanceArgs=['colTr','colAccr','colsfr','dcoldt','MassLoadingFactor','Mdot']
+        balanceArgs=['colTr','colAccr','colsfr','dcoldt','MassLoadingFactor','Mdot','colREC']
     if(args.angularMomentum):
         AMargs = ['colTr','r','vPhi','dA']
     if(args.quick):
-        MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov']
+        MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z']
     for modelName in args.models:
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
+        print "Reading in the experiment keeping: ", args.vsr + balanceArgs + AMargs +MONDargs
         theExp.read(args.vsr+balanceArgs+AMargs+MONDargs, keepStars=(args.stellarPops or args.quick), computeFit=args.fit)
         nts = int(theExp.models[0].p['Noutputs']+1)
         tis = [nts/5,nts/2,nts]

@@ -549,9 +549,9 @@ def NewSetOfExperiments(copyFrom, name, N=1):
 
 
 def experFromBroadMCMC(emceeparams, name=None):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench = emceeparams
 
-    Mhz0 = list(np.power(10.0, np.linspace(10.0,14,100)))
+    Mhz0 = list(np.power(10.0, np.linspace(11.0,14,10)))
 
     # create experiment
     
@@ -585,7 +585,7 @@ def experFromBroadMCMC(emceeparams, name=None):
         M1 = np.power(10.0, logM1z)
         eff = 2.0*Nz / (np.power(Mh/M1,-betaz) + np.power(Mh/M1,gammaz))
         return eff
-    central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
+    central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376+initialSlope, -0.826, 0.608, 0.329])
     eff = Moster(Mhz4,central)
     mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
     f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
@@ -601,7 +601,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     assert np.all(fgUsed<=1.0)
     thisexper.irregularVary( 'fg0', list(fgUsed), 5)
     thisexper.irregularVary( 'Mh0', list(Mhz0), 5)
-    fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (0.8*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
+    fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (1.0*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
 
     if not np.all(fcools<=1.0):
         pdb.set_trace()
@@ -617,8 +617,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary( 'R', list(np.power(reff4/reff411, 1.0)*50* asls/0.042)  , 5)
     bolweights = list( np.random.random(len(Mhz0)) )
     thisexper.irregularVary('bolshoiWeight', bolweights ,5)
-    thisexper.irregularVary('dbg',2**4+2**2+2**1+2**0+2**13 + 2**7)
-    thisexper.irregularVary('Noutputs',400) ## why so many??
+    thisexper.irregularVary('Noutputs',200) ## why so many??
     thisexper.irregularVary('zstart',3.98)
     thisexper.irregularVary('zrelax',4.0)
     thisexper.irregularVary('muNorm', list(0.005*muNorm*np.power(Mhz0/1.0e12,muMhScaling)), 5)
@@ -628,6 +627,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('accCeiling',accCeiling)
     thisexper.irregularVary('NPassive',20)
     thisexper.irregularVary('eta',eta)
+    thisexper.irregularVary('epsff',epsff)
     thisexper.irregularVary('xmin',0.001)
     thisexper.irregularVary('yREC',0.03)
     thisexper.irregularVary( 'nx', 256 ) # FFT o'clock.
@@ -638,9 +638,9 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('whichAccretionHistory', -112)
     thisexper.irregularVary('ksuppress', 10.0 )
     thisexper.irregularVary('kpower', 2.0)
-    thisexper.irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    thisexper.irregularVary('dbg', 2**0 + 2**1 + 2**2 + 2**4 + 2**5 + 2**6 + 2**7 + 2**16 )
     thisexper.irregularVary('fscatter', 1.0)
-    thisexper.irregularVary('MQuench', 2.0e12)
+    thisexper.irregularVary('MQuench', mquench)
     thisexper.irregularVary('epsquench', epsquench)
     thisexper.irregularVary('muQuench', 0.0)
     thisexper.irregularVary('gaScaleReduction', rgasRed )
@@ -2560,51 +2560,74 @@ if __name__ == "__main__":
     # include 0.15 dex scatter in accretion radius
     #rf66 = experFromBroadMCMC(emceeparams, name='rf66')
 
-    # steepen dependence of muNorm on halo mass.
-    emceeparams = [ 1.67282517e-01,   4.28844668e+00,   1.36805656e+00,   2.69675101e+00, -4.16293369e-01,  -1.14871782e-01,   3.43607914e+01,   3.00678314e+00, 1.73255938e-01,   1.18432465e+00,   1.46326173e+00,   5.22146369e-02, 4.15303418e-03,   4.87055898e-01,   3.25786672e-01,   7.03059668e-01,
-   3.20891765e-01]
-    #rf67 = experFromBroadMCMC(emceeparams, name='rf67')
+#    # steepen dependence of muNorm on halo mass.
+#    emceeparams = [ 1.67282517e-01,   4.28844668e+00,   1.36805656e+00,   2.69675101e+00, -4.16293369e-01,  -1.14871782e-01,   3.43607914e+01,   3.00678314e+00, 1.73255938e-01,   1.18432465e+00,   1.46326173e+00,   5.22146369e-02, 4.15303418e-03,   4.87055898e-01,   3.25786672e-01,   7.03059668e-01,
+#   3.20891765e-01]
+#    #rf67 = experFromBroadMCMC(emceeparams, name='rf67')
+#
+#
+#    emceeparams = [  1.81771436e-01, 2.40347748e+00, 2.49619543e+00, 1.76206344e+00, 3.28755338e-02, -5.28290494e-01, 5.98066114e+00, 3.66100610e-01, 3.90118770e-01, 1.09498184e+00, 1.43065291e+00, 4.29138804e-02, 3.80797987e-03, 3.81670627e-01, 2.04179431e-01, 2.74669519e+00, 3.51085258e-01] 
+#    #rf68 = experFromBroadMCMC(emceeparams, name='rf68')
+#
+#    emceeparams = [2.48980815e-01, 2.53913046e+00, 1.94713503e+00,  1.73487193e+00, 1.22752777e-01, 1.89173574e-01, 8.57394429e+01, -9.46127811e-01, 3.09692786e+00, 6.24628784e-01, 1.15853145e+00, 1.62254103e+00, 1.03954926e-01, 8.14383174e-03, 6.01172382e-01, 3.44383014e-01, 2.96100846e+00, 3.88973404e-01]
+#    rf69 = experFromBroadMCMC(emceeparams, name='rf69')
+#
+#    emceeparams = [1.73170283e-01,   2.14054038e+00,   1.83573302e+00,  2.61271723e+00, 7.30987984e-01, 1.32267757e+00, 2.24417353e+00,  -5.28408649e-01, 1.24067677e+00, 7.51881042e-01, 1.43512791e+00,   1.22244535e+00, 1.21011874e-01, 4.10263377e-04, 4.81557504e-01, 3.69617294e-01, 5.54974644e-01, 3.58057205e-01 ]
+#    rf70 = experFromBroadMCMC(emceeparams, name='rf70')
+#
+#    emceeparams[-3] = -0.1 # adjust the offset in the concentration relation
+#    rf71 = experFromBroadMCMC(emceeparams, name='rf71')
+#
+#    emceeparams[7] = -0.4284  # adjust the scaling of MLF with halo mass
+#    rf72 = experFromBroadMCMC(emceeparams, name='rf72')
+#
+#
+#    # the optimizer found a better fit!
+#    emceeparams = [0.11179691,  3.97940566,  1.11597102,  3.81029117,  1.07708097,  2.34905049,
+#  0.21486323, -1.94169391,  1.24917886,  0.90404624,  2.59248226,  1.12908429,
+#  0.06523725,  0.04544116,  0.31328032,  0.32170412,  0.57426263,  0.02801333]
+#    rf73 = experFromBroadMCMC(emceeparams, name='rf73')
+#
+#    rf74 = NewSetOfExperiments( rf73, 'rf74')[0]
+#    rf74.irregularVary('RfREC', 0.9)
+#    rf74.irregularVary('dbg', 2**4 + 2**2 + 2**1 + 2**0 + 2**13 + 2**7 + 2**6)
+#
+#    ## same run, but now we've altered a few bits of the code to disitnguish between instantaneous and asymptotic RfREC.
+#    rf75=NewSetOfExperiments(rf74, 'rf75')[0]
+#
+#    # go from 4 to 20 passive stellar populations to get finer gradation of mass return
+#    rf76=NewSetOfExperiments(rf75, 'rf76')[0]
+#
+#
+#
+#
+#    ### first optimizer result from broad10, same as the last except with non-instantaneous recylcing.
+#    #emceeparams = [1.51177585e-01, 2.13587733e+00, 1.72771535e+00, 2.48777103e+00, 5.14946703e-01, 1.42377424e+00, 6.24287175e+00, -1.64962558e+00, 4.31974567e+00, 8.94772733e-01, 1.43807107e+00, 1.51001976e+00, 5.53001724e-02, 2.83883300e-03, 3.29797917e-01, 2.69280628e-01, 2.41255451e+00, 4.63265827e-01]
+#    #rf77 = experFromBroadMCMC(emceeparams, name='rf77')
+#
+#    # re-run the best fit from previous optimizer with updated recycling parameters
+#    rf78 = NewSetOfExperiments(rf74, 'rf78')
 
 
-    emceeparams = [  1.81771436e-01, 2.40347748e+00, 2.49619543e+00, 1.76206344e+00, 3.28755338e-02, -5.28290494e-01, 5.98066114e+00, 3.66100610e-01, 3.90118770e-01, 1.09498184e+00, 1.43065291e+00, 4.29138804e-02, 3.80797987e-03, 3.81670627e-01, 2.04179431e-01, 2.74669519e+00, 3.51085258e-01] 
-    #rf68 = experFromBroadMCMC(emceeparams, name='rf68')
 
-    emceeparams = [2.48980815e-01, 2.53913046e+00, 1.94713503e+00,  1.73487193e+00, 1.22752777e-01, 1.89173574e-01, 8.57394429e+01, -9.46127811e-01, 3.09692786e+00, 6.24628784e-01, 1.15853145e+00, 1.62254103e+00, 1.03954926e-01, 8.14383174e-03, 6.01172382e-01, 3.44383014e-01, 2.96100846e+00, 3.88973404e-01]
-    rf69 = experFromBroadMCMC(emceeparams, name='rf69')
+    #emceeparams = [2.49902380e-01, 2.54581984e+00, 2.96576075e+00, 4.75811993e+00, -2.18843374e+00, 3.60160191e-01, 1.48198009e+00, -1.72415498e+00, 1.22109246e+00, 3.75604390e-01, 8.34320543e-01, 1.63031433e+00, 4.20094711e-02, 1.78703468e-03, 8.51316293e-01, 3.20449127e-01, 4.13447168e+00, 2.42702440e-01, 3.27507640e-01 ]
+    #emceeparams = [ 1.41977729e-01,   2.03502540e+00,   2.02360753e+00,   2.01127027e+00, 2.56584739e-02,  -1.89348632e-02,   1.07203799e+00,  -9.80149073e-01, 1.00975501e+00,   4.99324933e-01,   1.50177845e+00,   1.48359195e+00, 4.94927969e-02,  9.79999389e-04,  9.98857856e-01,   2.85701876e-01, 9.59552777e-01,   9.02414277e-05,   9.91998674e-03] 
+    #rf79 = experFromBroadMCMC(emceeparams, name='rf79')
 
-    emceeparams = [1.73170283e-01,   2.14054038e+00,   1.83573302e+00,  2.61271723e+00, 7.30987984e-01, 1.32267757e+00, 2.24417353e+00,  -5.28408649e-01, 1.24067677e+00, 7.51881042e-01, 1.43512791e+00,   1.22244535e+00, 1.21011874e-01, 4.10263377e-04, 4.81557504e-01, 3.69617294e-01, 5.54974644e-01, 3.58057205e-01 ]
-    rf70 = experFromBroadMCMC(emceeparams, name='rf70')
+    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, 0.0, 2.0e12 ] # 0.8
+    rf80 = experFromBroadMCMC(emceeparams, name='rf80')
 
-    emceeparams[-3] = -0.1 # adjust the offset in the concentration relation
-    rf71 = experFromBroadMCMC(emceeparams, name='rf71')
+    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, 1.0, 2.0e12 ] # 0.8
+    rf81 = experFromBroadMCMC(emceeparams, name='rf81')
 
-    emceeparams[7] = -0.4284  # adjust the scaling of MLF with halo mass
-    rf72 = experFromBroadMCMC(emceeparams, name='rf72')
+    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, .5, 2.0e12 ] # 0.8
+    rf82 = experFromBroadMCMC(emceeparams, name='rf82')
 
+    ## awk... fixed duplicate dbg statements, some issues in c code.
+    rf83 = experFromBroadMCMC(emceeparams, name='rf83')
 
-    # the optimizer found a better fit!
-    emceeparams = [0.11179691,  3.97940566,  1.11597102,  3.81029117,  1.07708097,  2.34905049,
-  0.21486323, -1.94169391,  1.24917886,  0.90404624,  2.59248226,  1.12908429,
-  0.06523725,  0.04544116,  0.31328032,  0.32170412,  0.57426263,  0.02801333]
-    rf73 = experFromBroadMCMC(emceeparams, name='rf73')
-
-    rf74 = NewSetOfExperiments( rf73, 'rf74')[0]
-    rf74.irregularVary('RfREC', 0.9)
-    rf74.irregularVary('dbg', 2**4 + 2**2 + 2**1 + 2**0 + 2**13 + 2**7 + 2**6)
-
-    ## same run, but now we've altered a few bits of the code to disitnguish between instantaneous and asymptotic RfREC.
-    rf75=NewSetOfExperiments(rf74, 'rf75')[0]
-
-    # go from 4 to 20 passive stellar populations to get finer gradation of mass return
-    rf76=NewSetOfExperiments(rf75, 'rf76')[0]
-
-
-    ### first optimizer result from broad10, same as the last except with non-instantaneous recylcing.
-    #emceeparams = [1.51177585e-01, 2.13587733e+00, 1.72771535e+00, 2.48777103e+00, 5.14946703e-01, 1.42377424e+00, 6.24287175e+00, -1.64962558e+00, 4.31974567e+00, 8.94772733e-01, 1.43807107e+00, 1.51001976e+00, 5.53001724e-02, 2.83883300e-03, 3.29797917e-01, 2.69280628e-01, 2.41255451e+00, 4.63265827e-01]
-    #rf77 = experFromBroadMCMC(emceeparams, name='rf77')
-
-    # re-run the best fit from previous optimizer with updated recycling parameters
-    rf78 = NewSetOfExperiments(rf74, 'rf78')
+    ## fix bug in IA rate.
+    rf84 = experFromBroadMCMC(emceeparams, name='rf84')
 
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

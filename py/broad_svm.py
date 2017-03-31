@@ -13,7 +13,7 @@ from sklearn import svm, linear_model, ensemble
 #from pyqt_fit import npr_methods
 
 # Useful information about the setup of the linear models and their fits....
-logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0]
+logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1]
 logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
 logRadials = [1,1,1,1,1,1]
 #logVars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -312,25 +312,27 @@ def residualsFromGidget(bn, fh=0.3):
         mhs.append(model.var['Mh'].sensible(timeIndex=zinds[0]))
     return mhs, residuals
 
+models14 = [ pickle.load( open( 'rfnt14_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
-def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None):
-    models = [ pickle.load( open( 'rfnt09_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
 
     # Find the maximum among all models sampled so far.
-    allProbs = restart['allProbs'].flatten()
-    zipped = zip(allProbs, range(len(allProbs)))
-    zsorted = sorted(zipped, key=lambda x: -x[0])
-    highProbInds = [zsorted[i][1] for i in range(10)]
+    if xmax is None:
+        allProbs = restart['allProbs'].flatten()
+        zipped = zip(allProbs, range(len(allProbs)))
+        zsorted = sorted(zipped, key=lambda x: -x[0])
+        highProbInds = [zsorted[i][1] for i in range(10)]
 
     labels = ['SMHM 0', 'SMHM 1', 'SMHM 2', 'SMHM 3', 'sSFR 0', 'sSFR 1', 'sSFR 2', 'sSFR 3', 'Zst', 'Zg 0', 'Zg 1', 'Zg 2', 'Zg 3', 'fH2 0', 'fH2 1', 'fH2 2', 'fH2 3', 'fHI 0', 'Sigma1 0', 'Sigma1 1', 'Sigma1 2', 'Sigma1 3', 'Rst 0', 'Rst 1', 'Rst 2', 'Rst 3', 'RHI', 'c82', 'TF']
 
     fig,ax = plt.subplots(nrows=5, ncols=6, figsize=(14,14))
 
-    for i in range(5):
-        indices = np.unravel_index(highProbInds[i], np.shape(restart['allProbs']))
-        xmax = restart['chain'][indices[0],indices[1],:]
+    for i in range(1):
+        if xmax is None:
+            indices = np.unravel_index(highProbInds[i], np.shape(restart['allProbs']))
+            xmax = restart['chain'][indices[0],indices[1],:]
 
-        residuals = np.array( fakeEmceeResiduals(xmax, models) )
+        residuals = np.array( fakeEmceeResiduals(xmax, models14) )
 
         lw=2
         c='k'
@@ -343,7 +345,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None):
             ax.flatten()[j].plot( np.power(10.0, np.linspace(10,14,np.shape(residuals)[0])), residuals[:,0,j], c=c, lw=lw, alpha=alpha ) 
 
     if gidgetmodels is not None:
-        mhs, residuals = residualsFromGidget(gidgetmodels, fh=0.38)
+        mhs, residuals = residualsFromGidget(gidgetmodels, fh=xmax[-1])
         npresiduals = np.array(residuals)
         for j in range(29):
             ax.flatten()[j].scatter( mhs, npresiduals[:,0,j], c='b', s=20, lw=0 )
@@ -353,7 +355,9 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None):
         ax.flatten()[j].set_xlabel(r'$M_{h,0}$')
         ax.flatten()[j].set_ylabel(labels[j])
         ax.flatten()[j].set_xscale('log')
-        ax.flatten()[j].plot([10**10,10**14], [0,0], ls='--', c='gray')
+        ax.flatten()[j].plot([10**10,10**14], [0,0], lw=2, ls='--', c='gray')
+        ax.flatten()[j].plot([10**10,10**14], [1,1], lw=1, ls='-', c='gray')
+        ax.flatten()[j].plot([10**10,10**14], [-1,-1], lw=1, ls='-', c='gray')
         ax.flatten()[j].set_xlim(10**10,10**14)
 
         #plt.axhline(0.0, lw=2, ls='--', c='gray')
@@ -364,7 +368,6 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None):
     plt.close(fig)
 
 
-models10 = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
     
 def lnlikelihood(emceeparams, models=None):
@@ -385,12 +388,12 @@ def lnlikelihood(emceeparams, models=None):
         neededModels = [0,1,2,3,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,28,29,30,31,32,33,34,35,36,40,41,42,43,44,45,46,47,72,76,77,78,79]
         for j in range(80):
             if j in neededModels:
-                Y_eval[0,j] = predictFill(models10[j], X1)[0][j]
+                Y_eval[0,j] = predictFill(models14[j], X1)[0][j]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
 
 
-    print "Returning lnlik = ", lnlik
+    print "Returning lnlik = ", lnlik, "for emceeparams ",emceeparams
     if not np.isfinite(lnlik):
         return -np.inf
     return lnlik
@@ -419,6 +422,9 @@ def samplefromprior( varRedFac=1.0):
         samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
         samplefrombetadensity( 1.0, 2.0*varRedFac ),
+        samplefromlognormaldensity( np.log(1.0e-2), np.log(2.0)**2.0/varRedFac),
+        samplefromnormaldensity( -1, 2.0**2/varRedFac),
+        samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
         samplefrombetadensity( 1.0 *varRedFac, 1.0*varRedFac) ]
 
 def lnprob(emceeparams, models=None):
@@ -429,7 +435,7 @@ def lnprob(emceeparams, models=None):
     return pr
 
 def lnprior(emceeparams):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, fh = emceeparams
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, fh = emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
     accum = 0.0
 
@@ -454,6 +460,9 @@ def lnprior(emceeparams):
     accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
     accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
     accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
+    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(2.0)**2.0 / varRedFac )
+    accum += lnnormaldensity( scaleAdjust, -1, 2.0**2 /varRedFac)
+    accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
     accum += lnbetadensity( fh, 1.0, 1.0 )
 
     if not np.isfinite(accum):
@@ -608,8 +617,8 @@ def runEmcee(mpi=False, continueRun=False):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 19, 800 
-    fn = 'fakemcmc10_restart.pickle'
+    ndim, nwalkers = 22, 800 
+    fn = 'fakemcmc14_restart.pickle'
     restart = {}
     nsteps = 3000 # test run
     p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
@@ -666,16 +675,6 @@ def runEmcee(mpi=False, continueRun=False):
     chain = sampler.chain # nwalkers x nsteps x ndim
     samples = chain[:,15:,:].reshape((-1,ndim))
 
-    fig,ax = plt.subplots(4,5)
-    for q in range(ndim):
-        for r in range(nwalkers):
-            ax.flatten()[q].plot( range(nsteps),chain[r,:,q], c=(np.random.random(), np.random.random(), np.random.random()) )
-    plt.savefig('mcmc_fake_trace.png')
-    plt.close(fig)
-
-    import corner
-    fig = corner.corner(samples, labels=[ 'raccRvir', 'rstarRed', 'rgasRed', 'fg0mult', 'muColScaling', 'muFgScaling', 'muNorm', 'ZIGMfac', 'zmix', 'eta', 'Qf', 'alphaMRI', 'epsquench', 'accCeiling', 'conRF', 'kZ', 'xiREC', 'fh']) 
-    fig.savefig("mcmc_fake_corner.png") 
 
     if mpi:
         pool.close()
@@ -819,6 +818,9 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
     lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
 
     lnlik[:,28] += singleRelationLikelihood(10.0**logMst0,10.0**logvPhi22z0,['miller11'])[srlInd]
+
+    #worstfit = np.argmin(lnlik[0,:])
+    #print "Worst fit ", worstfit
 
     if np.any(np.isnan(lnlik)):
         pdb.set_trace()
@@ -1812,7 +1814,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad10_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad14_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -1830,7 +1832,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ordinates_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
 
     #feature_names = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC"]
-    feature_names = [r'$M_{h,0}$', r'$r_\mathrm{acc}/R_v$', r'$r_{\mathrm{acc},0}/r_{*,0}$',  r'$r_{\mathrm{acc},0}/r_{g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{quench}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$']
+    feature_names = [r'$M_{h,0}$', r'$r_\mathrm{acc}/R_v$', r'$r_{\mathrm{acc},0}/r_{*,0}$',  r'$r_{\mathrm{acc},0}/r_{g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{quench}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$']
     texlabels = labels[:]
     for i in range(nfeatures-len(feature_names)):
         #feature_names.append("AccHist"+str(i))
@@ -1863,7 +1865,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
             # k=8 corresponds to z=0 sfr. Try really hard to get this right!
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt10_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt14_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2268,14 +2270,19 @@ if __name__=='__main__':
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 
     #appendLikelihood()
+    
+    #fakeEmceePlotResiduals(None, 'fakemcmc13_residuals', gidgetmodels='rf79', xmax=[ 1.41977729e-01,   2.03502540e+00,   2.02360753e+00,   2.01127027e+00, 2.56584739e-02,  -1.89348632e-02,   1.07203799e+00,  -9.80149073e-01, 1.00975501e+00,   4.99324933e-01,   1.50177845e+00,   1.48359195e+00, 4.94927969e-02,  9.79999389e-04,  9.98857856e-01,   2.85701876e-01, 9.59552777e-01,   9.02414277e-05,   9.91998674e-03, 0.5] )
+
+
+    #fakeEmceePlotResiduals(None, 'fakemcmc13_residuals81', gidgetmodels='rf81', xmax=[ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, -1.0, 2.0e12, 0.8 ] )
 
     ### analyze the fake mcmc run
     if True:
         restart={}
-        updateRestart('fakemcmc10_restart.pickle', restart)
+        updateRestart('fakemcmc14_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc10_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc10_allProb', burnIn=0)
+        tracePlots(restart, 'fakemcmc14_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc14_allProb', burnIn=0)
         #trianglePlot(restart,'fakemcmc_triangle.png', burnin=50, nspace=10)
 
         # Find the maximum among all models sampled so far.
@@ -2290,4 +2297,4 @@ if __name__=='__main__':
 
 
 
-        fakeEmceePlotResiduals(restart, 'fakemcmc10_residuals', gidgetmodels='rf73')
+        #fakeEmceePlotResiduals(restart, 'fakemcmc13_residuals', gidgetmodels='rf78')

@@ -411,6 +411,12 @@ class SingleModel:
                 self.var['Zst'+stj] = RadialFunction( \
                         np.copy(ZFest[j])*1.06+np.copy(ZOst[j])*2.09,'Zst'+stj,cgsConv=1.0,sensibleConv=1.0/.02, \
                         texString=r'$Z_{*,'+stj+'} (Z_\odot)$')
+                alph = np.log10( np.copy(ZOst[j]) /  np.copy(ZFest[j]))
+                nanalph = np.isnan(alph)
+                alph[nanalph] = -2 # put in a weird value to indicate this is invalid. Should never matter since averages should be multiplied by colst's.
+                self.var['alphaFeSt'+stj] = RadialFunction( \
+                        alph,'alphaFeSt'+stj,cgsConv=1.0,sensibleConv=1.0, \
+                        texString=r'$[\alpha/\mathrm{Fe}]_{*,'+stj+'} $')
                 self.var['ageSt'+stj] = TimeFunction( \
                         np.copy(age[j]), 'ageSt'+stj, \
                         cgsConv = speryear, texString='Age (Gyr)',log=False)
@@ -420,7 +426,7 @@ class SingleModel:
                 self.var['endingAgeSt'+stj] = TimeFunction( \
                         np.copy(endingAge[j]), 'endingAgeSt'+stj, \
                         cgsConv = speryear, texString='Age (Gyr)',log=False)
-                starList = starList + [ 'colst'+stj, 'sigstR'+stj, 'sigstZ'+stj, 'Zst'+stj, 'VarZst'+stj, 'ageSt'+stj, 'startingAgeSt'+stj, 'endingAgeSt'+stj ]
+                starList = starList + [ 'colst'+stj, 'sigstR'+stj, 'sigstZ'+stj, 'Zst'+stj, 'alphaFeSt'+stj, 'ageSt'+stj, 'startingAgeSt'+stj, 'endingAgeSt'+stj ]
         
                 ageTile = np.tile( self.var['ageSt'+stj].cgs(), (int(self.p['nx']),1) ).T
                 ageAccum += self.var['colst'+stj].cgs()*ageTile
@@ -542,6 +548,8 @@ class SingleModel:
         self.var['colTr'] = RadialFunction( \
                 (self.var['Mdot'].cgs(locIndex=range(1,nxI+1))-self.var['Mdot'].cgs(locIndex=range(nxI)))/self.var['dA'].cgs(), \
                 'colTr',1.0, speryear*cmperkpc**2.0/gpermsun, r'$\dot{\Sigma}_{tr}$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)',log=False, theRange=[-10,10])
+        self.var['colREC'] = RadialFunction( self.dataCube[:,:,58], 'colREC', cgsConv= self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']**2.0)*cmperkpc*cmperkpc), sensibleConv=self.p['md0']/(2.0*pi*self.p['R']**2.0), texString=r'$\dot{\Sigma}_{*,\mathrm{rec}} (M_\odot\ \mathrm{yr}^{-1}\ \mathrm{kpc}^{-2})$', theRange=[1.0e-7, 10.0] )
+        self.var['colIA'] = RadialFunction( self.dataCube[:,:,59], 'colIA',  cgsConv= self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']**2.0)*cmperkpc*cmperkpc), sensibleConv=self.p['md0']/(2.0*pi*self.p['R']**2.0), texString=r'$\dot{\Sigma}_{*,\mathrm{IA}} (\mathrm{SN}_\mathrm{IA}\ \mathrm{yr}^{-1}\ \mathrm{kpc}^{-2})$', theRange=[1.0e-7, 1.0] )
         self.var['colsfr'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,28]),'colsfr', \
                 self.p['md0']*gpermsun/(speryear*2.0*pi*(self.p['R']**2.0)*cmperkpc*cmperkpc),\
@@ -574,6 +582,7 @@ class SingleModel:
         self.var['MH2'] = TimeFunction( np.sum(self.var['colH2'].cgs()*self.var['dA'].cgs(),axis=1), 'MH2', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$M_{\mathrm{H}_2}\ M_\odot$')
         HIradius=[]
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21])*2.09+np.copy(self.dataCube[:,:,57])*1.06,'Z',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$')
+        self.var['alphaFe'] = RadialFunction( np.log10((self.dataCube[:,:,21]/self.dataCube[:,:,57])/(0.0057/0.0013)), 'alphaFe', cgsConv=1.0, sensibleConv=1.0, texString=r'$[\alpha/\mathrm{Fe}]$', log=False )
         self.var['vPhi'] = RadialFunction(np.copy(self.dataCube[:,:,15]),'vPhi',self.p['vphiR']*1.0e5,self.p['vphiR'], \
                  r'$v_\phi$ (km/s)',log=True)
         self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
@@ -862,12 +871,18 @@ class SingleModel:
         self.var['integratedZ'] = TimeFunction(np.sum(mg*self.getData('Z',cgs=True),axis=1)/np.sum(mg,axis=1), \
                 'integratedZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_g (Z_\odot)$')
         stZ = np.zeros(np.shape(self.var['Z'].sensible()))
+        alphaFeStNum = np.zeros(np.shape(self.var['Z'].sensible()))
+        alphaFeStDenom = np.zeros(np.shape(self.var['Z'].sensible()))
         denom = np.zeros(np.shape(self.var['Z'].sensible()))
+        sumcol = np.zeros(np.shape(self.var['Z'].sensible()))
         for i in range(100):
             sti = str(i).zfill(2)
             if 'Zst'+sti in self.var.keys():
                 denom += self.var['colst'+sti].cgs() * self.var['dA'].cgs()
+                sumcol += self.var['colst'+sti].cgs() 
                 stZ += self.var['Zst'+sti].cgs() * self.var['colst'+sti].cgs() * self.var['dA'].cgs() 
+                alphaFeStNum += self.var['colst'+sti].cgs() * self.var['Zst'+sti].cgs() * 1.0/(2.09 +1.06 / np.power(10.0,self.var['alphaFeSt'+sti].cgs())) 
+                alphaFeStDenom += self.var['colst'+sti].cgs() * self.var['Zst'+sti].cgs() * 1.0/(1.06 +2.09* np.power(10.0,self.var['alphaFeSt'+sti].cgs())) 
                 if i==99:
                     print "WARNING: MAY HAVE MISSED SOME STELLAR POPULATIONS IN COMPUTING Zst!"
             else:
@@ -875,8 +890,13 @@ class SingleModel:
                     assert False # Something has gone wrong!
                 break
 
+        self.var['colPassiveError'] = RadialFunction( sumcol/self.var['colst'].cgs(), 'colPassiveError', cgsConv=1.0, sensibleConv=1.0, texString=r'$\sum \Sigma_{*,i}/\Sigma_*$')
         self.var['stZ'] = TimeFunction(np.sum(stZ,axis=1)/np.sum(denom,axis=1), \
                 'stZ', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_* (Z_\odot)$', theRange=[1.0e-2, 3.0]) 
+        self.var['stZradial'] = RadialFunction(stZ/denom, \
+                'stZradial', cgsConv=1.0, sensibleConv=1.0/.02, texString=r'$Z_* (Z_\odot)$', theRange=[1.0e-2, 3.0]) 
+        self.var['alphaFeStRadial'] = RadialFunction(np.log10((alphaFeStNum/alphaFeStDenom) / (0.0057/0.0013)), \
+                'alphaFeStRadial', cgsConv=1.0, sensibleConv=1.0, texString=r'$[\alpha/\mathrm{Fe}]_*$', log=False) 
         sfRad = self.getData('colsfr',cgs=True)*self.getData('dA',cgs=True)
         self.var['sfZ'] = TimeFunction(np.sum(sfRad*self.getData('Z',cgs=True),axis=1)/np.sum(sfRad,axis=1), \
                 'sfZ',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$\langle Z_g \rangle_{\dot{M}_*} (Z_\odot)$', theRange=[1.0e-2, 3.0])

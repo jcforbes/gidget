@@ -253,15 +253,17 @@ def balance(models, timeIndex=None, name=None, sortby=None, logR=False, ncols=No
             row = int(i/ncols)
             col = i-row*ncols
             colAccr = model.getData('colAccr',timeIndex=ti,cgs=True)
+            colREC = model.getData('colREC', timeIndex=ti, cgs=True)
             colTr = model.getData('colTr',timeIndex=ti,cgs=True)
-            colSFR = model.getData('colsfr',timeIndex=ti,cgs=True)*(model.var['MassLoadingFactor'].sensible(timeIndex=ti)+model.p['RfREC'])
+            colSFR = model.getData('colsfr',timeIndex=ti,cgs=True)*(model.var['MassLoadingFactor'].sensible(timeIndex=ti)+0.77)
             dcoldt = model.getData('dcoldt',timeIndex=ti,cgs=True)
-            shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)
+            shareNorm = np.abs(colAccr)+np.abs(colTr)+np.abs(colSFR)+np.abs(colREC)
 
             colsfrBound = np.clip(colTr/shareNorm, -1, 0)
             bottomBound = -1.0*colSFR/shareNorm + colsfrBound
             colTrBound = np.clip(colTr/shareNorm, 0, 1)
-            upperBound = colTrBound + colAccr/shareNorm
+            colRecBound = colTrBound + colREC/shareNorm
+            upperBound = colRecBound + colAccr/shareNorm
 
             fullmdot = model.getData('Mdot',timeIndex=ti)
             mdot =fullmdot[0:-1]
@@ -312,7 +314,8 @@ def balance(models, timeIndex=None, name=None, sortby=None, logR=False, ncols=No
             theAx.fill_between(r,colsfrBound,colTrBound,facecolor='blue')
             #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='blue',where=mdot>0.0)
             #theAx.fill_between(r,colsfrBound,colTrBound,facecolor='lightblue',where=lightblue)#(mdot<=0.0 or stagnation<=0) )
-            theAx.fill_between(r,colTrBound,upperBound,facecolor='orange')
+            theAx.fill_between(r,colTrBound,colRecBound,facecolor='pink')
+            theAx.fill_between(r,colRecBound,upperBound,facecolor='orange')
             for la in leftarrows:
                 delt = rb[la[1]] - rb[la[0]]
                 try:

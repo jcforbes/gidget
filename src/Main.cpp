@@ -233,8 +233,8 @@ int main(int argc, char **argv) {
 
     AccretionProfile accProf(mesh, whichAccretionProfile, alphaAccProf, dbg, accScaleLength ,width);
 
-    double ZIGMO = 1.0/(1.06+2.09) * ZIGM;
-    double ZIGMFe = 1.0/(1.06+2.09) * ZIGM;
+    double ZIGMO = 0.0057/0.02 * ZIGM;
+    double ZIGMFe = 0.0013/0.02 * ZIGM;
     DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
             TOL,analyticQ,MassLoadingFactor,MassLoadingColScaling,MassLoadingFgScaling,
             cos,dim,mesh,dbg,

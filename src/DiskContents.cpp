@@ -297,7 +297,7 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
     //  spsPassive.clear();
     spsActive.push_back(initialStarsA);
     spsPassive.push_back(initialStarsP);
-    EnforceFixedQ(fixedPhi0,true);
+    //EnforceFixedQ(fixedPhi0,true);
 
     initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
         (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -420,7 +420,7 @@ void DiskContents::Initialize(double fcool, double fg0,
     // before we heat up the disk, update the rotation curve.
     UpdateRotationCurve(MhZs, zs, 1.0e-10);
 
-    EnforceFixedQ(fixedPhi0,EnforceWhenQgtrQf);
+    //EnforceFixedQ(fixedPhi0,EnforceWhenQgtrQf);
 
     initialStellarMass = TotalWeightedByArea(initialStarsA->spcol) * 
         (2*M_PI*dim.Radius*dim.MdotExt0/dim.vphiR) / MSol;
@@ -552,12 +552,12 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
             - 5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
             +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
-	if(dbg.opt(6)) {
-	    for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-                dsigdt[n] += spsPassive[i]->dcoldtREC[n] * ( (2.0*spsPassive[i]->spsigR[n]*spsPassive[i]->spsigR[n] + spsPassive[i]->spsigZ[n]*spsPassive[i]->spsigZ[n])/3.0 - sig[n]*sig[n])/(2.0*col[n]*sig[n]);
-	    }
+	//if(dbg.opt(6)) {
+	//    for(unsigned int i=0; i!=spsPassive.size(); ++i) {
+        //        dsigdt[n] += spsPassive[i]->dcoldtREC[n] * ( (2.0*spsPassive[i]->spsigR[n]*spsPassive[i]->spsigR[n] + spsPassive[i]->spsigZ[n]*spsPassive[i]->spsigZ[n])/3.0 - sig[n]*sig[n])/(2.0*col[n]*sig[n]);
+	//    }
 
-	}
+	//}
         if(sig[n] >= sigth) {
             dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
                 *col[n]*dim.chi()*(1.0+activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))/3.0;
@@ -566,10 +566,40 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             // do nothing, these terms are zero.
         }
 
-        if(sig[n]/uu[n] > 100.0) {
-            std::cout << "Large sig! n, sig, dsigdt, dsigdtCool " <<n<<" "<<sig[n]<<" "<<dsigdt[n]<<" "<<dsigdtCool[n]<< std::endl;
+        if(sig[n]/uu[n] > 20.0) {
+	    // The instability I'm investigating here was the result of an odd set of parameters which produced extremely high mass loading factors
+	    // in dwarf galaxies, so a single cell could end up with a very low column density despite matter pouring in from neighboring cells
+	    // This influx of matter via the MRI instability drove up the velocity dispersion, but the column density remained lower than the surrounding
+	    // cells. As a result, of staying in this configuration, the velocity dispersion could run away.
+	    double dsdtADVmdot = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n]);
+            double dsdtADVddx =   - 5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]);
+            double dsdtHeat =   +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	    double dsdtAdvMRImdot = ( MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n]);
+            double dsdtAdvMRIddx =   - 5.0*ddxSig*(tauvec2) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n]);
+            double dsdtMRIheat =   +uu[n]*(beta[n]-1.)*(tauvec[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+	    double dsdtStars = 0.0;
+	    if(dbg.opt(6)) {
+		    for(unsigned int i=0; i!=spsPassive.size(); ++i) {
+			dsdtStars += spsPassive[i]->dcoldtREC[n] * ( (2.0*spsPassive[i]->spsigR[n]*spsPassive[i]->spsigR[n] + spsPassive[i]->spsigZ[n]*spsPassive[i]->spsigZ[n])/3.0 - sig[n]*sig[n])/(2.0*col[n]*sig[n]);
+		    }
+	    }
+
+
+            std::cout << "Large sig! n, sig, dsigdt, dsigdtCool " <<n<<" "<<sig[n]<<" "<<dsigdt[n]<<" "<<dsigdtCool[n]<<" "<<col[n]<<" "<<dsigdtTrans[n]<<" "<<dsigdtDdx[n]<<" "<<dsigdtHeat[n]<<" "<<dsdtStars<<" Mdots: "<<MdotiPlusHalfMRI[n]<<" "<<MdotiPlusHalfMRI[n-1]<<" taus: "<<" "<<tauvecMRI[1][n]<<" "<<tauvecMRI[1][n-1]<<" "<<tauvecMRI[1][n+1]<<" "<<uu[n] << " " << dsdtADVmdot<<" "<<dsdtADVddx<<" "<<dsdtHeat<<" "<<dsdtAdvMRImdot<<" "<<dsdtAdvMRIddx<<" "<<dsdtMRIheat  <<std::endl;
+	    std::cout<<"Mdots: "<< MdotiPlusHalfMRI[n-1]<<" "<<MdotiPlusHalfMRI[n]<< std::endl;
+	    std::cout<<"taus: "<<tauvecMRI[1][n-1]<<" "<<tauvecMRI[1][n]<<" "<<tauvecMRI[1][n+1]<<std::endl;
+	    std::cout<<"cols: "<<col[n-1]<<" "<<col[n]<<" "<<col[n+1]<<std::endl;
+	    std::cout<<"colsfrs: "<<colSFR[n-1]<<" "<<colSFR[n]<<" "<<col[n+1]<<std::endl;
+	    std::cout<<"Zs: "<<ZDiskO[n-1]<<" "<<ZDiskO[n]<<" "<<ZDiskO[n+1]<<std::endl;
+	    std::cout<<"Zs: "<<ZDiskFe[n-1]<<" "<<ZDiskFe[n]<<" "<<ZDiskFe[n+1]<<std::endl;
+	    std::cout<<"MLF: "<<MassLoadingFactor[n-1]<<" "<<MassLoadingFactor[n]<<" "<<MassLoadingFactor[n+1]<<std::endl;
+	    std::cout<<"sigs: "<<sig[n-1]<<" "<<sig[n]<<" "<<sig[n+1]<<std::endl;
+	    std::cout<<"xs: "<<mesh.x(n-1)<<" "<<mesh.x(n)<<" "<<mesh.x(n+1)<<std::endl;
             errormsg("Very large velocity dispersion. Thin disk approximation definitely makes no sense here.");
         }
+//        if(sig[n]/uu[n] > 1.0) {
+//	    sig[n] = uu[n];
+//	}
 
         //    colSFR[n] = dSSFdt(n);
         dZDiskOdtAdv[n] =  -1.0/((beta[n]+1.0)*x[n]*col[n]*uu[n]) * ZDiskO[n]  * dlnZOdx *tauvec[2][n] ;
@@ -1861,7 +1891,7 @@ void DiskContents::UpdateStTorqueCoeffs(std::vector<double>& UUst, std::vector<d
 
         // Instead of just allowing Q to slowly approach Qlim, make the process more vigorous.
         if(dbg.opt(4)) {
-            FFst[n] = exp(FFst[n]);
+            // FFst[n] = expm1(FFst[n]);
         }
 
         if(Qst > Qlim) {
@@ -1971,8 +2001,9 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         // Forget all of the contributions to forcing we just computed, and
         // set it to an exponential.
         if(dbg.opt(4)) {
-          double faster = 10.0;
-    	  FF[n] = expm1((fixedQ-QQ)*uu[n]*faster / (x[n]));
+          double faster = 1.0;
+    	  //FF[n] = expm1((fixedQ-QQ)*uu[n]*faster / (x[n]));
+    	  FF[n] = (fixedQ-QQ)*uu[n]*faster / (x[n]);
 
         }
 

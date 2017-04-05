@@ -25,7 +25,7 @@ inline double ddx(double left, double right)
 template <class T>
 double ddx(T & arr, unsigned int n, std::vector<double>& x, bool zeroSecondDerivIn, bool minmod)
 {
-  bool zeroSecondDeriv = zeroSecondDerivIn;// true;
+  bool zeroSecondDeriv = false; //zeroSecondDerivIn;// true;
   unsigned int nx=x.size()-1;
   if(n<nx && n>1) {
     double right = (arr[n+1]-arr[n])/(x[n+1]-x[n]);

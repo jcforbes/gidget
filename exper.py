@@ -551,7 +551,7 @@ def NewSetOfExperiments(copyFrom, name, N=1):
 def experFromBroadMCMC(emceeparams, name=None):
     raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench = emceeparams
 
-    Mhz0 = list(np.power(10.0, np.linspace(11.0,14,10)))
+    Mhz0 = list(np.power(10.0, np.linspace(10.0,14,30)))
 
     # create experiment
     
@@ -620,6 +620,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('Noutputs',200) ## why so many??
     thisexper.irregularVary('zstart',3.98)
     thisexper.irregularVary('zrelax',4.0)
+    thisexper.irregularVary('tauHeat', 1.0)
     thisexper.irregularVary('muNorm', list(0.005*muNorm*np.power(Mhz0/1.0e12,muMhScaling)), 5)
     thisexper.irregularVary('muFgScaling', muFgScaling)
     thisexper.irregularVary('muColScaling', muColScaling)
@@ -2629,6 +2630,26 @@ if __name__ == "__main__":
     ## fix bug in IA rate.
     rf84 = experFromBroadMCMC(emceeparams, name='rf84')
 
+    emceeparams = [  1.80232948e-01,   1.14976039e+00,   5.40065364e+00,   1.69857050e+00, -9.44813987e-01,  -8.53922447e-01,   9.47551915e-03,  -3.08660831e+00, 7.75058114e-01,   5.11183715e-01,   1.18276323e+00,   2.94992317e+00, 4.68548647e-02,   2.79680127e-04,   1.08525619e-01,   1.54925443e-01, 4.15764357e+00,   3.28062195e-01,   9.12530440e-03,  0, 2.83422259e+11] # , 6.86571666e-01]
+    rf85 = experFromBroadMCMC(emceeparams, name='rf85')
+
+    emceeparams = [  1.39192613e-01,   2.06852503e+00,   1.47353675e+00,   1.97365750e+00, 5.37224908e-01,   1.17595949e+00,   1.08963518e+00,  -5.08071210e-01, 1.01502597e+00,   5.17380183e-02,   5.36199804e+00,   1.25992157e+00, 6.23709052e-02,   1.72535928e-04,   9.15648977e-01,   1.06622955e-01, 5.88668979e+00,   1.79678213e-01,   6.00854464e-03,   0.00000000e+00, 9.18293025e+11] #,   3.53606946e-01]
+    rf86 = experFromBroadMCMC(emceeparams, name='rf86')
+
+    # decrease rf87 to match up with what's going on with the gas.
+    rf87 = experFromBroadMCMC(emceeparams, name='rf87')
+
+
+    emceeparams = [  1.16493377e-01,   6.85441565e-01,   2.53454237e+00,   4.66205970e+00, 7.21672391e-01,  -9.65895952e-01,   3.31207773e+00,  -8.40086055e-01, 5.10900160e+00,   4.37085835e-01,   2.12261668e+00,   1.59251012e+00, 8.54462905e-02,   3.48195437e-03,   4.07820701e-01,   1.84455124e-01, 6.85178180e-01,   2.17577982e-01,   8.94197775e-03,   2.00963528e-01, 1.18649645e+12] #,   5.11828699e-01]
+    rf88 = experFromBroadMCMC(emceeparams, name='rf88')
+
+    # less violent heating. Does it work?
+    rf89 = experFromBroadMCMC(emceeparams, name='rf89')
+
+    rf90 = experFromBroadMCMC(emceeparams, name='rf90')
+
+    emceeparams = [ 1.35219791e-01,   2.18557429e+00,   2.64537791e+00,   5.22921628e+00, 7.76397971e-01,  -5.92566917e-01,   4.60624871e+00,  -6.51806325e-01, 1.27517630e+00,   3.39500593e-01,   2.42629432e+00,   1.42712530e+00, 7.97661535e-02,   1.86516526e-02,   4.71407757e-01,   5.44052515e-02, 4.15950062e-01,   3.89348706e-01,   8.46125736e-03,   7.44191600e-01, 2.14946325e+12 ] #,   5.00755873e-01]
+    rf91 = experFromBroadMCMC(emceeparams, name='rf91')
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())

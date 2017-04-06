@@ -290,7 +290,8 @@ class SingleModel:
                     'whichAccretionProfile','alphaAccretionProfile', \
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC', \
                     'concentrationRandomFactor','muFgScaling','ksuppress', 'kpower', \
-                    'MQuench','epsquench','muQuench','stScaleReduction','gaScaleReduction','ZMix']
+                    'MQuench','epsquench','muQuench','stScaleReduction','gaScaleReduction','ZMix', \
+                    'energyInjectionFactor']
             params=[]
             line = lines[-1] # get the last line
             tmp = line.split() # split the line into a list of strings

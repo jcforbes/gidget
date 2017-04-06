@@ -80,7 +80,8 @@ class experiment:
                 0.54,0.1,200,.30959,0.38, \
                 -0.25,1.0,1.0,0.3,1.0, \
                 0,0.0,.1,.03,2.0, \
-                .002,.054,0.0,0.0, 10.0, 2.0, 1.0e12, 0.1, 2.0, 2.0, 1.4, 0.5, 0.5]
+                .002,.054,0.0,0.0, 10.0, 2.0, 1.0e12, \
+                0.1, 2.0, 2.0, 1.4, 0.5, 1.0, 0.5]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -99,7 +100,7 @@ class experiment:
                 'accAlphaMh','accCeiling','fscatter','invMassRatio','fcool', \
                 'whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC', \
                 'ZIGM','yREC','concentrationRandomFactor','muFgScaling', 'ksuppress', 'kpower', 'MQuench', \
-                'epsquench', 'muQuench', 'stScaleReduction', 'gaScaleReduction', 'ZMix', 'bolshoiWeight']
+                'epsquench', 'muQuench', 'stScaleReduction', 'gaScaleReduction', 'ZMix', 'energyInjectionFactor', 'bolshoiWeight']
         assert len(self.p)==len(self.names)
         self.keys={}
         ctr=0
@@ -2651,6 +2652,16 @@ if __name__ == "__main__":
     emceeparams = [ 1.35219791e-01,   2.18557429e+00,   2.64537791e+00,   5.22921628e+00, 7.76397971e-01,  -5.92566917e-01,   4.60624871e+00,  -6.51806325e-01, 1.27517630e+00,   3.39500593e-01,   2.42629432e+00,   1.42712530e+00, 7.97661535e-02,   1.86516526e-02,   4.71407757e-01,   5.44052515e-02, 4.15950062e-01,   3.89348706e-01,   8.46125736e-03,   7.44191600e-01, 2.14946325e+12 ] #,   5.00755873e-01]
     rf91 = experFromBroadMCMC(emceeparams, name='rf91')
 
+    # add in momentum from SNe
+    rf92 = experFromBroadMCMC(emceeparams, name='rf92')
+
+    # double IA rate
+    rf93 = experFromBroadMCMC(emceeparams, name='rf93')
+
+    # further increase IA. Also add <p/m_*>/(3000 km/s) as a free parameter
+    rf94 = experFromBroadMCMC(emceeparams, name='rf94')
+
+    
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())
         # for each such key (aModel) check whether this inputString is contained in its name

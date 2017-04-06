@@ -123,7 +123,7 @@ DiskContents::DiskContents(double tH, double eta,
         double Z_IGM_O, double Z_IGM_Fe, double yrec,
         double ksup, double kpow,
         double mq, double muq,
-        double Zmx) :
+        double Zmx, double enInjFac) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
     uDisk(std::vector<double>(m.nx()+1,0.)),
@@ -151,6 +151,7 @@ DiskContents::DiskContents(double tH, double eta,
     thickness(thk), migratePassive(migP),
     col(std::vector<double>(m.nx()+1,0.)),
     sig(std::vector<double>(m.nx()+1,0.)),
+    energyInjectionFactor(enInjFac),
     dsigdtTrans(std::vector<double>(m.nx()+1,0.)),
     dsigdtDdx(std::vector<double>(m.nx()+1,0.)),
     dsigdtHeat(std::vector<double>(m.nx()+1,0.)),
@@ -551,7 +552,8 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
 
         dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
             - 5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
-            +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n]);
+            +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n])
+	    + (1.0/3.0)*(energyInjectionFactor * 3000.0*1.0e5/dim.vphiR)*colSFR[n]/col[n];
 	//if(dbg.opt(6)) {
 	//    for(unsigned int i=0; i!=spsPassive.size(); ++i) {
         //        dsigdt[n] += spsPassive[i]->dcoldtREC[n] * ( (2.0*spsPassive[i]->spsigR[n]*spsPassive[i]->spsigR[n] + spsPassive[i]->spsigZ[n]*spsPassive[i]->spsigZ[n])/3.0 - sig[n]*sig[n])/(2.0*col[n]*sig[n]);

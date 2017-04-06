@@ -36,7 +36,7 @@ class DiskContents {
                double Z_IGM_O, double Z_IGM_Fe, double yrec,
                double ksupp, double kpow,
                double mq, double muq, 
-               double ZMx);
+               double ZMx, double enInjFac);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -378,6 +378,8 @@ class DiskContents {
   
   const double ZMix; // a number between 0 and 1 controlling the fraction of ejected metals mixed back into the accretion flow.
   const double dd,dm1,dmm1,dmdinv,sqd;
+
+  const double energyInjectionFactor;
 
   const unsigned int NActive, NPassive;
 };

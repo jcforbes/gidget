@@ -120,10 +120,14 @@ void StellarPop::ComputeSNIArate(DiskContents& disk, double z)
     double RfREC = 0.77;
     double current_age  = (ageAtz0 - disk.GetCos().lbt(z));// in seconds
     double fml = C0 * log(1.0 + current_age/lambda) ;
+    if(fml<0.23) {
+       fml=0.23;
+    }
+    double rateAdjustIA = 3.0e-3/0.0013;
     for( unsigned int n=1; n<=nx; ++n) {
         double col_orig_est = spcol[n]/(1-fml); // estimate of the column density of stars formed originally.
 	if (current_age>0.1*speryear*1.0e9 && current_age<10.0*speryear*1.0e9)  {
-	    dcoldtIA[n] = col_orig_est * 0.0013* 0.14476/(current_age * disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));  //// this is the surface density of SNIA explosions per time, in code units.
+	    dcoldtIA[n] = col_orig_est * rateAdjustIA * 0.0013* 0.14476/(current_age * disk.GetDim().vphiR/(2.0*M_PI*disk.GetDim().Radius));  //// this is the surface density of SNIA explosions per time, in code units.
 
 	    
 	    //std::cout << "IA rate: "<<dcoldtIA[n]<<" "<<col_orig_est<<" "<<disk.GetColSFR()[n] << std::endl;

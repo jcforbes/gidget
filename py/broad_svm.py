@@ -5,7 +5,6 @@ import copy
 import pickle
 import matplotlib.pyplot as plt
 import pdb
-import observationalData
 import emcee
 from sklearn import svm, linear_model, ensemble
 
@@ -13,7 +12,7 @@ from sklearn import svm, linear_model, ensemble
 #from pyqt_fit import npr_methods
 
 # Useful information about the setup of the linear models and their fits....
-logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1]
+logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1]
 logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
 logRadials = [1,1,1,1,1,1]
 #logVars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -273,16 +272,18 @@ def fakeEmceeResiduals(emceeparams, models):
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
     nmh = 10 
-    MhGrid = np.power(10.0, np.linspace(10.0,14,nmh))
+    MhGrid = np.power(10.0, np.linspace(10.0,13,nmh))
     lnlik = 0.0
 
     residuals=[]
     for k,Mh in enumerate(MhGrid):
-        X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
+        X1 = np.array([Mh]+list(emceeparams[:-2])).reshape((1,len(emceeparams[:-2])+1))
+        X1[0,1] = X1[0,1]*np.power(Mh/1.0e12, emceeparams[-2]) # modify raccRvir
         for i in range(len(logVars)):
             # Take the log of the input variable if it makes sense to do so
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
+
         Y_eval = np.array( [predictFill(models[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         residuals.append( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=False) )
 
@@ -293,26 +294,29 @@ def residualsFromGidget(bn, fh=0.3):
     import readoutput
     output = readoutput.Experiment(bn) 
     output.read(keepStars=True, fh=0)
+    if len(output.models)>0:
 
-    # borrow some code from mcmc_broad.py on hyades.
-    zinds = [readoutput.Nearest( output.models[0].var['z'].sensible(), z)[0] for z in [0,1,2,3]]
-    residuals=[]
-    mhs = []
-    variables = ['Mh', 'mstar', 'sSFR', 'sfZ', 'stZ', 'gasToStellarRatioH2', 'gasToStellarRatioHI', 'halfMassStars', 'vPhi22', 'c82', 'Sigma1', 'specificJStars', 'metallicityGradientR90', 'maxsig', 'mdotBulgeG', 'fractionGI', 'tdep', 'tDepH2', 'broeilsHI', 'mStellarHalo'] ## variables to read from the gidget models
-    for model in output.models:
-        Y_eval = np.zeros((1,80))
-        for j in range(len(variables)):
-            for k in range(nz):
-                Y_eval[0, j*nz+k ] = model.var[variables[j]].sensible(timeIndex=zinds[k])
-        for ii in range(80):
-            if logPreds[ ii/4 ] == 1:
-                Y_eval[0, ii] = np.log10(Y_eval[0,ii])
-        residuals.append( globalLikelihood(Y_eval, fh=fh, returnlikelihood=False) )
+        # borrow some code from mcmc_broad.py on hyades.
+        zinds = [readoutput.Nearest( output.models[0].var['z'].sensible(), z)[0] for z in [0,1,2,3]]
+        residuals=[]
+        mhs = []
+        variables = ['Mh', 'mstar', 'sSFR', 'sfZ', 'stZ', 'gasToStellarRatioH2', 'gasToStellarRatioHI', 'halfMassStars', 'vPhi22', 'c82', 'Sigma1', 'specificJStars', 'metallicityGradientR90', 'maxsig', 'mdotBulgeG', 'fractionGI', 'tdep', 'tDepH2', 'broeilsHI', 'mStellarHalo'] ## variables to read from the gidget models
+        for model in output.models:
+            Y_eval = np.zeros((1,80))
+            for j in range(len(variables)):
+                for k in range(nz):
+                    Y_eval[0, j*nz+k ] = model.var[variables[j]].sensible(timeIndex=zinds[k])
+            for ii in range(80):
+                if logPreds[ ii/4 ] == 1:
+                    Y_eval[0, ii] = np.log10(Y_eval[0,ii])
+            residuals.append( globalLikelihood(Y_eval, fh=fh, returnlikelihood=False) )
 
-        mhs.append(model.var['Mh'].sensible(timeIndex=zinds[0]))
-    return mhs, residuals
+            mhs.append(model.var['Mh'].sensible(timeIndex=zinds[0]))
+        return mhs, residuals
+    else:
+        return [],[]
 
-models16 = [ pickle.load( open( 'rfnt16_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+models17 = [ pickle.load( open( 'rfnt17full_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
 
@@ -325,50 +329,74 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
         zsorted = sorted(zipped, key=lambda x: -x[0])
         highProbInds = [zsorted[i][1] for i in range(10)]
 
-    labels = ['SMHM 0', 'SMHM 1', 'SMHM 2', 'SMHM 3', 'sSFR 0', 'sSFR 1', 'sSFR 2', 'sSFR 3', 'Zst', 'Zg 0', 'Zg 1', 'Zg 2', 'Zg 3', 'fH2 0', 'fH2 1', 'fH2 2', 'fH2 3', 'fHI 0', 'Sigma1 0', 'Sigma1 1', 'Sigma1 2', 'Sigma1 3', 'Rst 0', 'Rst 1', 'Rst 2', 'Rst 3', 'RHI', 'c82', 'TF']
+    labels = ['SMHM 0', 'SMHM 1', 'SMHM 2', 'SMHM 3', 'sSFR 0', 'sSFR 1', 'sSFR 2', 'sSFR 3', 'Zst', 'Zg 0', 'Zg 1', 'Zg 2', 'Zg 3', 'fH2 0', 'fH2 1', 'fH2 2', 'fH2 3', 'fHI 0', 'Sigma1 0', 'Sigma1 1', 'Sigma1 2', 'Sigma1 3', 'Rst 0', 'Rst 1', 'Rst 2', 'Rst 3', 'RHI', 'c82', 'TF', 'sig 0', 'sig 1', 'sig 2', 'sig 3']
 
-    fig,ax = plt.subplots(nrows=5, ncols=6, figsize=(14,14))
+    fig,ax = plt.subplots(nrows=7, ncols=5, figsize=(14,14))
+    massLim = (10,13) 
+
+    chiSquared = np.zeros((10, 33))
+    chiSquaredFh0 = np.zeros((10, 33))
 
     for i in range(2):
-        if xmax is None:
+        if xmaxOrig is None:
             indices = np.unravel_index(highProbInds[i], np.shape(restart['allProbs']))
-            xmax = restart['chain'][indices[0],indices[1],:]
+            xmaxThis = restart['chain'][indices[0],indices[1],:]
+        else:
+            xmaxThis=xmaxOrig[:]
 
-        if i==1:
-            xmax[-1] = 0.0
+        if i%2==0:
+            xmaxThis[-1] = 0.0
     
-        residuals = np.array( fakeEmceeResiduals(xmax, models16) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models17) )
+        if i%2==0:
+            chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
+        else:
+            chiSquared[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
 
-        lw=2
-        c='k'
-        alpha=1.0
-        if i>0:
+        lw=1
+        c='b'
+        alpha=.5
+        if i%2==0:
             lw=1
             c='r'
             alpha=0.5
-        for j in range(29):
-            ax.flatten()[j].plot( np.power(10.0, np.linspace(10,14,np.shape(residuals)[0])), residuals[:,0,j], c=c, lw=lw, alpha=alpha ) 
+        for j in range(33):
+            ax.flatten()[j].plot( np.power(10.0, np.linspace(massLim[0],massLim[1],np.shape(treeResiduals)[0])), treeResiduals[:,0,j], c=c, lw=lw, alpha=alpha ) 
 
     if gidgetmodels is not None:
-        mhs, residuals = residualsFromGidget(gidgetmodels, fh=xmaxOrig[-1])
-        npresiduals = np.array(residuals)
-        for j in range(29):
-            ax.flatten()[j].scatter( mhs, npresiduals[:,0,j], c='b', s=20, lw=0 )
+        mhs, gidgetResiduals = residualsFromGidget(gidgetmodels, fh=xmaxOrig[-1])
+        npGidgetResiduals = np.array(gidgetResiduals)
+        for j in range(33):
+            ax.flatten()[j].scatter( mhs, npGidgetResiduals[:,0,j], c='b', s=25, lw=0 )
 
-        mhs, residuals = residualsFromGidget(gidgetmodels, fh=0.0)
-        npresiduals = np.array(residuals)
-        for j in range(29):
-            ax.flatten()[j].scatter( mhs, npresiduals[:,0,j], c='r', s=20, lw=0 )
+        mhs, gidgetResidualsFh0 = residualsFromGidget(gidgetmodels, fh=0.0)
+        npGidgetResidualsFh0 = np.array(gidgetResidualsFh0)
+        for j in range(33):
+            ax.flatten()[j].scatter( mhs, npGidgetResidualsFh0[:,0,j], c='r', s=25, lw=0 )
 
+    chiSquaredAll = np.zeros((6,33))
+    chiSquaredAll[0,:] = np.mean(chiSquared[:,:],axis=0)/10.0
+    chiSquaredAll[1,:] = np.std(chiSquared[:,:],axis=0)/10.0
+    chiSquaredAll[2,:] = np.mean(chiSquaredFh0[:,:],axis=0)/10.0
+    chiSquaredAll[3,:] = np.std(chiSquaredFh0[:,:],axis=0)/10.0
+    chiSquaredAll[4,:] = np.sum(np.power(npGidgetResiduals[:,0,:],2.0),axis=0)/33.0
+    chiSquaredAll[5,:] = np.sum(np.power(npGidgetResidualsFh0[:,0,:],2.0),axis=0)/33.0
 
-    for j in range(29):
+    print "treeResiduals shape: ", np.shape(treeResiduals)
+    print "npGidgetResiduals shape: ", np.shape(npGidgetResiduals)
+    print "npGidgetResidualsFh0 shape: ", np.shape(npGidgetResidualsFh0)
+
+    for j in range(33):
         ax.flatten()[j].set_xlabel(r'$M_{h,0}$')
         ax.flatten()[j].set_ylabel(labels[j])
         ax.flatten()[j].set_xscale('log')
-        ax.flatten()[j].plot([10**10,10**14], [0,0], lw=2, ls='--', c='gray')
-        ax.flatten()[j].plot([10**10,10**14], [1,1], lw=1, ls='-', c='gray')
-        ax.flatten()[j].plot([10**10,10**14], [-1,-1], lw=1, ls='-', c='gray')
-        ax.flatten()[j].set_xlim(10**10,10**14)
+        ax.flatten()[j].plot([10**massLim[0],10**massLim[1]], [0,0], lw=2, ls='--', c='gray')
+        ax.flatten()[j].fill_between( [10**massLim[0], 10**massLim[1]], -1, 1, facecolor='orange', alpha=0.1)
+        #ax.flatten()[j].plot([10**massLim[0],10**massLim[1]], [1,1], lw=1, ls='-', c='gray')
+        #ax.flatten()[j].plot([10**massLim[0],10**massLim[1]], [-1,-1], lw=1, ls='-', c='gray')
+        ax.flatten()[j].set_xlim(10**massLim[0],10**massLim[1])
+        ax.flatten()[j].set_ylim(-5,5)
+        ax.flatten()[j].set_title( r'$\chi^2_{\mathrm{t}}=$ '+str(np.round(chiSquaredAll[0,j],1)) + r'$\pm$' +str(np.round(chiSquaredAll[1,j],1))+ r' $\chi^2_{\mathrm{t},f=0}=$'+str(np.round(chiSquaredAll[2,j],1)) +r'$\pm$' +str(np.round(chiSquaredAll[3,j],1))+r'$\chi^2_{\mathrm{g}}=$ '+str(np.round(chiSquaredAll[4,j],1)) +r'$\chi^2_{\mathrm{t},f=0}=$ '+str(np.round(chiSquaredAll[5,j],1)), size=7 )
 
         #plt.axhline(0.0, lw=2, ls='--', c='gray')
     
@@ -385,20 +413,22 @@ def lnlikelihood(emceeparams, models=None):
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
     nmh = 5
-    MhGrid = np.power(10.0, np.linspace(10.0,14,nmh))
+    MhGrid = np.power(10.0, np.linspace(10.0,13.0,nmh)) ## try out only going up to 10^13
     lnlik = 0.0
 
     for k,Mh in enumerate(MhGrid):
-        X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
+        X1 = np.array([Mh]+list(emceeparams[:-2])).reshape((1,len(emceeparams[:-2])+1))
+        X1[0,1] = X1[0,1]*np.power(Mh/1.0e12, emceeparams[-2]) # modify raccRvir
         for i in range(len(logVars)):
             # Take the log of the input variable if it makes sense to do so
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
         Y_eval = np.zeros((1,80))
-        neededModels = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,28,29,30,31,32,33,34,35,36,40,41,42,43,44,45,46,47,72,76,77,78,79]
+        # 4 for each of the following:  Mhz0 mstarz0 sSFRz0 sfZz0 stZz0 gasToStellarRatioH2z0 gasToStellarRatioHIz0 halfMassStarsz0 vPhi22z0 c82z0 Sigma1z0 specificJStarsz0 metallicityGradientR90z0 maxsigz0 mdotBulgeGz0 fractionGIz0 tdepz0 tDepH2z0 broeilsHIz0 mStellarHaloz0 
+        neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
         for j in range(80):
             if j in neededModels:
-                Y_eval[0,j] = predictFill(models16[j], X1)[0][j]
+                Y_eval[0,j] = predictFill(models17[j], X1)[0][j]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
 
@@ -435,6 +465,8 @@ def samplefromprior( varRedFac=1.0):
         samplefromlognormaldensity( np.log(1.0e-2), np.log(2.0)**2.0/varRedFac),
         samplefromnormaldensity( 0.5, 0.5**2/varRedFac), 
         samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
+        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac) ,
+        samplefromnormaldensity( 0, 1/varRedFac),
         samplefrombetadensity( 1.0 *varRedFac, 1.0*varRedFac) ]
 
 def lnprob(emceeparams, models=None):
@@ -444,8 +476,37 @@ def lnprob(emceeparams, models=None):
         #return constlikelihood(emceeparams) + pr
     return pr
 
+def printPriorOffsets(emceeparams):
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, alpharmh, fh = emceeparams
+    print "Prior offsets: "
+    print "raccRvir: ", np.log10(raccRvir / 0.141) / np.log10(3.0)
+    print "rstarRed: ", np.log10(rstarRed / 2.0) / np.log10(2.0)
+    print "rgasRed: ", np.log10(rgasRed / 2.0) / np.log10(2.0)
+    print "fg0mult: ", np.log10(fg0mult / 2.0) / np.log10(2.0)
+    print "muColScaling: ", (muColScaling - 0.0) / 2.0
+    print "muFgScaling: ", (muFgScaling - 0.0) / 2.0
+    print "muNorm : ", np.log10(muNorm/ 1.0) / np.log10(10.0)
+    print "muMhScaling: ", (muMhScaling - -1.0) / 1.0
+    print "ZIGMfac: ", np.log10(ZIGMfac/1.0) / np.log10(3.0)
+    print "zmix", zmix-0.5
+    print "eta: ", np.log10(eta/1.5) / np.log10(2.0)
+    print "Qf: ", np.log10(Qf/1.5) / np.log10(2.0)
+    print "alphaMRI: ", np.log10(alphaMRI/0.05) / np.log10(2.0)
+    print "epsquench: ", np.log10(epsquench/1.0e-3) / np.log10(10.0)
+    print "accCeiling: ", accCeiling-0.5
+    print "conRF: ", (conRF-0.3)/0.3
+    print "kZ: ", np.log10(kZ/1.0)/np.log10(3.0)
+    print "xiREC: ", xiREC - 0.5
+    print "epsff: ", np.log10(epsff/1.0e-2)/np.log10(2.0)
+    print "scaleAdjust: ", (scaleAdjust - 0.5)/0.5
+    print "mquench: ", np.log10(mquench/1.0e12)/np.log10(3.0)
+    print "enInjFac: ", np.log10(enInjFac/1.0)/np.log10(3.0) 
+    print "alpharMh: ", alpharmh/1.0
+    print "fh: ", fh-0.5
+
+
 def lnprior(emceeparams):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, fh = emceeparams
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, alpharmh, fh = emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
     accum = 0.0
 
@@ -473,6 +534,8 @@ def lnprior(emceeparams):
     accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(2.0)**2.0 / varRedFac )
     accum += lnnormaldensity( scaleAdjust, 0.5, 0.5**2 /varRedFac)
     accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
+    accum += lnlognormaldensity( enInjFac, np.log(1.0), np.log(3.0)**2.0/varRedFac)
+    accum += lnnormaldensity( alpharmh, 0, 1/varRedFac)
     accum += lnbetadensity( fh, 1.0, 1.0 )
 
     if not np.isfinite(accum):
@@ -509,9 +572,10 @@ def tracePlots(restart, fn, burnIn=0):
         for walker in range(np.shape(chain)[0]):
             if np.random.uniform(0,1) <= 1.0: # print every one ----tenth-ish----
                 ax[i,j].plot(chain[walker,burnIn:,dim],alpha=.3,ls='--')
+        ax[i,j].set_ylim( np.min(chain[:, len(chain[0,burnIn:,dim])/2 :, dim] ), np.max(chain[:, len(chain[0,burnIn:,dim])/2 :, dim] ) )
 
     plt.tight_layout()
-    plt.savefig(fn+'.png')
+    plt.savefig(fn+'.pdf')
     plt.close(fig)
 
 def probsPlots(restart, fn, burnIn=0):
@@ -524,9 +588,12 @@ def probsPlots(restart, fn, burnIn=0):
     fig,ax = plt.subplots()
     for walker in range(ndim):
         ax.plot(allProbs[walker,burnIn:],alpha=.3,ls='--')
+    ax.set_xlabel('Iteration')
+    ax.set_ylabel('Posterior probability')
+    ax.set_ylim( np.min(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), np.max(allProbs[:, len(allProbs[0,burnIn:])/2 :] ) )
     plt.savefig(fn+'_probs.png')
     plt.close(fig)
-    print "Saved "+fn+'_probs.png'
+    print "Saved "+fn+'_probs.pdf'
 
     changes = np.zeros(ndim)
     for walker in range(ndim):
@@ -563,17 +630,25 @@ def printRestart(restart):
     print " acceptance rate for each walker: ",restart['accept']
     stats(restart['accept'])
 
+def histplot(ax, hist, edges, c='k', vertical=True):
+    for i,y in enumerate(hist):
+        if vertical:
+            ax.plot([edges[i],edges[i]], [0, y], lw=2, c=c, ls='-')
+            ax.plot([edges[i+1],edges[i+1]], [0, y], lw=2, c=c, ls='-')
+        ax.plot([edges[i],edges[i+1]], [y,y], lw=2, c=c, ls='-')
+
 def trianglePlot(restart,fn,burnIn=0, nspace=10):
     shp = np.shape(restart['chain'])
-    prs = shp[0]*(shp[1]-burnIn)*shp[2]
-    prior = np.array([sampleFromPrior() for i in range(prs)])
+    prs = shp[0]*(shp[1]-burnIn)*shp[2]/nspace
     shape = np.shape(restart['chain'])
     ndim = shape[2]
     labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$",r"$\mu_{M_h}$",r"Q",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
             r"$f_\mathrm{cool}$", r"$M_{h,0}$", r"$\sigma$ (dex)", \
             r"$x_0$",r"$x_1$",r"$x_2$",r"$x_3$",r'Error scaling',r'c offset', r'$\mu_{h_g}$']
+    labels = ['raccRvir', 'rstarRed', 'rgasRed', 'fg0mult', 'muColScaling', 'muFgScaling', 'muNorm', 'muMhScaling', 'ZIGMfac', 'zmix', 'eta', 'Qf', 'alphaMRI', 'epsquench', 'accCeiling', 'conRF', 'kZ', 'xiREC', 'epsff', 'scaleAdjust', 'mquench', 'enInjFac', 'alpharmh', 'fh'] 
+    
+    logs = [1,1,1,1,0,0,1,0,1,0,1,1,1,1,0,0,1,0,1,0,1,1,0,0]
 
-    logs = [1,1,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0]
 
     ### This code selects a fraction frac of the samples after burnIn iterations.
     ### The selection is random, meaning consecutive samples from the same walker
@@ -587,7 +662,10 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
 
     ### Instead we take a sample not at random, but evenly spaced:
     sampleRed = restart['chain'][:,burnIn::nspace,:].reshape((-1,ndim))
+    prior = np.array([samplefromprior() for i in range(np.product(np.shape(sampleRed))/ndim * 3)])
 
+
+    pickle.dump(sampleRed, open('fakemcmc17d_posterior.pickle', 'w'))
 
     extents=[]
     for i in range(np.shape(sampleRed)[1]):
@@ -604,10 +682,41 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
             extents.append([mi,ma])
 
     import corner
-    trifig = corner.corner(sampleRed, labels=labels, extents=extents)
-    #trifigPrior = triangle.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig, extents=extents)
-    trifig.savefig(fn)
+    trifig = corner.corner(sampleRed, labels=labels, range=extents)
+    trifigPrior = corner.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig, range=extents)
+    trifig.savefig(fn+'.pdf')
 
+
+    MaP = []
+
+    #### just look at the 1D distr - much more compact when the 2D marginal distributions are pretty uninteresting!
+    fig,ax = plt.subplots(6,4, figsize=(14,14))
+    fig.subplots_adjust(hspace=0.2, wspace=0.01)
+    for i in range(np.shape(sampleRed)[1]):
+        hist, edges = np.histogram( sampleRed[:,i], bins='auto', range=extents[i], density=True )
+        histplot(ax.flatten()[i], hist,edges, c='k', vertical=True)
+        avg = np.mean(sampleRed[:,i])
+        if logs[i]==1:
+            MaP.append(10.0**avg)
+        else:
+            MaP.append(avg)
+        std = np.std(sampleRed[:,i])
+        xv = np.linspace(extents[i][0],extents[i][1],200)
+        yv = 1.0/np.sqrt(2.0*np.pi*std*std) * np.exp(-(xv-avg)*(xv-avg)/(2.0*std*std))
+        ax.flatten()[i].plot( xv, yv, lw=2, ls='--', c='gray')
+        hist, edges = np.histogram( prior[:,i], bins='auto', range=extents[i], density=True )
+        histplot(ax.flatten()[i], hist,edges, c='r', vertical=False)
+        ax.flatten()[i].set_xlabel(labels[i])
+    plt.savefig(fn+'_1D.pdf')
+    plt.close(fig)
+
+    msg = "Estimate of maximum posterior: ["
+    for i in range(len(MaP)):
+        msg+= str(MaP[i])+', '
+    msg = msg[:-2] + ']'
+    print msg
+
+    print "Shape of sampleRed: ", np.shape(sampleRed)
 
 
 def runEmcee(mpi=False, continueRun=False):
@@ -627,10 +736,11 @@ def runEmcee(mpi=False, continueRun=False):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 22, 800 
-    fn = 'fakemcmc16_restart.pickle'
+    ndim, nwalkers = 24, 800 
+    # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
+    fn = 'fakemcmc17d_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
-    nsteps = 3000 # test run
+    nsteps = 3000 
     p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
 
     restart['currentPosition'] = p0
@@ -691,6 +801,7 @@ def runEmcee(mpi=False, continueRun=False):
 
 
 def singleRelationLikelihood(x,y,datasets, fixedSigma=-1):
+    import observationalData
     lnlik = np.zeros(len(x))
     distances = np.zeros((len(x),len(datasets)))
     sigmas = np.zeros((len(x),len(datasets)))
@@ -726,6 +837,7 @@ def singleRelationLikelihood(x,y,datasets, fixedSigma=-1):
     return lnlik, finalResiduals
 
 def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
+    ### neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
     logMh0 = Ys_train[:,0]
     logMh1 = Ys_train[:,1]
     logMh2 = Ys_train[:,2]
@@ -754,16 +866,15 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
     logvPhi22z0  = Ys_train[:,32] 
     logvPhi22z1 = Ys_train[:,33] 
     logvPhi22z2  = Ys_train[:,34] 
-    logvPhi22z3 = Ys_train[:,35] 
     logc82z0  = Ys_train[:,36] 
     logSigma1z0  = Ys_train[:,40] 
     logSigma1z1  = Ys_train[:,41] 
     logSigma1z2  = Ys_train[:,42] 
     logSigma1z3  = Ys_train[:,43] 
-    logspecificJStarsz0  = Ys_train[:,44] 
-    logspecificJStarsz1  = Ys_train[:,45] 
-    logspecificJStarsz2  = Ys_train[:,46] 
-    logspecificJStarsz3  = Ys_train[:,47] 
+    logmaxsigz0 = Ys_train[:,52] 
+    logmaxsigz1 = Ys_train[:,53] 
+    logmaxsigz2 = Ys_train[:,54] 
+    logmaxsigz3 = Ys_train[:,55] 
     logbroeilsHIz0  = Ys_train[:,72]
     logmStellarHaloz0  = Ys_train[:,76]
     logmStellarHaloz1  = Ys_train[:,77]
@@ -780,7 +891,7 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
 
     # Label points that fit Moster SMHM
 
-    lnlik = np.zeros((len(Ys_train[:,0]),29) )
+    lnlik = np.zeros((len(Ys_train[:,0]),33) )
 
     srlInd=0
     if not returnlikelihood:
@@ -790,10 +901,14 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
     lnlik[:,2] += singleRelationLikelihood(10.0**logMh2,10.0**logMst2,['Moster13z2'])[srlInd]
     lnlik[:,3] += singleRelationLikelihood(10.0**logMh3,10.0**logMst3,['Moster13z3'])[srlInd]
 
-    lnlik[:,4] += singleRelationLikelihood(10.0**logMst0,10.0**logsSFRz0,['Brinchmann04Specz0'])[srlInd]
-    lnlik[:,5] += singleRelationLikelihood(10.0**logMst1,10.0**logsSFRz1,['whitaker14Specz1'])[srlInd]
-    lnlik[:,6] += singleRelationLikelihood(10.0**logMst2,10.0**logsSFRz2,['whitaker14Specz2'])[srlInd]
-    lnlik[:,7] += singleRelationLikelihood(10.0**logMst3,10.0**logsSFRz3,['lilly13Specz3'])[srlInd]
+    lnlik[:,4] += singleRelationLikelihood(10.0**logMst0, 10.0**logsSFRz0, ['Speagle14Specz0', 'lilly13Specz0'])[srlInd]
+    lnlik[:,5] += singleRelationLikelihood(10.0**logMst1, 10.0**logsSFRz1, ['Speagle14Specz1', 'lilly13Specz1'])[srlInd]
+    lnlik[:,6] += singleRelationLikelihood(10.0**logMst2, 10.0**logsSFRz2, ['Speagle14Specz2', 'lilly13Specz2'])[srlInd]
+    lnlik[:,7] += singleRelationLikelihood(10.0**logMst3, 10.0**logsSFRz3, ['Speagle14Specz3', 'lilly13Specz3'])[srlInd]
+    #lnlik[:,4] += singleRelationLikelihood(10.0**logMst0,10.0**logsSFRz0,['Brinchmann04Specz0'])[srlInd]
+    #lnlik[:,5] += singleRelationLikelihood(10.0**logMst1,10.0**logsSFRz1,['whitaker14Specz1'])[srlInd]
+    #lnlik[:,6] += singleRelationLikelihood(10.0**logMst2,10.0**logsSFRz2,['whitaker14Specz2'])[srlInd]
+    #lnlik[:,7] += singleRelationLikelihood(10.0**logMst3,10.0**logsSFRz3,['lilly13Specz3'])[srlInd]
 
     lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'], fixedSigma=0.17)[srlInd]
 
@@ -818,16 +933,27 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
 
 
     # Label points that fit galaxy sizes
-    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14ETG0','vdW14LTG0'])[srlInd]
-    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14ETG1','vdW14LTG1'])[srlInd]
-    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14ETG2','vdW14LTG2'])[srlInd]
-    lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14ETG3','vdW14LTG3'])[srlInd]
+    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14LTG0'])[srlInd]
+    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14LTG1'])[srlInd]
+    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14LTG2'])[srlInd]
+    lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14LTG3'])[srlInd]
+    #lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14ETG0','vdW14LTG0'])[srlInd]
+    #lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14ETG1','vdW14LTG1'])[srlInd]
+    #lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14ETG2','vdW14LTG2'])[srlInd]
+    #lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14ETG3','vdW14LTG3'])[srlInd]
 
     lnlik[:,26] += singleRelationLikelihood(10.0**(logMst0+loggasToStellarRatioHIz0),10.0**logbroeilsHIz0,['broeils97'])[srlInd]
 
     lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
 
     lnlik[:,28] += singleRelationLikelihood(10.0**logMst0,10.0**logvPhi22z0,['miller11'])[srlInd]
+
+    lnlik[:,29] += singleRelationLikelihood(10.0**(logMst0+logsSFRz0-9), 10.0**logmaxsigz0, ['krumholz17'], fixedSigma=0.1)[srlInd]
+    lnlik[:,30] += singleRelationLikelihood(10.0**(logMst1+logsSFRz1-9), 10.0**logmaxsigz1, ['krumholz17'], fixedSigma=0.1)[srlInd]
+    lnlik[:,31] += singleRelationLikelihood(10.0**(logMst2+logsSFRz2-9), 10.0**logmaxsigz2, ['krumholz17'], fixedSigma=0.1)[srlInd]
+    lnlik[:,32] += singleRelationLikelihood(10.0**(logMst3+logsSFRz3-9), 10.0**logmaxsigz3, ['krumholz17'], fixedSigma=0.1)[srlInd]
+
+    #lnlik[:,29] += singleRelationLikelihood(10.0**(logMst0+logsSFRz0), 
 
     #worstfit = np.argmin(lnlik[0,:])
     #print "Worst fit ", worstfit
@@ -996,6 +1122,7 @@ def appendLikelihood():
 
 
 def appendLabels():
+    import observationalData
     arr = np.loadtxt('broad_to_fail.txt')
     Mh = arr[:,19]
     mstar = arr[:,20]
@@ -1153,6 +1280,24 @@ def loglin(x,p):
         return np.log(x)
     else:
         return (np.power(x,p)-1)/p
+
+def trimDownForGlue(fn='broad17full_to_lasso.txt', naccr=8, arr=None, kscale=10, logscale=0):
+    X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=1.0, validateFrac=0.0, fn=fn, naccr=naccr, arr=arr, kscale=kscale, logscale=logscale, includeCrossTerms=False)
+    labelsFeat = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "muMhScaling", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC", "epsff", "deltabeta", "MQ", "Einj", "Mdot0KS" ]
+    labelsFeatAccr = ["Mdot"+str(i).zfill(2) for i in range(naccr)]
+    labelsVar = ["Mh0", "Mh1", "Mh2", "Mh3", "Mst0", "Mst1", "Mst2", "Mst3", "sSFR0", "sSFR1", "sSFR2", "sSFR3", "Zg0", "Zg1", "Zg2", "Zg3", "Zst0", "Zst1", "Zst2", "Zst3", "fgmol0", "fgmol1", "fgmol2", "fgmol3", "fgHI0", "fgHI1", "fgHI2", "fgHI3", "rst0", "rst1", "rst2", "rst3", "vphitf0", "vphitf1", "vphitf2", "vphitf3", "c0", "c1", "c2", "c3", "SigCen0", "SigCen1", "SigCen2", "SigCen3", "jst0", "jst1", "jst2", "jst3", "Zgrad0", "Zgrad1", "Zgrad2", "Zgrad3", "sigmax0", "sigmax1", "sigmax2", "sigmax3", "mdotb0", "mdotb1", "mdotb2", "mdotb3", "rGI0", "rGI1", "rGI2", "rGI3", "tdep0", "tdep1", "tdep2", "tdep3", "tdepmol0", "tdepmol1", "tdepmol2", "tdepmol3", "rHI0", "rHI1", "rHI2", "rHI3", "Mmerge0", "Mmerge1", "Mmerge2", "Mmerge3", "vphi00", "vphi01", "vphi02", "vphi03", "vphi04", "vphi05", "vphi06", "vphi07", "vphi08", "vphi09", "vphi10", "vphi11", "vphi12", "vphi13", "vphi14", "vphi15", "vphi16", "vphi17", "vphi18", "vphi19", "Sigma00", "Sigma01", "Sigma02", "Sigma03", "Sigma04", "Sigma05", "Sigma06", "Sigma07", "Sigma08", "Sigma09", "Sigma10",  "Sigma11", "Sigma12", "Sigma13", "Sigma14", "Sigma15", "Sigma16", "Sigma17", "Sigma18", "Sigma19",   "SigmaSt00", "SigmaSt01", "SigmaSt02", "SigmaSt03", "SigmaSt04", "SigmaSt05", "SigmaSt06", "SigmaSt07", "SigmaSt08", "SigmaSt09", "SigmaSt10",  "SigmaSt11", "SigmaSt12", "SigmaSt13", "SigmaSt14", "SigmaSt15", "SigmaSt16", "SigmaSt17", "SigmaSt18", "SigmaSt19",  "SigmaSFR00", "SigmaSFR01", "SigmaSFR02", "SigmaSFR03", "SigmaSFR04", "SigmaSFR05", "SigmaSFR06", "SigmaSFR07", "SigmaSFR08", "SigmaSFR09", "SigmaSFR10", "SigmaSFR11", "SigmaSFR12", "SigmaSFR13", "SigmaSFR14", "SigmaSFR15", "SigmaSFR16", "SigmaSFR17", "SigmaSFR18", "SigmaSFR19", "Zr00", "Zr01", "Zr02", "Zr03", "Zr04", "Zr05", "Zr06", "Zr07", "Zr08", "Zr09", "Zr10", "Zr11", "Zr12", "Zr13", "Zr14", "Zr15", "Zr16", "Zr17", "Zr18", "Zr19", "Age00", "Age01", "Age02", "Age03", "Age04", "Age05", "Age06", "Age07", "Age08", "Age09", "Age10", "Age11", "Age12", "Age13", "Age14", "Age15", "Age16", "Age17", "Age18", "Age19"  ]
+
+    labels = labelsFeat+labelsFeatAccr+labelsVar
+    header = ""
+    for label in labels:
+        header += label + " "
+    #header = header.replace('0','nZEn').replace('1','nIn').replace('2','nIIn').replace('3','nIIIn').replace('4','nIVn').replace('5','nVn').replace('6','nVIn').replace('7','nVIIn').replace('8','nVIIIn').replace('9','nIXn')
+    arr = np.vstack( [X_train.T, Ys_train.T] ).T
+
+
+    np.savetxt('broad17full_to_lasso_trim.txt', arr, header=header[:-1])
+
+
 
 def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=50, arr=None, kscale=10, logscale=0, includeCrossTerms=False):
     ''' trainFrac denotes what fraction of the sample should be used for training 
@@ -1824,7 +1969,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad16_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad17full_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -1842,7 +1987,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ordinates_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
 
     #feature_names = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC"]
-    feature_names = [r'$M_{h,0}$', r'$r_\mathrm{acc}/R_v$', r'$r_{\mathrm{acc},0}/r_{*,0}$',  r'$r_{\mathrm{acc},0}/r_{g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{quench}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$']
+    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$E_\mathrm{inj}$']
     texlabels = labels[:]
     for i in range(nfeatures-len(feature_names)):
         #feature_names.append("AccHist"+str(i))
@@ -1875,7 +2020,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
             # k=8 corresponds to z=0 sfr. Try really hard to get this right!
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt16_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt17full_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -1995,25 +2140,26 @@ def estimateFeatureImportances(analyze=True, pick=True):
             #texlabels.append( tl+r'$(r/r_*='+ str(np.round(float(ri)/5.0, 2)) +r')$' )
             texlabels.append( '' )
     if analyze:
-        printFeatureImportances(feature_importances.T*1.0, r2scores, feature_names, texlabels)
-        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, feature_names, texlabels, fn='avg_swap_scores_compact.tex')
+        printFeatureImportances(feature_importances.T*1.0, r2scores, feature_names, texlabels, normalize=False)
+        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, feature_names, texlabels, fn='avg_swap_scores_compact.tex', normalize=False)
         printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores, feature_names, texlabels, fn='avg_derivs_compact.tex')
         printTable(feature_importances.T*1.0, feature_names, texlabels, fn='feature_importances.tex')
         printTable(np.mean(scores,axis=1).T, feature_names, texlabels, fn='avg_swap_scores.tex')
 
     #print "Average feature importances from skl: ",feature_importances
 
-def printFeatureImportances(arr, rsquared, columnnames, rownames, fn='feature_importance_compact.tex'):
+def printFeatureImportances(arr, rsquared, columnnames, rownames, fn='feature_importance_compact.tex', normalize=True):
     assert len(np.shape(arr))==2
     nrows, ncols = np.shape(arr)
     #if not (nrows==len(rownames) and ncols==len(columnnames)):
     #    pdb.set_trace()
+    colorNames = ['blue', 'olive', 'CadetBlue', 'pink', 'BlueGreen', 'ForestGreen', 'LimeGreen', 'gray', 'orange', 'yellow', 'Magenta', 'cyan', 'Maroon', 'purple', 'lightslategray', 'Peach', 'Fuchsia', 'Orchid', 'ProcessBlue', 'Tan', 'Sepia', 'red', 'RawSienna']*2
 
     with open(fn,'w') as f:
         f.write( r'\begin{table*}'+'\n' )
         f.write( r'\tiny'+'\n' )
-        f.write( r'\begin{tabular}{'+'l'*(5+2)+r'|l'+r'}'+'\n' )
-        line = r' & z & 0 & 1 & 2 & 3 & 4 & R$^2$' ## the 5 most important features and their scores
+        f.write( r'\begin{tabular}{ll|'+'l'*5+r'|l'+r'}'+'\n' )
+        line = r' & z & Feat. 0 & Feat. 1 & Feat. 2 & Feat. 3 & Feat. 4 & R$^2$' ## the 5 most important features and their scores
         line+=r'\\'+'\n'
         f.write(line)
         f.write(r'\hline'+'\n')
@@ -2027,7 +2173,7 @@ def printFeatureImportances(arr, rsquared, columnnames, rownames, fn='feature_im
 
                     f.write( r'\begin{table*}'+'\n' )
                     f.write( r'\tiny'+'\n' )
-                    f.write( r'\begin{tabular}{'+'l'*(5+2)+r'|l'+r'}'+'\n' )
+                    f.write( r'\begin{tabular}{ll|'+'l'*5+r'|l'+r'}'+'\n' )
                     line = r' & $r/r_*$ & 0 & 1 & 2 & 3 & 4 & R$^2$' ## the 5 most important features and their scores
                     line+=r'\\'+'\n'
                     f.write(line)
@@ -2037,14 +2183,20 @@ def printFeatureImportances(arr, rsquared, columnnames, rownames, fn='feature_im
                 # only do the radially resolved quantities at a few points 
                 line = rownames[j]
 
-                line += r' & '+ str(j%4)
+                radii = ['0.1', '1.0', '1.9', '2.8']
+                line += r' & '+ radii[j%4]
 
                 #for i in range(ncols):
                 zipped = zip(arr[j,:], range(ncols))
-                zsorted = sorted(zipped, key=lambda x: x[0])
+                zsorted = sorted(zipped, key=lambda x: np.abs(x[0]))
                 for i in range(5):
-                    line += r' & '+columnnames[zsorted[-i-1][1]] + r': ' + str(np.round(zsorted[-i-1][0],4)) 
-                line+= r'& ' +str(np.round(rsquared[j],4))+r' \\'+'\n'
+                    if zsorted[-i-1][0]!=zsorted[-i-1][0] or zsorted[-i-1][1]!=zsorted[-i-1][1]:
+                        pdb.set_trace()
+                    if normalize:
+                        line += r' & \cellcolor{'+colorNames[zsorted[-i-1][1]]+r'!'+str(int(min([abs(zsorted[-i-1][0])/(0.1+np.abs(zsorted[-1][0]))*100,99])))+r'} '+columnnames[zsorted[-i-1][1]] + r': ' + str(np.round(zsorted[-i-1][0],2)) 
+                    else:
+                        line += r' & \cellcolor{'+colorNames[zsorted[-i-1][1]]+r'!'+str(int(min([abs(zsorted[-i-1][0])*100,99])))+r'} '+columnnames[zsorted[-i-1][1]] + r': ' + str(np.round(zsorted[-i-1][0],2)) 
+                line+= r'& ' +str(np.round(rsquared[j],2))+r' \\'+'\n'
                 f.write(line)
                 if j%4==3:
                     f.write(r'\hline'+ '\n')
@@ -2253,6 +2405,11 @@ def validateRF():
 #    ax.set_ylabel(r'$\sigma_{y-y_\mathrm{pred}}$')
 #    plt.savefig('lasso_validate.png')
 #    plt.close(fig)
+def letter(i, caps=False):
+    if caps:
+        return chr(ord("A")+i)
+    else:
+        return chr(ord("a")+i)
 
 if __name__=='__main__':
     #learn(1.0e4, 1.0e-5)
@@ -2290,24 +2447,85 @@ if __name__=='__main__':
 
 
     #fakeEmceePlotResiduals(None, 'fakemcmc16_residuals88', gidgetmodels='rf88', xmax=[  1.16493377e-01,   6.85441565e-01,   2.53454237e+00,   4.66205970e+00, 7.21672391e-01,  -9.65895952e-01,   3.31207773e+00,  -8.40086055e-01, 5.10900160e+00,   4.37085835e-01,   2.12261668e+00,   1.59251012e+00, 8.54462905e-02,   3.48195437e-03,   4.07820701e-01,   1.84455124e-01, 6.85178180e-01,   2.17577982e-01,   8.94197775e-03,   2.00963528e-01, 1.18649645e+12,   5.11828699e-01] )
+
+    #fakeEmceePlotResiduals(None, 'fakemcmc17_residuals99', gidgetmodels='rf99', xmax=[  1.76149012e-01, 2.71385761e+00, 2.43095960e+00, 2.56258037e+00, -5.22815474e-01, -7.30050429e-01, 5.96476522e+00, -1.95328561e+00, 1.13920495e+00, 6.26490351e-01, 1.57867191e+00, 1.77166604e+00, 6.13678555e-02, 6.36513703e-03, 5.42225312e-01, 1.54471933e-01, 1.69720803e+00, 4.65370474e-01, 1.28680215e-02, 4.79132819e-01, 1.64818086e+12, 9.93276414e-01, 5.41798936e-01])
+
+
+    #fakeEmceePlotResiduals( None, 'fakemcmc17d_residuals112', gidgetmodels='rf112', xmax = [ 1.44656471e-01, 1.94694047e+00, 2.46300115e+00, 2.52780687e+00, 4.14257376e-02, -9.24764117e-02, 6.03022138e+00, -1.71412505e+00, 2.75050207e+00, 5.03191815e-01, 2.64146528e+00, 2.93923418e+00, 4.93805277e-02, 1.33649809e-02, 6.30847392e-01, 7.70793830e-02, 6.40127324e-01, 2.75077929e-01, 1.67309700e-02, 4.98795340e-01, 1.93406046e+12, 7.82157806e-01, -1.59310290e-01, 5.93635084e-01] )
+
+    #fakeEmceePlotResiduals( None, 'fakemcmc17d_residuals113', gidgetmodels='rf113', xmax =[1.21990575e-01, 2.25750440e+00, 1.42283492e+00, 2.38779672e+00, -2.20443849e+00, 1.07448541e+00, 2.26876611e+00, -1.11338069e+00, 1.91939912e+00, 4.52858032e-01, 1.84182587e+00, 2.26660250e+00, 7.71741216e-02, 1.21665083e-02, 4.95477220e-01, 2.57736306e-01, 1.06866306e+00, 5.03555469e-01, 8.98255341e-03, 3.51823670e-01, 6.57947163e+11, 9.73425083e-01, -1.69906882e-01, 3.10019810e-01] )
+
+    #### a few runners-up
+    posteriors = np.array([[  1.41770654e-01,   2.45050659e+00,   2.61690983e+00,   2.63513509e+00,   3.22385410e-01,   5.25370163e-01,   4.11019928e+00,  -5.56706799e-01,   1.62770773e+00,   4.38315726e-01,   2.43862201e+00,   2.64597948e+00,   5.00168386e-02,   8.37982476e-03,   4.57828445e-01,   2.16816496e-01,   1.24032620e+00,   3.66206876e-01,   1.16197763e-02,   5.13078077e-01,   2.45445719e+12,   1.46320093e+00,  -1.88561103e-02,   3.74693962e-01],
+    [  1.43471049e-01,   2.11586724e+00,   2.85565807e+00,   1.83463928e+00,   4.97074915e-02,   1.20947662e+00,   2.96755583e+00,  -7.51240372e-01,   2.73899696e+00,   6.10208444e-01,   2.38562845e+00,   2.03582376e+00,   6.21513309e-02,   4.34744165e-03,   5.12119376e-01,   1.04256577e-01,   2.12898835e+00,   4.94798946e-01,   1.02598907e-02,   3.47843175e-01,   1.36955173e+12,   1.18497000e+00,  -1.67926958e-01,   4.96547952e-01],
+    [  2.04486864e-01,   2.88120002e+00,   3.25719889e+00,   2.66263057e+00,   2.27151192e-01,   5.25564583e-01,   3.42627948e+00,  -1.03353919e+00,   2.00688887e+00,   6.06262384e-01,   2.37107780e+00,   2.22078909e+00,   6.92269496e-02,   1.32278564e-02,   6.33401611e-01,   3.32810752e-01,   1.58332202e+00,   2.94782593e-01,   1.12429678e-02,   2.47279896e-01,   2.29634718e+12,   1.51504655e+00,  -5.87451991e-02,   5.61659119e-01],
+    [  1.75968697e-01,   2.63077357e+00,   2.71140824e+00,   1.98690602e+00,   3.02698953e-01,   7.64297819e-01,   6.24096647e+00,  -1.15052330e+00,   2.38752909e+00,   6.95205531e-01,   2.13169580e+00,   2.27084757e+00,   7.66656260e-02,   9.82512104e-03,   6.55021191e-01,   2.21648159e-01,   1.68354039e+00,   3.57178264e-01,   8.93852873e-03,   3.99091464e-01,   1.98464589e+12,   1.45645035e+00,  -8.54418687e-02,   5.85790120e-01],
+    [  1.50001597e-01,   6.63368287e-01,   3.46505862e+00,   5.29186501e-01,  -1.02397187e-01,  -1.33669354e-01,   6.30395899e+01,  -1.52932101e+00,   1.06459709e+00,   7.95051593e-01,   3.78107677e+00,   2.54264572e+00,   3.39551038e-02,   1.18020216e-03,   8.32316414e-01,   2.55190390e-01,   2.30751383e+00,   1.91278415e-01,   2.68669899e-02,   4.71418276e-01,   2.28803783e+11,   5.72407369e-01,  -1.32584911e-01,   8.54109282e-01],
+    [  1.45906622e-01,   1.75985998e+00,   2.42484834e+00,   2.18460823e+00,   1.71358687e-01,  -1.26060221e+00,   3.30462760e+00,  -9.17273308e-010,   1.27074217e+00,   5.94169090e-01,   2.43907682e+00,   1.59752000e+00,   4.92771728e-02,   1.36675462e-02,   4.83738660e-01,   8.73159481e-02,   1.38621386e+00,   3.28886393e-01,   1.21186695e-02,   3.55451628e-01,   1.29547055e+12,   1.21522829e+00,  -8.24133283e-02,   4.62554955e-01],
+     [  1.60878849e-01,   2.62023173e+00,   2.37961236e+00,   1.90923724e+00,  -2.17309742e+00,  -2.21250594e-01,   1.55357515e+00,  -1.26347273e+00,   2.47687330e+00,   4.64731828e-01,   1.59314023e+00,   2.39710092e+00,   7.55143918e-02,   1.38945365e-02,   5.36957565e-01,   3.50458248e-01,   1.41354094e+00,   3.66901507e-01,   8.88629028e-03,   1.66394318e-01,   1.16081408e+12,   1.04401821e+00,  -2.28896855e-01,   5.86472929e-01],
+     [  1.02767464e-01,   2.82837515e+00,   2.39027386e+00,   2.28921240e+00,  -9.66654109e-01,  -2.51765156e+00,   1.78508338e+00,  -1.10373036e+00,   1.26654765e+00,   7.95578969e-01,   1.95478174e+00,   2.63760284e+00,   5.25470711e-02,   2.29941424e-03,   3.80650455e-01,   2.82853531e-01,   9.08476705e-01,   4.28674852e-01,   8.97324258e-03,   8.24456568e-01,   6.90571984e+11,   8.86126290e-01,  -1.07351512e-01,   8.39403757e-01],
+     [  1.60220601e-01,   2.81426435e+00,   1.78223572e+00,   1.95563642e+00,  -5.48371939e-01,  -2.61916907e-02,   4.00486058e+00,  -1.07005557e+00,   1.57033180e+00,   4.69179408e-01,   2.26715714e+00,   2.50807400e+00,   6.75841381e-02,   6.02409794e-03,   4.79563831e-01,   3.22839595e-01,   2.12140409e+00,   3.97247225e-01,   1.01925116e-02,   5.68737281e-01,   9.74726404e+11,   1.50490111e+00,  -5.43194737e-02,   3.71735915e-01]])
+    for k in range(9):
+        pass
+        #try:
+        #    fakeEmceePlotResiduals( None, 'fakemcmc17d_residualsrf113'+letter(k,caps=True), gidgetmodels='rf113'+letter(k,caps=True), xmax=posteriors[k,:] )
+        #except:
+        #    print "Something bad happened for k=",k," i.e. rf113"+letter(k,caps=True), " - probably all models failed in that run"
+
+
+
+    #trimDownForGlue()
+
     ### analyze the fake mcmc run
+
     if True:
         restart={}
-        updateRestart('fakemcmc16_restart.pickle', restart)
+        updateRestart('fakemcmc17d_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc16_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc16_allProb', burnIn=0)
-        #trianglePlot(restart,'fakemcmc_triangle.png', burnin=50, nspace=10)
+        tracePlots(restart, 'fakemcmc17d_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc17d_allProb', burnIn=0)
+        trianglePlot(restart,'fakemcmc17d_triangle', burnIn=100, nspace=20)
 
         # Find the maximum among all models sampled so far.
-        allProbs = restart['allProbs'].flatten()
-        index = np.argmax(allProbs)
-        print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
-        print allProbs[index]
-        indices = np.unravel_index(index, np.shape(restart['allProbs']))
-        xmax = restart['chain'][indices[0],indices[1],:]
-        print "Favorite coordinates: ", xmax
+        allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations
+        priors = np.zeros((np.shape(restart['allProbs'])[0],np.shape(restart['allProbs'])[1]))
+        for i in range(np.shape(restart['allProbs'])[0]):
+            for j in range(np.shape(restart['allProbs'])[1]):
+                priors[i,j] = lnprior( restart['chain'][i,j,:] )
 
+        stlikelihoods = restart['allProbs'] - priors
+        likelihoods = allProbs.flatten() - priors.flatten()
+        print "likelihoods stats: ", np.max(likelihoods), np.percentile(likelihoods,[5,50,90,95,97.5,99])
+
+        print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
+
+        zipped = zip(restart['allProbs'][:,25], range(len(restart['allProbs'][:,25])))
+        zsorted = sorted(zipped, key=lambda x: -x[0])
+        highProbInds = [zsorted[i][1] for i in range(10)]
+
+        zipped2 = zip(stlikelihoods[:,25], range(len(stlikelihoods[:,25])))
+        zsorted2 = sorted(zipped2, key=lambda x: -x[0])
+        highProbInds2 = [zsorted2[i][1] for i in range(10)]
+
+        for i in range(2):
+            #index = np.argmax(allProbs)
+            #index2 = np.argmax(likelihoods)
+            index = highProbInds[i]
+            print 'posterior:', restart['allProbs'][index,25]
+            print 'likelihood:', stlikelihoods[index,25]
+            ##print 'likelihood: ', likelihoods[index2]
+            #indices = np.unravel_index(index, np.shape(restart['allProbs']))
+            ##indices2 = np.unravel_index(index2, np.shape(restart['allProbs']))
+            #xmax = restart['chain'][indices[0],indices[1],:]
+            # (nwalkers x niterations x ndim)    
+            xmax = restart['chain'][index, 25, :]
+            #xmax2 = restart['chain'][indices2[0],indices2[1],:]
+            print "Favorite coordinates Posterior (", i, ")", xmax
+            printPriorOffsets(xmax)
+            #print "Favorite coordinates Likelihood: ", xmax2
+            #printPriorOffsets(xmax2)
+
+        #print " current shape of chain: (nwalkers x niterations x ndim) ",np.shape(restart['chain'])
 
 
 

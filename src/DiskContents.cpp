@@ -554,12 +554,12 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
             - 5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
             +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n])
 	    + (1.0/3.0)*(energyInjectionFactor * 3000.0*1.0e5/dim.vphiR)*colSFR[n]/col[n];
-	//if(dbg.opt(6)) {
-	//    for(unsigned int i=0; i!=spsPassive.size(); ++i) {
-        //        dsigdt[n] += spsPassive[i]->dcoldtREC[n] * ( (2.0*spsPassive[i]->spsigR[n]*spsPassive[i]->spsigR[n] + spsPassive[i]->spsigZ[n]*spsPassive[i]->spsigZ[n])/3.0 - sig[n]*sig[n])/(2.0*col[n]*sig[n]);
-	//    }
+	if(dbg.opt(6)) {
+	    for(unsigned int i=0; i!=spsPassive.size(); ++i) {
+                dsigdt[n] += spsPassive[i]->dcoldtREC[n] * ( (2.0*spsPassive[i]->spsigR[n]*spsPassive[i]->spsigR[n] + spsPassive[i]->spsigZ[n]*spsPassive[i]->spsigZ[n])/3.0 - sig[n]*sig[n])/(2.0*col[n]*sig[n]);
+	    }
 
-	//}
+	}
         if(sig[n] >= sigth) {
             dsigdt[n] -= 2.0*M_PI*M_PI*(ETA*pow(1. - sigth*sigth/(sig[n]*sig[n]),1.5))
                 *col[n]*dim.chi()*(1.0+activeColSt(n)/col[n] * sig[n]/activeSigStZ(n))/3.0;

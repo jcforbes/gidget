@@ -239,7 +239,7 @@ class experiment:
 				if(covaryOtherVarsWithJ): 
 					for covIndex in covIndices:
 						if(covIndex != j): # already taken care of with a_p[j]=...
-							print covIndex, i, len(a_p), len(self.p), len(self.p[covIndex]) 
+							#print covIndex, i, len(a_p), len(self.p), len(self.p[covIndex]) 
 							a_p[covIndex] = self.p[covIndex][i]
                 	        # in each copy, append to the name a...z corresponding to 
                             # which copy is currently being edited
@@ -533,8 +533,11 @@ def PrintSuccessTables(successTables):
     print
     print strSumOfSuccessTables
 
-def letter(i):
-    return chr(ord("a")+i)
+def letter(i, caps=False):
+    if caps:
+        return chr(ord("A")+i)
+    else:
+        return chr(ord("a")+i)
 
 def NewSetOfExperiments(copyFrom, name, N=1):
     if(type(copyFrom)==type([1])):
@@ -549,10 +552,37 @@ def NewSetOfExperiments(copyFrom, name, N=1):
     return theList
 
 
-def experFromBroadMCMC(emceeparams, name=None):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench = emceeparams
+def experSuiteFromBroadMCMC(emceeparams, name, accHistories=None):
+    offsets = [ 3.0, 2.0, 2.0, 2.0, 2.0, # raccVir, rstarRed, rgasRed, fg0mult, muColScaling
+            2.0, 10.0, 1.0, 3.0, 0.28, # muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix
+            2.0, 2.0, 2.0, 10.0, 0.28, # eta, Qf, alphaMRI, epsquench, accCeiling
+            0.3, 3.0, 0.23, 2.0, 0.5, # conRF, kZ, xiREC, epsff, initialSlope
+            3.0, 3.0] # mquench, enInjFac
+    logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1]
+    from broad_svm import lnprior 
+    experList = []
+    for i in range(len(offsets)):
+        thisX = emceeparams[:]
+        if logVars[i]==1:
+            thisX[i] = thisX[i]*offsets[i]
+        else:
+            thisX[i] = thisX[i]+offsets[i]
+        if not np.isfinite(lnprior(thisX)):
+            if logVars[i]==1:
+                thisX[i] = thisX[i]/offsets[i]/offsets[i]
+            else:
+                thisX[i] = thisX[i] - 2.0*offsets[i]
+            print "WARNING: Going the opposite direction for variable ",i
+            if not np.isfinite(lnprior(thisX)):
+                pdb.set_trace() # tried adjusting in both directions and still ended up outside the allowed range?!
 
-    Mhz0 = list(np.power(10.0, np.linspace(10.0,14,30)))
+        experList.append(experFromBroadMCMC(thisX[:-1], name=name+chr(65+i), ngal=30, accHistories=accHistories))
+    return experList
+
+def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, alpharmh = emceeparams
+
+    Mhz0 = list(np.power(10.0, np.linspace(10.0,13.0,ngal)))
 
     # create experiment
     
@@ -610,13 +640,17 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('NChanges', 1001)
 
     width = 0.1
-    asls = raccRvir*np.power(10.0, np.random.normal(0,1,len(Mhz0))*width)
+    asls = raccRvir*np.power(10.0, np.random.normal(0,1,len(Mhz0))*width) * np.power(Mhz0/1.0e12,alpharmh)
     #if asls<0.005:
     #    asls=0.005
     asls = np.clip(asls, 0.005, np.inf)
     thisexper.irregularVary('accScaleLength', list(asls), 5)
     thisexper.irregularVary( 'R', list(np.power(reff4/reff411, 1.0)*50* asls/0.042)  , 5)
-    bolweights = list( np.random.random(len(Mhz0)) )
+    if accHistories is None:
+        bolweights = list( np.random.random(len(Mhz0)) )
+    else:
+        assert len(Mhz0) == len(accHistories)
+        bolweights = list(accHistories[:])
     thisexper.irregularVary('bolshoiWeight', bolweights ,5)
     thisexper.irregularVary('Noutputs',200) ## why so many??
     thisexper.irregularVary('zstart',3.98)
@@ -627,7 +661,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('muColScaling', muColScaling)
     thisexper.irregularVary('fscatter', 1.0)
     thisexper.irregularVary('accCeiling',accCeiling)
-    thisexper.irregularVary('NPassive',20)
+    thisexper.irregularVary('NPassive',10)
     thisexper.irregularVary('eta',eta)
     thisexper.irregularVary('epsff',epsff)
     thisexper.irregularVary('xmin',0.001)
@@ -652,6 +686,7 @@ def experFromBroadMCMC(emceeparams, name=None):
     thisexper.irregularVary('Qlim', Qf+0.05)
     thisexper.irregularVary('fixedQ', Qf)
     thisexper.irregularVary('TOL', 6.0e-4)
+    thisexper.irregularVary('energyInjectionFactor', enInjFac)
     thisexper.irregularVary('minSigSt', 10.0)
     return thisexper
 
@@ -2616,52 +2651,139 @@ if __name__ == "__main__":
     #emceeparams = [ 1.41977729e-01,   2.03502540e+00,   2.02360753e+00,   2.01127027e+00, 2.56584739e-02,  -1.89348632e-02,   1.07203799e+00,  -9.80149073e-01, 1.00975501e+00,   4.99324933e-01,   1.50177845e+00,   1.48359195e+00, 4.94927969e-02,  9.79999389e-04,  9.98857856e-01,   2.85701876e-01, 9.59552777e-01,   9.02414277e-05,   9.91998674e-03] 
     #rf79 = experFromBroadMCMC(emceeparams, name='rf79')
 
-    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, 0.0, 2.0e12 ] # 0.8
-    rf80 = experFromBroadMCMC(emceeparams, name='rf80')
+#    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, 0.0, 2.0e12 ] # 0.8
+#    rf80 = experFromBroadMCMC(emceeparams, name='rf80')
+#
+#    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, 1.0, 2.0e12 ] # 0.8
+#    rf81 = experFromBroadMCMC(emceeparams, name='rf81')
+#
+#    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, .5, 2.0e12 ] # 0.8
+#    rf82 = experFromBroadMCMC(emceeparams, name='rf82')
+#
+#    ## awk... fixed duplicate dbg statements, some issues in c code.
+#    rf83 = experFromBroadMCMC(emceeparams, name='rf83')
+#
+#    ## fix bug in IA rate.
+#    rf84 = experFromBroadMCMC(emceeparams, name='rf84')
+#
+#    emceeparams = [  1.80232948e-01,   1.14976039e+00,   5.40065364e+00,   1.69857050e+00, -9.44813987e-01,  -8.53922447e-01,   9.47551915e-03,  -3.08660831e+00, 7.75058114e-01,   5.11183715e-01,   1.18276323e+00,   2.94992317e+00, 4.68548647e-02,   2.79680127e-04,   1.08525619e-01,   1.54925443e-01, 4.15764357e+00,   3.28062195e-01,   9.12530440e-03,  0, 2.83422259e+11] # , 6.86571666e-01]
+#    rf85 = experFromBroadMCMC(emceeparams, name='rf85')
+#
+#    emceeparams = [  1.39192613e-01,   2.06852503e+00,   1.47353675e+00,   1.97365750e+00, 5.37224908e-01,   1.17595949e+00,   1.08963518e+00,  -5.08071210e-01, 1.01502597e+00,   5.17380183e-02,   5.36199804e+00,   1.25992157e+00, 6.23709052e-02,   1.72535928e-04,   9.15648977e-01,   1.06622955e-01, 5.88668979e+00,   1.79678213e-01,   6.00854464e-03,   0.00000000e+00, 9.18293025e+11] #,   3.53606946e-01]
+#    rf86 = experFromBroadMCMC(emceeparams, name='rf86')
+#
+#    # decrease rf87 to match up with what's going on with the gas.
+#    rf87 = experFromBroadMCMC(emceeparams, name='rf87')
+#
+#
+#    emceeparams = [  1.16493377e-01,   6.85441565e-01,   2.53454237e+00,   4.66205970e+00, 7.21672391e-01,  -9.65895952e-01,   3.31207773e+00,  -8.40086055e-01, 5.10900160e+00,   4.37085835e-01,   2.12261668e+00,   1.59251012e+00, 8.54462905e-02,   3.48195437e-03,   4.07820701e-01,   1.84455124e-01, 6.85178180e-01,   2.17577982e-01,   8.94197775e-03,   2.00963528e-01, 1.18649645e+12] #,   5.11828699e-01]
+#    rf88 = experFromBroadMCMC(emceeparams, name='rf88')
+#
+#    # less violent heating. Does it work?
+#    rf89 = experFromBroadMCMC(emceeparams, name='rf89')
+#
+#    rf90 = experFromBroadMCMC(emceeparams, name='rf90')
+#
+#    emceeparams = [ 1.35219791e-01,   2.18557429e+00,   2.64537791e+00,   5.22921628e+00, 7.76397971e-01,  -5.92566917e-01,   4.60624871e+00,  -6.51806325e-01, 1.27517630e+00,   3.39500593e-01,   2.42629432e+00,   1.42712530e+00, 7.97661535e-02,   1.86516526e-02,   4.71407757e-01,   5.44052515e-02, 4.15950062e-01,   3.89348706e-01,   8.46125736e-03,   7.44191600e-01, 2.14946325e+12 ] #,   5.00755873e-01]
+#    rf91 = experFromBroadMCMC(emceeparams, name='rf91')
+#
+#    # add in momentum from SNe
+#    rf92 = experFromBroadMCMC(emceeparams, name='rf92')
+#
+#    # double IA rate
+#    rf93 = experFromBroadMCMC(emceeparams, name='rf93')
+#
+#    # further increase IA. Also add <p/m_*>/(3000 km/s) as a free parameter, decrease NPassive to 10, add back in dsigdt from delayed recycling
+#    rf94 = experFromBroadMCMC(emceeparams, name='rf94')
 
-    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, 1.0, 2.0e12 ] # 0.8
-    rf81 = experFromBroadMCMC(emceeparams, name='rf81')
+##############
+#    emceeparams = [  1.12948059e-01,   5.17252188e+00,   4.98785782e+00,   3.76997443e+00, 1.27319781e+00,  -5.05380872e-01,   5.81396593e-01,  -7.70427023e-01, 3.79841077e+00,   7.61617353e-01,  2.73556160e+00,   1.05424389e+00, 8.16552083e-02,   9.47362160e-02,  9.15940841e-01,  -4.43847562e-02, 3.17327192e+00,   1.66311313e-01,  7.80310015e-03,   1.16103936e+00, 8.16145236e+11,   1.43163698e+00] #,  2.16543541e-01] 
+#    rf95 = experFromBroadMCMC(emceeparams, name='rf95')
+#
+#    emceeparams = [  1.27320109e-01,   2.03198583e+00,   2.81638895e+00,   4.10604035e+00, 7.75410463e-01,   6.55527688e-01,   4.14957777e+00,  -8.91390146e-01, 1.28767238e+00,   6.07316687e-01,   1.62578010e+00,   1.87730986e+00, 3.96195724e-02,   1.24754293e-02,   5.32537819e-01,   2.72661354e-01, 1.08239087e+00,   4.54374209e-01,   1.31894607e-02,   3.62871290e-01, 1.01579812e+12,   9.34901039e-01] # ,   5.82330509e-01]
+#    rf96 = experFromBroadMCMC(emceeparams, name='rf96')
+#
+#
+#    ### the result of many days of emcee'ing. Last best model before we switch which relations we're fitting to
+#    emceeparams = [  1.51204987e-01, 2.90753988e+00, 2.53590703e+00, 2.55515229e+00, -4.19954509e-01, 8.13925341e-01, 1.68172107e+01, -7.55461620e-01, 1.56570776e+00, 6.18467765e-01, 1.80706415e+00, 1.90444545e+00, 5.13267388e-02, 1.24866660e-02, 5.13130919e-01, 2.46723930e-01, 1.11665310e+00, 3.86496244e-01, 1.15092140e-02, 4.00102520e-01, 1.11230673e+12, 1.32207901e+00] #, 4.82545535e-01]
+#    rf97 = experFromBroadMCMC(emceeparams, name='rf97')
+#
+#    # A few days of emcee'ing with the new relations
+#    emceeparams = [  1.73825694e-01,   2.96491086e+00,   2.50420523e+00,   3.19211065e+00, 3.23198361e-01,   1.44217502e+00,   8.68582876e+00,  -1.85280903e+00, 1.24252315e+00,   7.14531454e-01,   1.32442901e+00,   1.90499136e+00, 1.15474744e-01,   9.79676001e-03,   4.52515600e-01,   3.60500105e-01, 2.87259564e+00,   2.82952826e-01,   9.21833546e-03,   4.13450538e-01, 1.59343292e+12,   6.39769810e-01] #,   3.81237447e-01]
+#    rf98 = experFromBroadMCMC(emceeparams, name='rf98')
+#
+#    emceeparams = [  1.76149012e-01,   2.71385761e+00,   2.43095960e+00,   2.56258037e+00, -5.22815474e-01,  -7.30050429e-01,   5.96476522e+00,  -1.95328561e+00, 1.13920495e+00,   6.26490351e-01,   1.57867191e+00,   1.77166604e+00, 6.13678555e-02,   6.36513703e-03,   5.42225312e-01,   1.54471933e-01, 1.69720803e+00,   4.65370474e-01,   1.28680215e-02,   4.79132819e-01, 1.64818086e+12,   9.93276414e-01]#   5.41798936e-01]
+#    rf99 = experFromBroadMCMC(emceeparams, name='rf99')
+#
+#    emceeparams = [  1.85266281e-01,   2.79794991e+00,   2.54853720e+00,   2.51613844e+00, -1.19166589e-01,   5.32796165e-01,   1.51824583e+01,  -2.00867324e+00, 1.10001494e+00,   5.74663846e-01,   2.14006294e+00,   2.23154719e+00, 4.64459910e-02,   3.85768179e-03,   5.02682083e-01,   2.46641441e-01, 1.11958517e+00,   3.74532154e-01,   1.62304725e-02,   3.58278877e-01, 1.47395287e+12,   1.60148443e+00,  4.75410472e-01]
+#    rf100 = experSuiteFromBroadMCMC(emceeparams, 'rf100')
+#
+#    rf100fid = experFromBroadMCMC(emceeparams[:-1], name='rf100fid')
+#
+#    # Drastically lower enInjFac to see its effects.
+#    emceeparams[-2] = 0.4
+#    rf101 = experFromBroadMCMC(emceeparams[:-1], name='rf101')
+#    
+#    
+#    # a new favorite?
+#    emceeparams = [  1.73507751e-01,   2.62295799e+00,   4.82741016e+00,  3.82417131e+00, -1.27362280e+00,  -4.24929960e-02,   2.48449788e+00,  -2.09622781e+00, 9.68969135e-01,   5.55439266e-01,   3.05669853e+00,   1.94043358e+00, 6.19135068e-02,   1.49455605e-02,   6.72660290e-01,   2.01754396e-01, 9.60097006e-01,   2.16515446e-01,   9.10342168e-03,   4.68792610e-01, 1.76369189e+12,   1.51166802e+00] #,   5.68709729e-01]
+#    rf102 = experFromBroadMCMC(emceeparams, name='rf102')
+#
+#    # If we ignore the prior...
+#    emceeparams = [  1.76948118e-01,   3.32946101e+00,   3.62603234e+00,   2.77719403e+00, -8.74364524e-02,  -5.96788852e-01,   4.51930901e+01,  -1.41681696e+00, 2.20558201e+00,   4.12333598e-01,   1.84774957e+00,   1.93770620e+00, 1.10370814e-01,   2.73787964e-02,   4.07730492e-01,   1.58351852e-01, 2.46275879e+00,   5.99749929e-01,   1.41721075e-02,   6.10882377e-01, 3.50207946e+12,   9.47220561e-01] #   4.98249559e-01]
+#    rf103 = experFromBroadMCMC(emceeparams, name='rf103')
+#
+#    # new favorite regardless of prior!
+#    emceeparams = [  1.72012859e-01, 2.66125590e+00, 2.53303333e+00, 2.57911719e+00, 2.52859522e-01, 1.55999029e+00, 4.25882949e+01, -7.70370596e-01, 1.25275257e+00, 4.79130366e-01, 1.93540669e+00, 2.26556567e+00, 4.77998874e-02, 8.03224171e-03, 5.88022909e-01, 1.68901831e-01, 1.43436905e+00, 3.90167366e-01, 8.18311797e-03, 2.95868494e-01, 2.22674061e+12, 8.60764574e-01]#   5.65977320e-01]
+#    rf104 = experFromBroadMCMC(emceeparams, name='rf104')
+#
+#
+#    emceeparams = [  1.72012859e-01, 2.66125590e+00, 2.53303333e+00, 2.57911719e+00, 2.52859522e-01, 1.55999029e+00, 4.25882949e+01, -7.70370596e-01, 1.25275257e+00, 4.79130366e-01, 1.93540669e+00, 2.26556567e+00, 4.77998874e-02, 8.03224171e-03, 5.88022909e-01, 1.68901831e-01, 1.43436905e+00, 3.90167366e-01, 8.18311797e-03, 2.95868494e-01, 2.22674061e+12, 8.60764574e-01, 5.65977320e-01]
+#    rf105 = experSuiteFromBroadMCMC(emceeparams, 'rf105')
+#
+#    rf106 = experFromBroadMCMC(emceeparams[:-1], 'rf106') ## 104 with more galaxies
+#
+#    # New favorite after another week of fake emcee'ing
+#    emceeparams = [ 1.10322088e-01, 1.80024732e+00, 3.32947161e+00, 1.19564513e+00, 3.86749403e-01, 2.00715127e-02, 8.13224850e+00, -9.33680236e-01, 2.15900682e+00, 5.47992636e-01, 1.74040208e+00, 1.86303401e+00, 8.18885710e-02, 6.45012428e-02, 4.83035351e-01, 3.13063917e-01, 1.52606712e+00, 2.64851123e-01, 4.49792373e-03, 7.35643672e-01, 1.44936594e+12, 7.07431782e-01, 5.32829088e-01]
+#    accHistories= list(np.random.random(30))
+#    rf107 = experFromBroadMCMC(emceeparams[:-1], 'rf107', accHistories=accHistories) # fiducial run w/ best params
+#
+#    rf108 = experFromBroadMCMC(emceeparams[:-1], 'rf108', accHistories=None, ngal=300) # fiducial run w/ best params, and way more galaxies for display purposes
+#
+#    rf109 = experSuiteFromBroadMCMC(emceeparams, 'rf109', accHistories=accHistories) # vary, but keep the accretion histories the same
 
-    emceeparams = [ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, .5, 2.0e12 ] # 0.8
-    rf82 = experFromBroadMCMC(emceeparams, name='rf82')
+    emceeparams = [ 9.71927492e-02, 2.39575167e+00, 1.65636256e+00, 3.67255159e+00, -1.12973995e-01, -3.85559567e-01, 1.20989755e+01, -5.00418729e-01, 8.52150558e-01, 2.76607985e-01, 3.49289586e+00, 1.25506559e+00, 7.21157422e-02, 1.10167363e-03, 5.19270812e-01, -5.90627188e-02, 9.28387452e-01, 2.44104897e-01, 9.26267841e-03, 6.21561009e-01, 8.11079253e+11, 2.11803502e+00, -1.38868912e-01, 6.25674577e-01]
+    rf110 = experFromBroadMCMC(emceeparams[:-1], 'rf110')
 
-    ## awk... fixed duplicate dbg statements, some issues in c code.
-    rf83 = experFromBroadMCMC(emceeparams, name='rf83')
+    emceeparams = [ 1.33010836e-01, 1.31714334e+00, 1.83799976e+00, 3.42329017e+00, -9.01222517e-01, 3.28311257e-01, 2.12089398e+01, -6.05880013e-01, 6.58061592e-01, 5.33827439e-01, 2.08666328e+00, 1.95270546e+00, 4.71171595e-02, 1.35239736e-03, 6.85192309e-01, -1.09599775e-01, 1.00636454e+00, 1.74155775e-01, 8.53514642e-03, 4.00511772e-01, 1.11512757e+12, 2.22619895e+00, -1.30586821e-01, 3.94384422e-01]
+    rf111 = experFromBroadMCMC(emceeparams[:-1], 'rf111')
 
-    ## fix bug in IA rate.
-    rf84 = experFromBroadMCMC(emceeparams, name='rf84')
+    # run for a bit longer -- fakemcmc17c 
+    emceeparams = [ 1.44656471e-01, 1.94694047e+00, 2.46300115e+00, 2.52780687e+00, 4.14257376e-02, -9.24764117e-02, 6.03022138e+00, -1.71412505e+00, 2.75050207e+00, 5.03191815e-01, 2.64146528e+00, 2.93923418e+00, 4.93805277e-02, 1.33649809e-02, 6.30847392e-01, 7.70793830e-02, 6.40127324e-01, 2.75077929e-01, 1.67309700e-02, 4.98795340e-01, 1.93406046e+12, 7.82157806e-01, -1.59310290e-01, 5.93635084e-01] 
+    rf112 = experFromBroadMCMC(emceeparams[:-1], 'rf112')
 
-    emceeparams = [  1.80232948e-01,   1.14976039e+00,   5.40065364e+00,   1.69857050e+00, -9.44813987e-01,  -8.53922447e-01,   9.47551915e-03,  -3.08660831e+00, 7.75058114e-01,   5.11183715e-01,   1.18276323e+00,   2.94992317e+00, 4.68548647e-02,   2.79680127e-04,   1.08525619e-01,   1.54925443e-01, 4.15764357e+00,   3.28062195e-01,   9.12530440e-03,  0, 2.83422259e+11] # , 6.86571666e-01]
-    rf85 = experFromBroadMCMC(emceeparams, name='rf85')
+    emceeparams = [1.21990575e-01, 2.25750440e+00, 1.42283492e+00, 2.38779672e+00, -2.20443849e+00, 1.07448541e+00, 2.26876611e+00, -1.11338069e+00, 1.91939912e+00, 4.52858032e-01, 1.84182587e+00, 2.26660250e+00, 7.71741216e-02, 1.21665083e-02, 4.95477220e-01, 2.57736306e-01, 1.06866306e+00, 5.03555469e-01, 8.98255341e-03, 3.51823670e-01, 6.57947163e+11, 9.73425083e-01, -1.69906882e-01, 3.10019810e-01]
+    rf113fid = experFromBroadMCMC(emceeparams[:-1], 'rf113fid')
 
-    emceeparams = [  1.39192613e-01,   2.06852503e+00,   1.47353675e+00,   1.97365750e+00, 5.37224908e-01,   1.17595949e+00,   1.08963518e+00,  -5.08071210e-01, 1.01502597e+00,   5.17380183e-02,   5.36199804e+00,   1.25992157e+00, 6.23709052e-02,   1.72535928e-04,   9.15648977e-01,   1.06622955e-01, 5.88668979e+00,   1.79678213e-01,   6.00854464e-03,   0.00000000e+00, 9.18293025e+11] #,   3.53606946e-01]
-    rf86 = experFromBroadMCMC(emceeparams, name='rf86')
+    #### a few runners-up
+    posteriors = np.array([[  1.41770654e-01,   2.45050659e+00,   2.61690983e+00,   2.63513509e+00,   3.22385410e-01,   5.25370163e-01,   4.11019928e+00,  -5.56706799e-01,   1.62770773e+00,   4.38315726e-01,   2.43862201e+00,   2.64597948e+00,   5.00168386e-02,   8.37982476e-03,   4.57828445e-01,   2.16816496e-01,   1.24032620e+00,   3.66206876e-01,   1.16197763e-02,   5.13078077e-01,   2.45445719e+12,   1.46320093e+00,  -1.88561103e-02,   3.74693962e-01],
+    [  1.43471049e-01,   2.11586724e+00,   2.85565807e+00,   1.83463928e+00,   4.97074915e-02,   1.20947662e+00,   2.96755583e+00,  -7.51240372e-01,   2.73899696e+00,   6.10208444e-01,   2.38562845e+00,   2.03582376e+00,   6.21513309e-02,   4.34744165e-03,   5.12119376e-01,   1.04256577e-01,   2.12898835e+00,   4.94798946e-01,   1.02598907e-02,   3.47843175e-01,   1.36955173e+12,   1.18497000e+00,  -1.67926958e-01,   4.96547952e-01],
+    [  2.04486864e-01,   2.88120002e+00,   3.25719889e+00,   2.66263057e+00,   2.27151192e-01,   5.25564583e-01,   3.42627948e+00,  -1.03353919e+00,   2.00688887e+00,   6.06262384e-01,   2.37107780e+00,   2.22078909e+00,   6.92269496e-02,   1.32278564e-02,   6.33401611e-01,   3.32810752e-01,   1.58332202e+00,   2.94782593e-01,   1.12429678e-02,   2.47279896e-01,   2.29634718e+12,   1.51504655e+00,  -5.87451991e-02,   5.61659119e-01],
+    [  1.75968697e-01,   2.63077357e+00,   2.71140824e+00,   1.98690602e+00,   3.02698953e-01,   7.64297819e-01,   6.24096647e+00,  -1.15052330e+00,   2.38752909e+00,   6.95205531e-01,   2.13169580e+00,   2.27084757e+00,   7.66656260e-02,   9.82512104e-03,   6.55021191e-01,   2.21648159e-01,   1.68354039e+00,   3.57178264e-01,   8.93852873e-03,   3.99091464e-01,   1.98464589e+12,   1.45645035e+00,  -8.54418687e-02,   5.85790120e-01],
+    [  1.50001597e-01,   6.63368287e-01,   3.46505862e+00,   5.29186501e-01,  -1.02397187e-01,  -1.33669354e-01,   6.30395899e+01,  -1.52932101e+00,   1.06459709e+00,   7.95051593e-01,   3.78107677e+00,   2.54264572e+00,   3.39551038e-02,   1.18020216e-03,   8.32316414e-01,   2.55190390e-01,   2.30751383e+00,   1.91278415e-01,   2.68669899e-02,   4.71418276e-01,   2.28803783e+11,   5.72407369e-01,  -1.32584911e-01,   8.54109282e-01],
+    [  1.45906622e-01,   1.75985998e+00,   2.42484834e+00,   2.18460823e+00,   1.71358687e-01,  -1.26060221e+00,   3.30462760e+00,  -9.17273308e-010,   1.27074217e+00,   5.94169090e-01,   2.43907682e+00,   1.59752000e+00,   4.92771728e-02,   1.36675462e-02,   4.83738660e-01,   8.73159481e-02,   1.38621386e+00,   3.28886393e-01,   1.21186695e-02,   3.55451628e-01,   1.29547055e+12,   1.21522829e+00,  -8.24133283e-02,   4.62554955e-01],
+     [  1.60878849e-01,   2.62023173e+00,   2.37961236e+00,   1.90923724e+00,  -2.17309742e+00,  -2.21250594e-01,   1.55357515e+00,  -1.26347273e+00,   2.47687330e+00,   4.64731828e-01,   1.59314023e+00,   2.39710092e+00,   7.55143918e-02,   1.38945365e-02,   5.36957565e-01,   3.50458248e-01,   1.41354094e+00,   3.66901507e-01,   8.88629028e-03,   1.66394318e-01,   1.16081408e+12,   1.04401821e+00,  -2.28896855e-01,   5.86472929e-01],
+     [  1.02767464e-01,   2.82837515e+00,   2.39027386e+00,   2.28921240e+00,  -9.66654109e-01,  -2.51765156e+00,   1.78508338e+00,  -1.10373036e+00,   1.26654765e+00,   7.95578969e-01,   1.95478174e+00,   2.63760284e+00,   5.25470711e-02,   2.29941424e-03,   3.80650455e-01,   2.82853531e-01,   9.08476705e-01,   4.28674852e-01,   8.97324258e-03,   8.24456568e-01,   6.90571984e+11,   8.86126290e-01,  -1.07351512e-01,   8.39403757e-01],
+     [  1.60220601e-01,   2.81426435e+00,   1.78223572e+00,   1.95563642e+00,  -5.48371939e-01,  -2.61916907e-02,   4.00486058e+00,  -1.07005557e+00,   1.57033180e+00,   4.69179408e-01,   2.26715714e+00,   2.50807400e+00,   6.75841381e-02,   6.02409794e-03,   4.79563831e-01,   3.22839595e-01,   2.12140409e+00,   3.97247225e-01,   1.01925116e-02,   5.68737281e-01,   9.74726404e+11,   1.50490111e+00,  -5.43194737e-02,   3.71735915e-01]])
+    rf113s=[]
+    for k in range(9):
+        rf113s.append( experFromBroadMCMC( posteriors[k,:-1], 'rf113'+letter(k,caps=True) ) )
 
-    # decrease rf87 to match up with what's going on with the gas.
-    rf87 = experFromBroadMCMC(emceeparams, name='rf87')
+    # estimate of the maximum posterior.
+    emceeparams = [0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288]
+    rf114 = experFromBroadMCMC( emceeparams[:-1], 'rf114')
 
 
-    emceeparams = [  1.16493377e-01,   6.85441565e-01,   2.53454237e+00,   4.66205970e+00, 7.21672391e-01,  -9.65895952e-01,   3.31207773e+00,  -8.40086055e-01, 5.10900160e+00,   4.37085835e-01,   2.12261668e+00,   1.59251012e+00, 8.54462905e-02,   3.48195437e-03,   4.07820701e-01,   1.84455124e-01, 6.85178180e-01,   2.17577982e-01,   8.94197775e-03,   2.00963528e-01, 1.18649645e+12] #,   5.11828699e-01]
-    rf88 = experFromBroadMCMC(emceeparams, name='rf88')
-
-    # less violent heating. Does it work?
-    rf89 = experFromBroadMCMC(emceeparams, name='rf89')
-
-    rf90 = experFromBroadMCMC(emceeparams, name='rf90')
-
-    emceeparams = [ 1.35219791e-01,   2.18557429e+00,   2.64537791e+00,   5.22921628e+00, 7.76397971e-01,  -5.92566917e-01,   4.60624871e+00,  -6.51806325e-01, 1.27517630e+00,   3.39500593e-01,   2.42629432e+00,   1.42712530e+00, 7.97661535e-02,   1.86516526e-02,   4.71407757e-01,   5.44052515e-02, 4.15950062e-01,   3.89348706e-01,   8.46125736e-03,   7.44191600e-01, 2.14946325e+12 ] #,   5.00755873e-01]
-    rf91 = experFromBroadMCMC(emceeparams, name='rf91')
-
-    # add in momentum from SNe
-    rf92 = experFromBroadMCMC(emceeparams, name='rf92')
-
-    # double IA rate
-    rf93 = experFromBroadMCMC(emceeparams, name='rf93')
-
-    # further increase IA. Also add <p/m_*>/(3000 km/s) as a free parameter
-    rf94 = experFromBroadMCMC(emceeparams, name='rf94')
-
-    
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())
         # for each such key (aModel) check whether this inputString is contained in its name

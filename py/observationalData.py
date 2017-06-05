@@ -53,7 +53,7 @@ def nToC82(nn):
 # This is the simplest thing that will currently do well in my setup. 
 # 
 class DataSet:
-    def __init__(self, xvar, yvar, xval, yval, yLower=None, yUpper=None, xerr=None, yerr=None, zmin=-1, zmax=0.5, label=None, logx=True, logy=True):
+    def __init__(self, xvar, yvar, xval, yval, yLower=None, yUpper=None, xerr=None, yerr=None, zmin=-1, zmax=0.5, label=None, logx=True, logy=True, alpha=0.05):
         if label is None:
             pdb.set_trace()
         self.xvar = xvar
@@ -74,6 +74,8 @@ class DataSet:
         self.yLower=yLower
         self.yUpper=yUpper
 
+        self.alpha=alpha
+
         self.zmin = zmin
         self.zmax = zmax
         self.label = label
@@ -92,9 +94,9 @@ class DataSet:
             label=self.label
         if z>self.zmin and z<self.zmax:
             ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-',label=label)
-            ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=0.1)
+            ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=self.alpha)
         else:
-            ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-.',label=label)
+            ax.plot(self.xval, self.yval, c=color, lw=lw, ls=':',label=label)
         if axIn is None:
             plt.savefig(self.label+'_'+self.xvar+'_'+self.yvar+'.png')
             plt.close(fig)
@@ -240,7 +242,7 @@ def defineMoster(z0):
     effP = np.max(eff, axis=0)
 
     mosterDS = DataSet('Mh', 'efficiency', Mhs, effC, yLower=effC/10.0**0.15, yUpper=effC*10.0**0.15, zmin=z0-0.5, zmax=z0+0.5, label='Moster13')
-    mosterDS2 = DataSet('Mh', 'mstar', Mhs, effC*Mhs, yLower=effC*Mhs/10.0**0.15, yUpper=effC*Mhs*10.0**0.15, zmin=z0-0.5, zmax=z0+0.5, label='Moster13')
+    mosterDS2 = DataSet('Mh', 'mstar', Mhs, effC*Mhs, yLower=effC*Mhs/10.0**0.15, yUpper=effC*Mhs*10.0**0.15, zmin=z0-0.5, zmax=z0+0.5, label='Moster13', alpha=.5)
     datasets['Moster13effz'+str(z0)] = mosterDS
     datasets['Moster13z'+str(z0)] = mosterDS2
 
@@ -271,7 +273,7 @@ def defineGarrisonKimmel():
 def defineBroeils():
     mhis = np.power(10.0, np.linspace(8.0, 10.5, 100))
     DHI = np.power(10.0, (np.log10(mhis) - 6.52)/1.96)/2.0
-    datasets['broeils97'] =  DataSet('MHI', 'broeilsHI', mhis, DHI, yLower=DHI/10**0.13, yUpper=DHI*10**0.13, label='Broeils97') 
+    datasets['broeils97'] =  DataSet('MHI', 'broeilsHI', mhis, DHI, yLower=DHI/10**0.13, yUpper=DHI*10**0.13, label='Broeils97', alpha=0.5) 
 
 def defineMetalRelations(z):
     thisMst = np.power(10.0, np.linspace(10.0, 11.5))
@@ -283,22 +285,26 @@ def defineMetalRelations(z):
     #bb = np.log10(mst) - 0.32*np.log10(sfr) - 10
     #ZMannucci10 = np.power(10.0, 0.21 + 0.39*bb - 0.2*bb*bb - 0.077*bb*bb*bb + 0.064*bb*bb*bb*bb
     datasets['Hayward16Z'+str(z)] = DataSet( 'mstar', 'sfZ', thisMst, ZHayward/0.02, yLower=ZHayward/0.02/10.0**0.15, yUpper=ZHayward/0.02*10.0**0.15, label='Hayward16', zmin=z-0.5, zmax=z+0.5 )
-    datasets['Genzel15Z'+str(z)] = DataSet('mstar', 'sfZ', thisMst, ZGenzel15, yLower=ZGenzel15/10.0**0.15, yUpper=ZGenzel15*10.0**0.15, label='Genzel15', zmin=z-0.5, zmax=z+0.5 )
+    if z>0.5:
+        alphaGenzel = 0.5
+    else:
+        alphaGenzel = 0.2
+    datasets['Genzel15Z'+str(z)] = DataSet('mstar', 'sfZ', thisMst, ZGenzel15, yLower=ZGenzel15/10.0**0.15, yUpper=ZGenzel15*10.0**0.15, label='Genzel15', zmin=z-0.5, zmax=z+0.5, alpha= alphaGenzel )
     mLee = np.power(10.0, np.linspace(5.89,9.29, 100))
     ZLee = np.power(10.0, 5.65 + 0.298*np.log10(mLee) - 8.7) # Z in Zsun
-    datasets['Lee06'] = DataSet( 'mstar', 'sfZ', mLee, ZLee, yLower=ZLee/10.0**0.117, yUpper=ZLee*10.0**0.117, label='Lee06', zmax=0.5 )
+    datasets['Lee06'] = DataSet( 'mstar', 'sfZ', mLee, ZLee, yLower=ZLee/10.0**0.117, yUpper=ZLee*10.0**0.117, label='Lee06', zmax=0.5, alpha=0.5 )
 
     mTremonti = np.power(10.0, np.array([8.57, 8.67, 8.76, 8.86, 8.96, 9.06, 9.16, 9.26, 9.36, 9.46, 9.57, 9.66, 9.76, 9.86, 9.96, 10.06, 10.16, 10.26, 10.36, 10.46, 10.56, 10.66, 10.76, 10.86, 10.95, 11.05, 11.15, 11.25]))
     Z16Tremonti = np.power(10.0, np.array([8.25, 8.28, 8.32, 8.37, 8.46, 8.56, 8.59, 8.60,8.63, 8.66, 8.69, 8.72, 8.76, 8.80, 8.83, 8.85, 8.88, 8.92, 8.94, 8.96, 8.98, 9.00, 9.01, 9.02, 9.03, 9.03, 9.04, 9.03 ]) - 8.7 )
     Z50Tremonti = np.power(10.0, np.array([8.44, 8.48, 8.57, 8.61, 8.63, 8.66, 8.68, 8.71, 8.74, 8.78, 8.82, 8.84, 8.87, 8.90, 8.94, 8.97, 8.99, 9.01, 9.03, 9.05, 9.07, 9.08, 9.09, 9.10, 9.11, 9.11, 9.12, 9.12 ]) - 8.7)
     Z84Tremonti = np.power(10.0, np.array([8.64, 8.65, 8.70, 8.73, 8.75, 8.82, 8.82, 8.86, 8.88, 8.92, 8.94, 8.96, 8.99, 9.01, 9.05, 9.06, 9.09, 9.10, 9.11, 9.12, 9.14, 9.15, 9.15, 9.16, 9.17, 9.17, 9.18, 9.18 ]) -8.7 )
-    datasets['Tremonti04'] = DataSet( 'mstar', 'sfZ', mTremonti, Z50Tremonti, yLower=Z16Tremonti, yUpper=Z84Tremonti, label='Tremonti04', zmin=-0.5, zmax=0.5 )
+    datasets['Tremonti04'] = DataSet( 'mstar', 'sfZ', mTremonti, Z50Tremonti, yLower=Z16Tremonti, yUpper=Z84Tremonti, label='Tremonti04', zmin=-0.5, zmax=0.5, alpha=0.5 )
 
 
 def defineStructureRelations():
     mstThis = np.power(10.0, np.linspace(9.75, 11.25, 100))
     fang = np.power(10.0, 9.29 + 0.64*(np.log10(mstThis)-10.25))  # Fang et al 2013
-    datasets['Fang13'] = DataSet( 'mstar', 'Sigma1', mstThis, fang, yLower=fang/10.0**0.16, yUpper=fang*10.0**0.16, label='Fang13 Red and Green', zmin=-0.5, zmax=3.0)
+    datasets['Fang13'] = DataSet( 'mstar', 'Sigma1', mstThis, fang, yLower=fang/10.0**0.16, yUpper=fang*10.0**0.16, label='Fang13 Red and Green', zmin=-0.5, zmax=3.0, alpha=0.5)
 
 
     mstThis = np.power(10.0, np.linspace(8.75,11.5, 30))
@@ -309,7 +315,7 @@ def defineStructureRelations():
     gamma, M0, logn1, logn2 = (1.70, 10.0**10.41, 0.12, 0.61) # dutton09 blue galaxies
     lognBlue = logn2 + (logn1-logn2)/(1.0+np.power(10.0, gamma*np.log10(mstThis/M0)))
     c82s = [ nToC82( np.power(10.0,lognThis) ) for lognThis in lognAll]
-    datasets['Dutton09All'] = DataSet( 'mstar', 'c82', mstThis, c82s, label='Dutton09 All', yLower=np.array(c82s)/1.2, yUpper=np.array(c82s)*1.2)
+    datasets['Dutton09All'] = DataSet( 'mstar', 'c82', mstThis, c82s, label='Dutton09 All', yLower=np.array(c82s)/1.2, yUpper=np.array(c82s)*1.2, alpha=0.5)
     c82s = [ nToC82( np.power(10.0,lognThis) ) for lognThis in lognRed]
     datasets['Dutton09Red'] = DataSet( 'mstar', 'c82', mstThis, c82s, label='Dutton09 Red')
     c82s = [ nToC82( np.power(10.0,lognThis) ) for lognThis in lognBlue]
@@ -319,23 +325,57 @@ def defineStructureRelations():
     mstBarro = np.power(10.0, np.linspace(10.0, 11.0, 10))
     er = 10.0**0.14
     barrohq = np.power(10.0, 0.65*(np.log10(mstBarro)-10.5) + 9.53)
-    datasets['Barro15HQ'] = DataSet( 'mstar', 'Sigma1', mstBarro, barrohq, yLower=barrohq/er, yUpper=barrohq*er, label='Barro15 Red', zmin=0.5, zmax=1.0)
+    datasets['Barro15HQ'] = DataSet( 'mstar', 'Sigma1', mstBarro, barrohq, yLower=barrohq/er, yUpper=barrohq*er, label='Barro15 Red', zmin=0.5, zmax=1.0, alpha=0.5)
     barro1q = np.power(10.0, 0.65*(np.log10(mstBarro)-10.5) + 9.64)
-    datasets['Barro151Q'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro1q, yLower=barro1q/er, yUpper=barro1q*er, label='Barro15 Red', zmin=1.0, zmax=1.5)
+    datasets['Barro151Q'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro1q, yLower=barro1q/er, yUpper=barro1q*er, label='Barro15 Red', zmin=1.0, zmax=1.5, alpha=0.5)
     barro2q = np.power(10.0, 0.64*(np.log10(mstBarro)-10.5) + 9.76)
-    datasets['Barro152Q'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro2q, yLower=barro2q/er, yUpper=barro2q*er, label='Barro15 Red', zmin=1.5, zmax=2.2)
+    datasets['Barro152Q'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro2q, yLower=barro2q/er, yUpper=barro2q*er, label='Barro15 Red', zmin=1.5, zmax=2.2, alpha=0.5)
     barro3q = np.power(10.0, 0.67*(np.log10(mstBarro)-10.5) + 9.80)
-    datasets['Barro153Q'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro3q, yLower=barro3q/er, yUpper=barro3q*er, label='Barro15 Red', zmin=2.2, zmax=3.05)
+    datasets['Barro153Q'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro3q, yLower=barro3q/er, yUpper=barro3q*er, label='Barro15 Red', zmin=2.2, zmax=3.05, alpha=0.5)
     mstBarro = np.power(10.0, np.linspace(9.0, 10.5, 10))
     er = 10.0**0.25
     barrohs = np.power(10.0, 0.89*(np.log10(mstBarro)-10.5) + 9.12)
-    datasets['Barro15HS'] = DataSet( 'mstar', 'Sigma1', mstBarro, barrohs, yLower=barrohs/er, yUpper=barrohs*er, label='Barro15 Blue', zmin=0.5, zmax=1.0)
+    datasets['Barro15HS'] = DataSet( 'mstar', 'Sigma1', mstBarro, barrohs, yLower=barrohs/er, yUpper=barrohs*er, label='Barro15 Blue', zmin=0.5, zmax=1.0, alpha=0.5)
     barro1s = np.power(10.0, 0.88*(np.log10(mstBarro)-10.5) + 9.16)
-    datasets['Barro151S'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro1s, yLower=barro1s/er, yUpper=barro1s*er, label='Barro15 Blue', zmin=1.0, zmax=1.5)
+    datasets['Barro151S'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro1s, yLower=barro1s/er, yUpper=barro1s*er, label='Barro15 Blue', zmin=1.0, zmax=1.5, alpha=0.5)
     barro2s = np.power(10.0, 0.86*(np.log10(mstBarro)-10.5) + 9.25)
-    datasets['Barro152S'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro2s, yLower=barro2s/er, yUpper=barro2s*er, label='Barro15 Blue', zmin=1.5, zmax=2.2)
+    datasets['Barro152S'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro2s, yLower=barro2s/er, yUpper=barro2s*er, label='Barro15 Blue', zmin=1.5, zmax=2.2, alpha=0.5)
     barro3s = np.power(10.0, 0.89*(np.log10(mstBarro)-10.5) + 9.33)
-    datasets['Barro153S'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro3s, yLower=barro3s/er, yUpper=barro3s*er, label='Barro15 Blue', zmin=2.2, zmax=3.05)
+    datasets['Barro153S'] = DataSet( 'mstar', 'Sigma1', mstBarro, barro3s, yLower=barro3s/er, yUpper=barro3s*er, label='Barro15 Blue', zmin=2.2, zmax=3.05, alpha=0.5)
+
+
+    obsmst = np.power(10.0, np.linspace(9.0, 12.0, 100))
+    gamma = 0.1
+    alpha = 0.14
+    beta = 0.39
+    m0 = 3.98e10
+    sig1, sig2 = 0.47, 0.34
+    rLTG = gamma*np.power(obsmst, alpha) * np.power(1.0 + obsmst/m0, beta-alpha)
+    sigr = sig2 + (sig1-sig2)/(1.0 + (obsmst/m0)**2)
+    datasets['shenLTG'] = DataSet( 'mstar', 'halfMassStars', obsmst, rLTG, yLower=rLTG/np.exp(sigr), yUpper=rLTG*np.exp(sigr), label='Shen (2003) LTG', zmax=0.5)
+
+    obsmst = np.power(10.0, np.linspace(10.2, 12.0, 100))
+    a = 0.56
+    b = 2.88e-6 ### from the Erratum!
+    sig1, sig2 = 0.47, 0.34
+    rETG = b * np.power(obsmst, a)
+    sigr = sig2 + (sig1-sig2)/(1.0 + (obsmst/m0)**2)
+    #datasets['shenETG'] = DataSet( 'mstar', 'halfMassStars', obsmst, rETG, yLower=rETG/np.exp(sigr), yUpper=rETG*np.exp(sigr), label='Shen (2003) ETG', zmax=0.5)
+
+
+    LTGM = [ 6.402635431918009, 6.834553440702782, 7.295754026354318, 7.808199121522694, 8.27672035139092, 8.759882869692532, 9.22108345534407, 10.231332357247437, 10.655929721815518, 11.0805270863836 ]
+    LTGRmed = [2.5119091496217947, 2.5702021038821394, 2.926375959883546, 3.119661255363682, 3.202152911858091, 3.3781577674909293, 3.505694210097417, 3.687897098455056, 3.81894846469353, 4.005427082664106]
+    LTG16 = [ 2.3906316042185844, 2.4489448466384207, 2.6803566658438687, 2.9048907989815342, 2.938853177971116, 3.0905883228116684, 3.2354660697439295, 3.4731164979931624, 3.669977581583761, 3.7075157486838055]
+    LTG84 = [ 2.653921194025813, 2.746876468778213, 3.1515187378059704, 3.337895914979086, 3.45154511241331, 3.592938367952823, 3.689296981460003, 3.8853668268304142, 4.0336986329161855, 4.1682547787069]
+           
+    ETGM = [7.3469985358711565, 7.888726207906295, 8.349926793557833, 8.818448023426061, 9.279648609077597, 9.77745241581259, 10.267935578330892, 10.685212298682284, 11.087847730600291 ]
+    ETGmed = [ 2.8015936349280954, 2.863198631225506, 3.066947544963633, 3.256829501688989, 3.2561904246649913, 3.3351773016071604, 3.4696015743611763, 3.6353051170119595, 3.849527793087824]
+    ETG16 = [ 2.6457044894315596, 2.5618129499322033, 2.786387659388853, 2.983157446261737, 3.003303588637278, 3.099621625825474, 3.265213583599052, 3.4828497425094422, 3.693648791671034]
+    ETG84 = [ 3.0718014871220904, 2.946339508823659, 3.3441243799431253, 3.454289085984601, 3.470971025126885, 3.5465038429155435, 3.6601327521902753, 3.857024268020112, 4.015819692363874]
+            
+    datasets['baldry12LTG0'] = DataSet( 'mstar', 'halfMassStars', np.power(10.0, LTGM), np.power(10.0, LTGRmed)/1000, yLower = np.power(10.0, LTG16)/1000, yUpper = np.power(10.0, LTG84)/1000, label='Baldry 12 LTG', zmax=0.3)
+    #datasets['baldry12ETG0'] = DataSet( 'mstar', 'halfMassStars', np.power(10.0, ETGM), np.power(10.0, ETGmed)/1000, yLower = np.power(10.0, ETG16)/1000, yUpper = np.power(10.0, ETG84)/1000, label='Baldry 12 ETG', zmax=0.3)
+
 
 
     obsmst = np.power(10.0, np.linspace(9.0, 11.5, 100))
@@ -349,7 +389,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.24, 0.36, 0.42, 0.61]))
     reffLTGvdW50 = np.power(10.0, np.array([0.49, 0.61, 0.66, 0.83]))
     reffLTGvdW84 = np.power(10.0, np.array([0.70, 0.80, 0.85, 1.01]))
-    datasets['vdW14LTG0']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmax=0.5)
+    datasets['vdW14LTG0']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmax=0.5, alpha=0.5)
                 
     obsmstETG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.02, -0.14, 0.02, 0.26, 0.62]))
@@ -361,7 +401,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.18, 0.32, 0.39, 0.51, 0.77]))
     reffLTGvdW50 = np.power(10.0, np.array([0.43, 0.56, 0.64, 0.75, 0.90]))
     reffLTGvdW84 = np.power(10.0, np.array([0.65, 0.76, 0.83, 0.90, 1.12]))
-    datasets['vdW14LTG1']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=0.5, zmax=1.0)
+    datasets['vdW14LTG1']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=0.5, zmax=1.0, alpha=0.5)
 
     obsmstETG = np.power(10.0, np.array([9.75, 10.25, 10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.15, -0.15, 0.07, 0.41]))
@@ -373,7 +413,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.11, 0.23, 0.33, 0.47, 0.62]))
     reffLTGvdW50 = np.power(10.0, np.array([0.37, 0.48, 0.57, 0.67, 0.82]))
     reffLTGvdW84 = np.power(10.0, np.array([0.60, 0.69, 0.77, 0.83, 0.96]))
-    datasets['vdW14LTG1h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.0, zmax=1.5)
+    datasets['vdW14LTG1h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.0, zmax=1.5, alpha=0.5)
 
     obsmstETG = np.power(10.0, np.array([9.75, 10.25, 10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.02, -0.27, -0.04, 0.28]))
@@ -385,7 +425,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.07, 0.16, 0.28, 0.35, 0.53]))
     reffLTGvdW50 = np.power(10.0, np.array([0.33, 0.42, 0.52, 0.61, 0.70]))
     reffLTGvdW84 = np.power(10.0, np.array([0.57, 0.65, 0.72, 0.80, 0.87]))
-    datasets['vdW14LTG2']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.5, zmax=2.0)
+    datasets['vdW14LTG2']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.5, zmax=2.0, alpha=0.5)
 
 
     obsmstETG = np.power(10.0, np.array([ 10.25, 10.75, 11.25]))
@@ -398,7 +438,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([ 0.10, 0.17, 0.26, 0.40]))
     reffLTGvdW50 = np.power(10.0, np.array([ 0.35, 0.44, 0.53, 0.64]))
     reffLTGvdW84 = np.power(10.0, np.array([ 0.57, 0.64, 0.70, 0.84]))
-    datasets['vdW14LTG2h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.0, zmax=2.5)
+    datasets['vdW14LTG2h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.0, zmax=2.5, alpha=0.5)
 
     obsmstETG = np.power(10.0, np.array([  10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.22, 0.07]))
@@ -410,7 +450,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([  0.16, 0.19, 0.33]))
     reffLTGvdW50 = np.power(10.0, np.array([  0.43, 0.47, 0.55]))
     reffLTGvdW84 = np.power(10.0, np.array([  0.65, 0.71, 0.76]))
-    datasets['vdW14LTG3']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.5, zmax=3.0)
+    datasets['vdW14LTG3']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.5, zmax=3.0, alpha=0.5)
 
 
 
@@ -463,7 +503,7 @@ def defineMS(z, specific=True):
     if specific:
         fac = mstSpeagle*1.0e-9
     if specific:
-        datasets['Speagle14Specz'+str(z)] = DataSet('mstar', 'sSFR', mstSpeagle, np.power(10.0,psiSpeagle)/fac, yLower=np.power(10.0,psiSpeagle-0.28)/fac, yUpper=np.power(10.0,psiSpeagle+0.28)/fac, label='Speagle14', zmin=z-0.5, zmax=z+0.5)
+        datasets['Speagle14Specz'+str(z)] = DataSet('mstar', 'sSFR', mstSpeagle, np.power(10.0,psiSpeagle)/fac, yLower=np.power(10.0,psiSpeagle-0.28)/fac, yUpper=np.power(10.0,psiSpeagle+0.28)/fac, label='Speagle14', zmin=z-0.5, zmax=z+0.5, alpha=0.5)
     else:
         datasets['Speagle14z'+str(z)] = DataSet('mstar', 'sfr', mstSpeagle, np.power(10.0,psiSpeagle)/fac, yLower=np.power(10.0,psiSpeagle-0.28)/fac, yUpper=np.power(10.0,psiSpeagle+0.28)/fac, label='Speagle14', zmin=z-0.5, zmax=z+0.5)
 
@@ -533,7 +573,7 @@ def defineMS(z, specific=True):
             datasets['whitaker14z'+str(z)] = DataSet('mstar', 'sfr', mwhitaker, (np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0)), yLower = (np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0 - 0.34)),  yUpper= (np.power(10.0, a + b*np.log10(mwhitaker) + c*(np.log10(mwhitaker))**2.0 + 0.34)), label='Whitaker14', zmin=zmin, zmax=zmax )
             datasets['whitaker12z'+str(z)] = DataSet( 'mstar', 'sfr',thisMst, whitaker12*thisMst*1.0e-9, yLower=whitaker12/10.0**0.34 *thisMst*1.0e-9, yUpper=whitaker12*10.0**0.34*thisMst*1.0e-9, label='Whitaker12', zmin=z-0.5, zmax=z+0.5 )
     if specific:
-        datasets['lilly13Specz'+str(z)] = DataSet('mstar', 'sSFR',thisMst, lilly13, yLower=lilly13/10.0**0.34, yUpper=lilly13*10.0**0.34, label='Lilly13', zmin=z-0.5, zmax=z+0.5)
+        datasets['lilly13Specz'+str(z)] = DataSet('mstar', 'sSFR',thisMst, lilly13, yLower=lilly13/10.0**0.34, yUpper=lilly13*10.0**0.34, label='Lilly13', zmin=z-0.5, zmax=z+0.5, alpha=0.5)
     else:
         datasets['lilly13z'+str(z)] = DataSet( 'mstar', 'sfr',thisMst, lilly13*thisMst*1.0e-9, yLower=lilly13/10.0**0.34*thisMst*1.0e-9, yUpper=lilly13*10.0**0.34*thisMst*1.0e-9, label='Lilly13', zmin=z-0.5, zmax=z+0.5 )
 
@@ -549,8 +589,8 @@ def defineStellarZ():
     ZTremonti16 = np.power(10.0, np.array([-1.11, -1.07, -1.10, -1.03, -0.97, -0.90, -0.80, -0.65, -0.41, -0.24, -0.14, -0.09, -0.06, -0.04, -0.03, -0.03]))
     ZTremonti84 = np.power(10.0, np.array([-0.00, -0.00, -0.05, -0.01, 0.05, 0.09, 0.14, 0.17, 0.20, 0.22, 0.24, 0.25, 0.26, 0.28, 0.29, 0.30]))
 
-    datasets['kirby13'] = DataSet( 'mstar', 'stZ', MstKirby, ZKirby, yLower=ZKirby*10.0**-0.17, yUpper=ZKirby*10.0**0.17, label='Kirby13')
-    datasets['gallazi05'] = DataSet( 'mstar', 'stZ', MstTremonti, ZTremontiMed, yLower=ZTremonti16, yUpper=ZTremonti84, label='Gallazzi05')
+    datasets['kirby13'] = DataSet( 'mstar', 'stZ', MstKirby, ZKirby, yLower=ZKirby*10.0**-0.17, yUpper=ZKirby*10.0**0.17, label='Kirby13', alpha=0.5)
+    datasets['gallazi05'] = DataSet( 'mstar', 'stZ', MstTremonti, ZTremontiMed, yLower=ZTremonti16, yUpper=ZTremonti84, label='Gallazzi05', alpha=0.5)
 
 
 
@@ -559,13 +599,13 @@ def defineGasFractions(z):
     peeples84 = np.loadtxt('peeples11_fg68.csv', delimiter=',')
     peeplesMass = peeplesMode[:,0]
     delt = peeples84[:,1] - peeplesMode[:,1]
-    datasets['peeples11'] = DataSet('mstar', 'gasToStellarRatioHI',  np.power(10.0, peeplesMass), np.power(10.0, peeplesMode[:,1]), yLower = np.power(10.0, peeplesMode[:,1]-delt), yUpper = np.power(10.0, peeplesMode[:,1]+delt), label='Peeples11' )
+    datasets['peeples11'] = DataSet('mstar', 'gasToStellarRatioHI',  np.power(10.0, peeplesMass), np.power(10.0, peeplesMode[:,1]), yLower = np.power(10.0, peeplesMode[:,1]-delt), yUpper = np.power(10.0, peeplesMode[:,1]+delt), label='Peeples11' , alpha=0.5)
 
 
     thisMst = np.power(10.0, np.linspace(7.0,11.5))
     thisMHI = np.power(10.0, -0.43*np.log10(thisMst) + 3.75) * thisMst
     fgThis = thisMHI/thisMst
-    datasets['papastergis12'] = DataSet( 'mstar', 'gasToStellarRatioHI', thisMst, fgThis, yLower=fgThis/10.0**0.31, yUpper=fgThis*10.0**0.31, label='Papastergis12') # 0.31 dex is the /minimal/ scatter in MHI/M* as a function of various things in Zheng2009. No scatter quoted in Papastergis '12
+    datasets['papastergis12'] = DataSet( 'mstar', 'gasToStellarRatioHI', thisMst, fgThis, yLower=fgThis/10.0**0.31, yUpper=fgThis*10.0**0.31, label='Papastergis12', alpha=0.5) # 0.31 dex is the /minimal/ scatter in MHI/M* as a function of various things in Zheng2009. No scatter quoted in Papastergis '12
 
     thisMst = np.power(10.0, np.linspace(10.0,11.5, 100))
     def molToStarGenzel( (af2, xif2, xig2, xih2), deltaMS=0.0):
@@ -582,8 +622,8 @@ def defineGasFractions(z):
     genzelParamsCOGlobal = (-1.12, 2.71, 0.53, -0.35)
     genzelParamsDust = (-0.87, 2.26, 0.51, -0.41)
     genzelParamsDustGlobal= (-0.98, 2.32, 0.36, -0.40)
-    datasets['genzel15COz'+str(z)] = DataSet( 'mstar', 'gasToStellarRatioH2', thisMst, molToStarGenzel(genzelParamsCOGlobal), yLower=molToStarGenzel(genzelParamsCOGlobal,-0.34), yUpper=molToStarGenzel(genzelParamsCOGlobal,0.34), label='Genzel15 CO', zmin=z-0.5, zmax=z+0.5)
-    datasets['genzel15Dustz'+str(z)] = DataSet( 'mstar', 'gasToStellarRatioH2', thisMst, molToStarGenzel(genzelParamsDustGlobal), yLower=molToStarGenzel(genzelParamsDustGlobal,-0.34), yUpper=molToStarGenzel(genzelParamsDustGlobal,0.34), label='Genzel15 Dust', zmin=z-.5, zmax=z+0.5)
+    datasets['genzel15COz'+str(z)] = DataSet( 'mstar', 'gasToStellarRatioH2', thisMst, molToStarGenzel(genzelParamsCOGlobal), yLower=molToStarGenzel(genzelParamsCOGlobal,-0.34), yUpper=molToStarGenzel(genzelParamsCOGlobal,0.34), label='Genzel15 CO', zmin=z-0.5, zmax=z+0.5, alpha=0.5)
+    datasets['genzel15Dustz'+str(z)] = DataSet( 'mstar', 'gasToStellarRatioH2', thisMst, molToStarGenzel(genzelParamsDustGlobal), yLower=molToStarGenzel(genzelParamsDustGlobal,-0.34), yUpper=molToStarGenzel(genzelParamsDustGlobal,0.34), label='Genzel15 Dust', zmin=z-.5, zmax=z+0.5, alpha=0.5)
     #ax.plot(thisMst, molToStarGenzel(-0.98,2.65,0.5,-0.25), c='green', label=thisLabel1)
     #ax.plot(thisMst, molToStarGenzel(-1.05,2.6,0.54,-0.41), c='orange', label=thisLabel2)
     #ax.plot(thisMst, ratioToFraction(molToStarGenzel(-1.05,2.6,0.54,-0.41)), c='orange', label=thisLabel2)
@@ -597,7 +637,13 @@ def defineGasFractions(z):
 def defineTullyFisher():
     mstMiller = np.power(10.0, np.linspace(9.0, 11.5, 20))
     vMiller = np.power(10.0, (np.log10(mstMiller) - 1.718)/3.869)
-    datasets['miller11'] = DataSet( 'mstar', 'vPhi22', mstMiller, vMiller, yLower=vMiller/10.0**0.058, yUpper=vMiller*10.0**0.058, label='Miller11', zmax=1.25 )
+    datasets['miller11'] = DataSet( 'mstar', 'vPhi22', mstMiller, vMiller, yLower=vMiller/10.0**0.058, yUpper=vMiller*10.0**0.058, label='Miller11', zmax=1.25, alpha=0.5 )
+
+
+    sf = np.power(10.0, np.array([-3.1, -2.3, -1.4, -0.7, -0.0, 0.54, 0.89, 1.3, 1.67, 2.1]))
+    sig = np.array([9.3, 11.5, 14.6, 14.8, 17.6, 21.6, 32.9, 53.5, 72.3, 87.6])
+    datasets['krumholz17'] = DataSet('sfr', 'sfsig', sf, sig, yLower=sig/2.0, yUpper=sig*2.0, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
+    datasets['krumholz17max'] = DataSet('sfr', 'maxsig', sf, sig, yLower=sig/2.0, yUpper=sig*2.0, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
 
 #
 #if xvar=='gbar' and v=='gtot':

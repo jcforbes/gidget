@@ -23,7 +23,7 @@ def makeThePlots(args):
         print "Beginning to analyze experiment ",modelName
         theExp = Experiment(modelName)
         print "Reading in the experiment keeping: ", args.vsr + balanceArgs + AMargs +MONDargs
-        theExp.read(args.vsr+balanceArgs+AMargs+MONDargs, keepStars=(args.stellarPops or args.quick), computeFit=args.fit)
+        theExp.read(args.vsr+balanceArgs+AMargs+MONDargs, keepStars=(args.stellarPops or args.quick), computeFit=args.fit, fh=args.fh)
         nts = int(theExp.models[0].p['Noutputs']+1)
         tis = [nts/5,nts/2,nts]
         if args.scalings or args.genzel:
@@ -145,11 +145,12 @@ if __name__=='__main__':
     parser.add_argument('--fit', dest='fit', action='store_true',help="Fit the stellar column density profiles. May be time-consuming")
     parser.add_argument('--scalings', dest='scalings', action='store_true',help="Fit galaxy scaling relations - only really makes sense in runs where you have a decent range of masses and some source of variability between galaxies at a given mass.")
     parser.add_argument('--quick', dest='quick', action='store_true',help="Quickly check fit to scaling relations.")
+    parser.add_argument('--fh', type=float, dest='fh', default=0.3, help='Fraction of accreted stars to be included in the stellar mass')
     args = parser.parse_args()
 
     weNeed = len(args.rankby) - len(args.rbz) 
     if(weNeed>0):
-        for i in weNeed:
+        for i in range(weNeed):
             args.rbz.append(-1)
 
     makeThePlots(args)

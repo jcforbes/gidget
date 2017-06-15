@@ -4,7 +4,7 @@ import sys
 import copy
 import emcee
 import pickle
-import triangle
+import corner 
 from mpi4py import MPI 
 from emcee.utils import MPIPool
 import numpy as np
@@ -24,10 +24,10 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr05'
+chaindirrel = 'broadDistr18b'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
-bolshoidir = '/pfs/jforbes/bolshoi/'
+bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
 
 proccounter=0
 runnumber = 0
@@ -135,8 +135,8 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
 
     # unpack emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams
-    Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
-
+    #Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
+    Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac = emceeparams
 
     # create experiment
     basename = chaindirrel+'_'
@@ -190,7 +190,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     thisexper.irregularVary('NChanges', 1001)
 
     width = 0.4/100000.0
-    asls = raccRvir*np.power(10.0, np.random.normal()*width)
+    asls = raccRvir*np.power(10.0, np.random.normal()*width) # * np.power(Mhz0/1.0e12,alpharmh)
     if asls<0.005:
         asls=0.005
     thisexper.irregularVary('accScaleLength', asls, 5)
@@ -236,21 +236,22 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
 
 
 def lnprior(emceeparams):
-    Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
-    #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams
+
+    Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac = emceeparams
+    #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
     accum = 0.0
 
     #varRedFac = 10000.0
     varRedFac = 1.0
 
-    accum += lnloguniformdensity( Mhz0, 3.0e10, 1.0e14)
     accum += lnlognormaldensity( raccRvir, np.log(0.141), np.log(3.0)**2.0 )
     accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muColScaling, 0.6, 1.0**2.0 / varRedFac )
-    accum += lnnormaldensity( muFgScaling, -0.1, 1.0**2.0 / varRedFac )
+    accum += lnnormaldensity( muColScaling, 0.0, 2.0**2.0 / varRedFac )
+    accum += lnnormaldensity( muFgScaling, 0.0, 2.0**2.0 / varRedFac )
     accum += lnlognormaldensity( muNorm, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
+    accum += lnnormaldensity( muMhScaling, -1.0, 1.0**2.0 / varRedFac )
     accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
     accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
     accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
@@ -261,28 +262,51 @@ def lnprior(emceeparams):
     accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
     accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
     accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
-
+    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(2.0)**2.0 / varRedFac )
+    accum += lnnormaldensity( scaleAdjust, 0.5, 0.5**2 /varRedFac)
+    accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
+    accum += lnlognormaldensity( enInjFac, np.log(1.0), np.log(3.0)**2.0/varRedFac)
 
     if not np.isfinite(accum):
         return -np.inf
     return accum
 
-def samplefromprior():
-    # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams
-    # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
 
-    #varRedFac = 10000.0
-    varRedFac = 1.0
+def samplefromposterior():
+    mu = np.array([ 0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288])
+    sig = np.array([ 0.15602724955, 0.125382594594, 0.134442070724, 0.13119698371, 0.581097952545, 0.7667336685, 0.440834644703, 0.385460062581, 0.205840416096, 0.109821737135, 0.10631070297, 0.134348461, 0.133969583672, 0.389980322595, 0.100853519509, 0.106265874887, 0.177096457663, 0.0850124838557, 0.11420926966, 0.162960229799, 0.187855261279, 0.159803314605, 0.172088242166, 0.109903788948])*1.1
+
+    sig[0] = sig[0]*1.3 # need a bit of a wider range on alphar, since formally the posterior includes a wider range via the inclusion of a parameter that allows alphar to depend on halo mass.
+
+    logs = [1,1,1,1,0,0,1,0,1,0,1,1,1,1,0,0,1,0,1,0,1,1,0,0]
+    for i in range(len(mu)):
+        if logs[i]==1:
+            mu[i] = np.log10(mu[i])
+
+    cov = np.diag(sig*sig)
+    out = np.random.multivariate_normal( mu, cov)
+
+    for i in range(len(mu)):
+        if logs[i]==1:
+            out[i] = np.power(10.0, out[i])
+
+    ### The numbers above refer to physical parameters from \eta through to alpharmh and fh.
+    ### For our purposes here, the thing from which we're drawing includes mass and not the last two parameters, which are done in post-processing
+    ### Therefore the coordinates we actually want are mass + the physical parameters we're varying, and not alpharmh and fh.
+    return [ samplefromloguniformdensity(5.0e9, 2.0e13) ] + list(out[:-2])
+
+def samplefromprior():
 
     return [ \
-        samplefromloguniformdensity( 3.0e10, 1.0e14),
+        samplefromloguniformdensity( 5.0e9, 2.0e13),
         samplefromlognormaldensity( np.log(0.141), np.log(3.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromnormaldensity( 0.6, 1.0**2.0 / varRedFac ),
-        samplefromnormaldensity( -0.1, 1.0**2.0 / varRedFac ),
+        samplefromnormaldensity( 0.0, 2.0**2.0 / varRedFac ),
+        samplefromnormaldensity( -0.0, 2.0**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac),
+        samplefromnormaldensity( -1.0, 1.0**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac ),
         samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
         samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
@@ -292,7 +316,13 @@ def samplefromprior():
         samplefrombetadensity( 1.0 * varRedFac, 1.0 ),
         samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
-        samplefrombetadensity( 1.0, 2.0*varRedFac ) ]
+        samplefrombetadensity( 1.0, 2.0*varRedFac ),
+        samplefromlognormaldensity( np.log(1.0e-2), np.log(2.0)**2.0/varRedFac),
+        samplefromnormaldensity( 0.5, 0.5**2/varRedFac), 
+        samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
+        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac)  ]
+
+
 
 
 def constlikelihood(emceeparams, modelname=None):
@@ -345,7 +375,7 @@ def lnlikelihoodRehash(emceeparams, modelname=None):
 
 def lnlikelihood(emceeparams, modelname=None):
     # set up the experiment
-    Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
+    Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac = emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams
 
     time0 = time.time()
@@ -355,7 +385,7 @@ def lnlikelihood(emceeparams, modelname=None):
         expertorun, name = emceeparameterspacetogidgetexperiment(emceeparams)
 
         # run the experiment.
-        expertorun.localRun(1,0,maxTime=3600*3)
+        expertorun.localRun(1,0,maxTime=3600*2)
     else:
         name = modelname
 
@@ -371,7 +401,7 @@ def lnlikelihood(emceeparams, modelname=None):
         print "warning: model did not return sensible results, setting likelihood to zero"
         successfullyRun=0
         #return -np.inf
-    variables = ['Mh', 'mstar', 'sSFR', 'sfZ', 'stZ', 'gasToStellarRatioH2', 'gasToStellarRatioHI', 'halfMassStars', 'vPhi22', 'c82', 'Sigma1', 'specificJStars', 'metallicityGradientR90', 'maxsig', 'mdotBulgeG', 'fractionGI', 'tdep', 'tDepH2', 'broeilsHI', 'mStellarHalo']
+    variables = ['Mh', 'mstar', 'sSFR', 'sfZ', 'stZ', 'gasToStellarRatioH2', 'gasToStellarRatioHI', 'halfMassStars', 'vPhi22', 'c82', 'Sigma1', 'specificJStars', 'metallicityGradientR90', 'sfsig', 'mdotBulgeG', 'fractionGI', 'tdep', 'tDepH2', 'broeilsHI', 'mStellarHalo']
     nz=4
     nRadii=20
     toFit = np.zeros( nRadii*len(radialVars) + len(variables)*nz )
@@ -390,6 +420,13 @@ def lnlikelihood(emceeparams, modelname=None):
 
     outputList = list(emceeparams)+[successfullyRun]+list(toFit)
     np.savetxt( analysisdir+'/'+name+'_sampleInfo.txt', outputList )
+
+
+    # shutil.rmtree( analysisdir+'/'+name+'/' )
+    # remove the large files in the output, since we no longer need them
+    os.remove( analysisdir+'/'+name+'/'+name+'_evolution.dat')
+    os.remove( analysisdir+'/'+name+'/'+name+'_radial.dat')
+    os.remove( analysisdir+'/'+name+'/'+name+'_stars.dat')
 
     return 0.0
 
@@ -695,7 +732,7 @@ def run(n, p00=None, nwalkers=500):
     if p00 is not None:
         p0 = [p00*(1.0+0.01*np.random.randn( ndim )) for i in range(nwalkers)]
     else:
-        p0 = [samplefromprior() for i in range(nwalkers)]
+        p0 = [samplefromposterior() for i in range(nwalkers)]
 
     restart = {}
     restart['currentPosition'] = p0
@@ -894,8 +931,8 @@ def triangleplot(restart,fn,burnin=0, nspace=10):
         else:
             extents.append([mi,ma])
 
-    trifig = triangle.corner(samplered, labels=labels, extents=extents)
-    #trifigprior = triangle.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig, extents=extents)
+    trifig = corner.corner(samplered, labels=labels, extents=extents)
+    #trifigprior = corner.corner(prior, color='red', plot_datapoints=False, plot_filled_contours=False, fig=trifig, extents=extents)
     trifig.savefig(fn)
     plt.close(trifig)
 

@@ -24,7 +24,7 @@ allProcs=[] # a global list of all processes we've started
 allStartTimes=[] # a global list of the start times of all of these processes
 
 
-globalBolshoiReader = bolshoireader('rf_registry4.txt',3.0e11,3.0e16, '/Users/jforbes/bolshoi/')
+globalBolshoiReader = bolshoireader('rf_registry4.txt',3.0e11,3.0e14, os.environ['GIDGETDIR']+'/../bolshoi/')
 bolshoiSize =  len(globalBolshoiReader.keys)
 
 def HowManyStillRunning(procs):

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import halo
 import pdb
 import copy
@@ -478,8 +479,8 @@ def defineAngularMomenta():
 
 def defineBrinchmann(specific=True):
     z=0
-    brinchmannMode = np.loadtxt('brinchmann04_msmode.csv', delimiter=',')
-    brinchmann975 = np.loadtxt('brinchmann04_ms975.csv', delimiter=',')
+    brinchmannMode = np.loadtxt(os.environ['GIDGETDIR']+'/py/brinchmann04_msmode.csv', delimiter=',')
+    brinchmann975 = np.loadtxt(os.environ['GIDGETDIR']+'/py/brinchmann04_ms975.csv', delimiter=',')
     fbmode = interp1d( brinchmannMode[:,0], brinchmannMode[:,1], kind='linear' )
     fb975 = interp1d( brinchmann975[:,0], brinchmann975[:,1], kind='linear' )
     brinchmannm = np.linspace( 6.51, 11.88, 1000 ) 
@@ -595,8 +596,8 @@ def defineStellarZ():
 
 
 def defineGasFractions(z):
-    peeplesMode = np.loadtxt('peeples11_fgmode.csv', delimiter=',')
-    peeples84 = np.loadtxt('peeples11_fg68.csv', delimiter=',')
+    peeplesMode = np.loadtxt(os.environ['GIDGETDIR']+'/py/peeples11_fgmode.csv', delimiter=',')
+    peeples84 = np.loadtxt(os.environ['GIDGETDIR']+'/py/peeples11_fg68.csv', delimiter=',')
     peeplesMass = peeplesMode[:,0]
     delt = peeples84[:,1] - peeplesMode[:,1]
     datasets['peeples11'] = DataSet('mstar', 'gasToStellarRatioHI',  np.power(10.0, peeplesMass), np.power(10.0, peeplesMode[:,1]), yLower = np.power(10.0, peeplesMode[:,1]-delt), yUpper = np.power(10.0, peeplesMode[:,1]+delt), label='Peeples11' , alpha=0.5)

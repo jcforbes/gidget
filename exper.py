@@ -639,7 +639,7 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
     thisexper.irregularVary('fcool', list(fcools), 5)
     thisexper.irregularVary('NChanges', 1001)
 
-    width = 0.1
+    width = 0.001
     asls = raccRvir*np.power(10.0, np.random.normal(0,1,len(Mhz0))*width) * np.power(Mhz0/1.0e12,alpharmh)
     #if asls<0.005:
     #    asls=0.005
@@ -2782,6 +2782,10 @@ if __name__ == "__main__":
     # estimate of the maximum posterior.
     emceeparams = [0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288]
     rf114 = experFromBroadMCMC( emceeparams[:-1], 'rf114')
+
+    rf115 = experFromBroadMCMC( emceeparams[:-1], 'rf115', ngal=300) # width=0.1
+
+    rf116 = experFromBroadMCMC( emceeparams[:-1], 'rf116', ngal=300) # width=0.001
 
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

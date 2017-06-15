@@ -316,7 +316,8 @@ def residualsFromGidget(bn, fh=0.3):
     else:
         return [],[]
 
-models17 = [ pickle.load( open( 'rfnt17full_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+#models17 = [ pickle.load( open( 'rfnt17full_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+models1718 = [ pickle.load( open( 'rfnt1718_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
 
@@ -347,7 +348,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
         if i%2==0:
             xmaxThis[-1] = 0.0
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models17) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models1718) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -428,7 +429,7 @@ def lnlikelihood(emceeparams, models=None):
         neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
         for j in range(80):
             if j in neededModels:
-                Y_eval[0,j] = predictFill(models17[j], X1)[0][j]
+                Y_eval[0,j] = predictFill(models1718[j], X1)[0][j]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
 
@@ -437,6 +438,15 @@ def lnlikelihood(emceeparams, models=None):
     if not np.isfinite(lnlik):
         return -np.inf
     return lnlik
+
+def sampleFromGaussianBall():
+    ## the max posterior probability estimated from the previous run.
+    xmax = [0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288]
+    draw = []
+    for i in range(len(xmax)):
+        draw.append( xmax[i]*(1.0 + 0.01*np.random.normal()) )
+    return draw
+
 
 def samplefromprior( varRedFac=1.0):
     # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormaliza     tion, kappaMassScaling = emceeparams
@@ -665,7 +675,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     prior = np.array([samplefromprior() for i in range(np.product(np.shape(sampleRed))/ndim * 3)])
 
 
-    pickle.dump(sampleRed, open('fakemcmc17d_posterior.pickle', 'w'))
+    pickle.dump(sampleRed, open('fakemcmc1718d_posterior.pickle', 'w'))
 
     extents=[]
     for i in range(np.shape(sampleRed)[1]):
@@ -688,6 +698,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
 
 
     MaP = []
+    stds = []
 
     #### just look at the 1D distr - much more compact when the 2D marginal distributions are pretty uninteresting!
     fig,ax = plt.subplots(6,4, figsize=(14,14))
@@ -701,6 +712,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
         else:
             MaP.append(avg)
         std = np.std(sampleRed[:,i])
+        stds.append(std)
         xv = np.linspace(extents[i][0],extents[i][1],200)
         yv = 1.0/np.sqrt(2.0*np.pi*std*std) * np.exp(-(xv-avg)*(xv-avg)/(2.0*std*std))
         ax.flatten()[i].plot( xv, yv, lw=2, ls='--', c='gray')
@@ -711,10 +723,14 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     plt.close(fig)
 
     msg = "Estimate of maximum posterior: ["
+    msg2 = " [ "
     for i in range(len(MaP)):
         msg+= str(MaP[i])+', '
+        msg2+= str(stds[i])+', '
     msg = msg[:-2] + ']'
+    msg2 = msg2[:-2] + ']'
     print msg
+    print msg2
 
     print "Shape of sampleRed: ", np.shape(sampleRed)
 
@@ -736,12 +752,13 @@ def runEmcee(mpi=False, continueRun=False):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 24, 800 
+    ndim, nwalkers = 24, 4000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc17d_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc1718_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
-    p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
+    #p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
+    p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
 
     restart['currentPosition'] = p0
     restart['chain' ] = None
@@ -1281,7 +1298,7 @@ def loglin(x,p):
     else:
         return (np.power(x,p)-1)/p
 
-def trimDownForGlue(fn='broad17full_to_lasso.txt', naccr=8, arr=None, kscale=10, logscale=0):
+def trimDownForGlue(fn='broad1718_to_lasso.txt', naccr=8, arr=None, kscale=10, logscale=0):
     X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=1.0, validateFrac=0.0, fn=fn, naccr=naccr, arr=arr, kscale=kscale, logscale=logscale, includeCrossTerms=False)
     labelsFeat = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "muMhScaling", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC", "epsff", "deltabeta", "MQ", "Einj", "Mdot0KS" ]
     labelsFeatAccr = ["Mdot"+str(i).zfill(2) for i in range(naccr)]
@@ -1295,7 +1312,7 @@ def trimDownForGlue(fn='broad17full_to_lasso.txt', naccr=8, arr=None, kscale=10,
     arr = np.vstack( [X_train.T, Ys_train.T] ).T
 
 
-    np.savetxt('broad17full_to_lasso_trim.txt', arr, header=header[:-1])
+    np.savetxt('broad1718_to_lasso_trim.txt', arr, header=header[:-1])
 
 
 
@@ -1969,7 +1986,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.85, validateFrac=0, naccr=8, fn='broad17full_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad1718_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -2020,7 +2037,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
             # k=8 corresponds to z=0 sfr. Try really hard to get this right!
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt17full_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt1718_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2431,7 +2448,7 @@ if __name__=='__main__':
     #validateNPR()
     #plotResiduals()
 
-    #estimateFeatureImportances(analyze=False, pick=True) # just generate the pickled models 
+    #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
     #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
@@ -2473,6 +2490,7 @@ if __name__=='__main__':
         #    print "Something bad happened for k=",k," i.e. rf113"+letter(k,caps=True), " - probably all models failed in that run"
 
 
+    #fakeEmceePlotResiduals( None, 'fakemcmc17d_residuals114', gidgetmodels='rf114', xmax=[0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288] )
 
     #trimDownForGlue()
 
@@ -2480,11 +2498,11 @@ if __name__=='__main__':
 
     if True:
         restart={}
-        updateRestart('fakemcmc17d_restart.pickle', restart)
+        updateRestart('fakemcmc1718_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc17d_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc17d_allProb', burnIn=0)
-        trianglePlot(restart,'fakemcmc17d_triangle', burnIn=100, nspace=20)
+        tracePlots(restart, 'fakemcmc1718_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc1718_allProb', burnIn=0)
+        trianglePlot(restart,'fakemcmc1718_triangle', burnIn=0, nspace=1)
 
         # Find the maximum among all models sampled so far.
         allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations

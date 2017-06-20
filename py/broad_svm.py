@@ -22,6 +22,10 @@ nRadii=20
 nz=4
 nvars = len(logVars)
 
+np.random.seed(1487)
+randomFactorsKey01 = np.random.random(size=(50,9)) 
+
+
 def lnbetadensity(theta, a,b):
     if theta<0 or theta>1:
         return -np.inf
@@ -69,10 +73,11 @@ def samplefromuniformdensity(a,b):
 
 class fntModel:
     ### a simple wrapper for models that have been transformed/predict transformed quantities:
-    def __init__(self, skModel, xtr, ytr):
+    def __init__(self, skModel, xtr, ytr, randomFactors):
         self.model = skModel
         self.xtr = xtr
         self.ytr = ytr
+        self.randomFactors = randomFactors
     def predict(self, x):
         return self.ytr.inverseTransform( self.model.predict( self.xtr.transform(x)))
     def predictFill(self,x):
@@ -89,10 +94,11 @@ class fntModel:
         else:
             return self.predict(x)
 
-def predictFill( model, x):
+def predictFill( model, x, rfkey):
     if np.shape(x)[1]<len(model.xtr.minxps):
         tofill =  len(model.xtr.minxps) - np.shape(x)[1]
-        fillers = np.random.random(size=(np.shape(x)[0], tofill))
+        #fillers = np.random.random(size=(np.shape(x)[0], tofill))
+        fillers = model.randomFactors[rfkey,:].reshape(np.shape(x)[0], tofill)
         thisx = np.vstack([x.T, fillers.T]).T
         transformed_thisx = model.xtr.transform(thisx)
         #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
@@ -284,7 +290,7 @@ def fakeEmceeResiduals(emceeparams, models):
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
 
-        Y_eval = np.array( [predictFill(models[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
+        Y_eval = np.array( [predictFill(models[j], X1, k)[0][j] for j in range(80)] ).reshape(1,80)
         residuals.append( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=False) )
 
     return residuals 
@@ -317,7 +323,7 @@ def residualsFromGidget(bn, fh=0.3):
         return [],[]
 
 #models17 = [ pickle.load( open( 'rfnt17full_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
-models1718 = [ pickle.load( open( 'rfnt1718_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
 
@@ -348,7 +354,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
         if i%2==0:
             xmaxThis[-1] = 0.0
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models1718) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models1718b) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -413,11 +419,12 @@ def lnlikelihood(emceeparams, models=None):
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
-    nmh = 5
+    nmh = 20
     MhGrid = np.power(10.0, np.linspace(10.0,13.0,nmh)) ## try out only going up to 10^13
     lnlik = 0.0
 
     for k,Mh in enumerate(MhGrid):
+        # Let's see.. Mh + emcee parameters, minus the last two "artificial" parameters
         X1 = np.array([Mh]+list(emceeparams[:-2])).reshape((1,len(emceeparams[:-2])+1))
         X1[0,1] = X1[0,1]*np.power(Mh/1.0e12, emceeparams[-2]) # modify raccRvir
         for i in range(len(logVars)):
@@ -429,7 +436,7 @@ def lnlikelihood(emceeparams, models=None):
         neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
         for j in range(80):
             if j in neededModels:
-                Y_eval[0,j] = predictFill(models1718[j], X1)[0][j]
+                Y_eval[0,j] = predictFill(models1718b[j], X1, k)[0][j]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
 
@@ -678,7 +685,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     prior = np.array([samplefromprior() for i in range(np.product(np.shape(sampleRed))/ndim * 3)])
 
 
-    pickle.dump(sampleRed, open('fakemcmc1718d_posterior.pickle', 'w'))
+    pickle.dump(sampleRed, open('fakemcmc1718b_posterior.pickle', 'w'))
 
     extents=[]
     for i in range(np.shape(sampleRed)[1]):
@@ -755,9 +762,9 @@ def runEmcee(mpi=False, continueRun=False):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 24, 4000 
+    ndim, nwalkers = 24, 1000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc1718_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc1718b_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
     #p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
@@ -1301,7 +1308,7 @@ def loglin(x,p):
     else:
         return (np.power(x,p)-1)/p
 
-def trimDownForGlue(fn='broad1718_to_lasso.txt', naccr=8, arr=None, kscale=10, logscale=0):
+def trimDownForGlue(fn='broad1718b_to_lasso.txt', naccr=8, arr=None, kscale=10, logscale=0):
     X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels = readData(trainFrac=1.0, validateFrac=0.0, fn=fn, naccr=naccr, arr=arr, kscale=kscale, logscale=logscale, includeCrossTerms=False)
     labelsFeat = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "muMhScaling", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC", "epsff", "deltabeta", "MQ", "Einj", "Mdot0KS" ]
     labelsFeatAccr = ["Mdot"+str(i).zfill(2) for i in range(naccr)]
@@ -1315,7 +1322,7 @@ def trimDownForGlue(fn='broad1718_to_lasso.txt', naccr=8, arr=None, kscale=10, l
     arr = np.vstack( [X_train.T, Ys_train.T] ).T
 
 
-    np.savetxt('broad1718_to_lasso_trim.txt', arr, header=header[:-1])
+    np.savetxt('broad1718b_to_lasso_trim.txt', arr, header=header[:-1])
 
 
 
@@ -1979,6 +1986,12 @@ def printTable(arr, columnnames, rownames, fn='table.tex'):
         f.write(r'\end{table*}'+'\n')
 
             
+def quickPlot(arr, name):
+    fig,ax = plt.subplots()
+    hist, edges = np.histogram( arr, bins='auto', density=True )
+    histplot(ax, hist,edges, c='r', vertical=False)
+    plt.savefig(name)
+    plt.close(fig)
 
 
 def estimateFeatureImportances(analyze=True, pick=True):
@@ -1989,7 +2002,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad1718_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad1718b_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -2030,6 +2043,11 @@ def estimateFeatureImportances(analyze=True, pick=True):
             X_train = Xtra.transform(X_train)
             X_validate = Xtra.transform(X_validate)
             X_test = Xtra.transform(X_test_orig.copy()) 
+            
+            #### store a set of random factors to be used all throughout the emcee process
+            randomFactors = np.zeros(np.shape(randomFactorsKey01))
+            for jj in range(50):
+                randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),-9+ii] for ii in range(9)])
 
             Ytra = xtransform(Ys_train)
             Ys_train = Ytra.transform(Ys_train)
@@ -2040,7 +2058,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
             # k=8 corresponds to z=0 sfr. Try really hard to get this right!
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra) , open('rfnt1718_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt1718b_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2444,7 +2462,7 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    runEmcee(mpi=True, continueRun=True)
+    runEmcee(mpi=True, continueRun=False)
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 
@@ -2501,11 +2519,11 @@ if __name__=='__main__':
 
     if False:
         restart={}
-        updateRestart('fakemcmc1718_restart.pickle', restart)
+        updateRestart('fakemcmc1718b_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc1718_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc1718_allProb', burnIn=0)
-        trianglePlot(restart,'fakemcmc1718_triangle', burnIn=0, nspace=1)
+        tracePlots(restart, 'fakemcmc1718b_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc1718b_allProb', burnIn=0)
+        trianglePlot(restart,'fakemcmc1718b_triangle', burnIn=25, nspace=5)
 
         # Find the maximum among all models sampled so far.
         allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations

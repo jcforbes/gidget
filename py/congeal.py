@@ -28,6 +28,6 @@ for k,si in enumerate(SIs):
     arr[:len(thisSI),k] = thisSI[:]
     arr[len(thisSI):,k] = inputs[:]
     
-np.savetxt( 'broad18_to_lasso.txt', arr.T )
+np.savetxt( 'broad18b_to_lasso.txt', arr.T )
 
 

@@ -445,6 +445,9 @@ def sampleFromGaussianBall():
     draw = []
     for i in range(len(xmax)):
         draw.append( xmax[i]*(1.0 + 0.01*np.random.normal()) )
+    if not np.isfinite( lnprior(draw) ):
+        print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()"
+        return sampleFromGaussianBall() ## if this is a bad draw don't use it!
     return draw
 
 
@@ -2441,7 +2444,7 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    #runEmcee(mpi=True, continueRun=False)
+    runEmcee(mpi=True, continueRun=True)
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 
@@ -2496,7 +2499,7 @@ if __name__=='__main__':
 
     ### analyze the fake mcmc run
 
-    if True:
+    if False:
         restart={}
         updateRestart('fakemcmc1718_restart.pickle', restart)
         printRestart(restart)

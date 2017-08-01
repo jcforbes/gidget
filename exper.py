@@ -80,7 +80,7 @@ class experiment:
                 0.54,0.1,200,.30959,0.38, \
                 -0.25,1.0,1.0,0.3,1.0, \
                 0,0.0,.1,.03,2.0, \
-                .002,.054,0.0,0.0, 10.0, 2.0, 1.0e12, \
+                .002,1.0,1.0,0.3,0.0,.054,0.0,0.0, -1.0/3.0, 10.0, 2.0, 1.0e12, \
                 0.1, 2.0, 2.0, 1.4, 0.5, 1.0, 0.5]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
@@ -99,7 +99,7 @@ class experiment:
                 'RfREC','deltaOmega','Noutputs','accNorm','accAlphaZ', \
                 'accAlphaMh','accCeiling','fscatter','invMassRatio','fcool', \
                 'whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC', \
-                'ZIGM','yREC','concentrationRandomFactor','muFgScaling', 'ksuppress', 'kpower', 'MQuench', \
+                'ZIGM','fg0mult','ZIGMfac','chiZslope','deltaBeta','yREC','concentrationRandomFactor','muFgScaling', 'muMhScaling', 'ksuppress', 'kpower', 'MQuench', \
                 'epsquench', 'muQuench', 'stScaleReduction', 'gaScaleReduction', 'ZMix', 'energyInjectionFactor', 'bolshoiWeight']
         assert len(self.p)==len(self.names)
         self.keys={}
@@ -580,7 +580,7 @@ def experSuiteFromBroadMCMC(emceeparams, name, accHistories=None):
     return experList
 
 def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, alpharmh = emceeparams
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, chiZslope = emceeparams
 
     Mhz0 = list(np.power(10.0, np.linspace(10.0,13.0,ngal)))
 
@@ -640,7 +640,7 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
     thisexper.irregularVary('NChanges', 1001)
 
     width = 0.001
-    asls = raccRvir*np.power(10.0, np.random.normal(0,1,len(Mhz0))*width) * np.power(Mhz0/1.0e12,alpharmh)
+    asls = raccRvir*np.power(10.0, np.random.normal(0,1,len(Mhz0))*width) # * np.power(Mhz0/1.0e12,alpharmh)
     #if asls<0.005:
     #    asls=0.005
     asls = np.clip(asls, 0.005, np.inf)
@@ -656,9 +656,10 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
     thisexper.irregularVary('zstart',3.98)
     thisexper.irregularVary('zrelax',4.0)
     thisexper.irregularVary('tauHeat', 1.0)
-    thisexper.irregularVary('muNorm', list(0.005*muNorm*np.power(Mhz0/1.0e12,muMhScaling)), 5)
+    thisexper.irregularVary('muNorm', muNorm)
     thisexper.irregularVary('muFgScaling', muFgScaling)
     thisexper.irregularVary('muColScaling', muColScaling)
+    thisexper.irregularVary('muMhScaling', muMhScaling)
     thisexper.irregularVary('fscatter', 1.0)
     thisexper.irregularVary('accCeiling',accCeiling)
     thisexper.irregularVary('NPassive',10)
@@ -667,14 +668,18 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
     thisexper.irregularVary('xmin',0.001)
     thisexper.irregularVary('yREC',0.03)
     thisexper.irregularVary( 'nx', 256 ) # FFT o'clock.
-    ZLee = np.power(10.0, 5.65 + 0.3*np.log10(mst) - 8.7 ) # Z in Zsun
+    ZLee = np.power(10.0, 5.65 + chiZslope*np.log10(mst/1.0e10) + 0.3*np.log10(1.0e10) - 8.7 ) # Z in Zsun
     thisexper.irregularVary('ZIGM', list(ZIGMfac*0.05*ZLee*0.02), 5)
     thisexper.irregularVary('concentrationRandomFactor', conRF) ## units of dex! # 0.7
 
+    thisexper.irregularVary('ZIGMfac', ZIGMfac)
+    thisexper.irregularVary('chiZslope', chiZslope)
+    thisexper.irregularVary('deltaBeta', initialSlope)
+    thisexper.irregularVary('fg0mult', fg0mult)
     thisexper.irregularVary('whichAccretionHistory', -112)
     thisexper.irregularVary('ksuppress', 10.0 )
     thisexper.irregularVary('kpower', 2.0)
-    thisexper.irregularVary('dbg', 2**0 + 2**1 + 2**2 + 2**4 + 2**5 + 2**6 + 2**7 + 2**16 )
+    thisexper.irregularVary('dbg', 2**0 + 2**1 + 2**2 + 2**4 + 2**5 + 2**6 + 2**7 + 2**10 + 2**16 )
     thisexper.irregularVary('fscatter', 1.0)
     thisexper.irregularVary('MQuench', mquench)
     thisexper.irregularVary('epsquench', epsquench)

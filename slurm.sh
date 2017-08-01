@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name brd18
+#SBATCH --job-name brd21c
 #SBATCH -n 256
 #SBATCH -t 4-00:00
 #SBATCH -p general
@@ -9,5 +9,4 @@
 
 module load python/2.7.13-fasrc01
 
-mpirun -n 256 python mcmc_broad.py > estd.$PBS_JOBID.out 
-
+mpirun -n 256 python mcmc_broad.py 

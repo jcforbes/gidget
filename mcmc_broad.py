@@ -24,7 +24,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr18b'
+chaindirrel = 'broadDistr21c'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -136,7 +136,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     # unpack emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams
     #Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC = emceeparams
-    Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac = emceeparams
+    Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, chiZslope = emceeparams
 
     # create experiment
     basename = chaindirrel+'_'
@@ -170,7 +170,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
         M1 = np.power(10.0, logM1z)
         eff = 2.0*Nz / (np.power(Mh/M1,-betaz) + np.power(Mh/M1,gammaz))
         return eff
-    central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
+    central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376 + initialSlope, -0.826, 0.608, 0.329])
     eff = Moster(Mhz4,central)
     mst = eff*Mhz4 # mstar according to the moster relation. ## at z=4 !!
     f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
@@ -184,6 +184,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     rat4 *= fg0mult # double the gas content
     fgUsed =1.0/(1.0/rat4 + 1.0)*(1.0*weight1+1.0*weight2) 
     thisexper.irregularVary( 'fg0', fgUsed, 5)
+    thisexper.irregularVary( 'fg0mult', fg0mult)
     thisexper.irregularVary( 'Mh0', Mhz0, 5)
     fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (0.8*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
     thisexper.irregularVary('fcool', fcools, 5)
@@ -197,13 +198,13 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     thisexper.irregularVary( 'R', np.power(reff4/reff411, 1.0)*50* asls/0.042  , 5)
     bolweights =  np.random.random()
     thisexper.irregularVary('bolshoiWeight', bolweights ,5)
-    thisexper.irregularVary('dbg',2**4+2**1+2**0+2**13 + 2**7)
     thisexper.irregularVary('Noutputs',400)
     thisexper.irregularVary('zstart',3.98)
     thisexper.irregularVary('zrelax',4.0)
-    thisexper.irregularVary('muNorm', 0.005*muNorm*np.power(Mhz0/1.0e12,-1.0), 5)
+    thisexper.irregularVary('muNorm', muNorm, 5)
     thisexper.irregularVary('muFgScaling', muFgScaling)
     thisexper.irregularVary('muColScaling', muColScaling)
+    thisexper.irregularVary('muMhScaling', muMhScaling)
     thisexper.irregularVary('fscatter', 1.0)
     thisexper.irregularVary('accCeiling',accCeiling)
     thisexper.irregularVary('NPassive',4)
@@ -211,14 +212,18 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     thisexper.irregularVary('xmin',0.001)
     thisexper.irregularVary('yREC',0.03)
     thisexper.irregularVary( 'nx', 256 ) # FFT o'clock.
-    ZLee = np.power(10.0, 5.65 + 0.3*np.log10(mst) - 8.7 ) # Z in Zsun
+    ZLee = np.power(10.0, 5.65 + chiZslope*np.log10(mst/1.0e10) + 0.3*np.log10(1.0e10) - 8.7 ) # Z in Zsun
     thisexper.irregularVary('ZIGM', ZIGMfac*0.05*ZLee*0.02, 5)
+    thisexper.irregularVary('ZIGMfac', ZIGMfac)
+    thisexper.irregularVary('chiZslope', chiZslope)
+    thisexper.irregularVary('deltaBeta', initialSlope)
     thisexper.irregularVary('concentrationRandomFactor', conRF) ## units of dex! # 0.7
 
     thisexper.irregularVary('whichAccretionHistory', -112)
     thisexper.irregularVary('ksuppress', 10.0 )
     thisexper.irregularVary('kpower', 2.0)
-    thisexper.irregularVary('dbg',2**1+2**0+2**13 + 2**7 + 2**5 + 2**16 + 2**2 )  
+    #thisexper.irregularVary('dbg',2**1 + 2**0 + 2**4 + 2**13 + 2**7 + 2**5 + 2**16 + 2**2 + 2**10 )  
+    thisexper.irregularVary('dbg', 2**0 + 2**1 + 2**2 + 2**4 + 2**5 + 2**6 + 2**7 + 2**10 + 2**16 )
     thisexper.irregularVary('fscatter', 1.0)
     thisexper.irregularVary('MQuench', 2.0e12)
     thisexper.irregularVary('epsquench', epsquench)
@@ -237,7 +242,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
 
 def lnprior(emceeparams):
 
-    Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac = emceeparams
+    Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
     accum = 0.0
 
@@ -248,11 +253,11 @@ def lnprior(emceeparams):
     accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muColScaling, 0.0, 2.0**2.0 / varRedFac )
-    accum += lnnormaldensity( muFgScaling, 0.0, 2.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( muNorm, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muMhScaling, -1.0, 1.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
+    accum += lnnormaldensity( muColScaling, 0.0, 1.0**2.0 / varRedFac )
+    accum += lnnormaldensity( muFgScaling, 0.0, 1.0**2.0 / varRedFac )
+    accum += lnlognormaldensity( muNorm, np.log(.1), np.log(10.0)**2.0/ varRedFac )
+    accum += lnnormaldensity( muMhScaling, -.5, 1.0**2.0 / varRedFac )
+    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
     accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
     accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( Qf, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
@@ -262,10 +267,11 @@ def lnprior(emceeparams):
     accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
     accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
     accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
-    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(2.0)**2.0 / varRedFac )
+    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(10.0)**2.0 / varRedFac )
     accum += lnnormaldensity( scaleAdjust, 0.5, 0.5**2 /varRedFac)
     accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
     accum += lnlognormaldensity( enInjFac, np.log(1.0), np.log(3.0)**2.0/varRedFac)
+    accum += lnnormaldensity( chiZslope, 0.3, 0.2**2.0/varRedFac)
 
     if not np.isfinite(accum):
         return -np.inf
@@ -296,6 +302,7 @@ def samplefromposterior():
     return [ samplefromloguniformdensity(5.0e9, 2.0e13) ] + list(out[:-2])
 
 def samplefromprior():
+    varRedFac = 1.0
 
     return [ \
         samplefromloguniformdensity( 5.0e9, 2.0e13),
@@ -303,11 +310,11 @@ def samplefromprior():
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromnormaldensity( 0.0, 2.0**2.0 / varRedFac ),
-        samplefromnormaldensity( -0.0, 2.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac),
-        samplefromnormaldensity( -1.0, 1.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac ),
+        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
+        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
+        samplefromlognormaldensity( np.log(.1), np.log(10.0)**2.0/ varRedFac),
+        samplefromnormaldensity( -.5, 1.0**2.0 / varRedFac ),
+        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac ),
         samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
         samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
@@ -317,10 +324,11 @@ def samplefromprior():
         samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
         samplefrombetadensity( 1.0, 2.0*varRedFac ),
-        samplefromlognormaldensity( np.log(1.0e-2), np.log(2.0)**2.0/varRedFac),
+        samplefromlognormaldensity( np.log(1.0e-2), np.log(10.0)**2.0/varRedFac),
         samplefromnormaldensity( 0.5, 0.5**2/varRedFac), 
         samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac)  ]
+        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac),  
+        samplefromnormaldensity( 0.3, 0.2**2.0/varRedFac) ]
 
 
 
@@ -353,7 +361,7 @@ def lnlikelihoodRehash(emceeparams, modelname=None):
         expertorun, name = emceeparameterspacetogidgetexperiment(emceeparams)
 
         # run the experiment.
-        expertorun.localRun(1,0,maxTime=3600*3)
+        expertorun.localRun(1,0,maxTime=3600*2)
     else:
         name = modelname
 
@@ -375,7 +383,7 @@ def lnlikelihoodRehash(emceeparams, modelname=None):
 
 def lnlikelihood(emceeparams, modelname=None):
     # set up the experiment
-    Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac = emceeparams
+    Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams
 
     time0 = time.time()
@@ -418,6 +426,7 @@ def lnlikelihood(emceeparams, modelname=None):
 
 
 
+    # 200 + 1 + 24
     outputList = list(emceeparams)+[successfullyRun]+list(toFit)
     np.savetxt( analysisdir+'/'+name+'_sampleInfo.txt', outputList )
 
@@ -727,12 +736,12 @@ def run(n, p00=None, nwalkers=500):
 
 
     fn = chaindirrel+'.pickle'
-    ndim = 18
+    ndim = 24
 
     if p00 is not None:
         p0 = [p00*(1.0+0.01*np.random.randn( ndim )) for i in range(nwalkers)]
     else:
-        p0 = [samplefromposterior() for i in range(nwalkers)]
+        p0 = [samplefromprior() for i in range(nwalkers)]
 
     restart = {}
     restart['currentPosition'] = p0
@@ -1036,7 +1045,7 @@ if __name__=="__main__":
 
    
     #run(400, nwalkers=1024,p00=xmax) 
-    run(2, nwalkers=65536) 
+    run(2, nwalkers=131072)
     #rerunPosteriorPredictive()
 
     if False:

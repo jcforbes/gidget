@@ -5,10 +5,10 @@ import numpy as np
 
 andirec = os.environ['GIDGETDIR']+'/analysis/' 
 
-SIs = glob.glob( andirec + '*_sampleInfo.txt' )
+SIs = glob.glob( andirec + 'broadDistr21*_sampleInfo.txt' )
 
 nchar = 4+4+7
-ncol = 1000+23+1+200
+ncol = 1000+24+1+200
 
 arr = np.zeros((ncol, len(SIs) ))
 
@@ -23,11 +23,17 @@ for k,si in enumerate(SIs):
         f.readline()
         for i in range(1000):
             line = f.readline()
-            if len(line)==4:
+            if len(line.split())==5:
 	        inputs[i] = float(line.split()[0])
+            else:
+                print "WARNING: not adding line with length ", len(line), line
     arr[:len(thisSI),k] = thisSI[:]
     arr[len(thisSI):,k] = inputs[:]
+
+counter = np.ones(len(SIs))
+successes = np.sum(counter[ arr[-1003,:]>0 ])
+print "Success rate: ", successes, " of ",len(counter)
     
-np.savetxt( 'broad18b_to_lasso.txt', arr.T )
+np.savetxt( 'broad20partial_to_lasso.txt', arr.T )
 
 

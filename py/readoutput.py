@@ -289,8 +289,8 @@ class SingleModel:
                     'Noutputs','accNorm','accAlphaZ','accAlphaMh', \
                     'accCeiling','fscatter','invMassRatio','fcool', \
                     'whichAccretionProfile','alphaAccretionProfile', \
-                    'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','yREC', \
-                    'concentrationRandomFactor','muFgScaling','ksuppress', 'kpower', \
+                    'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','fg0mult','ZIGMfac','chiZslope','yREC', \
+                    'concentrationRandomFactor','muFgScaling','muMhScaling','ksuppress', 'kpower', \
                     'MQuench','epsquench','muQuench','stScaleReduction','gaScaleReduction','ZMix', \
                     'energyInjectionFactor']
             params=[]

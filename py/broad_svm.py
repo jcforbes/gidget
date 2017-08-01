@@ -322,8 +322,8 @@ def residualsFromGidget(bn, fh=0.3):
     else:
         return [],[]
 
-#models17 = [ pickle.load( open( 'rfnt17full_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
-models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+models17 = [ pickle.load( open( 'rfnt17f_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+#models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
 
@@ -354,7 +354,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
         if i%2==0:
             xmaxThis[-1] = 0.0
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models1718b) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models17) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -436,9 +436,10 @@ def lnlikelihood(emceeparams, models=None):
         neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
         for j in range(80):
             if j in neededModels:
-                Y_eval[0,j] = predictFill(models1718b[j], X1, k)[0][j]
+                Y_eval[0,j] = predictFill(models17[j], X1, k)[0][j]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
-        lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
+        #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
+        lnlik += np.sum( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=True) )
 
 
     print "Returning lnlik = ", lnlik, "for emceeparams ",emceeparams
@@ -745,7 +746,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     print "Shape of sampleRed: ", np.shape(sampleRed)
 
 
-def runEmcee(mpi=False, continueRun=False):
+def runEmcee(mpi=False, continueRun=False, seedWith=None):
     import sys
     if mpi:
         from mpi4py import MPI
@@ -764,11 +765,23 @@ def runEmcee(mpi=False, continueRun=False):
     
     ndim, nwalkers = 24, 1000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc1718b_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc17g_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
     #p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
     p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
+
+    if seedWith is not None:
+        if os.path.isfile(seedWith):
+            with open(seedWith,'rb') as f:
+                tmp_dict = pickle.load(f)
+                seedPosition = tmp_dict['currentPosition']
+                p0 = copy.deepcopy(seedPosition)
+                # if we need more positions for walker seeds, try just averaging.
+                if len(seedPosition)<nwalkers:
+                    for i in range(nwalkers-len(seedPosition)):
+                        selec = np.random.choice( range(len(p0)), size=2, replace=False )
+                        p0.append( (np.array(p0[selec[0]] ) + np.array(p0[selec[1]]))/2.0 )
 
     restart['currentPosition'] = p0
     restart['chain' ] = None
@@ -2462,7 +2475,7 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    runEmcee(mpi=True, continueRun=False)
+    runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc17f_restart.pickle' )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 

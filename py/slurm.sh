@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name fmc18
-#SBATCH -n 128 
+#SBATCH --job-name fmc17f
+#SBATCH -n 201 
 #SBATCH -t 4-00:00
 #SBATCH -p general
 #SBATCH --mem-per-cpu=3500
@@ -9,5 +9,5 @@
 
 module load python/2.7.13-fasrc01
 
-mpirun -n 128 python broad_svm.py > estd.${SLURM_JOB_ID}.out 
+mpirun -n 201 python broad_svm.py > estd.${SLURM_JOB_ID}.out 
 

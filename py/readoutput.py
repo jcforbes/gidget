@@ -37,6 +37,7 @@ gperH = 1.008*1.66053892e-24
 #cm = plt.get_cmap('gnuplot_r')
 cmPer = plt.get_cmap('spring')
 cm = plt.get_cmap('viridis') # try it out
+#cm = plt.get_cmap('plasma') # try it out
 
 # a convenient set of colors
 discretecolors=['k','b','r','g','orange','purple','pink','lightblue','lightgreen','m','olive','darkblue','tan','slateblue', 'tomato']*10
@@ -44,7 +45,6 @@ discretecolors=['k','b','r','g','orange','purple','pink','lightblue','lightgreen
 outward = [0,1,-1,2,-2,3,-3,4,-4]
 
 gidgetdir = os.environ['GIDGETDIR']+'/'
-
 
 
 
@@ -447,6 +447,9 @@ class SingleModel:
                 2.0*pi*cmperkpc*self.p['R']/(1.0e5*self.p['vphiR']*speryear*1.0e9), \
                 'Time since zstart (Gyr)',log=False)
         self.nt = len(self.evarray[:,1])
+        dt = np.abs( self.var['t'].cgs(timeIndex=range(1,self.nt)) - self.var['t'].cgs(timeIndex=range(self.nt-1)) )
+        dt = [dt[0]]+list(dt)
+        self.var['dt'] = TimeFunction( dt, 'dt', cgsConv=1.0, sensibleConv=1.0/speryear, texString=r'$dt$ (yr)')
         self.var['z'] = TimeFunction(np.copy(self.evarray[:,9]),'z',1,1,'z',log=False)
         self.var['onePlusZ'] = TimeFunction(self.var['z'].cgs()+1.0, 'onePlusZ', 1, 1, r'$1+z$', log=True)
         self.var['r'] = RadialFunction( \
@@ -607,8 +610,16 @@ class SingleModel:
                 self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + ## try a version where we don't add this in
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
+	mcfilter = self.var['mCentral'].cgs()/self.var['mstar'].cgs()>0.05
+        self.var['mCentral'].arr[mcfilter]=0.0 ### a horrifying hack to get around the fact that dwarf galaxies are unresolved b/c of too-large radii
+
+        self.var['mstar'] = TimeFunction( \
+                self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + ## try a version where we don't add this in
+                np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
 
         self.var['stellarHaloFraction'] = TimeFunction( self.var['mStellarHalo'].sensible()/self.var['mstar'].sensible(), 'stellarHaloFraction', 1.0, 1.0, r'$M_{*,\mathrm{halo}}/M_*$', log=False)
+     
         mstdist = np.column_stack( (self.var['mCentral'].cgs()  , self.var['colst'].cgs()*self.var['dA'].cgs()) ) # stellar mass in each bin
         mstcu = np.cumsum(mstdist, axis=1) #
         gascu = np.cumsum( self.var['col'].cgs()*self.var['dA'].cgs(), axis=1 )
@@ -806,6 +817,9 @@ class SingleModel:
                 +np.sum( self.var['dA'].sensible()*self.var['colsfr'].sensible(), 1 ), \
                 'sfr',gpermsun/speryear, 1.0, r'$\dot{M}_\mathrm{SF}\ (M_\odot\ \mathrm{yr}^{-1}$)', theRange=[5.0e-5,1.0e3])
 
+
+        self.var['mstarIntegrated'] = TimeFunction( np.cumsum(self.var['sfr'].cgs()*self.var['dt'].cgs()), 'mstarIntegrated', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$\int \mathrm{SFR} dt$')
+
         self.var['sigmaPerSFR'] = TimeFunction( np.sqrt(self.var['maxsig'].sensible()**2.0 - 7.601**2.0)/self.var['sfr'].sensible(), 'sigmaPerSFR', sensibleConv=1.0, cgsConv=1.0e5/(gpermsun/speryear), texString=r'$\sigma_\mathrm{max}/\mathrm{SFR} (\mathrm{km}/\mathrm{s}/(M_\odot/\mathrm{yr}))$' , theRange=[0.1,50.0])
         onekpc = np.searchsorted( self.var['r'].sensible(timeIndex=-1), 1.0 )+1
         if onekpc>=self.p['nx']:
@@ -927,10 +941,30 @@ class SingleModel:
                 'vPhiStars',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'Stellar mass weighted $v_\phi$', log=True)
         self.var['vPhiOuter'] = TimeFunction( \
                 self.var['vPhi'].cgs(locIndex=-1), 'vPhiOuter',cgsConv=1.0,sensibleConv=1.0e-5,texString=r'$v_\phi(r=R)$', log=True)
+        self.var['MHII'] = TimeFunction( self.var['mgas'].cgs()-self.var['MHI'].cgs()-self.var['MH2'].cgs(), 'MHII', cgsConv=1, sensibleConv=1.0/gpermsun, texString=r'$M_{\mathrm{HII}} (M_\odot)$')
         self.var['vOverSigGlobal'] = TimeFunction( self.var['vPhiOuter'].cgs()/self.var['maxsig'].cgs() , 'vOverSigGlobal', sensibleConv=1.0, cgsConv=1.0, texString=r'$v_\phi/\sigma_\mathrm{max}$' )
         self.var['integratedMLF'] = TimeFunction( \
                 np.sum(self.var['MassLoadingFactor'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs(),axis=1)/self.var['sfr'].cgs(),
                 'integratedMLF',cgsConv=1.0,sensibleConv=1.0,texString=r'Mass loading factor')
+        fRinst = 0.77
+        denom = self.var['MassLoadingFactor'].cgs()
+        mask = denom<1-fRinst
+        denom[mask] = 1-fRinst
+        yie = 0.0133 * 2.09 + 0.0011 * 1.06
+
+        self.var['ZWind'] = TimeFunction( \
+                np.sum( (self.var['Z'].cgs() + self.p['xiREC']*yie/denom) *   self.var['MassLoadingFactor'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs(),axis=1)/(self.var['integratedMLF'].cgs()*self.var['sfr'].cgs()),
+                'ZWind',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_w/Z_\odot$')
+        self.var['ZOutZSF'] = TimeFunction( self.var['ZWind'].cgs() * self.var['integratedMLF'].cgs()/yie, 'ZOutZSF', cgsConv=1.0, sensibleConv=1.0, texString=r'$\mu Z_w/y$')
+        self.var['metalMassCGM'] = TimeFunction( np.cumsum( self.var['dt'].cgs() * self.var['integratedMLF'].cgs() * self.var['sfr'].cgs()* self.var['ZWind'].cgs() ), 'metalMassCGM', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$\int \dot{M}_{\mathrm{out},Z} dt$')
+        self.var['mOut'] = TimeFunction( np.cumsum( self.var['dt'].cgs() * self.var['integratedMLF'].cgs() * self.var['sfr'].cgs() ), 'mOut', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$ M_{\mathrm{out}}$')
+        self.var['metalMassISM'] = TimeFunction( np.sum( self.var['Z'].cgs() * self.var['dA'].cgs() * self.var['col'].cgs(), axis=1)/self.var['mgas'].cgs(), 'metalMassISM', cgsConv=1.0, sensibleConv=1/0.02, texString=r'$M_{Z,ISM}$' )
+        self.var['metalMassSFR'] = TimeFunction( np.sum( self.var['Z'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs() *self.var['dA'].cgs()*self.var['col'].cgs(), axis=1)/ np.sum( self.var['dA'].cgs()*self.var['col'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs(), axis=1), 'metalMassSFR' , cgsConv=1.0, sensibleConv=1/0.02, texString=r'$M_{Z,SF}$' )
+	self.var['metalsCGMpISM'] = TimeFunction( self.var['metalMassCGM'].cgs()/self.var['metalMassISM'].cgs(), 'metalsCGMpISM', texString=r'$M_{Z,CGM}/M_{Z,ISM}$')
+        self.var['ZOutZDisk'] = TimeFunction( self.var['ZWind'].cgs() * self.var['integratedMLF'].cgs()/ self.var['sfZ'].cgs() , 'ZOutZSF', cgsConv=1.0, sensibleConv=1.0, texString=r'$\mu Z_w/Z_\mathrm{disk}$')
+
+	self.var['tLoss'] = TimeFunction(self.var['tdep'].cgs()/(self.var['integratedMLF'].cgs()+0.503), 'tLoss', cgsConv=1.0, sensibleConv=1.0/speryear, texString=r'$t_\mathrm{loss} (\mathrm{yr})$')
+
         mJeansMask = np.zeros(np.shape(self.var['sig'].sensible()),dtype=float)
         mJeansMask[self.var['fH2'].sensible()>0.1] = 1.0
         self.var['MJeans'] = RadialFunction( \
@@ -1525,7 +1559,7 @@ class Experiment:
             
 
 
-    def radialPlot(self,timeIndex=None,variables=None,colorby=None,percentiles=None,logR=False,scaleR=False,movie=True, axIn=None, light=False):
+    def radialPlot(self,timeIndex=None,variables=None,colorby=None,percentiles=None,logR=False,scaleR=False,movie=True, axIn=None, light=False, color=None):
         ''' Plot quantities vs radius. '''
         if(variables is None):
             variables = self.models[0].getRadialFunctions()
@@ -1723,8 +1757,11 @@ class Experiment:
                 for k in plotModels:
                     model = self.models[k]
                     #try:
-                    ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm)
-                    ax.scatter( r[k][0]/2.0, model.var[v].inner( timeIndex=ti ), c=theRGB[k], s=30, lw=1 ) # plot the innermost point?
+                    if color is None:
+                        ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm)
+                    else:
+                        ax.plot(r[k],theVar[k],c=color,lw=2.0/lwnorm)
+                    #ax.scatter( r[k][0]/2.0, model.var[v].inner( timeIndex=ti ), c=theRGB[k], s=30, lw=1 ) # plot the innermost point?
                     if v=='colst':
                         pass
                         #ax.plot(r[k], theVar[k][len(theVar[k])/2] *  np.exp( -r[k] / model.getData('scaleLength',timeIndex=ti)),ls='--')
@@ -2105,356 +2142,6 @@ class Experiment:
         import balanceplot
         balanceplot.budgetAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
         balanceplot.balanceAM(self.models, name=self.name, sortby='Mh0', ncols=5, nrows=3)
-    def quickCheck(self):
-        ''' Take a look at Mh vs M_*, and a variety of other easy diagnostics:
-                M_* vs. ReSF, ReMst, Z_g, Z_SF, fg, fgh2, vPhi, sfr, Sigma1 '''
-        skip6 = range(1,len(self.models[0].var['z'].sensible()),6)
-        #self.ptMovie(xvar='Mh', yvar=['mstar'],colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
-        #self.ptMovie(xvar='mstar', yvar=['halfMassStars','halfMassSFR','integratedZ','sfZ','Z1','fg','fgh2','fghm','vPhiOuter','sfr','Sigma1','gasToStellarRatio','gasToStellarRatioH2'], colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
-        #self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
-        #self.ptMovie(xvar='Sigma1p5', yvar=['sSFR'],colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
-
-        # Same as the GIFs above, but try to make it more suitable for a paper
-        zinds = [ Nearest( self.models[0].var['z'].sensible(), z)[0] for z in [0,1,2,3,4]]
-        self.ptMovie(xvar='Mh', yvar=['mstar'],colorby='Mh0',prev=0,timeIndex=zinds, movie=False)
-        self.ptMovie(xvar='mstar', yvar=['halfMassStars','halfMassSFR','integratedZ','sfZ','Z1','fg','fgh2','fghm','vPhiOuter','sfr','Sigma1','gasToStellarRatio','gasToStellarRatioH2','c82'], colorby='z',prev=0,timeIndex=zinds, movie=False)
-        self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby='z',prev=0,timeIndex=zinds, movie=False)
-        self.ptMovie(xvar='Sigma1p5', yvar=['sSFR'],colorby='z',prev=0,timeIndex=zinds, movie=False)
-
-        #colorby = 'Mh0'
-        colorby = 'experIndex'
-
-        # just try making the plots you want directly!
-        fig,ax = plt.subplots(1,4, figsize=(8,4.5))
-        fig.subplots_adjust(wspace=0.01, hspace=0.3, bottom=0.18)
-        for j in range(4):
-            self.ptMovie(xvar='Mh', yvar=['mstar'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[j], textsize=6)
-            ax[j].set_title( r'$z=$'+str(j))
-            #self.ptMovie(xvar='Rvir', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            #self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-        for j in range(4):
-            for i in range(1):
-                if j>0:
-                    ax[j].set_ylabel('')
-                    ax[j].get_yaxis().set_ticks([])
-            ax[j].get_xaxis().set_ticks([1.0e11,1.0e13])
-        plt.savefig(self.name+'_calibration0.pdf')
-        plt.close(fig)
-
-        fig,ax = plt.subplots(5,4, figsize=(8,8))
-        fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.ptMovie(xvar='mstar', yvar=['sSFR'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['stZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['gasToStellarRatioH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['gasToStellarRatioHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6)
-
-            #ax[2,j].text(1.0e10, 1.0e-1, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(5):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-                if i<4:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
-            ax[4,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration1.pdf')
-        plt.close(fig)
-            
-
-
-        fig,ax = plt.subplots(4,4, figsize=(8,7))
-        fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.ptMovie(xvar='mstar', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['vPhi22'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['c82'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['Sigma1'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(4):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-                if i<3:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
-            ax[3,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration2.pdf')
-        plt.close(fig)
-
-
-        ### Not really callibration, but the same sort of plots
-        fig,ax = plt.subplots(4,4, figsize=(8,7))
-        fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.ptMovie(xvar='mstar', yvar=['specificJStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['specificJH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['specificJHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['specificJAccr'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            #ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(4):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-                if i<3:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
-            ax[3,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration3.pdf')
-        plt.close(fig)
-
-
-        ### Not really callibration, but the same sort of plots
-        fig,ax = plt.subplots(4,4, figsize=(8,7))
-        fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.ptMovie(xvar='mstar', yvar=['metallicityGradient2kpc'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['metallicityGradientR90'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['metallicityGradient'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['massWeightedMetallicityGradient'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            #ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(4):
-                ax[i,j].axhline(0.0, c='gray', ls='--') # Mark zero.
-                kmosMasses = np.power(10.0, np.linspace(9.88,11.13, 20))
-                kmosMedian = kmosMasses*0 - 0.008
-                if j==1 or j==2:
-                    ax[i,j].fill_between( kmosMasses, kmosMedian-0.04, kmosMedian+0.04, facecolor='r', alpha=0.3) 
-                    ax[i,j].plot( kmosMasses, kmosMedian, c='r', label='Wuyts16')
-                if j==2:
-                    jonesMstars = np.power(10.0, np.array([9.4, 9.1, 9.9, 10.1]))
-                    J0744means = np.array([-0.06, -0.13, 0.02, 0.02, 0.10])
-                    J0744stds = np.array([0.04, 0.05, 0.04, 0.04, 0.07])
-                    J1038means = np.array([0.08, 0.15, 0.25, 0.31, 0.37])
-                    J1038stds = np.array([0.03, 0.07, 0.07, 0.08, 0.09])
-                    J1148means = np.array([-0.28, -0.51, -0.33, -0.37, -0.37])
-                    J1148stds = np.array([ 0.05, 0.11, 0.12, 0.11, 0.19])
-                    J1206means = np.array([-0.25, -0.45, -0.40, -0.46, -0.40])
-                    J1206stds = np.array([0.06, 0.08, 0.08, 0.08, 0.11])
-                    ax[i,j].errorbar([jonesMstars[0]], np.mean(J0744means), yerr=np.sqrt(np.var(J0744means)+np.mean(J0744stds*J0744stds)) , c='b', label='Jones13', fmt='o')
-                    ax[i,j].errorbar([jonesMstars[1]], np.mean(J1038means), yerr=np.sqrt(np.var(J1038means)+np.mean(J1038stds*J1038stds)) , c='b', fmt='o')
-                    ax[i,j].errorbar([jonesMstars[2]], np.mean(J1148means), yerr=np.sqrt(np.var(J1148means)+np.mean(J1148stds*J1148stds)) , c='b', fmt='o')
-                    ax[i,j].errorbar([jonesMstars[3]], np.mean(J1206means), yerr=np.sqrt(np.var(J1206means)+np.mean(J1206stds*J1206stds)) , c='b', fmt='o')
-                if j==0:
-                    ax[i,j].fill_between( [10**8.4, 10**11.37], [-.041-0.03]*2,[-0.041+0.03]*2, facecolor='k', alpha=0.3)
-                    ax[i,j].plot( [10**8.4, 10**11.37], [-.041]*2, c='k', label='Rupke10')
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-                if i<3:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
-            ax[3,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration4.pdf')
-        plt.close(fig)
-
-        ### Not really callibration, but the same sort of plots
-        fig,ax = plt.subplots(5,4, figsize=(8,8))
-        fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.ptMovie(xvar='mstar', yvar=['MJeansAvg'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['BTcen'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['mdotBulgeG'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['stellarHaloFraction'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6)
-            #ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(5):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-                if i<4:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
-            ax[4,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration5.pdf')
-        plt.close(fig)
-
-
-        fig,ax = plt.subplots(4,4, figsize=(8,6))
-        fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.ptMovie(xvar='mstar', yvar=['fractionGI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['tdep'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['tDepH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='mstar', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            #self.ptMovie(xvar='mstar', yvar=['v1kpc'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            #self.ptMovie(xvar='mstar', yvar=['v1PerSFR'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6)
-            #self.ptMovie(xvar='mstar', yvar=['vOverSigGlobal'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[5,j], textsize=6)
-            #ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(4):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-                if i<3:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
-            ax[2,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
-        plt.savefig(self.name+'_calibration6.pdf')
-        plt.close(fig)
-
-
-        fig,ax = plt.subplots(6,4, figsize=(8,10))
-        fig.subplots_adjust(wspace=0.01, hspace=0.45)
-        #cax = fig.add_axes([.9, .1, .05, .12])
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            #self.ptMovie(xvar='sfr', yvar=['LXProxy'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            self.ptMovie(xvar='sfr', yvar=['sfsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
-            self.ptMovie(xvar='sfr', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            #self.ptMovie(xvar='mbar', yvar=['vPhiOuter'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
-            self.ptMovie(xvar='stellarToGasMass', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6)
-            self.ptMovie(xvar='Mh', yvar=['integratedMLF'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[5,j], textsize=6)
-            #ax[1,j].text(1.0e7, 2.0, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(5):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-        plt.savefig(self.name+'_calibration7.pdf')
-        plt.close(fig)
-
-
-
-        #percentiles=[16,50,84]
-        percentiles=None
-        fig,ax = plt.subplots(5,4, figsize=(8,9))
-        fig.subplots_adjust(wspace=0.01, hspace=0.03)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.radialPlot(timeIndex=[zinds[j]],variables=['colst'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[0,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['colsfr'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[1,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['sSFRRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[2,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['colH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[3,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['colHI'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[4,j])
-            #ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(5):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].get_yaxis().set_ticks([])
-                if i<4:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].get_xaxis().set_ticks([])
-        plt.savefig(self.name+'_calibration8.pdf')
-        plt.close(fig)
-
-
-        fig,ax = plt.subplots(6,4, figsize=(8,9))
-        fig.subplots_adjust(wspace=0.01, hspace=0.03)
-        for j in range(4):
-            ax[0,j].set_title( r'$z=$'+str(j))
-            self.radialPlot(timeIndex=[zinds[j]],variables=['Z'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[0,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['fH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[1,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['sig'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[2,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['hGas'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[3,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['ageRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[4,j])
-            self.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[5,j])
-            #ax[2,j].text(2, 70.0, r'$z=$'+str(j))
-        for j in range(4):
-            for i in range(6):
-                if j>0:
-                    ax[i,j].set_ylabel('')
-                    ax[i,j].set_yticks([])
-                if i<5:
-                    ax[i,j].set_xlabel('')
-                    ax[i,j].set_xticks([])
-        plt.savefig(self.name+'_calibration9.pdf')
-        plt.close(fig)
-
-
-        fig,ax = plt.subplots(1,1, figsize=(6,6))
-        #self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='rx', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
-        for model in self.models:
-            inner = model.var['rx'].sensible(timeIndex=zinds[0])<2.0 # within 1 half mass radius
-            ax.plot( model.var['gbar'].sensible(timeIndex=zinds[0])[inner], model.var['gtot'].sensible(timeIndex=zinds[0])[inner], c=cm((np.log10(model.var['mstar'].sensible(timeIndex=zinds[0]))-9)/3.0 ) )
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.set_xlim(1.0e-12, 3.0e-8)
-        ax.set_ylim(1.0e-12, 3.0e-8)
-        ax.set_xlabel(r'$g_\mathrm{bar} (\mathrm{m}/\mathrm{s}^2$')
-        ax.set_ylabel(r'$g_\mathrm{tot} (\mathrm{m}/\mathrm{s}^2$')
-
-        gbars = np.power(10.0, np.linspace(-12,-8, 100))
-        gdagger = 1.20e-10
-        gobss = gbars/(1.0 - np.exp(-np.sqrt(gbars/gdagger)))
-        ax.plot( gbars, gbars, ls='--', c='gray', lw=3)
-        ax.plot( gbars, gobss, label='McGaugh16', ls='-', c='b', lw=3 )
-        ax.legend(loc=0)
-        plt.savefig(self.name+'_calibration10.pdf')
-        plt.close(fig)
-
-        fig,ax = plt.subplots(1,1, figsize=(6,6))
-        self.ptMovie(xvar='ageRadial', yvar=['colst'], colorby='mstar', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
-        plt.savefig(self.name+'_calibration11.pdf')
-        plt.close(fig)
-
-        fig,ax = plt.subplots(1,1, figsize=(6,6))
-        self.ptMovie(xvar='ageRadial', yvar=['sigstR'], colorby='mstar', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
-        plt.savefig(self.name+'_calibration12.pdf')
-        plt.close(fig)
-
-
-        fig,ax = plt.subplots(1,1, figsize=(6,6))
-        self.ptMovie(xvar='colst', yvar=['colsfr'], colorby='mstar', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
-        plt.savefig(self.name+'_calibration13.pdf')
-        plt.close(fig)
-
-
-        fig,ax = plt.subplots(1,2, figsize=(8,5))
-        self.radialPlot(timeIndex=[zinds[0]], variables=['ageRadial'], colorby='Mh0', percentiles=None, logR=False, scaleR=True, light=True, movie=False, axIn=ax[0])
-        self.radialPlot(timeIndex=[zinds[0]], variables=['colst'], colorby='Mh0', percentiles=None, logR=False, scaleR=True, light=True, movie=False, axIn=ax[1])
-        plt.savefig(self.name+'_calibration14.pdf')
-        plt.close(fig)
-
-        fig,ax = plt.subplots(2,4, figsize=(8,6))
-        fig.subplots_adjust(wspace=0.04, hspace=0.05)
-        for j in range(4):
-            for model in self.models:
-                ax[0,j].set_title( r'$z=$'+str(j))
-                ax[0,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colstNormalizedKravtsov'].cgs(timeIndex=zinds[j]), c=cm((np.log10(model.p['Mh0'])-10.0)/3.0), alpha=1.0, lw=1 )
-                kravtsovr = np.linspace(0,6, 200)
-                kravtsovcolst = 0.6308*np.exp(-kravtsovr/(0.011/0.015))
-                kravtsovcol = 0.099944*np.exp(-kravtsovr/(0.029/0.015))
-                ls = '-'
-                if j>0:
-                    ls=':'
-                ax[0,j].plot( kravtsovr, kravtsovcolst, lw=2, c='k', ls=ls)
-                ax[1,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colNormalizedKravtsov'].cgs(timeIndex=zinds[j]), c=cm((np.log10(model.p['Mh0'])-10.0)/3.0), alpha=1.0, lw=1 )
-                ax[1,j].plot( kravtsovr, kravtsovcol, lw=2, c='k', ls=ls)
-            ax[0,j].set_xlim(0,5.97)
-            ax[1,j].set_xlim(0,5.97)
-            ax[0,j].set_ylim(1.0e-4, 10.0)
-            ax[1,j].set_ylim(1.0e-4, 10.0)
-            ax[0,j].get_xaxis().set_ticklabels([])
-            ax[0,j].set_yscale('log')
-            ax[1,j].set_yscale('log')
-            ax[1,j].set_xlabel(r'$r/(0.015 R_\mathrm{vir})$')
-            if j>0:
-                ax[0,j].get_yaxis().set_ticklabels([])
-                ax[1,j].get_yaxis().set_ticklabels([])
-        ax[0,0].set_ylabel(self.models[0].var['colstNormalizedKravtsov'].texString)
-        ax[1,0].set_ylabel(self.models[0].var['colNormalizedKravtsov'].texString)
-        plt.savefig(self.name+'_calibration15.pdf')
-        plt.close(fig)
-
-
-
-
-        ## To add: age-velocity dispersion correlation?
 
 
     def krumholzAnalysis(self):
@@ -2956,7 +2643,7 @@ class Experiment:
 
 
 
-    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True, axIn=None, textsize=10, caxIn=None, arrows=False):
+    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True, axIn=None, textsize=10, caxIn=None, arrows=False, color=None, plotObs=False):
         if(yvar is None):
             variables = self.models[0].getTimeFunctions()
         else:
@@ -2969,6 +2656,7 @@ class Experiment:
 
         overallX,_,overallXLog,overallXRange = self.constructQuantity(xvar)
         colors,_,log,overallColorRange = self.constructQuantity(colorby)
+
         # Make sure that the X variable is a 2-d array (model x time). If it's e.g. a 
         # parameter, it will only have one dimension indexing the number of models.
         if(len(np.shape(overallX))==1):
@@ -3028,7 +2716,7 @@ class Experiment:
                     s=30
                 else:
                     lw=1
-                    s=150.0/(1+3.0*np.log10(float(len(timeIndex)*len(self.models))))
+                    s=150.0/(1+5.0*np.log10(float(len(timeIndex)*len(self.models))))
                 nx = int(model.p['nx'])
                 if v == 'Mdot':
                     nx+=1
@@ -3117,7 +2805,10 @@ class Experiment:
                         #overallColorRange=[0,2]
                         #s=2
                         pass
-                    sc = ax.scatter(xx,yy,c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm,lw=1,s=s)
+                    if color is None:
+                        sc = ax.scatter(xx,yy,c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm,lw=1,s=s)
+                    else:
+                        sc = ax.scatter(xx,yy,c=color,lw=1,s=s, edgecolors='k', alpha=0.4)
 
                     if arrows:
                         for xi, xxi in enumerate(xx):
@@ -3143,7 +2834,10 @@ class Experiment:
                     if(prev>0 and movie):
                         for k in range(max(ti-prev,0),ti):
                             #ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,cmap=cm,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1])
-                            ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
+                            if color is None:
+                                ax.scatter(overallX[:,k],overallVar[:,k],c=colorLoc,s=6,lw=0,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm)
+                            else:
+                                ax.scatter(overallX[:,k],overallVar[:,k],c=color,s=6,lw=0)
                 #if(xvar=='Mh' and v=='efficiency'):
                 #    b.plotSmmr(z[ti], ax, minMh=overallXRange[0], maxMh=overallXRange[1])
                 #elif (xvar=='Mh' and v=='mstar'):
@@ -3155,10 +2849,11 @@ class Experiment:
 
                 applicableDatasets, dsColorIndices = observationalData.identifyApplicableDatasets(xvar,v, z[ti])
                 systematicColors = [  'b', 'orange', 'purple', 'r', 'darkgreen', 'lightblue', 'k'] 
-                for ids, ds in enumerate(applicableDatasets):
-                    observationalData.datasets[ds].plot(z[ti], axIn=ax, color=systematicColors[dsColorIndices[ids]])
-                if len(applicableDatasets)>0:
-                    labelled=True
+                if plotObs:
+                    for ids, ds in enumerate(applicableDatasets) :
+                        observationalData.datasets[ds].plot(z[ti], axIn=ax, color=systematicColors[dsColorIndices[ids]])
+                    if len(applicableDatasets)>0 :
+                        labelled=True
 
 
                 if xvar=='gbar' and v=='gtot':
@@ -3678,7 +3373,8 @@ class Experiment:
             except:
                 pdb.set_trace() # Something is going wrong in the above and I don't know what!
         if nameIsParam:
-            theRange = [np.min(construction),np.max(construction)]
+            #theRange = [np.min(construction),np.max(construction)]
+            theRange = np.percentile(construction, (10,90))
         elif self.models[0].get(name).theRange is None:
             try:
                 theRange = [np.min(construction),np.max(construction)]
@@ -3779,7 +3475,6 @@ class Experiment:
             models=range(len(self.models))
         for i in models:
             self.models[i].p[keyname] = value
-
 
 
 

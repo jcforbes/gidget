@@ -82,7 +82,7 @@ class DataSet:
         self.logx = logx
         self.logy = logy
 
-    def plot(self, z, axIn=None, color='k', lw=2):
+    def plot(self, z, axIn=None, color='k', lw=2, scatter=False):
         ''' Plot the requested variables at redshift z. If z is outside the z
             range (specified by zmin, zmax in __init__), plot a dotted line instead'''
         if axIn is None:
@@ -93,7 +93,10 @@ class DataSet:
         if z<0.5:
             label=self.label
         if z>self.zmin and z<self.zmax:
-            ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-',label=label)
+            if not scatter:
+                ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-',label=label)
+            else:
+                ax.scatter(self.xval, self.yval, c=color, lw=lw, label=label, s=10)
             ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=self.alpha)
         else:
             ax.plot(self.xval, self.yval, c=color, lw=lw, ls=':',label=label)
@@ -132,6 +135,51 @@ class DataSet:
         inx = np.logical_and( np.min(xv) < xEval, xEval<np.max(xv) )
         ret = np.logical_and( np.logical_and( yfl<yEval, yEval < yfu ), inx)
         return ret
+    def returnQuantiles(self, x, fixedSigma=-1):
+        ''' Designed to sort-of replace the workflow specified below with distance. 
+            Return the 16th, 50th and 84th percentiles at the given x.'''
+        sigma = 1.0
+        xv = copy.deepcopy( self.xval )
+        yv = copy.deepcopy( self.yval )
+        yu = copy.deepcopy( self.yUpper )
+        yl = copy.deepcopy( self.yLower )
+        xEval = x
+        if len(xv)!=len(yv) or len(xv)!=len(yu) or len(xv)!=len(yl):
+            pdb.set_trace()
+        if self.logx:
+            xv = np.log10(xv)
+            xEval = np.log10(xEval)
+        if self.logy:
+            yv = np.log10(yv)
+            yu = np.log10(yu)
+            yl = np.log10(yl)
+        inx = np.logical_and( np.min(xv) < xEval, xEval<np.max(xv) )
+        outx = np.logical_not(inx)
+        belowx = xEval < np.min(xv)
+        abovex = xEval > np.max(xv)
+        inflate = np.ones(len(xv))
+        inflate[abovex] = np.exp(( xEval - np.max(xv))/2.0 )
+        inflate[belowx] = np.exp(-( xEval - np.min(xv))/2.0 )
+        try:
+            f = interp1d(xv,yv,kind='linear',bounds_error=False, fill_value='extrapolate')
+        except:
+            pdb.set_trace()
+        fu = interp1d(xv,yv+sigma*(yu-yv),kind='linear',bounds_error=False)
+        fl = interp1d(xv,yv-sigma*(yv-yl),kind='linear',bounds_error=False)
+        yf = f(xEval) # don't need this
+        yfu = fu(xEval)
+        yfl = fl(xEval)
+
+        if fixedSigma<=0:
+            yfl[belowx] = yf[belowx] - (yf[minvalid] - yfl[minvalid])*inflate[belowx]
+            yfl[abovex] = yf[abovex] - (yf[maxvalid] - yfl[maxvalid])*inflate[abovex]
+
+            yfu[belowx] = yf[belowx] + (yfu[minvalid]-yf[minvalid])*inflate[belowx]
+            yfu[abovex] = yf[abovex] + (yfu[maxvalid]-yf[maxvalid])*inflate[abovex]
+            return yfl, yf, yfu
+        else:
+            return yf-fixedSigma*inflate, yf, yf+fixedSigma*inflate
+
     def distance(self, x,y, fixedSigma=-1):
         ''' Return the distance in sigma (above or below) the relation'''
         sigma = 1.0
@@ -496,6 +544,22 @@ def defineBrinchmann(specific=True):
 
 def defineMS(z, specific=True):
 
+
+    if z<0.5:
+        ### from Cano-Di'az+ (2016) "Spatially Resolved STar Formation Main Sequence..."
+        ## Note that the code uses Msun/pc^2 for colst, but the data is in Msun/kpc^2
+        arr = np.loadtxt('CanoDiaz16_20p.csv', delimiter=',')
+        datasets['CanoDiaz16_20p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_20p')
+        arr = np.loadtxt('CanoDiaz16_40p.csv', delimiter=',')
+        datasets['CanoDiaz16_40p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_40p')
+        arr = np.loadtxt('CanoDiaz16_60p.csv', delimiter=',')
+        datasets['CanoDiaz16_60p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_60p')
+        arr = np.loadtxt('CanoDiaz16_80p.csv', delimiter=',')
+        datasets['CanoDiaz16_80p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_80p')
+
+
+
+
     cos = halo.Cosmology()
     mstSpeagle = np.power(10.0, np.linspace(9.7,11.1, 10)) # just linear - no need for a large number of samples
     psiSpeagle = (0.84 - 0.026*cos.age(z))*np.log10(mstSpeagle) - (6.51 - 0.11*cos.age(z))
@@ -642,8 +706,16 @@ def defineTullyFisher():
 
     sf = np.power(10.0, np.array([-3.1, -2.3, -1.4, -0.7, -0.0, 0.54, 0.89, 1.3, 1.67, 2.1]))
     sig = np.array([9.3, 11.5, 14.6, 14.8, 17.6, 21.6, 32.9, 53.5, 72.3, 87.6])
-    datasets['krumholz17'] = DataSet('sfr', 'sfsig', sf, sig, yLower=sig/2.0, yUpper=sig*2.0, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
-    datasets['krumholz17max'] = DataSet('sfr', 'maxsig', sf, sig, yLower=sig/2.0, yUpper=sig*2.0, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
+    arr = np.loadtxt('krumholz17_sigma_compilation.txt')
+    sf = np.power(10.0, arr[:,0])
+    sig16 = np.power(10.0, arr[:,1])
+    sig50 = np.power(10.0, arr[:,2])
+    sig84 = np.power(10.0, arr[:,3])
+
+    #datasets['krumholz17'] = DataSet('sfr', 'sfsig', sf, sig, yLower=sig/2.0, yUpper=sig*2.0, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
+    #datasets['krumholz17max'] = DataSet('sfr', 'maxsig', sf, sig, yLower=sig/2.0, yUpper=sig*2.0, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
+    datasets['krumholz17'] = DataSet('sfr', 'sfsig', sf, sig50, yLower=sig16, yUpper=sig84, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
+    datasets['krumholz17max'] = DataSet('sfr', 'maxsig', sf, sig50, yLower=sig16, yUpper=sig84, label='Krumholz17', zmin=-0.5, zmax=3.5, alpha=0.5)
 
 #
 #if xvar=='gbar' and v=='gtot':

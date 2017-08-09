@@ -322,7 +322,7 @@ def residualsFromGidget(bn, fh=0.3):
     else:
         return [],[]
 
-models17 = [ pickle.load( open( 'rfnt17f_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+#models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 #models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
@@ -469,11 +469,11 @@ def samplefromprior( varRedFac=1.0):
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromnormaldensity( 0.0, 2.0**2.0 / varRedFac ),
-        samplefromnormaldensity( -0.0, 2.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac),
-        samplefromnormaldensity( -1.0, 1.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac ),
+        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
+        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
+        samplefromlognormaldensity( np.log(.1), np.log(10.0)**2.0/ varRedFac),
+        samplefromnormaldensity( -.5, 1.0**2.0 / varRedFac ),
+        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac ),
         samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
         samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
         samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
@@ -483,12 +483,11 @@ def samplefromprior( varRedFac=1.0):
         samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
         samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
         samplefrombetadensity( 1.0, 2.0*varRedFac ),
-        samplefromlognormaldensity( np.log(1.0e-2), np.log(2.0)**2.0/varRedFac),
+        samplefromlognormaldensity( np.log(1.0e-2), np.log(10.0)**2.0/varRedFac),
         samplefromnormaldensity( 0.5, 0.5**2/varRedFac), 
         samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac) ,
-        samplefromnormaldensity( 0, 1/varRedFac),
-        samplefrombetadensity( 1.0 *varRedFac, 1.0*varRedFac) ]
+        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac),  
+        samplefromnormaldensity( 0.3, 0.2**2.0/varRedFac) ]
 
 def lnprob(emceeparams, models=None):
     pr = lnprior(emceeparams)
@@ -498,51 +497,54 @@ def lnprob(emceeparams, models=None):
     return pr
 
 def printPriorOffsets(emceeparams):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, alpharmh, fh = emceeparams
-    print "Prior offsets: "
-    print "raccRvir: ", np.log10(raccRvir / 0.141) / np.log10(3.0)
-    print "rstarRed: ", np.log10(rstarRed / 2.0) / np.log10(2.0)
-    print "rgasRed: ", np.log10(rgasRed / 2.0) / np.log10(2.0)
-    print "fg0mult: ", np.log10(fg0mult / 2.0) / np.log10(2.0)
-    print "muColScaling: ", (muColScaling - 0.0) / 2.0
-    print "muFgScaling: ", (muFgScaling - 0.0) / 2.0
-    print "muNorm : ", np.log10(muNorm/ 1.0) / np.log10(10.0)
-    print "muMhScaling: ", (muMhScaling - -1.0) / 1.0
-    print "ZIGMfac: ", np.log10(ZIGMfac/1.0) / np.log10(3.0)
-    print "zmix", zmix-0.5
-    print "eta: ", np.log10(eta/1.5) / np.log10(2.0)
-    print "Qf: ", np.log10(Qf/1.5) / np.log10(2.0)
-    print "alphaMRI: ", np.log10(alphaMRI/0.05) / np.log10(2.0)
-    print "epsquench: ", np.log10(epsquench/1.0e-3) / np.log10(10.0)
-    print "accCeiling: ", accCeiling-0.5
-    print "conRF: ", (conRF-0.3)/0.3
-    print "kZ: ", np.log10(kZ/1.0)/np.log10(3.0)
-    print "xiREC: ", xiREC - 0.5
-    print "epsff: ", np.log10(epsff/1.0e-2)/np.log10(2.0)
-    print "scaleAdjust: ", (scaleAdjust - 0.5)/0.5
-    print "mquench: ", np.log10(mquench/1.0e12)/np.log10(3.0)
-    print "enInjFac: ", np.log10(enInjFac/1.0)/np.log10(3.0) 
-    print "alpharMh: ", alpharmh/1.0
-    print "fh: ", fh-0.5
+    pass
+#    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, alpharmh, fh = emceeparams
+#    print "Prior offsets: "
+#    print "raccRvir: ", np.log10(raccRvir / 0.141) / np.log10(3.0)
+#    print "rstarRed: ", np.log10(rstarRed / 2.0) / np.log10(2.0)
+#    print "rgasRed: ", np.log10(rgasRed / 2.0) / np.log10(2.0)
+#    print "fg0mult: ", np.log10(fg0mult / 2.0) / np.log10(2.0)
+#    print "muColScaling: ", (muColScaling - 0.0) / 2.0
+#    print "muFgScaling: ", (muFgScaling - 0.0) / 2.0
+#    print "muNorm : ", np.log10(muNorm/ 1.0) / np.log10(10.0)
+#    print "muMhScaling: ", (muMhScaling - -1.0) / 1.0
+#    print "ZIGMfac: ", np.log10(ZIGMfac/1.0) / np.log10(3.0)
+#    print "zmix", zmix-0.5
+#    print "eta: ", np.log10(eta/1.5) / np.log10(2.0)
+#    print "Qf: ", np.log10(Qf/1.5) / np.log10(2.0)
+#    print "alphaMRI: ", np.log10(alphaMRI/0.05) / np.log10(2.0)
+#    print "epsquench: ", np.log10(epsquench/1.0e-3) / np.log10(10.0)
+#    print "accCeiling: ", accCeiling-0.5
+#    print "conRF: ", (conRF-0.3)/0.3
+#    print "kZ: ", np.log10(kZ/1.0)/np.log10(3.0)
+#    print "xiREC: ", xiREC - 0.5
+#    print "epsff: ", np.log10(epsff/1.0e-2)/np.log10(2.0)
+#    print "scaleAdjust: ", (scaleAdjust - 0.5)/0.5
+#    print "mquench: ", np.log10(mquench/1.0e12)/np.log10(3.0)
+#    print "enInjFac: ", np.log10(enInjFac/1.0)/np.log10(3.0) 
+#    print "alpharMh: ", alpharmh/1.0
+#    print "fh: ", fh-0.5
 
 
 def lnprior(emceeparams):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, alpharmh, fh = emceeparams
+    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
+    #raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, alpharmh, fh = emceeparams
     #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
     accum = 0.0
 
     #varRedFac = 10000.0
     varRedFac = 1.0
 
+
     accum += lnlognormaldensity( raccRvir, np.log(0.141), np.log(3.0)**2.0 )
     accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muColScaling, 0.0, 2.0**2.0 / varRedFac )
-    accum += lnnormaldensity( muFgScaling, 0.0, 2.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( muNorm, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muMhScaling, -1.0, 1.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
+    accum += lnnormaldensity( muColScaling, 0.0, 1.0**2.0 / varRedFac )
+    accum += lnnormaldensity( muFgScaling, 0.0, 1.0**2.0 / varRedFac )
+    accum += lnlognormaldensity( muNorm, np.log(.1), np.log(10.0)**2.0/ varRedFac )
+    accum += lnnormaldensity( muMhScaling, -.5, 1.0**2.0 / varRedFac )
+    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
     accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
     accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
     accum += lnlognormaldensity( Qf, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
@@ -552,13 +554,11 @@ def lnprior(emceeparams):
     accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
     accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
     accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
-    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(2.0)**2.0 / varRedFac )
+    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(10.0)**2.0 / varRedFac )
     accum += lnnormaldensity( scaleAdjust, 0.5, 0.5**2 /varRedFac)
     accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
     accum += lnlognormaldensity( enInjFac, np.log(1.0), np.log(3.0)**2.0/varRedFac)
-    accum += lnnormaldensity( alpharmh, 0, 1/varRedFac)
-    accum += lnbetadensity( fh, 1.0, 1.0 )
-
+    accum += lnnormaldensity( chiZslope, 0.3, 0.2**2.0/varRedFac)
     if not np.isfinite(accum):
         return -np.inf
     return accum
@@ -686,7 +686,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     prior = np.array([samplefromprior() for i in range(np.product(np.shape(sampleRed))/ndim * 3)])
 
 
-    pickle.dump(sampleRed, open('fakemcmc1718b_posterior.pickle', 'w'))
+    pickle.dump(sampleRed, open('fakemcmc22_posterior.pickle', 'w'))
 
     extents=[]
     for i in range(np.shape(sampleRed)[1]):
@@ -765,7 +765,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     
     ndim, nwalkers = 24, 1000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc17g_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc22_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
     #p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
@@ -2015,7 +2015,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad1718b_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad22partial_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -2032,8 +2032,9 @@ def estimateFeatureImportances(analyze=True, pick=True):
     predictions_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
     ordinates_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
 
-    #feature_names = ["Mh0", "raccRvir", "rstarRed", "rgasRed", "fg0mult", "muColScaling", "muFgScaling", "muNorm", "ZIGMfac", "zmix", "eta", "Qf", "alphaMRI", "epsquench", "accCeiling", "conRF", "kZ", "xiREC"]
-    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$E_\mathrm{inj}$']
+    #Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
+
+    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$, $\chi_{dlogZ/dlogM}$']
     texlabels = labels[:]
     for i in range(nfeatures-len(feature_names)):
         #feature_names.append("AccHist"+str(i))
@@ -2071,7 +2072,7 @@ def estimateFeatureImportances(analyze=True, pick=True):
             # k=8 corresponds to z=0 sfr. Try really hard to get this right!
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt1718b_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt22_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2475,7 +2476,7 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc17f_restart.pickle' )
+    runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 

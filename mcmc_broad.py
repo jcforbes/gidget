@@ -24,7 +24,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr21c'
+chaindirrel = 'broadDistr22h'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -236,6 +236,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     thisexper.irregularVary('fixedQ', Qf)
     thisexper.irregularVary('TOL', 6.0e-4)
     thisexper.irregularVary('minSigSt', 10.0)
+    thisexper.irregularVary('energyInjectionFactor', enInjFac)
 
     return thisexper, name
 
@@ -361,7 +362,7 @@ def lnlikelihoodRehash(emceeparams, modelname=None):
         expertorun, name = emceeparameterspacetogidgetexperiment(emceeparams)
 
         # run the experiment.
-        expertorun.localRun(1,0,maxTime=3600*2)
+        expertorun.localRun(1,0,maxTime=3600*1.2)
     else:
         name = modelname
 

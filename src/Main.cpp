@@ -117,9 +117,14 @@ int main(int argc, char **argv) {
     const double fH2Min =            as.Set(.03,"Minimum fH2");
     const double tDepH2SC =          as.Set(2.0,"Depletion time (Gyr)");
     const double ZIGM =              as.Set(.002,"Z of IGM in absolute units");
+    const double fg0mult =           as.Set(1.0, "Adjust initial gas fraction for dbg 10");
+    const double ZIGMfac =           as.Set(1.0, "Adjust initial metallicity for dbg 10");
+    const double chiZslope =         as.Set(0.3, "Adjust initial metallicity slope with mass for dbg 10"); 
+    const double deltaBeta =         as.Set(0.0, "Adjust initial SMHM slope for dbg 10");
     const double yREC =              as.Set(.054,"yield - mass of metals produced per gas mass locked in stars");
     const double concentrationRandomFactor= as.Set(0.0, "Constant multiplicative offset from Mh-c relation (dex)");
     const double MassLoadingFgScaling=as.Set(0.16, "Scaling of the mass loading factor with the gas fraction");
+    const double MassLoadingMhScaling=as.Set(-1.0/3.0, "Scaling of the mass loading factor with the halo mass");
     const double ksuppress =         as.Set(10.0, "The characteristic mode of a DFT to begin suppressing power in computation of vPhiDisk");
     const double kpower =            as.Set(2.0,"The power to which to raise the argument of the exponential in suppressing powe abve ksuppess");
     const double MQuench =           as.Set(1.0e12, "Halo mass at which quenching occurs");
@@ -237,7 +242,7 @@ int main(int argc, char **argv) {
     double ZIGMO = 0.0057/0.02 * ZIGM;
     double ZIGMFe = 0.0013/0.02 * ZIGM;
     DiskContents disk(tauHeat, eta, sigth, epsff, Qlim,
-            TOL,analyticQ,MassLoadingFactor,MassLoadingColScaling,MassLoadingFgScaling,
+            TOL,analyticQ,MassLoadingFactor,MassLoadingColScaling,MassLoadingFgScaling,MassLoadingMhScaling,
             cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
           minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGMO, ZIGMFe,yREC, ksuppress, kpower, MQuench, muQuench,
@@ -245,7 +250,8 @@ int main(int argc, char **argv) {
     // double sig0 = 8.0/220.0; 
     double sig0 = sigth;
     double stScaleLengthA = accScaleLength*r200/cmperkpc; // accScaleLength * pow(MhZs/Mh0,alphaAccProf);
-    disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax, stScaleReduction, gaScaleReduction);
+    disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax, stScaleReduction, gaScaleReduction,
+			fg0mult, ZIGMfac, chiZslope, deltaBeta);
 
     Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
             zstart,NActive,NPassive,alphaMRI,

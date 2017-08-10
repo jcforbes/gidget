@@ -111,7 +111,7 @@ DiskContents::DiskContents(double tH, double eta,
         double sflr,double epsff,
         double ql,double tol,
         bool aq, double mlf, double mlfColScal,
-        double mlfFgScal,
+        double mlfFgScal, double mlfMhScal,
         Cosmology& c,Dimensions& d,
         FixedMesh& m, Debug& ddbg,
         double thk, bool migP,
@@ -136,6 +136,7 @@ DiskContents::DiskContents(double tH, double eta,
     EPS_ff(epsff),ETA(eta),constMassLoadingFactor(mlf),
     mlfColScaling(mlfColScal),
     mlfFgScaling(mlfFgScal),
+    mlfMhScaling(mlfMhScal),
     MQuench(mq), muQuench(muq),
     Z_IGMO(Z_IGM_O), Z_IGMFe(Z_IGM_Fe),
     //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
@@ -311,7 +312,8 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 // Set Q=Qf only when these simple initial conditions yield Q<Qf.
 void DiskContents::Initialize(double fcool, double fg0,
         double sig0, double phi0, double Mh0,
-        double MhZs, double stScaleLength, double zs, const double stScaleReduction, const double gaScaleReduction)
+        double MhZs, double stScaleLength, double zs, const double stScaleReduction, const double gaScaleReduction,
+        const double fg0mult, const double ZIGMfac, const double chiZslope, const double deltaBeta )
 {
     StellarPop * initialStarsA = new StellarPop(mesh);
     StellarPop * initialStarsP = new StellarPop(mesh);
@@ -340,7 +342,7 @@ void DiskContents::Initialize(double fcool, double fg0,
         double M11 = 1.195;
         double N10 = 0.0351;
         double N11 = -0.0247;
-        double beta10= 1.376;
+        double beta10= 1.376 + deltaBeta;
         double beta11 = -0.826;
         double gamma10 = 0.608;
         double gamma11 = 0.329;
@@ -355,13 +357,19 @@ void DiskContents::Initialize(double fcool, double fg0,
         double f0 = 1.0/(1.0 + pow(mst/pow(10.0,9.15),0.4)); // from Hayward & Hopkins (2015) eq. B2
         double tau4 = 12.27/(12.27+1.60); // fractional lookback time at z=4
         double fgz4 = f0*pow(1.0 - tau4*(1.0-pow(f0,1.5)), -2.0/3.0);
+        double rat4 = 1.0/(1.0/fgz4 - 1.0);
+        rat4 *= fg0mult; // double the gas content
+        double fgUsed =1.0/(1.0/rat4 + 1.0);
         double reff4 = 5.28*pow(mst/1.0e10, 0.25)*pow(1.0+4.0,-0.6); // kpc (eq B3) at z=4
-        double ZHayward = -8.69 + 9.09*pow(1.0+4.0,-0.017) - 0.0864*pow(log10(mst) - 11.07*pow(1.0+4.0,0.094),2.0);
-        ZHayward = pow(10.0, ZHayward) * 0.02;
-        Z0Fe = ZHayward * 0.0013/0.02;
-        Z0O = ZHayward * 0.0057/0.02;
-        fc = 1.0/(1.0-fgz4) * mst/(0.17*Mh);
-        fg4 = fgz4;
+    	double ZLee = pow(10.0, 5.65 + chiZslope*log10(mst/1.0e10) + 0.3*log10(1.0e10) - 8.7 ); // Z in Zsun
+        ZLee = ZIGMfac * 0.05 * ZLee * 0.02;
+
+        // double ZHayward = -8.69 + 9.09*pow(1.0+4.0,-0.017) - 0.0864*pow(log10(mst) - 11.07*pow(1.0+4.0,0.094),2.0);
+        // ZHayward = pow(10.0, ZHayward) * 0.02;
+        Z0Fe = ZLee * 0.0013/0.02;
+        Z0O = ZLee * 0.0057/0.02;
+        fc = 1.0/(1.0-fgUsed) * mst/(0.17*Mh);
+        fg4 = fgUsed ;
         xdstars = reff4/dim.d(1.0)/1.67835; // is scale length = reff? Numerical solution says reff/rd = 1.67835.
         xdgas= xdstars*2.0;
  
@@ -1704,8 +1712,8 @@ double DiskContents::ComputeColSFR(double Mh, double z)
 }
 void DiskContents::ComputeMassLoadingFactor(double Mh, std::vector<double>& colst)
 {
-    double theCurrentMLF = constMassLoadingFactor; // *pow(Mh/1.0e12, mlfMhScaling);
-    double col0 = 1.0 * dim.MdotExt0/(dim.vphiR*dim.Radius) * cmperpc*cmperpc/MSol; // 1 Msun/pc^2 in code units
+    double theCurrentMLF = constMassLoadingFactor *pow(Mh/1.0e12, mlfMhScaling);
+    double col0 = 10.0 * dim.MdotExt0/(dim.vphiR*dim.Radius) * cmperpc*cmperpc/MSol; // 10 Msun/pc^2 in code units
     for(unsigned int n=1; n<=nx; ++n) {
         double hg = hGas(n); // gas scale height in cm
         double fr = 1.5;
@@ -1731,7 +1739,7 @@ void DiskContents::ComputeMassLoadingFactor(double Mh, std::vector<double>& cols
         if(dbg.opt(0)) {
 //            ColOutflows[n] = constMassLoadingFactor*colSFR[n];
             double colDM = ComputeRhoSD(n) * hg * dim.vphiR*dim.Radius/dim.MdotExt0; // g/cm**3 * cm / (Mdotext0 (g/s)/ (vPhiR(cm/s) r(cm))) -- A rough estimate of the dark matter column density
-            ColOutflows[n] = theCurrentMLF*colSFR[n] * pow(col[n] / col0, mlfColScaling) * pow(col[n]/(col[n]+ colDM ), mlfFgScaling);
+            ColOutflows[n] = theCurrentMLF*colSFR[n] * pow(col[n] / col0, mlfColScaling) * pow(col[n]/(col[n]+ colDM )/0.1, mlfFgScaling) ;
             if( Mh>MQuench && muQuench>ColOutflows[n]/colSFR[n] ) {
                 //ColOutflows[n] = muQuench*colSFR[n] ;
                 double weight = 1-exp(-((double) n)/20.0);

@@ -130,7 +130,7 @@ int Simulation::runToConvergence(const double fCondition,
         std::cout << "Attempting to read in random factor "<<rfcounter<<std::endl;
         ++rfcounter;
         std::string line;
-        readFlag = getline(inputRandomFactors, line);
+        readFlag = static_cast<bool>(getline(inputRandomFactors, line));
 	double y;
         if (!readFlag) {
             std::cout << "Failed to read in random factor " << rfcounter<<std::endl;

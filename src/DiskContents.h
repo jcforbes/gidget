@@ -25,6 +25,7 @@ class DiskContents {
 	           double ql,double tol,
                bool aq, double mlf,
                double mlfColScal, double mlfFgScal,
+               double mlfMhScal,
                Cosmology&,Dimensions&,
                FixedMesh&,Debug&,
     	       double thk,bool migratePassive,
@@ -184,7 +185,8 @@ class DiskContents {
   void Initialize(double fcool, double fg0,
                   double sig0, double tempRatio, double Mh0,
                   double MhZs, double stScaleLength, double zs,
-                  const double stScaleReduction, const double gaScaleReduction);
+                  const double stScaleReduction, const double gaScaleReduction,
+                  const double fg0mult, const double ZIGMfac, const double chiZslope, const double deltaBeta);
 
   // Is one of the current stellar populations 'currently forming'
   //, i.e. since stars are binned by age, is the age of stars 
@@ -320,6 +322,7 @@ class DiskContents {
     constMassLoadingFactor, 
     mlfColScaling,
     mlfFgScaling,
+    mlfMhScaling,
     MQuench,
     muQuench,
 

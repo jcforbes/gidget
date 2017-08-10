@@ -193,7 +193,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
     double BolshoiMh0 = -1; // the z=0 halo mass of the tree we're adopting from Boshloi
     if(readIn) {
         std::string line;
-        bool readFlag0 = getline(inputRandomFactors, line);
+        bool readFlag0 = static_cast<bool>(getline(inputRandomFactors, line));
         if(!readFlag0) {
             errormsg("Failed to read the initial Bolshoi halo mass");
         }
@@ -246,7 +246,7 @@ double AccretionHistory::GenerateLogNormal(double zst,double zrelax, Cosmology& 
             std::cout << "Attempting to read in random factor "<<rfcounter<<std::endl;
             ++rfcounter;
             std::string line;
-            bool readFlag = getline(inputRandomFactors, line);
+            bool readFlag = static_cast<bool>(getline(inputRandomFactors, line));
             if (!readFlag) {
                 // errormsg("Failed to read in random factor!");
                 std::cout<< "WARNING: failed to read in random factor. Using newly-generated random number" <<std::endl;

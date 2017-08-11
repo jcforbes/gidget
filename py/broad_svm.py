@@ -2349,10 +2349,10 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             Ys_test = Ytra.transform(Ys_test_orig.copy())
 
 
-            errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
+            errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=500, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=10, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt22_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt22b_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2364,8 +2364,8 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
                 r2scores[k]+=acc/float(ncv)
 
                 print "r2 score, errors: ",cvi, acc, errors_train_this, errors_validate_this, errors_test_this
-                if acc<0:
-                    pdb.set_trace()
+                #if acc<0:
+                #    pdb.set_trace()
 
                 residuals[k, :, cvi] = Ytra.inverseTransformK( theModel.predict(X_validate), k ) - Ytra.inverseTransformK( Ys_validate[:,k], k )
                 preds[k, :, cvi] = sorted( Ytra.inverseTransformK( theModel.predict(X_validate), k ) )
@@ -2489,12 +2489,12 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             texlabels.append( '' )
     if analyze:
  
-        printScores(r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_scores_19p.tex', normalize=False)
-        printFeatureImportancesMultipleArrays(feature_importances.T, np.mean(scores,axis=1).T, feature_names, texlabels, fn='feature_mult_importances_20p.tex', normalize1=False, normalize2=False)
+        printScores(r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_scores_22b.tex', normalize=False)
+        printFeatureImportancesMultipleArrays(feature_importances.T, np.mean(scores,axis=1).T, feature_names, texlabels, fn='feature_mult_importances_22b.tex', normalize1=False, normalize2=False)
 
-        printFeatureImportances(feature_importances.T*1.0, r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_importance_compact_20p.tex', normalize=False)
-        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, correlations, residual_stdev, np.sqrt(MSEb),feature_names, texlabels, fn='avg_swap_scores_compact_20p.tex', normalize=False)
-        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores,correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='avg_derivs_compact_20p.tex')
+        printFeatureImportances(feature_importances.T*1.0, r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_importance_compact_22b.tex', normalize=False)
+        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, correlations, residual_stdev, np.sqrt(MSEb),feature_names, texlabels, fn='avg_swap_scores_compact_22b.tex', normalize=False)
+        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores,correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='avg_derivs_compact_22b.tex')
         #printTable(feature_importances.T*1.0, feature_names, texlabels, fn='feature_importances.tex')
         #printTable(np.mean(scores,axis=1).T, feature_names, texlabels, fn='avg_swap_scores.tex')
 

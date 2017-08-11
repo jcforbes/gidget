@@ -24,7 +24,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr22h'
+chaindirrel = 'broadDistr23a'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -176,8 +176,8 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     f0 = 1.0/(1.0 + np.power(mst/10.0**9.15,0.4)) # from Hayward & Hopkins (2015) eq. B2
     tau4 = 12.27/(12.27+1.60) # fractional lookback time at z=4
     fgz4 = f0*np.power(1.0 - tau4*(1.0-np.power(f0,1.5)), -2.0/3.0)
-    reff4 = 5.28*np.power(mst/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
-    reff411 = 5.28*np.power(1.0e11/1.0e10, 0.25)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    reff4 = 5.28*np.power(mst/1.0e10, 0.4)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
+    reff411 = 5.28*np.power(1.0e11/1.0e10, 0.4)*np.power(1.0+4.0,-0.6) # kpc (eq B3) at z=4
     weight1 = np.exp(-Mhz0/1.0e12)  #the ad-hoc reductions in fg and fcool make things bad for high-mass galaxies. weight1 is for tiny galaxies.
     weight2 = 1-weight1
     rat4 = 1.0/(1.0/fgz4 - 1.0)

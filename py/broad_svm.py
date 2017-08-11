@@ -322,7 +322,7 @@ def residualsFromGidget(bn, fh=0.3):
     else:
         return [],[]
 
-#models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 #models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
@@ -2476,7 +2476,8 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
+    #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
+    runEmcee(mpi=True, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 

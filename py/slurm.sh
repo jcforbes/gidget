@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name fmc17f
+#SBATCH --job-name fmc22a
 #SBATCH -n 201 
 #SBATCH -t 4-00:00
 #SBATCH -p general

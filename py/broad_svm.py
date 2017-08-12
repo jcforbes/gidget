@@ -12,7 +12,10 @@ from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold
 #from pyqt_fit import npr_methods
 
 # Useful information about the setup of the linear models and their fits....
+### features
+#raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
 logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0]
+### targets
 logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
 logRadials = [1,1,1,1,1,1]
 #logVars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -288,7 +291,7 @@ def fakeEmceeResiduals(emceeparams, models):
 
     residuals=[]
     for k,Mh in enumerate(MhGrid):
-        X1 = np.array([Mh]+list(emceeparams[:-2])).reshape((1,len(emceeparams[:-2])+1))
+        X1 = np.array([Mh]+list(emceeparams)).reshape((1,len(emceeparams)+1))
         X1[0,1] = X1[0,1]*np.power(Mh/1.0e12, emceeparams[-2]) # modify raccRvir
         for i in range(len(logVars)):
             # Take the log of the input variable if it makes sense to do so
@@ -327,7 +330,7 @@ def residualsFromGidget(bn, fh=0.3):
     else:
         return [],[]
 
-#models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 #models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
@@ -480,15 +483,14 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
 def lnlikelihood(emceeparams, models=None):
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
-    # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
     nmh = 20
     MhGrid = np.power(10.0, np.linspace(10.0,13.0,nmh)) ## try out only going up to 10^13
     lnlik = 0.0
 
     for k,Mh in enumerate(MhGrid):
         # Let's see.. Mh + emcee parameters, minus the last two "artificial" parameters
-        X1 = np.array([Mh]+list(emceeparams[:-2])).reshape((1,len(emceeparams[:-2])+1))
-        X1[0,1] = X1[0,1]*np.power(Mh/1.0e12, emceeparams[-2]) # modify raccRvir
+        X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
+        #X1[0,1] = X1[0,1]*np.power(Mh/1.0e12, emceeparams[-2]) # modify raccRvir
         for i in range(len(logVars)):
             # Take the log of the input variable if it makes sense to do so
             if logVars[i] == 1:
@@ -498,7 +500,7 @@ def lnlikelihood(emceeparams, models=None):
         neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
         for j in range(80):
             if j in neededModels:
-                Y_eval[0,j] = predictFill(models17[j], X1, k)[0][j]
+                Y_eval[0,j] = predictFill(models22[j], X1, k)[0][j]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
         lnlik += np.sum( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=True) )
@@ -590,8 +592,6 @@ def printPriorOffsets(emceeparams):
 
 def lnprior(emceeparams):
     raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
-    #raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, alpharmh, fh = emceeparams
-    #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
     accum = 0.0
 
     #varRedFac = 10000.0
@@ -950,7 +950,6 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         rank = comm.Get_rank()
         from emcee.utils import MPIPool
 
-    #models = [ pickle.load( open( 'rfnt09_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 
     if mpi:
@@ -964,8 +963,8 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     fn = 'fakemcmc22_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
-    #p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
-    p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
+    p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
+    #p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
 
     if seedWith is not None:
         if os.path.isfile(seedWith):
@@ -1044,29 +1043,56 @@ def epsSkewNormalPDF(x, epsilon, theta, sigma):
     return standardizedEpsSkewNormal( (x-theta)/sigma, epsilon )/sigma
 from scipy.stats import norm
 def standardizedEpsSkewQuantile(u, epsilon):
+    ret = 0
     if 0<u and u<(1.0+epsilon)/2.0:
-        return (1.0+epsilon) * norm.ppf(u/(1.0-epsilon))
+        ret = (1.0+epsilon) * norm.ppf(u/(1.0+epsilon))
     elif (1+epsilon)/2 <= u and u<1:
-        return (1.0-epsilon) * norm.ppf((u-epsilon)/(1.0-epsilon))
+        ret = (1.0-epsilon) * norm.ppf((u-epsilon)/(1.0-epsilon))
     else:
         raise ValueError
+    if ret!=ret:
+        pdb.set_trace()
+    #print "stEpsNorm quantile: ", ret
+    return ret
 from scipy.optimize import brentq
 def computeEpsSkewParams(q16, q50, q84):
     def to_zero(epsilon):
-        return (standardizedEpsSkewQuantile( 0.84, epsilon ) - standardizedEpsSkewQuantile(0.5, epsilon)) / (standardizedEpsSkewQuantile( 0.5, epsilon ) - standardizedEpsSkewQuantile(0.16, epsilon)) - (q84-q50)/(q50-q16)
-    x0 = brentq(to_zero, -.99, 0.99)
+        ret =  (standardizedEpsSkewQuantile( 0.84, epsilon ) - standardizedEpsSkewQuantile(0.5, epsilon)) / (standardizedEpsSkewQuantile( 0.5, epsilon ) - standardizedEpsSkewQuantile(0.16, epsilon)) - (q84-q50)/(q50-q16)
+        #print "eps_tozero:", ret
+        return ret
+    print "Attempting brentq with ",q16,q50,q84,';', to_zero(-.99), to_zero(0), to_zero(.99)
+    lower_bound = -.99
+    upper_bound = 0.99
+    counter = 0
+    while(to_zero(lower_bound)*to_zero(upper_bound)>0):
+        counter+=1
+        lower_bound = np.random.random()*2-1
+        upper_bound = np.random.random()*(1-lower_bound)-lower_bound 
+        if counter>100:
+            print "Failed to find a good bound!"
+            break
+    x0 = brentq(to_zero, lower_bound, upper_bound)
+    #print "x0: ",x0
     sigma = (q50-q16)/(standardizedEpsSkewQuantile( 0.5, x0) - standardizedEpsSkewQuantile(0.16, x0))
+    #print "sigma: ", sigma
     theta = q50 - sigma*standardizedEpsSkewQuantile( 0.5, x0)
+    #print "theta: ", theta
     return x0,theta,sigma
 
 import observationalData
 def singleRelationLikelihood(x,y,datasets, fixedSigma=-1):
     lik = 0
     for i,ds in enumerate(datasets):
+	### each of these is an array equal in size to x or y, estimating the quantile of the datasets at each of these x values.
         q16,q50,q84 = observationalData.datasets[ds].returnQuantiles(x, fixedSigma=fixedSigma)
-        epsilon, theta, sigma = computeEpsSkewParams( q16, q50, q84 )
-        lik += epsSkewNormalPDF( y, epsilon,theta,sigma )/float(len(datasets))
-         
+        #print "quantile lengths", len(q16), len(q50), len(q84)
+        likThis = 1.0
+       
+        for k in range(len(q16)):
+	    #print "quantile lengths", len(q16), len(q50), len(q84)
+            epsilon, theta, sigma = computeEpsSkewParams( q16[k], q50[k], q84[k] )
+            likThis *= epsSkewNormalPDF( y, epsilon,theta,sigma )
+        lik += likThis/float(len(datasets))
     return np.log(lik),0
 
 
@@ -2959,14 +2985,14 @@ if __name__=='__main__':
     #searchLinearModels(800)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    #runEmcee(mpi=True, continueRun=False, seedWith=None )
+    runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 
     #validateNPR()
     #plotResiduals()
 
-    estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
+    #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
     #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)

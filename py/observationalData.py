@@ -158,7 +158,7 @@ class DataSet:
         outx = np.logical_not(inx)
         belowx = xEval < np.min(xv)
         abovex = xEval > np.max(xv)
-        inflate = np.ones(len(xv))
+        inflate = np.ones(len(xEval))
         inflate[abovex] = np.exp(( xEval - np.max(xv))/2.0 )
         inflate[belowx] = np.exp(-( xEval - np.min(xv))/2.0 )
         try:
@@ -167,19 +167,43 @@ class DataSet:
             pdb.set_trace()
         fu = interp1d(xv,yv+sigma*(yu-yv),kind='linear',bounds_error=False)
         fl = interp1d(xv,yv-sigma*(yv-yl),kind='linear',bounds_error=False)
-        yf = f(xEval) # don't need this
+        yf = f(xEval) 
         yfu = fu(xEval)
         yfl = fl(xEval)
 
+	#minvalid = np.min( np.arange(len(inx))[inx] )
+	#maxvalid = np.max( np.arange(len(inx))[inx] )
+        minvalid = np.argmin(xv)
+        maxvalid = np.argmax(xv)
         if fixedSigma<=0:
-            yfl[belowx] = yf[belowx] - (yf[minvalid] - yfl[minvalid])*inflate[belowx]
-            yfl[abovex] = yf[abovex] - (yf[maxvalid] - yfl[maxvalid])*inflate[abovex]
+            #deltaYbelowleft = yf[minvalid]-yfl[minvalid]
+            #deltaYbelowright = yf[maxvalid] - yfl[maxvalid]
+            #deltaYaboveleft = yfu[minvalid]-yf[minvalid]
+            #deltaYaboveright = yfu[maxvalid]-yf[maxvalid]
 
-            yfu[belowx] = yf[belowx] + (yfu[minvalid]-yf[minvalid])*inflate[belowx]
-            yfu[abovex] = yf[abovex] + (yfu[maxvalid]-yf[maxvalid])*inflate[abovex]
-            return yfl, yf, yfu
+            deltaYbelowleft = yv[minvalid]-yl[minvalid]
+            deltaYbelowright = yv[maxvalid] - yl[maxvalid]
+            deltaYaboveleft = yu[minvalid]-yv[minvalid]
+            deltaYaboveright = yu[maxvalid]-yv[maxvalid]
+
+            yfl[belowx] = yf[belowx] - deltaYbelowleft*inflate[belowx]
+            yfl[abovex] = yf[abovex] - deltaYbelowright*inflate[abovex]
+
+            yfu[belowx] = yf[belowx] + deltaYaboveleft*inflate[belowx]
+            yfu[abovex] = yf[abovex] + deltaYaboveright*inflate[abovex]
+            if( len(yfl)!=len(yf) or len(yfu)!=len(yf)):
+                pdb.set_trace()
+            ret = yfl, yf, yfu
+            #print "return quantiles: ",ret
+            return ret
+ 
         else:
-            return yf-fixedSigma*inflate, yf, yf+fixedSigma*inflate
+            ret = yf-fixedSigma*inflate, yf, yf+fixedSigma*inflate
+            #print "return quantiles 2: ",ret
+            if( len(inflate)!=len(yf) or len(yfu)!=len(yf)):
+                pdb.set_trace()
+            return ret
+
 
     def distance(self, x,y, fixedSigma=-1):
         ''' Return the distance in sigma (above or below) the relation'''

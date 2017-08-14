@@ -850,7 +850,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     #result = lle.fit_transform(sampleTra)
     fig,ax = plt.subplots()
     ax.scatter(result[:,0], result[:,1], c=kmeans.labels_, alpha=0.2, s=10)
-    fig.savefig('fakemcmc1718b_lle.pdf')
+    fig.savefig('fakemcmc22p_lle.pdf')
     plt.close(fig)
 
 
@@ -1034,76 +1034,42 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     if mpi:
         pool.close()
 
-def standardizedEpsSkewNormal(x, epsilon):
-    if x<0:
-        return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1+epsilon)*(1+epsilon)))
-    else:
-        return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1-epsilon)*(1-epsilon)))
-def epsSkewNormalPDF(x, epsilon, theta, sigma):
-    return standardizedEpsSkewNormal( (x-theta)/sigma, epsilon )/sigma
-from scipy.stats import norm
-def standardizedEpsSkewQuantile(u, epsilon):
-    ret = 0
-    if 0<u and u<(1.0+epsilon)/2.0:
-        ret = (1.0+epsilon) * norm.ppf(u/(1.0+epsilon))
-    elif (1+epsilon)/2 <= u and u<1:
-        ret = (1.0-epsilon) * norm.ppf((u-epsilon)/(1.0-epsilon))
-    else:
-        raise ValueError
-    if ret!=ret:
-        pdb.set_trace()
-    #print "stEpsNorm quantile: ", ret
-    return ret
-from scipy.optimize import brentq
-def computeEpsSkewParams(q16, q50, q84):
-    def to_zero(epsilon):
-        ret =  (standardizedEpsSkewQuantile( 0.84, epsilon ) - standardizedEpsSkewQuantile(0.5, epsilon)) / (standardizedEpsSkewQuantile( 0.5, epsilon ) - standardizedEpsSkewQuantile(0.16, epsilon)) - (q84-q50)/(q50-q16)
-        #print "eps_tozero:", ret
-        return ret
-    print "Attempting brentq with ",q16,q50,q84,';', to_zero(-.99), to_zero(0), to_zero(.99)
-    lower_bound = -.99
-    upper_bound = 0.99
-    counter = 0
-    while(to_zero(lower_bound)*to_zero(upper_bound)>0):
-        counter+=1
-        lower_bound = np.random.random()*2-1
-        upper_bound = np.random.random()*(1-lower_bound)-lower_bound 
-        if counter>100:
-            print "Failed to find a good bound!"
-            break
-    x0 = brentq(to_zero, lower_bound, upper_bound)
-    #print "x0: ",x0
-    sigma = (q50-q16)/(standardizedEpsSkewQuantile( 0.5, x0) - standardizedEpsSkewQuantile(0.16, x0))
-    #print "sigma: ", sigma
-    theta = q50 - sigma*standardizedEpsSkewQuantile( 0.5, x0)
-    #print "theta: ", theta
-    return x0,theta,sigma
 
 import observationalData
-def singleRelationLikelihood(x,y,datasets, fixedSigma=-1):
+def singleRelationLikelihood(x,y,datasets):
     lik = 0
     for i,ds in enumerate(datasets):
 	### each of these is an array equal in size to x or y, estimating the quantile of the datasets at each of these x values.
-        q16,q50,q84 = observationalData.datasets[ds].returnQuantiles(x, fixedSigma=fixedSigma)
+        #####q16,q50,q84,log = observationalData.datasets[ds].returnQuantiles(x)
+        #q16,q50,q84,log = observationalData.datasets[ds].returnCachedQuantiles(x)
         #print "quantile lengths", len(q16), len(q50), len(q84)
         likThis = 1.0
+        yThis = y
+        if observationalData.datasets[ds].logy:
+            yThis = np.log10(y)
        
-        for k in range(len(q16)):
-	    #print "quantile lengths", len(q16), len(q50), len(q84)
-            epsilon, theta, sigma = computeEpsSkewParams( q16[k], q50[k], q84[k] )
-            likThis *= epsSkewNormalPDF( y, epsilon,theta,sigma )
+#        for k in range(len(q16)):
+#	    #print "quantile lengths", len(q16), len(q50), len(q84)
+#            epsilon, theta, sigma = computeEpsSkewParams( q16[k], q50[k], q84[k] )
+#            likThis *= epsSkewNormalPDF( yThis, epsilon,theta,sigma )
+     
+        epsilon, theta, sigma = observationalData.datasets[ds].returnCachedSkewParams(x)
+        #epsilon, theta, sigma = observationalData.computeEpsSkewParams( q16, q50, q84 )
+        likThis *= observationalData.epsSkewNormalPDF( yThis, epsilon,theta,sigma )
         lik += likThis/float(len(datasets))
+        #print "dbg singleRelationLikelihood: ", lik, likThis, q16, q50, q84
+        #print "dbg singleRelationLikelihood2: ", x,y,datasets
     return np.log(lik),0
 
 
 ### the following assumes a split-normal distribution and returns the residual. To be replaced on a trial basis with the much simpler function above.
-def singleRelationLikelihoodOld(x,y,datasets, fixedSigma=-1):
+def singleRelationLikelihoodOld(x,y,datasets):
     lnlik = np.zeros(len(x))
     distances = np.zeros((len(x),len(datasets)))
     sigmas = np.zeros((len(x),len(datasets)))
     finalResiduals = np.zeros(len(x))
     for i,ds in enumerate(datasets):
-        distance, sigma = observationalData.datasets[ds].distance(x,y, fixedSigma=fixedSigma)
+        distance, sigma = observationalData.datasets[ds].distance(x,y)
         distances[:,i] = distance
         sigmas[:,i] = sigma
     finite = np.isfinite(sigmas)
@@ -1206,7 +1172,7 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
     #lnlik[:,6] += singleRelationLikelihood(10.0**logMst2,10.0**logsSFRz2,['whitaker14Specz2'])[srlInd]
     #lnlik[:,7] += singleRelationLikelihood(10.0**logMst3,10.0**logsSFRz3,['lilly13Specz3'])[srlInd]
 
-    lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'], fixedSigma=0.17)[srlInd]
+    lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'])[srlInd]
 
     lnlik[:,9] += singleRelationLikelihood(10.0**logMst0,10.0**logsfZz0,['Tremonti04','Lee06'])[srlInd]
     lnlik[:,10] += singleRelationLikelihood(10.0**logMst1,10.0**logsfZz1,['Genzel15Z1'])[srlInd]
@@ -1244,10 +1210,10 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
 
     lnlik[:,28] += singleRelationLikelihood(10.0**logMst0,10.0**logvPhi22z0,['miller11'])[srlInd]
 
-    lnlik[:,29] += singleRelationLikelihood(10.0**(logMst0+logsSFRz0-9), 10.0**logmaxsigz0, ['krumholz17'], fixedSigma=0.1)[srlInd]
-    lnlik[:,30] += singleRelationLikelihood(10.0**(logMst1+logsSFRz1-9), 10.0**logmaxsigz1, ['krumholz17'], fixedSigma=0.1)[srlInd]
-    lnlik[:,31] += singleRelationLikelihood(10.0**(logMst2+logsSFRz2-9), 10.0**logmaxsigz2, ['krumholz17'], fixedSigma=0.1)[srlInd]
-    lnlik[:,32] += singleRelationLikelihood(10.0**(logMst3+logsSFRz3-9), 10.0**logmaxsigz3, ['krumholz17'], fixedSigma=0.1)[srlInd]
+    lnlik[:,29] += singleRelationLikelihood(10.0**(logMst0+logsSFRz0-9), 10.0**logmaxsigz0, ['krumholz17'] )[srlInd]
+    lnlik[:,30] += singleRelationLikelihood(10.0**(logMst1+logsSFRz1-9), 10.0**logmaxsigz1, ['krumholz17'])[srlInd]
+    lnlik[:,31] += singleRelationLikelihood(10.0**(logMst2+logsSFRz2-9), 10.0**logmaxsigz2, ['krumholz17'])[srlInd]
+    lnlik[:,32] += singleRelationLikelihood(10.0**(logMst3+logsSFRz3-9), 10.0**logmaxsigz3, ['krumholz17'])[srlInd]
 
     #lnlik[:,29] += singleRelationLikelihood(10.0**(logMst0+logsSFRz0), 
 
@@ -1418,7 +1384,6 @@ def appendLikelihood():
 
 
 def appendLabels():
-    import observationalData
     arr = np.loadtxt('broad_to_fail.txt')
     Mh = arr[:,19]
     mstar = arr[:,20]
@@ -2538,7 +2503,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             if k<ntargets/4-4:
                 ax.flatten()[k].set_xticklabels([])
     plt.tight_layout()
-    plt.savefig('fakemcmc20p_RF_residuals.pdf')
+    plt.savefig('fakemcmc22p_RF_residuals.pdf')
 
 
     colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan', 'lightblue', 'grey', 'yellow', 'olive', 'magenta', 'lightgreen', 'maroon', 'lime', 'orchid', 'gold', 'deeppink', 'navy', 'moccasin', 'plum']*10
@@ -2580,7 +2545,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     ax.legend(frameon=False, scatterpoints=1)
     ax.set_xlabel(r'Sorted Test Sample')
     ax.set_ylabel(r'Sorted Residual (Fit-Test) Sample')
-    plt.savefig('fakemcmc20p_RF_QQ.pdf')
+    plt.savefig('fakemcmc22p_RF_QQ.pdf')
 
 
     #print "Average feature importances from skl: ",feature_importances

@@ -6,6 +6,77 @@ import pdb
 import copy
 from scipy.interpolate import interp1d
 
+def standardizedEpsSkewNormal(x, epsilon):
+    if x<0:
+        return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1+epsilon)*(1+epsilon)))
+    else:
+        return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1-epsilon)*(1-epsilon)))
+def epsSkewNormalPDF(x, epsilon, theta, sigma):
+    return standardizedEpsSkewNormal( (x-theta)/sigma, epsilon )/sigma
+from scipy.stats import norm
+def standardizedEpsSkewQuantile(u, epsilon):
+    ret = 0
+    if 0<u and u<(1.0+epsilon)/2.0:
+        ret = (1.0+epsilon) * norm.ppf(u/(1.0+epsilon))
+    elif (1.0+epsilon)/2.0 <= u and u<1:
+        ret = (1.0-epsilon) * norm.ppf((u-epsilon)/(1.0-epsilon))
+    else:
+        raise ValueError
+    if ret!=ret:
+        pdb.set_trace()
+    #print "stEpsNorm quantile: ", ret
+    return ret
+from scipy.optimize import brentq
+def computeEpsSkewParams(q16, q50, q84):
+    def to_zero(epsilon):
+        ret =  (standardizedEpsSkewQuantile( 0.84, epsilon ) - standardizedEpsSkewQuantile(0.5, epsilon)) / (standardizedEpsSkewQuantile( 0.5, epsilon ) - standardizedEpsSkewQuantile(0.16, epsilon)) - (q84-q50)/(q50-q16)
+        #print "eps_tozero:", ret
+        return ret
+    #print "Attempting brentq with ",q16,q50,q84,';', to_zero(-.99), to_zero(0), to_zero(.99)
+    lower_bound = -.99
+    middle_value = 0
+    upper_bound = 0.99
+    if( to_zero(lower_bound)*to_zero(upper_bound)>0 ):
+        vlb = to_zero(lower_bound)
+        vub = to_zero(upper_bound)
+        vlz = to_zero(middle_value)
+        if(abs(vlb)<abs(vub) and abs(vlb)<abs(vlz)):
+            print "WARNING: returning lower_bound" 
+            x0 = lower_bound
+        elif(abs(vub)<abs(vlb) and abs(vub)<abs(vlz)):
+            print "WARNING: returning upper_bound" 
+            x0 = upper_bound
+        else:
+            print "WARNING: returning epsilon=", middle_value," without minimizing"
+            x0 = middle_value
+    else:
+        x0 = brentq(to_zero, lower_bound, upper_bound)
+#    counter = 0
+#    countermax = 100
+#    while(to_zero(lower_bound)*to_zero(upper_bound)>0):
+#        counter+=1
+#        lower_bound = np.random.random()*2-1
+#        upper_bound = np.random.random()*(1-lower_bound)-lower_bound 
+#        if counter>countermax:
+#            print "Failed to find a good bound!"
+#            trial_epsilons = np.linspace(-.999,.999,50)
+#            objectiveFn = [to_zero(eps) for eps in trial_epsilons]
+#            print trial_epsilons
+#            print objectiveFn
+#            pdb.set_trace()
+#            break
+#    print counter
+#    if counter>countermax:
+#        x0 = 0
+#        print "WARNING: setting epsilon to zero"
+#    else:
+#        x0 = brentq(to_zero, lower_bound, upper_bound)
+    #print "x0: ",x0
+    sigma = (q50-q16)/(standardizedEpsSkewQuantile( 0.5, x0) - standardizedEpsSkewQuantile(0.16, x0))
+    #print "sigma: ", sigma
+    theta = q50 - sigma*standardizedEpsSkewQuantile( 0.5, x0)
+    #print "theta: ", theta
+    return x0,theta,sigma
 
 
 def nToC82(nn):
@@ -54,7 +125,7 @@ def nToC82(nn):
 # This is the simplest thing that will currently do well in my setup. 
 # 
 class DataSet:
-    def __init__(self, xvar, yvar, xval, yval, yLower=None, yUpper=None, xerr=None, yerr=None, zmin=-1, zmax=0.5, label=None, logx=True, logy=True, alpha=0.05):
+    def __init__(self, xvar, yvar, xval, yval, yLower=None, yUpper=None, xerr=None, yerr=None, zmin=-1, zmax=0.5, label=None, logx=True, logy=True, alpha=0.05, fixedSigma=-1, extrapolate=True):
         if label is None:
             pdb.set_trace()
         self.xvar = xvar
@@ -67,11 +138,11 @@ class DataSet:
                 yUpper = yval+yerr
             if yLower is None:
                 yLower = yval-yerr
-        # If nothing filled in yUpper and yLower, set them to be equal to the value, i.e. zero width, for lack of better info
+        # If nothing filled in yUpper and yLower, assume 50% errors
         if yUpper is None:
-            yUpper = yval
+            yUpper = np.array(yval)*1.5
         if yLower is None:
-            yLower = yval
+            yLower = np.array(yval)/1.5
         self.yLower=yLower
         self.yUpper=yUpper
 
@@ -82,6 +153,9 @@ class DataSet:
         self.label = label
         self.logx = logx
         self.logy = logy
+
+        self.fixedSigma = fixedSigma
+        self.extrapolate = extrapolate
 
     def plot(self, z, axIn=None, color='k', lw=2, scatter=False):
         ''' Plot the requested variables at redshift z. If z is outside the z
@@ -136,7 +210,74 @@ class DataSet:
         inx = np.logical_and( np.min(xv) < xEval, xEval<np.max(xv) )
         ret = np.logical_and( np.logical_and( yfl<yEval, yEval < yfu ), inx)
         return ret
-    def returnQuantiles(self, x, fixedSigma=-1):
+    def cacheQuantiles(self, x0=None, x1=None):
+        if self.logx:
+            dynRange = np.max(self.xval)/np.min(self.xval)
+            if x0 is None:
+                x0 = np.min(self.xval)/dynRange**5.0
+            if x1 is None:
+                x1 = np.max(self.xval)*dynRange**5.0
+        else:
+            linRange = np.max(self.xval)-np.min(self.xval)
+            if x0 is None:
+                x0 = np.min(self.xval) - linRange*5.0
+            if x1 is None:
+                x1 = np.max(self.xval) + linRange*5.0
+
+        if self.logx:
+            # x0 and x1 are in linear space - take the log to produce even spacing in log space
+            xcache = np.linspace(np.log10(x0), np.log10(x1), 1000)
+            q16, q50, q84, logy = self.returnQuantiles(np.power(10.0, xcache))
+        else:
+            xcache = np.linspace(x0, x1, 1000)
+            q16, q50, q84, logy = self.returnQuantiles(xcache)
+        self.cacheq16 = interp1d(xcache, q16, kind='linear', bounds_error=True)
+        self.cacheq50 = interp1d(xcache, q50, kind='linear', bounds_error=True)
+        self.cacheq84 = interp1d(xcache, q84, kind='linear', bounds_error=True)
+
+        epsilons=[]
+        thetas=[]
+        sigmas=[]
+        for i in range(len(xcache)):
+            epsilon, theta, sigma = computeEpsSkewParams( q16[i], q50[i], q84[i] )
+            epsilons.append(epsilon)
+            thetas.append(theta)
+            sigmas.append(sigma)
+        print "Storing cached versions of eps skew norm parameters for ",self.label
+        self.cacheEpsilons = interp1d( xcache, epsilons, kind='linear', bounds_error=True)
+        self.cacheThetas = interp1d( xcache, thetas, kind='linear', bounds_error=True)
+        self.cacheSigmas = interp1d( xcache, sigmas, kind='linear', bounds_error=True)
+
+
+    def returnCachedSkewParams(self,x):
+        if self.logx:
+            xThis = np.log10(x)
+        else:
+            xThis = x
+        try:
+            eps = self.cacheEpsilons(xThis)
+            th = self.cacheThetas(xThis)
+            sig = self.cacheSigmas(xThis)
+            return eps,th,sig
+        except:
+            # tried to get it pre-computed, but we failed. Just compute directly
+            q16, q50, q84, logy = self.returnQuantiles(xThis)
+            eps,th,sig = computeEpsSkewParams( q16, q50, q84)
+            return eps,th,sig
+
+    def returnCachedQuantiles(self,x):
+        try:
+            if self.logx:
+                xThis = np.log10(x)
+            else:
+                xThis = x
+            q16 = self.cacheq16(xThis)
+            q50 = self.cacheq50(xThis)
+            q84 = self.cacheq84(xThis)
+            return q16, q50, q84, self.logx
+        except:
+            return self.returnQuantiles(x) 
+    def returnQuantiles(self, x):
         ''' Designed to sort-of replace the workflow specified below with distance. 
             Return the 16th, 50th and 84th percentiles at the given x.'''
         sigma = 1.0
@@ -158,30 +299,57 @@ class DataSet:
         outx = np.logical_not(inx)
         belowx = xEval < np.min(xv)
         abovex = xEval > np.max(xv)
-        inflate = np.ones(len(xv))
-        inflate[abovex] = np.exp(( xEval - np.max(xv))/2.0 )
-        inflate[belowx] = np.exp(-( xEval - np.min(xv))/2.0 )
+        inflate = np.ones(len(xEval))
+        inflate[abovex] = np.exp(( xEval[abovex] - np.max(xv))/2.0 )
+        inflate[belowx] = np.exp(-( xEval[belowx] - np.min(xv))/2.0 )
         try:
             f = interp1d(xv,yv,kind='linear',bounds_error=False, fill_value='extrapolate')
         except:
             pdb.set_trace()
         fu = interp1d(xv,yv+sigma*(yu-yv),kind='linear',bounds_error=False)
         fl = interp1d(xv,yv-sigma*(yv-yl),kind='linear',bounds_error=False)
-        yf = f(xEval) # don't need this
+        yf = f(xEval) 
         yfu = fu(xEval)
         yfl = fl(xEval)
 
-        if fixedSigma<=0:
-            yfl[belowx] = yf[belowx] - (yf[minvalid] - yfl[minvalid])*inflate[belowx]
-            yfl[abovex] = yf[abovex] - (yf[maxvalid] - yfl[maxvalid])*inflate[abovex]
+	#minvalid = np.min( np.arange(len(inx))[inx] )
+	#maxvalid = np.max( np.arange(len(inx))[inx] )
+        minvalid = np.argmin(xv)
+        maxvalid = np.argmax(xv)
+        if self.fixedSigma<=0:
+            #deltaYbelowleft = yf[minvalid]-yfl[minvalid]
+            #deltaYbelowright = yf[maxvalid] - yfl[maxvalid]
+            #deltaYaboveleft = yfu[minvalid]-yf[minvalid]
+            #deltaYaboveright = yfu[maxvalid]-yf[maxvalid]
 
-            yfu[belowx] = yf[belowx] + (yfu[minvalid]-yf[minvalid])*inflate[belowx]
-            yfu[abovex] = yf[abovex] + (yfu[maxvalid]-yf[maxvalid])*inflate[abovex]
-            return yfl, yf, yfu
+            deltaYbelowleft = yv[minvalid]-yl[minvalid]
+            deltaYbelowright = yv[maxvalid] - yl[maxvalid]
+            deltaYaboveleft = yu[minvalid]-yv[minvalid]
+            deltaYaboveright = yu[maxvalid]-yv[maxvalid]
+
+            yfl[belowx] = yf[belowx] - deltaYbelowleft*inflate[belowx]
+            yfl[abovex] = yf[abovex] - deltaYbelowright*inflate[abovex]
+
+            yfu[belowx] = yf[belowx] + deltaYaboveleft*inflate[belowx]
+            yfu[abovex] = yf[abovex] + deltaYaboveright*inflate[abovex]
+            if( len(yfl)!=len(yf) or len(yfu)!=len(yf)):
+                pdb.set_trace()
+            ret = yfl, yf, yfu, self.logy
+            #print "return quantiles: ",ret
+ 
         else:
-            return yf-fixedSigma*inflate, yf, yf+fixedSigma*inflate
+            ret = yf-self.fixedSigma*inflate, yf, yf+self.fixedSigma*inflate, self.logy
+            #print "return quantiles 2: ",ret
+            if( len(inflate)!=len(yf) or len(yfu)!=len(yf)):
+                pdb.set_trace()
+        if np.any(np.isnan(ret[0])) or np.any(np.isnan(ret[1])) or np.any(np.isnan(ret[2])):
+            pdb.set_trace()
 
-    def distance(self, x,y, fixedSigma=-1):
+        
+        return ret
+
+
+    def distance(self, x,y):
         ''' Return the distance in sigma (above or below) the relation'''
         sigma = 1.0
         xv = copy.deepcopy( self.xval )
@@ -209,16 +377,16 @@ class DataSet:
         yf = f(xEval) # don't need this
         yfu = fu(xEval)
         yfl = fl(xEval)
-        if fixedSigma<=0:
+        if self.fixedSigma<=0:
             sigmaAbove = yfu-yf
             sigmaBelow = yf-yfl
             above = (yEval - yf)/(yfu-yf) # this will be positive for numbers above the median, and in units of the sigma above the median
             below = (yEval - yf)/(yf - yfl) # this will be negative for numbers below the median, and in units of the sigma below median
         else:
-            sigmaAbove = yf*0 + fixedSigma
-            sigmaBelow = yf*0 + fixedSigma
-            above = (yEval - yf)/fixedSigma
-            below = (yEval - yf)/fixedSigma
+            sigmaAbove = yf*0 + self.fixedSigma
+            sigmaBelow = yf*0 + self.fixedSigma
+            above = (yEval - yf)/self.fixedSigma
+            below = (yEval - yf)/self.fixedSigma
 
         isAbove = above>0
         above = np.clip(above, 0, np.inf)
@@ -550,13 +718,13 @@ def defineMS(z, specific=True):
         ### from Cano-Di'az+ (2016) "Spatially Resolved STar Formation Main Sequence..."
         ## Note that the code uses Msun/pc^2 for colst, but the data is in Msun/kpc^2
         arr = np.loadtxt('CanoDiaz16_20p.csv', delimiter=',')
-        datasets['CanoDiaz16_20p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_20p')
+        datasets['CanoDiaz16_20p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_20p', extrapolate=False)
         arr = np.loadtxt('CanoDiaz16_40p.csv', delimiter=',')
-        datasets['CanoDiaz16_40p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_40p')
+        datasets['CanoDiaz16_40p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_40p', extrapolate=False)
         arr = np.loadtxt('CanoDiaz16_60p.csv', delimiter=',')
-        datasets['CanoDiaz16_60p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_60p')
+        datasets['CanoDiaz16_60p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_60p', extrapolate=False)
         arr = np.loadtxt('CanoDiaz16_80p.csv', delimiter=',')
-        datasets['CanoDiaz16_80p'] = DataSet('colst', 'colsfr', arr[:,0]-6, arr[:,1], zmax= 0.5, label='CanoDiaz16_80p')
+        datasets['CanoDiaz16_80p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_80p', extrapolate=False)
 
 
 
@@ -655,7 +823,7 @@ def defineStellarZ():
     ZTremonti84 = np.power(10.0, np.array([-0.00, -0.00, -0.05, -0.01, 0.05, 0.09, 0.14, 0.17, 0.20, 0.22, 0.24, 0.25, 0.26, 0.28, 0.29, 0.30]))
 
     datasets['kirby13'] = DataSet( 'mstar', 'stZ', MstKirby, ZKirby, yLower=ZKirby*10.0**-0.17, yUpper=ZKirby*10.0**0.17, label='Kirby13', alpha=0.5)
-    datasets['gallazi05'] = DataSet( 'mstar', 'stZ', MstTremonti, ZTremontiMed, yLower=ZTremonti16, yUpper=ZTremonti84, label='Gallazzi05', alpha=0.5)
+    datasets['gallazi05'] = DataSet( 'mstar', 'stZ', MstTremonti, ZTremontiMed, yLower=ZTremonti16, yUpper=ZTremonti84, label='Gallazzi05', alpha=0.5, fixedSigma=0.17)
 
 
 
@@ -753,6 +921,12 @@ for i in [0,1,2,3,4]:
     defineMS(i, specific=True)
     defineMoster(i)
     defineGasFractions(i)
+
+for dsk in datasets.keys():
+    ds = datasets[dsk]
+    if ds.extrapolate:
+        ds.cacheQuantiles()
+
 
 def identifyApplicableDatasets(xvar, yvar, z):
     res = []

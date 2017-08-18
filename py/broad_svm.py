@@ -2295,7 +2295,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
 
     #Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
 
-    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$, $\chi_{dlogZ/dlogM}$']
+    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$']
     texlabels = labels[:]
     for i in range(nfeatures-len(feature_names)):
         #feature_names.append("AccHist"+str(i))
@@ -2950,7 +2950,7 @@ if __name__=='__main__':
     #searchLinearModels(800)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    runEmcee(mpi=False, continueRun=False, seedWith=None )
+    #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 
@@ -2958,7 +2958,7 @@ if __name__=='__main__':
     #plotResiduals()
 
     #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
-    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
+    estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 

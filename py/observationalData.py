@@ -1,3 +1,4 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -156,10 +157,114 @@ class DataSet:
 
         self.fixedSigma = fixedSigma
         self.extrapolate = extrapolate
+    def plotLikelihood(self, axIn=None):
+        x0=None
+        x1=None
+        ex0=None
+        ex1=None
+        ey0=None
+        ey1=None
+        if self.logx:
+            dynRange = np.max(self.xval)/np.min(self.xval)
+            if x0 is None:
+                x0 = np.min(self.xval)/dynRange**1.0
+            if x1 is None:
+                x1 = np.max(self.xval)*dynRange**1.0
+            ex0=np.log10(x0)
+            ex1=np.log10(x1)
+        else:
+            linRange = np.max(self.xval)-np.min(self.xval)
+            if x0 is None:
+                x0 = np.min(self.xval) - linRange*1.0
+            if x1 is None:
+                x1 = np.max(self.xval) + linRange*1.0
+            ex0=x0
+            ex1=x1
 
-    def plot(self, z, axIn=None, color='k', lw=2, scatter=False):
+        if self.logx:
+            # x0 and x1 are in linear space - take the log to produce even spacing in log space
+            xs = np.linspace(np.log10(x0), np.log10(x1), 100)
+        else:
+            xs = np.linspace(x0, x1, 100)
+        y0=None
+        y1=None
+        if self.logy:
+            dynRange = np.max(self.yval)/np.min(self.yval)
+            if y0 is None:
+                y0 = np.min(self.yval)/dynRange**5.0
+            if y1 is None:
+                y1 = np.max(self.yval)*dynRange**5.0
+            ey0=np.log10(y0)
+            ey1=np.log10(y1)
+        else:
+            linRange = np.max(self.yval)-np.min(self.yval)
+            if y0 is None:
+                y0 = np.min(self.yval) - linRange*5.0
+            if y1 is None:
+                y1 = np.max(self.yval) + linRange*5.0
+            ey0=y0
+            ey1=y1
+
+        if self.logy:
+            # y0 and y1 are in linear space - take the log to produce even spacing in log space
+            ys = np.linspace(np.log10(y0), np.log10(y1), 84)
+        else:
+            ys = np.linspace(y0, y1, 84)
+        arr = np.zeros((len(xs),len(ys)))
+        for i,x in enumerate(xs):
+            xThis = x
+            if self.logx:
+                xThis = 10.0**x
+            epsilon, theta, sigma = self.returnCachedSkewParams([xThis])
+
+            for j,yThis in enumerate(ys):
+                likThis = epsSkewNormalPDF( yThis, epsilon,theta,sigma )
+                arr[i,j] = likThis
+
+        if axIn is None:
+            fig,ax=plt.subplots()
+        else:
+            ax=axIn
+        #ax.imshow( arr.T, origin='lower', interpolation='Nearest', norm=matplotlib.colors.LogNorm(), extent=(ex0,ex1,ey0,ey1))
+        ax.imshow( arr.T, origin='lower', interpolation='Nearest', extent=(ex0,ex1,ey0,ey1))
+        if self.logx and self.logy:
+            ax.plot( np.log10(self.xval), np.log10(self.yval), c='k', lw=2, ls='-' )
+            ax.plot( np.log10(self.xval), np.log10(self.yUpper), c='k', lw=1, ls='-' )
+            ax.plot( np.log10(self.xval), np.log10(self.yLower), c='k', lw=1, ls='-' )
+            ax.set_xlabel(r'$\log_{10}$'+self.xvar)
+            ax.set_ylabel(r'$\log_{10}$'+self.yvar)
+        if self.logx and not self.logy:
+            ax.plot( np.log10(self.xval), self.yval, c='k', lw=2, ls='-' )
+            ax.plot( np.log10(self.xval), self.yUpper, c='k', lw=1, ls='-' )
+            ax.plot( np.log10(self.xval), self.yLower, c='k', lw=1, ls='-' )
+            ax.set_xlabel(r'$\log_{10}$'+self.xvar)
+            ax.set_ylabel(self.yvar)
+        if not self.logx and self.logy:
+            ax.plot( self.xval, np.log10(self.yval), c='k', lw=2, ls='-' )
+            ax.plot( self.xval, np.log10(self.yUpper), c='k', lw=1, ls='-' )
+            ax.plot( self.xval, np.log10(self.yLower), c='k', lw=1, ls='-' )
+            ax.set_xlabel(self.xvar)
+            ax.set_ylabel(r'$\log_{10}$'+self.yvar)
+        if not self.logx and not self.logy:
+            ax.plot( self.xval, self.yval, c='k', lw=2, ls='-' )
+            ax.plot( self.xval, self.yUpper, c='k', lw=1, ls='-' )
+            ax.plot( self.xval, self.yLower, c='k', lw=1, ls='-' )
+            ax.set_xlabel(self.xvar)
+            ax.set_ylabel(self.yvar)
+
+
+        plt.savefig('likelihood_'+self.label+'.pdf')
+        if axIn is None:
+            plt.close(fig)
+     
+    def plot(self, z, axIn=None, color='k', lw=2, scatter=False, alpha=None):
         ''' Plot the requested variables at redshift z. If z is outside the z
             range (specified by zmin, zmax in __init__), plot a dotted line instead'''
+
+        if alpha is None:
+            thisAlpha = self.alpha
+        else:
+            thisAlpha = alpha
         if axIn is None:
             fig,ax = plt.subplots()
         else:
@@ -172,7 +277,7 @@ class DataSet:
                 ax.plot(self.xval, self.yval, c=color, lw=lw, ls='-',label=label)
             else:
                 ax.scatter(self.xval, self.yval, c=color, lw=lw, label=label, s=10)
-            ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=self.alpha)
+            ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=thisAlpha)
         else:
             ax.plot(self.xval, self.yval, c=color, lw=lw, ls=':',label=label)
         if axIn is None:
@@ -962,7 +1067,9 @@ def identifyApplicableDatasets(xvar, yvar, z):
 
 if __name__=='__main__':
     for ds in datasets.keys():
-        datasets[ds].test()
+        #datasets[ds].test()
+        if datasets[ds].extrapolate:
+            datasets[ds].plotLikelihood()
 
 
 

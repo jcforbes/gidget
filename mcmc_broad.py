@@ -4,17 +4,12 @@ import sys
 import copy
 import emcee
 import pickle
-import corner 
 from mpi4py import MPI 
 from emcee.utils import MPIPool
 import numpy as np
 import exper
 import readoutput
 import os, glob
-import matplotlib
-import verticalProfile
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.stats
 import time
@@ -24,7 +19,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr23a'
+chaindirrel = 'broadDistr23g'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -434,9 +429,12 @@ def lnlikelihood(emceeparams, modelname=None):
 
     # shutil.rmtree( analysisdir+'/'+name+'/' )
     # remove the large files in the output, since we no longer need them
-    os.remove( analysisdir+'/'+name+'/'+name+'_evolution.dat')
-    os.remove( analysisdir+'/'+name+'/'+name+'_radial.dat')
-    os.remove( analysisdir+'/'+name+'/'+name+'_stars.dat')
+    try:
+        os.remove( analysisdir+'/'+name+'/'+name+'_evolution.dat')
+        os.remove( analysisdir+'/'+name+'/'+name+'_radial.dat')
+        os.remove( analysisdir+'/'+name+'/'+name+'_stars.dat')
+    except:
+        print "WARNING: did not successfully remove evolution.dat radial.dat or stars.dat from ",analysisdir+'/'+name+'/'
 
     return 0.0
 
@@ -804,6 +802,11 @@ def run(n, p00=None, nwalkers=500):
 
 
 def traceplots(chain, fn, burnin=0):
+
+    import matplotlib
+    matplotlib.use('agg')
+    import matplotlib.pyplot as plt
+
     ndim = np.shape(chain)[2]
     sq = np.sqrt(float(ndim))
     nr = int(np.ceil(sq))
@@ -828,6 +831,9 @@ def ksprob(arr1, arr2):
     return ks_2samp(arr1,arr2)[1]
 
 def probsplots(allprobs, fn, chain, burnin=0):
+    import matplotlib
+    matplotlib.use('agg')
+    import matplotlib.pyplot as plt
     nwalker = np.shape(allprobs)[0]
     iters = np.shape(allprobs)[1]
     ndim = np.shape(chain)[2]
@@ -901,6 +907,10 @@ def trianglemovie(restart):
         triangleplot( restart, bn+str(i).zfill(3)+'.png', burnin=i, nspace=10000 )
 
 def triangleplot(restart,fn,burnin=0, nspace=10):
+    import matplotlib
+    matplotlib.use('agg')
+    import matplotlib.pyplot as plt
+    import corner
     shp = np.shape(restart['chain'])
     prs = shp[0]*(shp[1]-burnin)*shp[2]
     prior = np.array([samplefromprior() for i in range(prs)])

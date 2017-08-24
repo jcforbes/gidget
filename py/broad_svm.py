@@ -823,7 +823,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     cluster_medians = []
     cluster_means = []
     clusters=[]
-    ndim = 24
+    ndim = 23
     for cl in range(n_clusters):
         cluster_filter = kmeans.labels_== cl 
         this_cluster = sampleRed[cluster_filter, :]

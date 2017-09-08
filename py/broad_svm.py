@@ -823,7 +823,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     cluster_medians = []
     cluster_means = []
     clusters=[]
-    ndim = 24
+    ndim = 23
     for cl in range(n_clusters):
         cluster_filter = kmeans.labels_== cl 
         this_cluster = sampleRed[cluster_filter, :]
@@ -2977,6 +2977,7 @@ if __name__=='__main__':
     #searchLinearModels(800)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
+    runEmcee(mpi=True, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
@@ -2984,7 +2985,7 @@ if __name__=='__main__':
     #validateNPR()
     #plotResiduals()
 
-    estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
+    #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
     #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)

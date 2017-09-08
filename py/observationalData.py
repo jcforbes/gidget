@@ -822,13 +822,13 @@ def defineMS(z, specific=True):
     if z<0.5:
         ### from Cano-Di'az+ (2016) "Spatially Resolved STar Formation Main Sequence..."
         ## Note that the code uses Msun/pc^2 for colst, but the data is in Msun/kpc^2
-        arr = np.loadtxt('CanoDiaz16_20p.csv', delimiter=',')
+        arr = np.loadtxt(os.environ['GIDGETDIR']+'/py/CanoDiaz16_20p.csv', delimiter=',')
         datasets['CanoDiaz16_20p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_20p', extrapolate=False)
-        arr = np.loadtxt('CanoDiaz16_40p.csv', delimiter=',')
+        arr = np.loadtxt(os.environ['GIDGETDIR']+'/py/CanoDiaz16_40p.csv', delimiter=',')
         datasets['CanoDiaz16_40p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_40p', extrapolate=False)
-        arr = np.loadtxt('CanoDiaz16_60p.csv', delimiter=',')
+        arr = np.loadtxt(os.environ['GIDGETDIR']+'/py/CanoDiaz16_60p.csv', delimiter=',')
         datasets['CanoDiaz16_60p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_60p', extrapolate=False)
-        arr = np.loadtxt('CanoDiaz16_80p.csv', delimiter=',')
+        arr = np.loadtxt(os.environ['GIDGETDIR']+'/py/CanoDiaz16_80p.csv', delimiter=',')
         datasets['CanoDiaz16_80p'] = DataSet('colst', 'colsfr', np.power(10.0,arr[:,0]-6), np.power(10.0,arr[:,1]), zmax= 0.5, label='CanoDiaz16_80p', extrapolate=False)
 
 
@@ -980,7 +980,7 @@ def defineTullyFisher():
 
     sf = np.power(10.0, np.array([-3.1, -2.3, -1.4, -0.7, -0.0, 0.54, 0.89, 1.3, 1.67, 2.1]))
     sig = np.array([9.3, 11.5, 14.6, 14.8, 17.6, 21.6, 32.9, 53.5, 72.3, 87.6])
-    arr = np.loadtxt('krumholz17_sigma_compilation.txt')
+    arr = np.loadtxt(os.environ['GIDGETDIR']+'/py/krumholz17_sigma_compilation.txt')
     sf = np.power(10.0, arr[:,0])
     sig16 = np.power(10.0, arr[:,1])
     sig50 = np.power(10.0, arr[:,2])

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name brd22h
+#SBATCH --job-name brd23h
 #SBATCH -n 256
 #SBATCH -t 4-00:00
 #SBATCH -p general

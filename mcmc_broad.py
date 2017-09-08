@@ -19,7 +19,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr23g'
+chaindirrel = 'broadDistr23h'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 

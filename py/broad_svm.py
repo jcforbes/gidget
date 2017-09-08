@@ -958,7 +958,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 24, 1000 
+    ndim, nwalkers = 23, 1000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
     fn = 'fakemcmc22_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
@@ -2950,7 +2950,7 @@ if __name__=='__main__':
     #searchLinearModels(800)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    runEmcee(mpi=True, continueRun=False, seedWith=None )
+    runEmcee(mpi=True, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
@@ -2959,7 +2959,7 @@ if __name__=='__main__':
     #plotResiduals()
 
     #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
-    estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
+    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 

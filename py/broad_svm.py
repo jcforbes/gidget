@@ -330,7 +330,7 @@ def residualsFromGidget(bn, fh=0.3):
     else:
         return [],[]
 
-models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+#models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 #models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
@@ -958,9 +958,9 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 24, 1000 
+    ndim, nwalkers = 23, 1000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc22_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc23_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
     p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
@@ -1656,6 +1656,18 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
                     Ys_train[:,j*nz+k] += 1
                     Ys_validate[:,j*nz+k] += 1
                     Ys_test[:,j*nz+k] += 1
+                if np.all(Ys_train[:,j*nz+k]>0):
+                    pass
+                else:
+                    problematic = Ys_train[:,j*nz+k]<=0
+                    counter = np.ones(np.shape(problematic))
+                    print "WARNING: replacing ", np.sum(counter[problematic]), "elements with minimum value of training set"
+                    fine = np.logical_not(problematic)
+                    minvalid = np.min(Ys_train[fine, j*nz+k])
+                    Ys_train[problematic, j*nz+k] = minvalid
+                    Ys_validate[Ys_validate[:,j*nz+k]<=0, j*nz+k] = minvalid
+                    Ys_test[Ys_test[:,j*nz+k]<=0, j*nz+k] = minvalid
+
                 Ys_train[:,j*nz+k] = np.log10(Ys_train[:,j*nz+k])
                 Ys_validate[:,j*nz+k] = np.log10(Ys_validate[:,j*nz+k]) 
                 Ys_test[:,j*nz+k] = np.log10(Ys_test[:,j*nz+k])
@@ -1666,7 +1678,7 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
                 Ys_validate[:,j] = np.log10(Ys_validate[:,j])
                 Ys_test[:,j] = np.log10(Ys_test[:,j])
 
-    print "Are all X data finite? ", np.all(np.isfinite(X_train)), np.all(np.isfinite(X_test)), not np.any(np.isnan(X_test))
+    print "Are all X data finite? ", np.all(np.isfinite(X_train)), np.all(np.isfinite(X_test)), not np.any(np.isnan(X_test)), np.all(np.isfinite(Ys_train)), not np.any(np.isnan(Ys_train))
     return X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels
 
 
@@ -2276,7 +2288,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad22partial_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad23partial_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -2323,12 +2335,22 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             Ys_validate = Ys_train_orig.copy()[validationSample,:]
             Ys_train = Ys_train_orig.copy()[np.logical_not(validationSample),:]
 
+            if( np.any(np.logical_not(np.isfinite(X_train))) or np.any(np.isnan(X_train))):
+                pdb.set_trace()
+            if( np.any(np.logical_not(np.isfinite(Ys_train[:,k]))) or np.any(np.isnan(Ys_train[:,k]))):
+                pdb.set_trace()
+
+
             # Regularize the input and output vectors to give the learning algorithm an easier time
             Xtra = xtransform(X_train)
             X_train = Xtra.transform(X_train)
             X_validate = Xtra.transform(X_validate)
             X_test = Xtra.transform(X_test_orig.copy()) 
             
+            if( not np.all(np.isfinite(X_train)) or np.any(np.isnan(X_train))):
+                pdb.set_trace()
+
+
             #### store a set of random factors to be used all throughout the emcee process
             randomFactors = np.zeros(np.shape(randomFactorsKey01))
             for jj in range(50):
@@ -2339,11 +2361,13 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             Ys_validate = Ytra.transform(Ys_validate)
             Ys_test = Ytra.transform(Ys_test_orig.copy())
 
+            if( not np.all(np.isfinite(Ys_train[:,k])) or np.any(np.isnan(Ys_train[:,k]))):
+                pdb.set_trace()
 
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=500, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=10, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt22b_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt23_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2404,7 +2428,10 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
                         np.random.shuffle(X_vb[:,nfi])
                         X_v[binselec,nfi] = X_vb[:,nfi]
                         shuffle_acc = r2_score(Ys_validate[:,k], theModel.predict(X_v))
-                        scores[nfi,nm,k] += ((acc-shuffle_acc)/acc)/float(ncv)
+                        if acc>0:
+                            scores[nfi,nm,k] += ((acc-shuffle_acc)/acc)/float(ncv)
+                        else:
+                            scores[nfi,nm,k] += 0
 
 
 
@@ -2480,12 +2507,12 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             texlabels.append( '' )
     if analyze:
  
-        printScores(r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_scores_22b.tex', normalize=False)
-        printFeatureImportancesMultipleArrays(feature_importances.T, np.mean(scores,axis=1).T, feature_names, texlabels, fn='feature_mult_importances_22b.tex', normalize1=False, normalize2=False)
+        printScores(r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_scores_23.tex', normalize=False)
+        printFeatureImportancesMultipleArrays(feature_importances.T, np.mean(scores,axis=1).T, feature_names, texlabels, fn='feature_mult_importances_23.tex', normalize1=False, normalize2=False)
 
-        printFeatureImportances(feature_importances.T*1.0, r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_importance_compact_22b.tex', normalize=False)
-        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, correlations, residual_stdev, np.sqrt(MSEb),feature_names, texlabels, fn='avg_swap_scores_compact_22b.tex', normalize=False)
-        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores,correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='avg_derivs_compact_22b.tex')
+        printFeatureImportances(feature_importances.T*1.0, r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_importance_compact_23.tex', normalize=False)
+        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, correlations, residual_stdev, np.sqrt(MSEb),feature_names, texlabels, fn='avg_swap_scores_compact_23.tex', normalize=False)
+        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores,correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='avg_derivs_compact_23.tex')
         #printTable(feature_importances.T*1.0, feature_names, texlabels, fn='feature_importances.tex')
         #printTable(np.mean(scores,axis=1).T, feature_names, texlabels, fn='avg_swap_scores.tex')
 
@@ -2503,7 +2530,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             if k<ntargets/4-4:
                 ax.flatten()[k].set_xticklabels([])
     plt.tight_layout()
-    plt.savefig('fakemcmc22p_RF_residuals.pdf')
+    plt.savefig('fakemcmc23_RF_residuals.pdf')
 
 
     colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan', 'lightblue', 'grey', 'yellow', 'olive', 'magenta', 'lightgreen', 'maroon', 'lime', 'orchid', 'gold', 'deeppink', 'navy', 'moccasin', 'plum']*10
@@ -2545,7 +2572,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     ax.legend(frameon=False, scatterpoints=1)
     ax.set_xlabel(r'Sorted Test Sample')
     ax.set_ylabel(r'Sorted Residual (Fit-Test) Sample')
-    plt.savefig('fakemcmc22p_RF_QQ.pdf')
+    plt.savefig('fakemcmc23_RF_QQ.pdf')
 
 
     #print "Average feature importances from skl: ",feature_importances
@@ -2957,8 +2984,8 @@ if __name__=='__main__':
     #validateNPR()
     #plotResiduals()
 
-    #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
-    estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
+    estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
+    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 

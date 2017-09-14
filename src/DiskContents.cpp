@@ -130,8 +130,9 @@ DiskContents::DiskContents(double tH, double eta,
     uDM(std::vector<double>(m.nx()+1,0.)),
     uBulge(std::vector<double>(m.nx()+1,0.)),
     dim(d), mesh(m), dbg(ddbg),
-    XMIN(m.xmin()),ZDiskO(std::vector<double>(m.nx()+1,Z_IGM_O)),
-    ZDiskFe(std::vector<double>(m.nx()+1,Z_IGM_Fe)),
+    XMIN(m.xmin()),
+    ZDiskO(std::vector<double>(m.nx()+1,0)),
+    ZDiskFe(std::vector<double>(m.nx()+1,0)),
     cos(c),tauHeat(tH),sigth(sflr),
     EPS_ff(epsff),ETA(eta),constMassLoadingFactor(mlf),
     mlfColScaling(mlfColScal),
@@ -142,7 +143,8 @@ DiskContents::DiskContents(double tH, double eta,
     //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
     spsActive(std::vector<StellarPop*>(0)),
     spsPassive(std::vector<StellarPop*>(0)),
-    dlnx(m.dlnx()),Qlim(ql),TOL(tol),ZBulgeFe(Z_IGM_Fe), ZBulgeO(Z_IGM_O),
+    dlnx(m.dlnx()),Qlim(ql),TOL(tol),
+    ZBulgeFe(0), ZBulgeO(0),
     yRECFe(0.0011), yRECO(0.0133),RfRECinst(0.77),RfRECasym(0.503),xiREC(xirec), 
     analyticQ(aq),
     tDepH2SC(tdeph2sc),
@@ -381,10 +383,12 @@ void DiskContents::Initialize(double fcool, double fg0,
     double S0gas = 0.17*fc*fg4*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xdgas)*xdgas*(xdgas+xouter) + exp(-xinner/xdgas)*xdgas*(xdgas+xinner))*dim.MdotExt0*dim.Radius);
     double S0stars = 0.17*fc*(1-fg4)*MhZs*MSol*dim.vphiR / (2.*M_PI*(-exp(-xouter/xdstars)*xdstars*(xdstars+xouter) + exp(-xinner/xdstars)*xdstars*(xdstars+xinner))*dim.MdotExt0*dim.Radius);
     double floorval = 1.0e-15;
+    ZBulgeFe = Z0Fe;
+    ZBulgeO = Z0O;
 
     for(unsigned int n=1; n<=nx; ++n) {
-        ZDiskFe[n] = Z0Fe;
-        ZDiskO[n] = Z0O;
+        ZDiskFe[n] = Z_IGMFe;
+        ZDiskO[n] = Z_IGMO;
         initialStarsA->spcol[n] = S0stars*exp(-x[n]/xdstars);
         if(initialStarsA->spcol[n] < S0stars*floorval)
             initialStarsA->spcol[n] = S0stars*floorval; // floor the initial value to avoid very small timesteps

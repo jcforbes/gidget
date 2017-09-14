@@ -34,7 +34,7 @@ class DiskContents {
 	           double minSigSt, 
                double rfrec, double zetarec,
     	       double fh2min, double tdeph2sc,
-               double Z_IGM_O, double Z_IGM_Fe, double yrec,
+               double yrec,
                double ksupp, double kpow,
                double mq, double muq, 
                double ZMx, double enInjFac);
@@ -186,7 +186,7 @@ class DiskContents {
                   double sig0, double tempRatio, double Mh0,
                   double MhZs, double stScaleLength, double zs,
                   const double stScaleReduction, const double gaScaleReduction,
-                  const double fg0mult, const double ZIGMfac, const double chiZslope, const double deltaBeta);
+                  const double fg0mult, const double ZIGMfac, const double chiZslope, const double deltaBeta, const double ZIGMFe0, const double ZIGMO0);
 
   // Is one of the current stellar populations 'currently forming'
   //, i.e. since stars are binned by age, is the age of stars 

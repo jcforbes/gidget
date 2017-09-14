@@ -8,6 +8,8 @@ import pdb
 import emcee
 from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold
 
+import analyticDistributions
+
 #import pyqt_fit.nonparam_regression as smooth
 #from pyqt_fit import npr_methods
 
@@ -29,50 +31,6 @@ np.random.seed(1487)
 randomFactorsKey01 = np.random.random(size=(50,9)) 
 
 
-def lnbetadensity(theta, a,b):
-    if theta<0 or theta>1:
-        return -np.inf
-    return (a-1.0)*np.log(theta) + (b-1.0)*np.log(1.0-theta)
-def lngammadensity(theta, a,b):
-    if theta<0:
-        return -np.inf
-    return (a-1.0)*np.log(theta) - b*theta
-def lnlognormaldensity(theta, mean, var):
-    if theta<=0:
-        return -np.inf
-    return -np.log(theta) - 0.5*(np.log(theta) - mean)**2.0/var
-def lnnormaldensity(theta, mean, var):
-    return -0.5*(theta-mean)**2.0/var
-
-def lnloguniformdensity(theta, a, b):
-    if theta<a or theta>b:
-        return -np.inf
-    return -np.log(theta)
-
-def lnuniformdensity(theta, a, b):
-    if theta<a or theta>b:
-        return -np.inf
-    return 0.0
-
-def samplefrombetadensity(a,b):
-    assert a>0 and b>0
-    return np.random.beta(a,b)
-def samplefromgammadensity(a,b):
-    assert a>0 and b>0
-    return np.random.gamma(a,1.0/b) # numpy's definition of the gamma uses e^{-x/scale}/scale^a
-def samplefromlognormaldensity(mean,var):
-    assert var>0
-    return np.exp(samplefromnormaldensity(mean,var))
-def samplefromnormaldensity(mean,var):
-    assert var>0
-    return np.random.normal(mean,np.sqrt(var))
-def samplefromloguniformdensity(a,b):
-    assert b>a
-    assert a>0
-    return a*(b/a)**np.random.uniform()
-def samplefromuniformdensity(a,b):
-    assert b>a
-    return np.random.uniform(a,b)
 
 class fntModel:
     ### a simple wrapper for models that have been transformed/predict transformed quantities:
@@ -517,44 +475,77 @@ def sampleFromGaussianBall():
     draw = []
     for i in range(len(xmax)):
         draw.append( xmax[i]*(1.0 + 0.01*np.random.normal()) )
-    if not np.isfinite( lnprior(draw) ):
+    if not np.isfinite( globalPrior.lndensity(draw) ):
         print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()"
         return sampleFromGaussianBall() ## if this is a bad draw don't use it!
     return draw
 
 
-def samplefromprior( varRedFac=1.0):
-    # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormaliza     tion, kappaMassScaling = emceeparams
-    # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsqu     ench, accCeiling, conRF, kZ, xiREC = emceeparams
 
 
-    return [ \
-        samplefromlognormaldensity( np.log(0.141), np.log(3.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
-        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(.1), np.log(10.0)**2.0/ varRedFac),
-        samplefromnormaldensity( -.5, 1.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac ),
-        samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
-        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(0.05), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac),
-        samplefrombetadensity( 1.0 * varRedFac, 1.0 ),
-        samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
-        samplefrombetadensity( 1.0, 2.0*varRedFac ),
-        samplefromlognormaldensity( np.log(1.0e-2), np.log(10.0)**2.0/varRedFac),
-        samplefromnormaldensity( 0.5, 0.5**2/varRedFac), 
-        samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac),  
-        samplefromnormaldensity( 0.3, 0.2**2.0/varRedFac) ]
+
+
+
+globalPrior = analyticDistributions.jointDistribution(\
+        [ simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0**2.0)], 'alphaR' ), \
+        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
+        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
+        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
+        simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
+        simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \ 
+        simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
+        simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
+        simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
+        simpleDistribution( 'beta', [1,1], 'zmix' ), \
+        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
+        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
+        simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
+        simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
+        simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
+        simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
+        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
+        simpleDistribution( 'beta', [1,2], 'xiREC'), \
+        simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \ 
+        simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), 
+        simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
+        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
+        simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
+
+
+
+#def samplefromprior( varRedFac=1.0):
+#    # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormaliza     tion, kappaMassScaling = emceeparams
+#    # Mhz0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, ZIGMfac, zmix, eta, Qf, alphaMRI, epsqu     ench, accCeiling, conRF, kZ, xiREC = emceeparams
+#
+#
+#    return [ \
+#        samplefromlognormaldensity( np.log(0.141), np.log(3.0)**2.0/ varRedFac),
+#        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
+#        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
+#        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
+#        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
+#        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
+#        samplefromlognormaldensity( np.log(.1), np.log(10.0)**2.0/ varRedFac),
+#        samplefromnormaldensity( -.5, 1.0**2.0 / varRedFac ),
+#        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac ),
+#        samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
+#        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
+#        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
+#        samplefromlognormaldensity( np.log(0.05), np.log(2.0)**2.0/ varRedFac),
+#        samplefromlognormaldensity( np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac),
+#        samplefrombetadensity( 1.0 * varRedFac, 1.0 ),
+#        samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
+#        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
+#        samplefrombetadensity( 1.0, 2.0*varRedFac ),
+#        samplefromlognormaldensity( np.log(1.0e-2), np.log(10.0)**2.0/varRedFac),
+#        samplefromnormaldensity( 0.5, 0.5**2/varRedFac), 
+#        samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
+#        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac),  
+#        samplefromnormaldensity( 0.3, 0.2**2.0/varRedFac) ]
 
 def lnprob(emceeparams, models=None):
-    pr = lnprior(emceeparams)
+    #pr = lnprior(emceeparams)
+    pr = globalPrior.lndensity(emceeparams)
     if np.isfinite(pr):
         return lnlikelihood(emceeparams, models=models) + pr
         #return constlikelihood(emceeparams) + pr
@@ -590,40 +581,40 @@ def printPriorOffsets(emceeparams):
 #    print "fh: ", fh-0.5
 
 
-def lnprior(emceeparams):
-    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
-    accum = 0.0
-
-    #varRedFac = 10000.0
-    varRedFac = 1.0
-
-
-    accum += lnlognormaldensity( raccRvir, np.log(0.141), np.log(3.0)**2.0 )
-    accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muColScaling, 0.0, 1.0**2.0 / varRedFac )
-    accum += lnnormaldensity( muFgScaling, 0.0, 1.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( muNorm, np.log(.1), np.log(10.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muMhScaling, -.5, 1.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
-    accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
-    accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( Qf, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( alphaMRI, np.log(0.05), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( epsquench, np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac )
-    accum += lnbetadensity( accCeiling, 1.0, 1.0 ) # not accurate
-    accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
-    accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
-    accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
-    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(10.0)**2.0 / varRedFac )
-    accum += lnnormaldensity( scaleAdjust, 0.5, 0.5**2 /varRedFac)
-    accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
-    accum += lnlognormaldensity( enInjFac, np.log(1.0), np.log(3.0)**2.0/varRedFac)
-    accum += lnnormaldensity( chiZslope, 0.3, 0.2**2.0/varRedFac)
-    if not np.isfinite(accum):
-        return -np.inf
-    return accum
+#def lnprior(emceeparams):
+#    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
+#    accum = 0.0
+#
+#    #varRedFac = 10000.0
+#    varRedFac = 1.0
+#
+#
+#    accum += lnlognormaldensity( raccRvir, np.log(0.141), np.log(3.0)**2.0 )
+#    accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
+#    accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
+#    accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
+#    accum += lnnormaldensity( muColScaling, 0.0, 1.0**2.0 / varRedFac )
+#    accum += lnnormaldensity( muFgScaling, 0.0, 1.0**2.0 / varRedFac )
+#    accum += lnlognormaldensity( muNorm, np.log(.1), np.log(10.0)**2.0/ varRedFac )
+#    accum += lnnormaldensity( muMhScaling, -.5, 1.0**2.0 / varRedFac )
+#    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
+#    accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
+#    accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
+#    accum += lnlognormaldensity( Qf, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
+#    accum += lnlognormaldensity( alphaMRI, np.log(0.05), np.log(2.0)**2.0/ varRedFac )
+#    accum += lnlognormaldensity( epsquench, np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac )
+#    accum += lnbetadensity( accCeiling, 1.0, 1.0 ) # not accurate
+#    accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
+#    accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
+#    accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
+#    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(10.0)**2.0 / varRedFac )
+#    accum += lnnormaldensity( scaleAdjust, 0.5, 0.5**2 /varRedFac)
+#    accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
+#    accum += lnlognormaldensity( enInjFac, np.log(1.0), np.log(3.0)**2.0/varRedFac)
+#    accum += lnnormaldensity( chiZslope, 0.3, 0.2**2.0/varRedFac)
+#    if not np.isfinite(accum):
+#        return -np.inf
+#    return accum
 
 
 def saveRestart(fn,restart):
@@ -694,7 +685,15 @@ def probsPlots(restart, fn, burnIn=0):
         ax.plot(allProbs[walker,burnIn:],alpha=.1,ls='-', c='gray')
     ax.set_xlabel('Iteration')
     ax.set_ylabel(r'$\ln p(\theta|\mathcal{D}) + \mathrm{const}.$')
-    ax.set_ylim( np.min(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), np.max(allProbs[:, len(allProbs[0,burnIn:])/2 :] ) )
+    halfway = len(allProbs[0,burnIn:])/2
+    valid = np.isfinite(allProbs[:, halfway:].flatten())
+    minvalid = np.min(allProbs[:,halfway:].flatten()[valid])
+    maxvalid = np.max(allProbs[:,halfway:].flatten()[valid])
+    print "***********************************************"
+    print "probsPlots desired range for y-axis: ", np.min(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), np.max(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), minvalid, maxvalid
+    print "***********************************************"
+    #ax.set_ylim( np.min(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), np.max(allProbs[:, len(allProbs[0,burnIn:])/2 :] ) )
+    ax.set_ylim(-1000, maxvalid)
     plt.savefig(fn+'_probs.pdf')
     plt.close(fig)
     print "Saved "+fn+'_probs.pdf'
@@ -761,6 +760,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
             r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{max}$', r'$\alpha_\mathrm{con}$', \
             r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', \
             r'$M_\mathrm{quench}$', r'$\chi_\mathrm{SN}$', r'$\alpha_{r,M_{h,0}}$', r'$f_h$'] 
+    labels = [r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$']
     
     logs = [1,1,1,1,0,0,1,0,1,0,1,1,1,1,0,0,1,0,1,0,1,1,0,0]
 
@@ -777,7 +777,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
 
     ### Instead we take a sample not at random, but evenly spaced:
     sampleRed = restart['chain'][:,burnIn::nspace,:].reshape((-1,ndim))
-    prior = np.array([samplefromprior() for i in range(np.product(np.shape(sampleRed))/ndim * 4)])
+    prior = np.array([globalPrior.sample() for i in range(np.product(np.shape(sampleRed))/ndim * 4)])
 
 
     ## At this point sampleRed is a flat sample of the posterior, or at least our best guess thereof.
@@ -963,7 +963,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     fn = 'fakemcmc23_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
-    p0 = [ samplefromprior(varRedFac=1.0) for w in range(nwalkers) ]
+    p0 = [ globalPrior.sample() for w in range(nwalkers) ]
     #p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
 
     if seedWith is not None:
@@ -1560,7 +1560,7 @@ def trimDownForGlue(fn='broad1718b_to_lasso.txt', naccr=8, arr=None, kscale=10, 
 
 
 
-def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=50, arr=None, kscale=10, logscale=0, includeCrossTerms=False):
+def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=50, arr=None, kscale=10, logscale=0, includeCrossTerms=False, dbg=True):
     ''' trainFrac denotes what fraction of the sample should be used for training 
         validateFrac denotes what fraction of the sample should be used for validation
         1 - trainFrac - validateFrac is the out-of-sample test.'''
@@ -1634,10 +1634,67 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
     Ys = arr[:,nvars+1:nvars+1+len(logPreds)*nz+nRadii*len(logRadials)]
     # Mh mstar sSFR sfZ stZ gasToStellarRatioH2 gasToStellarRatioHI halfMassStars vPhi22 c82 Sigma1 specificJStars metallicityGradientR90 maxsig mdotBulgeG fractionGI tdep tDepH2 broeilsHI, mStellarHalo
     valid = Ys[:,0]>0
+    invalid = np.logical_not( valid )
+    X_orig = copy.deepcopy(X)
     X =  filterArrayRows( X, valid )
     Ys = filterArrayRows( Ys, valid)
-    ns = np.shape(X)[0]
-    nv = np.shape(X)[1]
+    Xfail = filterArrayRows( X_orig, invalid )
+
+    if dbg:
+        labels = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$']
+        #### make a plot of X vs Xfail distributions. Assess what went wrong in the failed models!
+        fig,ax = plt.subplots(6,4,figsize=(14,14))
+        fig.subplots_adjust(hspace=0.4, wspace=0.05)
+        for i in range(23):
+            label=None
+            avg = np.mean(X_orig[:,i])
+            std = np.std(X_orig[:,i])
+            hist, edges = np.histogram( X_orig[:,i], bins=40, range=[avg-3*std,avg+3*std], density=False)
+            centers = (edges[:-1]+edges[1:])/2
+            hist = np.cumsum(hist)
+            hist = hist/float(hist[-1])
+            if i==0:
+                label='Models attempted'
+            #histplot(ax.flatten()[i], hist,edges, c='k', vertical=False, lw=1, alpha=0.2, label=label)
+            ax.flatten()[i].plot(centers,hist, c='k', label=label)
+            label=None
+            #xv = np.linspace(extents[i][0],extents[i][1],200)
+            xv = np.linspace(avg-3*std,avg+3*std,200)
+            yv = 1.0/np.sqrt(2.0*np.pi*std*std) * np.exp(-(xv-avg)*(xv-avg)/(2.0*std*std)) * np.sum(hist)*((6.0*std)/40)
+            if i==1:
+                label='Gaussian'
+            #ax.flatten()[i].plot( xv, yv, lw=2, ls='--', c='gray', label=label)
+            label=None
+            hist, edges = np.histogram( X[:,i], bins=40, range=[avg-3*std,avg+3*std], density=False)
+            centers = (edges[:-1]+edges[1:])/2
+            hist = np.cumsum(hist)
+            hist = hist/float(hist[-1])
+            if i==2:
+                label='Success'
+            #histplot( ax.flatten()[i], hist,edges, c='g', vertical=False, lw=3, fill=False, label=label )
+            ax.flatten()[i].plot(centers,hist, c='g',lw=3, label=label)
+            label=None
+            hist, edges = np.histogram( Xfail[:,i], bins=40, range=[avg-3*std,avg+3*std], density=False)
+            centers = (edges[:-1]+edges[1:])/2
+            hist = np.cumsum(hist)
+            hist = hist/float(hist[-1])
+            if i==3:
+                label='Fail'
+            #histplot( ax.flatten()[i], hist,edges, c='r', vertical=False, lw=3, fill=False, label=label )
+            ax.flatten()[i].plot(centers,hist, c='r', label=label)
+            label=None
+            ax.flatten()[i].set_xlabel(labels[i])
+            ax.flatten()[i].set_xlim( avg-3*std, avg+3*std )
+            ax.flatten()[i].set_ylim(0,1)
+            ax.flatten()[i].set_yticklabels(['']*len(ax.flatten()[i].get_yticklabels()))
+            ax.flatten()[i].legend(frameon=False, fontsize=8)
+        ax.flatten()[-1].axis('off')
+        plt.savefig(fn[:-4]+'_dbghist.pdf')
+        plt.close(fig)
+
+
+    ns = np.shape(X)[0] # number of samples
+    nv = np.shape(X)[1] # number of variables
     trainingSubset = int(ns*trainFrac) # 
     validateSubset = int(ns*(validateFrac+trainFrac))
     X_train = X[:trainingSubset, :]
@@ -2291,6 +2348,10 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad23partial_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
+
+
+    print "Number of samples being used: ", nsamples
+
 
     # 10x cross-validation
     nmasses = 1 # debug
@@ -2977,7 +3038,7 @@ if __name__=='__main__':
     #searchLinearModels(800)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    runEmcee(mpi=True, continueRun=True, seedWith=None )
+    #runEmcee(mpi=True, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
@@ -2986,7 +3047,7 @@ if __name__=='__main__':
     #plotResiduals()
 
     #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
-    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
+    estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 
@@ -3037,18 +3098,18 @@ if __name__=='__main__':
 
     if False:
         restart={}
-        updateRestart('fakemcmc1718b_restart.pickle', restart)
+        updateRestart('fakemcmc22_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc1718b_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc1718b_allProb', burnIn=0)
-        trianglePlot(restart,'fakemcmc1718b_triangle', burnIn=510, nspace=100)
+        tracePlots(restart, 'fakemcmc22_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc22_allProb', burnIn=0)
+        trianglePlot(restart,'fakemcmc22_triangle', burnIn=310, nspace=100)
 
         # Find the maximum among all models sampled so far.
         allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations
         priors = np.zeros((np.shape(restart['allProbs'])[0],np.shape(restart['allProbs'])[1]))
         for i in range(np.shape(restart['allProbs'])[0]):
             for j in range(np.shape(restart['allProbs'])[1]):
-                priors[i,j] = lnprior( restart['chain'][i,j,:] )
+                priors[i,j] = globalPrior.lndensity( restart['chain'][i,j,:] )
 
         stlikelihoods = restart['allProbs'] - priors
         likelihoods = allProbs.flatten() - priors.flatten()

@@ -245,13 +245,13 @@ int main(int argc, char **argv) {
             TOL,analyticQ,MassLoadingFactor,MassLoadingColScaling,MassLoadingFgScaling,MassLoadingMhScaling,
             cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
-          minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,ZIGMO, ZIGMFe,yREC, ksuppress, kpower, MQuench, muQuench,
+          minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,yREC, ksuppress, kpower, MQuench, muQuench,
           ZMix, energyInjectionFactor);
     // double sig0 = 8.0/220.0; 
     double sig0 = sigth;
     double stScaleLengthA = accScaleLength*r200/cmperkpc; // accScaleLength * pow(MhZs/Mh0,alphaAccProf);
     disk.Initialize(fcool,fg0,sig0,tempRatio,Mh0,MhZs,stScaleLengthA,zrelax, stScaleReduction, gaScaleReduction,
-			fg0mult, ZIGMfac, chiZslope, deltaBeta);
+			fg0mult, ZIGMfac, chiZslope, deltaBeta, ZIGMFe, ZIGMO);
 
     Simulation sim(tmax,stepmax,cosmologyOn,nx,TOL,
             zstart,NActive,NPassive,alphaMRI,

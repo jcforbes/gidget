@@ -120,7 +120,7 @@ DiskContents::DiskContents(double tH, double eta,
         double minSigSt,
 		double rfrec, double xirec,
 		double fh2min, double tdeph2sc,
-        double Z_IGM_O, double Z_IGM_Fe, double yrec,
+        double yrec,
         double ksup, double kpow,
         double mq, double muq,
         double Zmx, double enInjFac) :
@@ -138,7 +138,6 @@ DiskContents::DiskContents(double tH, double eta,
     mlfFgScaling(mlfFgScal),
     mlfMhScaling(mlfMhScal),
     MQuench(mq), muQuench(muq),
-    Z_IGMO(Z_IGM_O), Z_IGMFe(Z_IGM_Fe),
     //  spsActive(std::vector<StellarPop>(NA,StellarPop(m.nx(),0,c.lbt(1000)))),
     //  spsPassive(std::vector<StellarPop>(NP,StellarPop(m.nx(),0,c.lbt(1000)))),
     spsActive(std::vector<StellarPop*>(0)),
@@ -313,15 +312,15 @@ void DiskContents::Initialize(Initializer& in, bool fixedPhi0)
 void DiskContents::Initialize(double fcool, double fg0,
         double sig0, double phi0, double Mh0,
         double MhZs, double stScaleLength, double zs, const double stScaleReduction, const double gaScaleReduction,
-        const double fg0mult, const double ZIGMfac, const double chiZslope, const double deltaBeta )
+        const double fg0mult, const double ZIGMfac, const double chiZslope, const double deltaBeta, const double Z_IGMFe_0, const double Z_IGMO_0)
 {
     StellarPop * initialStarsA = new StellarPop(mesh);
     StellarPop * initialStarsP = new StellarPop(mesh);
 
     double fg4 = fg0;
     double fc = fcool;
-    double Z0Fe = Z_IGMFe;
-    double Z0O = Z_IGMO;
+    double Z0Fe = Z_IGMFe_0;
+    double Z0O = Z_IGMO_0;
     double xdstars = stScaleLength/dim.d(1.0)/stScaleReduction; // 2.0 -- make the initial size much smaller than the initial accr. radius
     double xdgas = stScaleLength/dim.d(1.0)/gaScaleReduction; // 1.4 -- make the initial size much smaller than the initial accr. radius
     // if S = f_g S0 exp(-x/xd), this is S0 such that the baryon budget is maintained, given that a fraction
@@ -368,6 +367,10 @@ void DiskContents::Initialize(double fcool, double fg0,
         // ZHayward = pow(10.0, ZHayward) * 0.02;
         Z0Fe = ZLee * 0.0013/0.02;
         Z0O = ZLee * 0.0057/0.02;
+
+        Z_IGMFe = Z0Fe;
+        Z_IGMO = Z0O;
+         
         fc = 1.0/(1.0-fgUsed) * mst/(0.17*Mh);
         fg4 = fgUsed ;
         xdstars = reff4/dim.d(1.0)/1.67835; // is scale length = reff? Numerical solution says reff/rd = 1.67835.
@@ -575,6 +578,9 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         else {
             // do nothing, these terms are zero.
         }
+
+	if(sig[n] > uu[n])
+            sig[n]=uu[n];
 
         if(sig[n]/uu[n] > 20.0) {
 	    // The instability I'm investigating here was the result of an odd set of parameters which produced extremely high mass loading factors

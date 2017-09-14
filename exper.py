@@ -2813,6 +2813,14 @@ if __name__ == "__main__":
     rf121 = experFromBroadMCMC( emceeparams[:-1], 'rf121', ngal=400 ) # width=0.1
     
 
+    emceeparams = [0.102390462957, 2.07863393044, 2.20082341292, 2.29723610003, 0.0, 0.0, 0.104519630718, -0.622466992607, 7.25004582806, 0.503081010769, 1.37816041394, 2.34207773986, 0.0573170771292, 0.0135990238461, 0.540110872095, 0.159253193033, 1.35187143844, 0.318788163305, 0.26577663261, 0.480641566772, 1.64193072254e+12, 1.38002174315, 0.29647549094]
+    rf122 = experFromBroadMCMC( emceeparams, 'rf122', ngal=40)
+
+    ### This is taking the favorite result of the previous mcmc, and plugging it into this parameterization as a sanity check.
+    emceeparams = [0.12955226356, 2.47373940813, 2.45479617854, 1.46323139728, -0.114507760639, -0.0419071281768, .0899557830256, -0.899780053776, 1.59620080732, 0.610633513105, 2.58555895865, 2.69249662202, 0.0766829856229, 0.00732827711296, 0.354912135951, 0.06588656943, 0.590831834975, 0.386774120664, 0.0121818106422, 0.360005554607, 1.06333400606e+12, 1.30297939675, 0.3] 
+    rf124 = experFromBroadMCMC( emceeparams, 'rf124', ngal=40) # 124 is 123 with 100x lower mu0
+    rf125 = experFromBroadMCMC( emceeparams, 'rf125', ngal=400) # 124 is 123 with 100x lower mu0
+
 
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

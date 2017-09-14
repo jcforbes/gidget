@@ -13,13 +13,15 @@ import os, glob
 import scipy.optimize
 import scipy.stats
 import time
+
 import bolshoireader
+import analyticDistributions
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr23h'
+chaindirrel = 'broadDistr24a'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -75,52 +77,34 @@ runnumber = 0
 globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e14, bolshoidir)
 bolshoiSize =  len(globalBolshoiReader.keys)
 
+globalPrior = analyticDistributions.jointDistribution(\
+        [ simpleDistribution( 'loguniform', [5.0e9, 2.0e13], 'Mh0'), \
+        simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0**2.0)], 'alphaR' ), \
+        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
+        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
+        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
+        simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
+        simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \ 
+        simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
+        simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
+        simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
+        simpleDistribution( 'beta', [1,1], 'zmix' ), \
+        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
+        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
+        simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
+        simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
+        simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
+        simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
+        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
+        simpleDistribution( 'beta', [1,2], 'xiREC'), \
+        simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \ 
+        simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), 
+        simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
+        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
+        simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
 
 
-def lnbetadensity(theta, a,b):
-    if theta<0 or theta>1:
-        return -np.inf
-    return (a-1.0)*np.log(theta) + (b-1.0)*np.log(1.0-theta)
-def lngammadensity(theta, a,b):
-    if theta<0:
-        return -np.inf
-    return (a-1.0)*np.log(theta) - b*theta
-def lnlognormaldensity(theta, mean, var):
-    if theta<=0:
-        return -np.inf
-    return -np.log(theta) - 0.5*(np.log(theta) - mean)**2.0/var
-def lnnormaldensity(theta, mean, var):
-    return -0.5*(theta-mean)**2.0/var
 
-def lnloguniformdensity(theta, a, b):
-    if theta<a or theta>b:
-        return -np.inf
-    return -np.log(theta)
-
-def lnuniformdensity(theta, a, b):
-    if theta<a or theta>b:
-        return -np.inf
-    return 0.0 
-
-def samplefrombetadensity(a,b):
-    assert a>0 and b>0
-    return np.random.beta(a,b)
-def samplefromgammadensity(a,b):
-    assert a>0 and b>0
-    return np.random.gamma(a,1.0/b) # numpy's definition of the gamma uses e^{-x/scale}/scale^a
-def samplefromlognormaldensity(mean,var):
-    assert var>0
-    return np.exp(samplefromnormaldensity(mean,var))
-def samplefromnormaldensity(mean,var):
-    assert var>0
-    return np.random.normal(mean,np.sqrt(var))
-def samplefromloguniformdensity(a,b):
-    assert b>a
-    assert a>0
-    return a*(b/a)**np.random.uniform()
-def samplefromuniformdensity(a,b):
-    assert b>a
-    return np.random.uniform(a,b)
 
 # define the base experiment we want.
 def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
@@ -236,42 +220,6 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     return thisexper, name
 
 
-def lnprior(emceeparams):
-
-    Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
-    #accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalizat     ion, kappaMassScaling = emceeparams
-    accum = 0.0
-
-    #varRedFac = 10000.0
-    varRedFac = 1.0
-
-    accum += lnlognormaldensity( raccRvir, np.log(0.141), np.log(3.0)**2.0 )
-    accum += lnlognormaldensity( rstarRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( rgasRed, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( fg0mult, np.log(2.0), np.log(2.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muColScaling, 0.0, 1.0**2.0 / varRedFac )
-    accum += lnnormaldensity( muFgScaling, 0.0, 1.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( muNorm, np.log(.1), np.log(10.0)**2.0/ varRedFac )
-    accum += lnnormaldensity( muMhScaling, -.5, 1.0**2.0 / varRedFac )
-    accum += lnlognormaldensity( ZIGMfac, np.log(1.0), np.log(10.0)**2.0/ varRedFac )
-    accum += lnbetadensity( zmix, 1.0, 1.0 ) # not accurate
-    accum += lnlognormaldensity( eta, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( Qf, np.log(1.5), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( alphaMRI, np.log(0.05), np.log(2.0)**2.0/ varRedFac )
-    accum += lnlognormaldensity( epsquench, np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac )
-    accum += lnbetadensity( accCeiling, 1.0, 1.0 ) # not accurate
-    accum += lnnormaldensity( conRF, 0.3, 0.3**2.0 / varRedFac )
-    accum += lnlognormaldensity( kZ, np.log(1.0), np.log(3.0)**2.0/ varRedFac )
-    accum += lnbetadensity( xiREC, 1.0, 2.0 ) # not accurate
-    accum += lnlognormaldensity( epsff, np.log(1.0e-2), np.log(10.0)**2.0 / varRedFac )
-    accum += lnnormaldensity( scaleAdjust, 0.5, 0.5**2 /varRedFac)
-    accum += lnlognormaldensity( mquench, np.log(1.0e12), np.log(3.0)**2.0/varRedFac)
-    accum += lnlognormaldensity( enInjFac, np.log(1.0), np.log(3.0)**2.0/varRedFac)
-    accum += lnnormaldensity( chiZslope, 0.3, 0.2**2.0/varRedFac)
-
-    if not np.isfinite(accum):
-        return -np.inf
-    return accum
 
 
 def samplefromposterior():
@@ -295,36 +243,7 @@ def samplefromposterior():
     ### The numbers above refer to physical parameters from \eta through to alpharmh and fh.
     ### For our purposes here, the thing from which we're drawing includes mass and not the last two parameters, which are done in post-processing
     ### Therefore the coordinates we actually want are mass + the physical parameters we're varying, and not alpharmh and fh.
-    return [ samplefromloguniformdensity(5.0e9, 2.0e13) ] + list(out[:-2])
-
-def samplefromprior():
-    varRedFac = 1.0
-
-    return [ \
-        samplefromloguniformdensity( 5.0e9, 2.0e13),
-        samplefromlognormaldensity( np.log(0.141), np.log(3.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(2.0), np.log(2.0)**2.0/ varRedFac),
-        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
-        samplefromnormaldensity( 0.0, 1.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(.1), np.log(10.0)**2.0/ varRedFac),
-        samplefromnormaldensity( -.5, 1.0**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(10.0)**2.0/ varRedFac ),
-        samplefrombetadensity( 1.0 * varRedFac, 1.0 * varRedFac),
-        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(1.5), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(0.05), np.log(2.0)**2.0/ varRedFac),
-        samplefromlognormaldensity( np.log(1.0e-3), np.log(10.0)**2.0/ varRedFac),
-        samplefrombetadensity( 1.0 * varRedFac, 1.0 ),
-        samplefromnormaldensity( 0.3, 0.3**2.0 / varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/ varRedFac),
-        samplefrombetadensity( 1.0, 2.0*varRedFac ),
-        samplefromlognormaldensity( np.log(1.0e-2), np.log(10.0)**2.0/varRedFac),
-        samplefromnormaldensity( 0.5, 0.5**2/varRedFac), 
-        samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
-        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac),  
-        samplefromnormaldensity( 0.3, 0.2**2.0/varRedFac) ]
+    return [ analyticDistributions.samplefromloguniformdensity(5.0e9, 2.0e13) ] + list(out[:-2])
 
 
 
@@ -515,7 +434,7 @@ def lnlikelihood(emceeparams, modelname=None):
     
 
 def lnprob(emceeparams):
-    pr = lnprior(emceeparams)
+    pr = globalPrior.density(emceeparams)
     if np.isfinite(pr):
         return lnlikelihood(emceeparams) + pr
         #return constlikelihood(emceeparams) + pr
@@ -740,7 +659,7 @@ def run(n, p00=None, nwalkers=500):
     if p00 is not None:
         p0 = [p00*(1.0+0.01*np.random.randn( ndim )) for i in range(nwalkers)]
     else:
-        p0 = [samplefromprior() for i in range(nwalkers)]
+        p0 = [globalPrior.sample() for i in range(nwalkers)]
 
     restart = {}
     restart['currentPosition'] = p0
@@ -913,7 +832,7 @@ def triangleplot(restart,fn,burnin=0, nspace=10):
     import corner
     shp = np.shape(restart['chain'])
     prs = shp[0]*(shp[1]-burnin)*shp[2]
-    prior = np.array([samplefromprior() for i in range(prs)])
+    prior = np.array([globalPrior.sample() for i in range(prs)])
     shape = np.shape(restart['chain'])
     ndim = shape[2]
     # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams

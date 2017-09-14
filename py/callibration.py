@@ -855,7 +855,7 @@ def quickCheck(experiment_list):
 
 
 if __name__=='__main__':
-    experiment_list = [Experiment('rf121')]
+    experiment_list = [Experiment('rf124')]
     #experiment_list = [Experiment('rf118'), Experiment('rf119'), Experiment('rf120')]
     MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig']
     for ex in experiment_list:

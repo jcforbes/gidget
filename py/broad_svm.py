@@ -487,29 +487,29 @@ def sampleFromGaussianBall():
 
 
 globalPrior = analyticDistributions.jointDistribution(\
-        [ simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0**2.0)], 'alphaR' ), \
-        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
-        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
-        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
-        simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
-        simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \ 
-        simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
-        simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
-        simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
-        simpleDistribution( 'beta', [1,1], 'zmix' ), \
-        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
-        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
-        simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
-        simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
-        simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
-        simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
-        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
-        simpleDistribution( 'beta', [1,2], 'xiREC'), \
-        simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \ 
-        simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), 
-        simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
-        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
-        simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
+        [ analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0**2.0)], 'alphaR' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
+        analyticDistributions.simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
+        analyticDistributions.simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
+        analyticDistributions.simpleDistribution( 'beta', [1,1], 'zmix' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
+        analyticDistributions.simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
+        analyticDistributions.simpleDistribution( 'beta', [1,2], 'xiREC'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
 
 
 

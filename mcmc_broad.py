@@ -78,30 +78,30 @@ globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e
 bolshoiSize =  len(globalBolshoiReader.keys)
 
 globalPrior = analyticDistributions.jointDistribution(\
-        [ simpleDistribution( 'loguniform', [5.0e9, 2.0e13], 'Mh0'), \
-        simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0**2.0)], 'alphaR' ), \
-        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
-        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
-        simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
-        simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
-        simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \ 
-        simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
-        simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
-        simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
-        simpleDistribution( 'beta', [1,1], 'zmix' ), \
-        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
-        simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
-        simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
-        simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
-        simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
-        simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
-        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
-        simpleDistribution( 'beta', [1,2], 'xiREC'), \
-        simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \ 
-        simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), 
-        simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
-        simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
-        simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
+        [ analyticDistributions.simpleDistribution( 'loguniform', [5.0e9, 2.0e13], 'Mh0'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(3.0**2.0)], 'alphaR' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
+        analyticDistributions.simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
+        analyticDistributions.simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
+        analyticDistributions.simpleDistribution( 'beta', [1,1], 'zmix' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
+        analyticDistributions.simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
+        analyticDistributions.simpleDistribution( 'beta', [1,2], 'xiREC'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
 
 
 
@@ -165,16 +165,29 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     thisexper.irregularVary( 'fg0', fgUsed, 5)
     thisexper.irregularVary( 'fg0mult', fg0mult)
     thisexper.irregularVary( 'Mh0', Mhz0, 5)
-    fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (0.8*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
+    fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (1.0*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
     thisexper.irregularVary('fcool', fcools, 5)
     thisexper.irregularVary('NChanges', 1001)
 
+    # This little section is pretty important - it sets the size of the computational domain.
     width = 0.4/100000.0
     asls = raccRvir*np.power(10.0, np.random.normal()*width) # * np.power(Mhz0/1.0e12,alpharmh)
     if asls<0.005:
         asls=0.005
     thisexper.irregularVary('accScaleLength', asls, 5)
-    thisexper.irregularVary( 'R', np.power(reff4/reff411, 1.0)*50* asls/0.042  , 5)
+    #Rs = np.power(reff4/reff411, 1.0)*50* asls/0.042 
+    Rs = reff4 * 100
+    rmin = reff4/3
+    xmin = rmin/Rs
+    #print "Mh0 is ", np.log10(Mhz0)
+    #print "mst is ", np.log10(mst)
+    #print "reff4 is ", reff4
+    #print "accScaleLength is ", asls
+    #print "Setting outer radius: ", Rs
+    #print "Setting inner radius: ", rmin 
+    thisexper.irregularVary( 'R', Rs , 5)
+    thisexper.irregularVary('xmin',rmin/Rs,5)
+
     bolweights =  np.random.random()
     thisexper.irregularVary('bolshoiWeight', bolweights ,5)
     thisexper.irregularVary('Noutputs',400)
@@ -188,7 +201,6 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     thisexper.irregularVary('accCeiling',accCeiling)
     thisexper.irregularVary('NPassive',4)
     thisexper.irregularVary('eta',eta)
-    thisexper.irregularVary('xmin',0.001)
     thisexper.irregularVary('yREC',0.03)
     thisexper.irregularVary( 'nx', 256 ) # FFT o'clock.
     ZLee = np.power(10.0, 5.65 + chiZslope*np.log10(mst/1.0e10) + 0.3*np.log10(1.0e10) - 8.7 ) # Z in Zsun
@@ -434,7 +446,7 @@ def lnlikelihood(emceeparams, modelname=None):
     
 
 def lnprob(emceeparams):
-    pr = globalPrior.density(emceeparams)
+    pr = globalPrior.lndensity(emceeparams)
     if np.isfinite(pr):
         return lnlikelihood(emceeparams) + pr
         #return constlikelihood(emceeparams) + pr

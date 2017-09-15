@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 def lnbetadensity(theta, a,b):
     if theta<0 or theta>1:
@@ -94,9 +95,9 @@ class jointDistribution:
     def sample(self):
         return [distr.sample() for distr in self.list_of_dist]
     def lndensity(self, vec):
-        assert len(vec) = len(self.list_of_dist)
+        assert len(vec) == len(self.list_of_dist)
         result = 0.0
-        for i,v in vec:
+        for i,v in enumerate(vec):
             result += self.list_of_dist[i].lndensity(v)
         if not np.isfinite(result):
             return -np.inf

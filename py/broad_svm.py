@@ -288,7 +288,7 @@ def residualsFromGidget(bn, fh=0.3):
     else:
         return [],[]
 
-#models22 = [ pickle.load( open( 'rfnt22_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+models24 = [ pickle.load( open( 'rfnt24co_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 #models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
@@ -458,7 +458,7 @@ def lnlikelihood(emceeparams, models=None):
         neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
         for j in range(80):
             if j in neededModels:
-                Y_eval[0,j] = predictFill(models22[j], X1, k)[0][j]
+                Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
         lnlik += np.sum( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=True) )
@@ -471,7 +471,7 @@ def lnlikelihood(emceeparams, models=None):
 
 def sampleFromGaussianBall():
     ## the max posterior probability estimated from the previous run.
-    xmax = [0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288]
+    xmax = [  3.77274603e-02, 7.60850948e-01, 1.49261405e+00, 8.96710122e-01, 3.24127453e-01, -2.95591681e-01, 2.35329503e-02, -2.29120438e+00, 4.90155667e+01, 3.62467850e-01, 2.42953261e+00, 2.44659997e+00, 7.99493942e-02, 4.37735172e-05, 4.81805279e-01, 2.75940879e-01, 3.17078465e+00, 1.74401966e-01, 1.97481061e-02,-1.37921564e-02, 2.76371012e+12, 4.14894397e+00, 2.17629370e-01]
     draw = []
     for i in range(len(xmax)):
         draw.append( xmax[i]*(1.0 + 0.01*np.random.normal()) )
@@ -781,11 +781,11 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
 
 
     ## At this point sampleRed is a flat sample of the posterior, or at least our best guess thereof.
-    pickle.dump(sampleRed, open('fakemcmc22_posterior.pickle', 'w'))
+    pickle.dump(sampleRed, open('fakemcmc24_posterior.pickle', 'w'))
     header = ''
     for label in labels:
         header += label+' '
-    np.savetxt('fakemcmc22_posterior_glue.txt', sampleRed, header=header[:-1])
+    np.savetxt('fakemcmc24_posterior_glue.txt', sampleRed, header=header[:-1])
 
     extents=[]
     for i in range(np.shape(sampleRed)[1]):
@@ -960,11 +960,11 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     
     ndim, nwalkers = 23, 1000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc23_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc24_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
-    p0 = [ globalPrior.sample() for w in range(nwalkers) ]
-    #p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
+    #p0 = [ globalPrior.sample() for w in range(nwalkers) ]
+    p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
 
     if seedWith is not None:
         if os.path.isfile(seedWith):
@@ -2345,7 +2345,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad23partial_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=8, fn='broad24hp_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
     nsamples = np.shape(X_train_orig)[0]
     nfeatures = np.shape(X_train_orig)[1]
 
@@ -2428,7 +2428,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=500, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=10, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
             if pick:
-                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt23_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
+                pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt24_'+str(k)+'_'+str(cvi)+'.pickle','w')) ### save the model
 
             if analyze: 
                 feature_importances[:,k] += feature_importances_this[:]/float(ncv)
@@ -2568,12 +2568,12 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             texlabels.append( '' )
     if analyze:
  
-        printScores(r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_scores_23.tex', normalize=False)
-        printFeatureImportancesMultipleArrays(feature_importances.T, np.mean(scores,axis=1).T, feature_names, texlabels, fn='feature_mult_importances_23.tex', normalize1=False, normalize2=False)
+        printScores(r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_scores_24.tex', normalize=False)
+        printFeatureImportancesMultipleArrays(feature_importances.T, np.mean(scores,axis=1).T, feature_names, texlabels, fn='feature_mult_importances_24.tex', normalize1=False, normalize2=False)
 
-        printFeatureImportances(feature_importances.T*1.0, r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_importance_compact_23.tex', normalize=False)
-        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, correlations, residual_stdev, np.sqrt(MSEb),feature_names, texlabels, fn='avg_swap_scores_compact_23.tex', normalize=False)
-        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores,correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='avg_derivs_compact_23.tex')
+        printFeatureImportances(feature_importances.T*1.0, r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_importance_compact_24.tex', normalize=False)
+        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, correlations, residual_stdev, np.sqrt(MSEb),feature_names, texlabels, fn='avg_swap_scores_compact_24.tex', normalize=False)
+        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores,correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='avg_derivs_compact_24.tex')
         #printTable(feature_importances.T*1.0, feature_names, texlabels, fn='feature_importances.tex')
         #printTable(np.mean(scores,axis=1).T, feature_names, texlabels, fn='avg_swap_scores.tex')
 
@@ -2591,7 +2591,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
             if k<ntargets/4-4:
                 ax.flatten()[k].set_xticklabels([])
     plt.tight_layout()
-    plt.savefig('fakemcmc23_RF_residuals.pdf')
+    plt.savefig('fakemcmc24_RF_residuals.pdf')
 
 
     colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan', 'lightblue', 'grey', 'yellow', 'olive', 'magenta', 'lightgreen', 'maroon', 'lime', 'orchid', 'gold', 'deeppink', 'navy', 'moccasin', 'plum']*10
@@ -2633,7 +2633,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     ax.legend(frameon=False, scatterpoints=1)
     ax.set_xlabel(r'Sorted Test Sample')
     ax.set_ylabel(r'Sorted Residual (Fit-Test) Sample')
-    plt.savefig('fakemcmc23_RF_QQ.pdf')
+    plt.savefig('fakemcmc24_RF_QQ.pdf')
 
 
     #print "Average feature importances from skl: ",feature_importances
@@ -3038,7 +3038,7 @@ if __name__=='__main__':
     #searchLinearModels(800)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    #runEmcee(mpi=True, continueRun=True, seedWith=None )
+    runEmcee(mpi=True, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
@@ -3047,7 +3047,7 @@ if __name__=='__main__':
     #plotResiduals()
 
     #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
-    estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
+    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 
@@ -3098,11 +3098,11 @@ if __name__=='__main__':
 
     if False:
         restart={}
-        updateRestart('fakemcmc22_restart.pickle', restart)
+        updateRestart('fakemcmc24_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc22_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc22_allProb', burnIn=0)
-        trianglePlot(restart,'fakemcmc22_triangle', burnIn=310, nspace=100)
+        tracePlots(restart, 'fakemcmc24_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc24_allProb', burnIn=0)
+        trianglePlot(restart,'fakemcmc24_triangle', burnIn=310, nspace=100)
 
         # Find the maximum among all models sampled so far.
         allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations

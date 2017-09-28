@@ -5,7 +5,7 @@ import numpy as np
 
 andirec = os.environ['GIDGETDIR']+'/analysis/' 
 
-SIs = glob.glob( andirec + 'broadDistr23*_sampleInfo.txt' )
+SIs = glob.glob( andirec + 'broadDistr24*_sampleInfo.txt' )
 
 nchar = 4+4+7
 ncol = 1000+24+1+200
@@ -34,6 +34,6 @@ counter = np.ones(len(SIs))
 successes = np.sum(counter[ arr[-1003,:]>0 ])
 print "Success rate: ", successes, " of ",len(counter)
     
-np.savetxt( 'broad23partial_to_lasso.txt', arr.T )
+np.savetxt( 'broad24partial_to_lasso.txt', arr.T )
 
 

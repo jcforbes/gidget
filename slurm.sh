@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name brd23h
-#SBATCH -n 256
-#SBATCH -t 4-00:00
+#SBATCH --job-name brd24q
+#SBATCH -n 128
+#SBATCH -t 2-00:00
 #SBATCH -p general
 #SBATCH --mem-per-cpu=1000
 #SBATCH --mail-type=ALL
@@ -9,4 +9,4 @@
 
 module load python/2.7.13-fasrc01
 
-mpirun -n 256 python mcmc_broad.py 
+mpirun -n 128 python mcmc_broad.py 

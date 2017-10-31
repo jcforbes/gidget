@@ -510,7 +510,7 @@ def lnlikelihood(emceeparams, models=None):
 
 def sampleFromGaussianBall():
     ## the max posterior probability estimated from the previous run.
-    xmax = [0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288]
+    xmax = [  3.77274603e-02, 7.60850948e-01, 1.49261405e+00, 8.96710122e-01, 3.24127453e-01, -2.95591681e-01, 2.35329503e-02, -2.29120438e+00, 4.90155667e+01, 3.62467850e-01, 2.42953261e+00, 2.44659997e+00, 7.99493942e-02, 4.37735172e-05, 4.81805279e-01, 2.75940879e-01, 3.17078465e+00, 1.74401966e-01, 1.97481061e-02,-1.37921564e-02, 2.76371012e+12, 4.14894397e+00, 2.17629370e-01]
     draw = []
     for i in range(len(xmax)):
         draw.append( xmax[i]*(1.0 + 0.01*np.random.normal()) )
@@ -1002,11 +1002,11 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     
     ndim, nwalkers = 23, 1000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc24picklik_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc24_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
     restart = {}
     nsteps = 3000 
-    p0 = [ globalPrior.sample() for w in range(nwalkers) ]
-    #p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
+    #p0 = [ globalPrior.sample() for w in range(nwalkers) ]
+    p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
 
     if seedWith is not None:
         if os.path.isfile(seedWith):
@@ -3144,7 +3144,7 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc24full_restart.pickle' )
+    #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
     #runEmcee(mpi=True, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
@@ -3153,8 +3153,8 @@ if __name__=='__main__':
     #validateNPR()
     #plotResiduals()
 
-    estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
-    #estimateFeatureImportances(analyze=True, pick=True) # do the analysis but don't save the models
+    #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
+    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 

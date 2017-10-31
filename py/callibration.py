@@ -436,6 +436,12 @@ def quickCheck(experiment_list):
             ys = ys + list( np.log10(model.var['gtot'].sensible(timeIndex=zinds[0])) )
             weights = weights + list( model.var['dr'].sensible(timeIndex=zinds[0]) )
             #inner = model.var['rx'].sensible(timeIndex=zinds[0])<2.0 # within 1 half mass radius
+        xs = np.array(xs)
+        ys = np.array(ys)
+        valid = np.isfinite(xs)
+        xs[np.logical_not(valid)] = -13
+        valid = np.isfinite(ys)
+        ys[np.logical_not(valid)] = -13
         ax.hist2d( xs , ys , weights=weights, cmap=colormap_list[i], alpha=0.8, bins=60, norm=pltcolors.LogNorm())
     #ax.set_xscale('log')
     #ax.set_yscale('log')
@@ -855,7 +861,7 @@ def quickCheck(experiment_list):
 
 
 if __name__=='__main__':
-    experiment_list = [Experiment('rf124')]
+    experiment_list = [Experiment('rf134')]
     #experiment_list = [Experiment('rf118'), Experiment('rf119'), Experiment('rf120')]
     MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig']
     for ex in experiment_list:

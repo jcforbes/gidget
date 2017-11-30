@@ -15,7 +15,7 @@ import analyticDistributions
 
 # Useful information about the setup of the linear models and their fits....
 ### features
-#raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
+#raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope, fscatter = emceeparams
 logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0]
 ### targets
 logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
@@ -64,7 +64,7 @@ def predictFill( model, x, rfkey):
         transformed_thisx = model.xtr.transform(thisx)
         #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
         transformed_thisx[:,-tofill:] = fillers[:,:]
-        pred = model.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
+        pred = model.model.predict( transformed_thisx ).reshape(np.shape(x)[0],-1)
         yinv = model.ytr.inverseTransform(pred)
         return yinv
     else:
@@ -249,7 +249,7 @@ def fakeEmceeResiduals(emceeparams, models):
 
     residuals=[]
     for k,Mh in enumerate(MhGrid):
-        X1 = np.array([Mh]+list(emceeparams)).reshape((1,len(emceeparams)+1))
+        X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams)))
         X1[0,1] = X1[0,1]*np.power(Mh/1.0e12, emceeparams[-2]) # modify raccRvir
         for i in range(len(logVars)):
             # Take the log of the input variable if it makes sense to do so
@@ -257,11 +257,11 @@ def fakeEmceeResiduals(emceeparams, models):
                 X1[:,i] = np.log10(X1[:,i])
 
         Y_eval = np.array( [predictFill(models[j], X1, k)[0][j] for j in range(80)] ).reshape(1,80)
-        residuals.append( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=False) )
+        residuals.append( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=False) )
 
     return residuals 
 
-def residualsFromGidget(bn, fh=0.3):
+def residualsFromGidget(bn, fh=0.0, fsigma=1.0):
     ''' Read in models with basename bn and construct "Y_eval," then pass that to the globalLikelihood fn. You also need to specify a value for fh, the fraction of mStellarHalo to be included in mstar. '''
     import readoutput
     output = readoutput.Experiment(bn) 
@@ -281,15 +281,23 @@ def residualsFromGidget(bn, fh=0.3):
             for ii in range(80):
                 if logPreds[ ii/4 ] == 1:
                     Y_eval[0, ii] = np.log10(Y_eval[0,ii])
-            residuals.append( globalLikelihood(Y_eval, fh=fh, returnlikelihood=False) )
+            residuals.append( globalLikelihood(Y_eval, fsigma=fsigma, fh=fh, returnlikelihood=False) )
 
             mhs.append(model.var['Mh'].sensible(timeIndex=zinds[0]))
         return mhs, residuals
     else:
         return [],[]
 
-models24 = [ pickle.load( open( 'rfnt24co_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+print "Reading models.. this could take a sec"
+models30 = pickle.load( open( 'rfnt30_0.pickle', 'r') )
+#models24=[]
+#for k in range(80):
+#    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
+#    print "Reading in ",fn
+#    models24.append( pickle.load( open(fn, 'r') ) )
+#models24 = [ pickle.load( open( 'rfnt24co2_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 #models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+print "Finished reading models"
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
 
@@ -453,15 +461,17 @@ def lnlikelihood(emceeparams, models=None):
             # Take the log of the input variable if it makes sense to do so
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
-        Y_eval = np.zeros((1,80))
+        Y_eval = np.zeros((1,200))
         # 4 for each of the following:  Mhz0 mstarz0 sSFRz0 sfZz0 stZz0 gasToStellarRatioH2z0 gasToStellarRatioHIz0 halfMassStarsz0 vPhi22z0 c82z0 Sigma1z0 specificJStarsz0 metallicityGradientR90z0 maxsigz0 mdotBulgeGz0 fractionGIz0 tdepz0 tDepH2z0 broeilsHIz0 mStellarHaloz0 
         neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
-        for j in range(80):
-            if j in neededModels:
-                Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
+        #for j in range(80):
+        #    if j in neededModels:
+        #        Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
+	Y_eval[0,:] = predictFill(models30, X1, k)[0]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
-        lnlik += np.sum( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=True) )
+        fsigma = emceeparams[-1]
+        lnlik += np.sum( globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True) )
 
 
     print "Returning lnlik = ", lnlik, "for emceeparams ",emceeparams
@@ -471,10 +481,13 @@ def lnlikelihood(emceeparams, models=None):
 
 def sampleFromGaussianBall():
     ## the max posterior probability estimated from the previous run.
-    xmax = [  3.77274603e-02, 7.60850948e-01, 1.49261405e+00, 8.96710122e-01, 3.24127453e-01, -2.95591681e-01, 2.35329503e-02, -2.29120438e+00, 4.90155667e+01, 3.62467850e-01, 2.42953261e+00, 2.44659997e+00, 7.99493942e-02, 4.37735172e-05, 4.81805279e-01, 2.75940879e-01, 3.17078465e+00, 1.74401966e-01, 1.97481061e-02,-1.37921564e-02, 2.76371012e+12, 4.14894397e+00, 2.17629370e-01]
+    #xmax = [  3.77274603e-02, 7.60850948e-01, 1.49261405e+00, 8.96710122e-01, 3.24127453e-01, -2.95591681e-01, 2.35329503e-02, -2.29120438e+00, 4.90155667e+01, 3.62467850e-01, 2.42953261e+00, 2.44659997e+00, 7.99493942e-02, 4.37735172e-05, 4.81805279e-01, 2.75940879e-01, 3.17078465e+00, 1.74401966e-01, 1.97481061e-02,-1.37921564e-02, 2.76371012e+12, 4.14894397e+00, 2.17629370e-01]
+    # mode from fakemcmc24co2aftersplit
+    #xmax = [ 0.114785922343, 0.656817173378, 2.66103429214, 0.436075435026, 0.112192431035, -0.129416709889, 0.0358907871528, -1.28978511023, 4.18110531509, 0.494182821752, 3.70658492364, 4.94680017104, 0.0801370653293, 6.31417046843e-05, 0.394211795435, -0.165214045377, 3.22479494404, 0.176906243046, 0.0221127418329, -0.0104729675354, 3.13453091307e+12, 2.99361371481, 0.233608662191, 1.5 ]
+    xmax = [0.107044411658, 0.632451112225, 3.03941361824, 0.458489799671, 0.0873395263375, -0.129664779224, 0.0314327774151, -0.741925594195, 4.25189694105, 0.521612097208, 3.96362507478, 5.33079838753, 0.0788867443428, 6.0460105006e-05, 0.387620494897, -0.164813202629, .15329492433, 0.175536767129, 0.0244044733784, -0.00979051171502, 3.54112659475e+12, 1.0, 0.236278095008, 1.27536191887]
     draw = []
     for i in range(len(xmax)):
-        draw.append( xmax[i]*(1.0 + 0.01*np.random.normal()) )
+        draw.append( xmax[i]*(1.0 + 0.001*np.random.normal()) )
     if not np.isfinite( globalPrior.lndensity(draw) ):
         print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()"
         return sampleFromGaussianBall() ## if this is a bad draw don't use it!
@@ -486,30 +499,32 @@ def sampleFromGaussianBall():
 
 
 
+narrowFac = 0.5
 globalPrior = analyticDistributions.jointDistribution(\
-        [ analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0**2.0)], 'alphaR' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
-        analyticDistributions.simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
-        analyticDistributions.simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
+        [ analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0)**2.0], 'alphaR' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2 * np.log(2.0)**2.0], 'alphaRSt0' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2* np.log(2.0)**2.0], 'alphaRGa0' ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2* np.log(2.0)**2.0], 'chifg0' ), \
+        analyticDistributions.simpleDistribution( 'normal', [0,narrowFac**2*  1.0**2.0], 'muColScaling'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.2, narrowFac**2* 0.2**2.0], 'muFgScaling'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), narrowFac**2* np.log(10.0)**2.0], 'muNorm'), \
+        analyticDistributions.simpleDistribution( 'normal', [-.5, narrowFac**2* 1.0**2.0], 'muMhScaling'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), narrowFac**2* np.log(10.0)**2.0], 'ZIGMfac'), \
         analyticDistributions.simpleDistribution( 'beta', [1,1], 'zmix' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), narrowFac**2* np.log(2.0)**2.0], 'eta'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), narrowFac**2* np.log(2.0)**2.0], 'Qf'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.05), narrowFac**2* np.log(2.0)**2.0], 'alphaMRI'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), narrowFac**2* np.log(10.0)**2.0], 'epsquench'), \
         analyticDistributions.simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, narrowFac**2* 0.3**2.0], 'conRF'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(.1), narrowFac**2* np.log(3.0)**2.0], 'kZ'), \
         analyticDistributions.simpleDistribution( 'beta', [1,2], 'xiREC'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), narrowFac**2* np.log(2.0)**2.0], 'epsff'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.0, narrowFac**2* 0.3**2], 'scaleAdjust'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), narrowFac**2* np.log(3.0)**2.0], 'mquench'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), narrowFac**2* np.log(3.0)**2.0], 'enInjFac'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, narrowFac**2* 0.2**2], 'chiZslope'), \
+        analyticDistributions.simpleDistribution( 'pareto', [3.0], 'fsigma') ] )
 
 
 
@@ -958,9 +973,9 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 23, 1000 
+    ndim, nwalkers = 24, 2000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc24_restart.pickle' ## Experimentally add a term in the likelihood to reproduce Krumholz&Burkhart data on MdotSF vs. \sigma.
+    fn = 'fakemcmc31_restart.pickle'  # reduce prior on kappaz by factor of 10 (in location parameter)
     restart = {}
     nsteps = 3000 
     #p0 = [ globalPrior.sample() for w in range(nwalkers) ]
@@ -972,11 +987,14 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
                 tmp_dict = pickle.load(f)
                 seedPosition = tmp_dict['currentPosition']
                 p0 = copy.deepcopy(seedPosition)
+                to_append = []
                 # if we need more positions for walker seeds, try just averaging.
                 if len(seedPosition)<nwalkers:
                     for i in range(nwalkers-len(seedPosition)):
                         selec = np.random.choice( range(len(p0)), size=2, replace=False )
-                        p0.append( (np.array(p0[selec[0]] ) + np.array(p0[selec[1]]))/2.0 )
+                        ## this code doesn't work because p0 isn't a list.
+                        to_append.append( (np.array(p0[selec[0]] ) + np.array(p0[selec[1]]))/2.0 )
+                    p0 = np.array( list(p0)+to_append)
 
     restart['currentPosition'] = p0
     restart['chain' ] = None
@@ -1036,7 +1054,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
 
 
 import observationalData
-def singleRelationLikelihood(x,y,datasets):
+def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
     lik = 0
     for i,ds in enumerate(datasets):
 	### each of these is an array equal in size to x or y, estimating the quantile of the datasets at each of these x values.
@@ -1055,7 +1073,7 @@ def singleRelationLikelihood(x,y,datasets):
      
         epsilon, theta, sigma = observationalData.datasets[ds].returnCachedSkewParams(x)
         #epsilon, theta, sigma = observationalData.computeEpsSkewParams( q16, q50, q84 )
-        likThis *= observationalData.epsSkewNormalPDF( yThis, epsilon,theta,sigma )
+        likThis *= observationalData.epsSkewNormalPDF( yThis, epsilon,theta,sigma*fsigma )
         lik += likThis/float(len(datasets))
         #print "dbg singleRelationLikelihood: ", lik, likThis, q16, q50, q84
         #print "dbg singleRelationLikelihood2: ", x,y,datasets
@@ -1098,7 +1116,7 @@ def singleRelationLikelihoodOld(x,y,datasets):
 
     return lnlik, finalResiduals
 
-def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
+def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
     ### neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
     logMh0 = Ys_train[:,0]
     logMh1 = Ys_train[:,1]
@@ -1163,48 +1181,48 @@ def globalLikelihood(Ys_train, fh=0, returnlikelihood=True):
     lnlik[:,2] += singleRelationLikelihood(10.0**logMh2,10.0**logMst2,['Moster13z2'])[srlInd]
     lnlik[:,3] += singleRelationLikelihood(10.0**logMh3,10.0**logMst3,['Moster13z3'])[srlInd]
 
-    lnlik[:,4] += singleRelationLikelihood(10.0**logMst0, 10.0**logsSFRz0, ['Speagle14Specz0', 'lilly13Specz0'])[srlInd]
-    lnlik[:,5] += singleRelationLikelihood(10.0**logMst1, 10.0**logsSFRz1, ['Speagle14Specz1', 'lilly13Specz1'])[srlInd]
-    lnlik[:,6] += singleRelationLikelihood(10.0**logMst2, 10.0**logsSFRz2, ['Speagle14Specz2', 'lilly13Specz2'])[srlInd]
-    lnlik[:,7] += singleRelationLikelihood(10.0**logMst3, 10.0**logsSFRz3, ['Speagle14Specz3', 'lilly13Specz3'])[srlInd]
+    lnlik[:,4] += singleRelationLikelihood(10.0**logMst0, 10.0**logsSFRz0, ['Speagle14Specz0', 'lilly13Specz0'],fsigma)[srlInd]
+    lnlik[:,5] += singleRelationLikelihood(10.0**logMst1, 10.0**logsSFRz1, ['Speagle14Specz1', 'lilly13Specz1'],fsigma)[srlInd]
+    lnlik[:,6] += singleRelationLikelihood(10.0**logMst2, 10.0**logsSFRz2, ['Speagle14Specz2', 'lilly13Specz2'],fsigma)[srlInd]
+    lnlik[:,7] += singleRelationLikelihood(10.0**logMst3, 10.0**logsSFRz3, ['Speagle14Specz3', 'lilly13Specz3'],fsigma)[srlInd]
     #lnlik[:,4] += singleRelationLikelihood(10.0**logMst0,10.0**logsSFRz0,['Brinchmann04Specz0'])[srlInd]
     #lnlik[:,5] += singleRelationLikelihood(10.0**logMst1,10.0**logsSFRz1,['whitaker14Specz1'])[srlInd]
     #lnlik[:,6] += singleRelationLikelihood(10.0**logMst2,10.0**logsSFRz2,['whitaker14Specz2'])[srlInd]
     #lnlik[:,7] += singleRelationLikelihood(10.0**logMst3,10.0**logsSFRz3,['lilly13Specz3'])[srlInd]
 
-    lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'])[srlInd]
+    lnlik[:,8] += singleRelationLikelihood(10.0**logMst0,10.0**logstZz0,['gallazi05','kirby13'],fsigma)[srlInd]
 
-    lnlik[:,9] += singleRelationLikelihood(10.0**logMst0,10.0**logsfZz0,['Tremonti04','Lee06'])[srlInd]
-    lnlik[:,10] += singleRelationLikelihood(10.0**logMst1,10.0**logsfZz1,['Genzel15Z1'])[srlInd]
-    lnlik[:,11] += singleRelationLikelihood(10.0**logMst2,10.0**logsfZz2,['Genzel15Z2'])[srlInd]
-    lnlik[:,12] += singleRelationLikelihood(10.0**logMst3,10.0**logsfZz3,['Genzel15Z3'])[srlInd]
+    lnlik[:,9] += singleRelationLikelihood(10.0**logMst0,10.0**logsfZz0,['Tremonti04','Lee06'],fsigma)[srlInd]
+    lnlik[:,10] += singleRelationLikelihood(10.0**logMst1,10.0**logsfZz1,['Genzel15Z1'],fsigma)[srlInd]
+    lnlik[:,11] += singleRelationLikelihood(10.0**logMst2,10.0**logsfZz2,['Genzel15Z2'],fsigma)[srlInd]
+    lnlik[:,12] += singleRelationLikelihood(10.0**logMst3,10.0**logsfZz3,['Genzel15Z3'],fsigma)[srlInd]
 
     
-    lnlik[:,13] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioH2z0,['genzel15COz0','genzel15Dustz0'])[srlInd]
-    lnlik[:,14] += singleRelationLikelihood(10.0**logMst1,10.0**loggasToStellarRatioH2z1,['genzel15COz1','genzel15Dustz1'])[srlInd]
-    lnlik[:,15] += singleRelationLikelihood(10.0**logMst2,10.0**loggasToStellarRatioH2z2,['genzel15COz2','genzel15Dustz2'])[srlInd]
-    lnlik[:,16] += singleRelationLikelihood(10.0**logMst3,10.0**loggasToStellarRatioH2z3,['genzel15COz3','genzel15Dustz3'])[srlInd]
+    lnlik[:,13] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioH2z0,['genzel15COz0','genzel15Dustz0'],fsigma)[srlInd]
+    lnlik[:,14] += singleRelationLikelihood(10.0**logMst1,10.0**loggasToStellarRatioH2z1,['genzel15COz1','genzel15Dustz1'],fsigma)[srlInd]
+    lnlik[:,15] += singleRelationLikelihood(10.0**logMst2,10.0**loggasToStellarRatioH2z2,['genzel15COz2','genzel15Dustz2'],fsigma)[srlInd]
+    lnlik[:,16] += singleRelationLikelihood(10.0**logMst3,10.0**loggasToStellarRatioH2z3,['genzel15COz3','genzel15Dustz3'],fsigma)[srlInd]
 
-    lnlik[:,17] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioHIz0,['papastergis12','peeples11'])[srlInd]
+    lnlik[:,17] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioHIz0,['papastergis12','peeples11'],fsigma)[srlInd]
 
     #lnlik += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13','Barro15HS','Barro15HQ'])
-    lnlik[:,18] += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13'])[srlInd]
-    lnlik[:,19] += singleRelationLikelihood(10.0**logMst1,10.0**logSigma1z1,['Barro151S','Barro151Q'])[srlInd]
-    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S','Barro152Q'])[srlInd]
-    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S','Barro153Q'])[srlInd]
+    #lnlik[:,18] += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13'])[srlInd]
+    lnlik[:,19] += singleRelationLikelihood(10.0**logMst1,10.0**logSigma1z1,['Barro151S'],fsigma)[srlInd]
+    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S'],fsigma)[srlInd]
+    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S'],fsigma)[srlInd]
 
 
     # Label points that fit galaxy sizes
-    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14LTG0'])[srlInd]
-    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14LTG1'])[srlInd]
-    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14LTG2'])[srlInd]
-    lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14LTG3'])[srlInd]
+    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14LTG0'],fsigma)[srlInd]
+    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14LTG1'],fsigma)[srlInd]
+    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14LTG2'],fsigma)[srlInd]
+    lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14LTG3'],fsigma)[srlInd]
     #lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14ETG0','vdW14LTG0'])[srlInd]
     #lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14ETG1','vdW14LTG1'])[srlInd]
     #lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14ETG2','vdW14LTG2'])[srlInd]
     #lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14ETG3','vdW14LTG3'])[srlInd]
 
-    lnlik[:,26] += singleRelationLikelihood(10.0**(logMst0+loggasToStellarRatioHIz0),10.0**logbroeilsHIz0,['broeils97'])[srlInd]
+    lnlik[:,26] += singleRelationLikelihood(10.0**(logMst0+loggasToStellarRatioHIz0),10.0**logbroeilsHIz0,['broeils97'],fsigma)[srlInd]
 
     lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
 
@@ -2368,7 +2386,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
 
     #Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
 
-    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$']
+    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$', r'$f_\sigma$']
     texlabels = labels[:]
     for i in range(nfeatures-len(feature_names)):
         #feature_names.append("AccHist"+str(i))
@@ -3037,9 +3055,9 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
+    #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc25_restart.pickle' )
     runEmcee(mpi=True, continueRun=True, seedWith=None )
-    #runEmcee(mpi=False, continueRun=False, seedWith=None )
+    #runEmcee(mpi=True, continueRun=False, seedWith=None)
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 

@@ -331,10 +331,10 @@ class DataSet:
 
         if self.logx:
             # x0 and x1 are in linear space - take the log to produce even spacing in log space
-            xcache = np.linspace(np.log10(x0), np.log10(x1), 1000)
+            xcache = np.linspace(np.log10(x0), np.log10(x1), 100)
             q16, q50, q84, logy = self.returnQuantiles(np.power(10.0, xcache))
         else:
-            xcache = np.linspace(x0, x1, 1000)
+            xcache = np.linspace(x0, x1, 100)
             q16, q50, q84, logy = self.returnQuantiles(xcache)
         self.cacheq16 = interp1d(xcache, q16, kind='linear', bounds_error=True)
         self.cacheq50 = interp1d(xcache, q50, kind='linear', bounds_error=True)
@@ -405,8 +405,8 @@ class DataSet:
         belowx = xEval < np.min(xv)
         abovex = xEval > np.max(xv)
         inflate = np.ones(len(xEval))
-        inflate[abovex] = np.exp(( xEval[abovex] - np.max(xv))/2.0 )
-        inflate[belowx] = np.exp(-( xEval[belowx] - np.min(xv))/2.0 )
+        inflate[abovex] = np.exp(2.0*( xEval[abovex] - np.max(xv))**2.0 )
+        inflate[belowx] = np.exp(2.0*( xEval[belowx] - np.min(xv))**2.0 )
         try:
             f = interp1d(xv,yv,kind='linear',bounds_error=False, fill_value='extrapolate')
         except:

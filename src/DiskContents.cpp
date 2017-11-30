@@ -1264,6 +1264,7 @@ void DiskContents::DiffuseMetals(double dt, int species)
         // don't scale - kappa is constant.
         //else KM = kappaMetals;
         double klim = sig[n]*x[n]; // uu[n]*1.0; // sig[n] * x[n]; //sig[n]*sig[n]/uu[n] * x[n];
+	// double klim = sig[n] *  sig[n]*sig[n]/(dim.chi()*M_PI*(col[n] + sig[n]/activeSigStZ(n) * activeColSt(n)));   
         if(KM > klim ) KM = klim;
         double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
         double colnp1 = col[nx];

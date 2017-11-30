@@ -292,7 +292,8 @@ def residualsFromGidget(bn, fh=0.3):
         return [],[]
 
 models24 = [ pickle.load( open( 'rfnt24co_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
-modelLik = pickle.load( open( 'rfnt24co2_200_0.pickle', 'r'))
+#models29 = [ pickle.load( open( 'rfnt24co_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
+#modelLik = pickle.load( open( 'rfnt24co2_200_0.pickle', 'r'))
 #models1718b = [ pickle.load( open( 'rfnt1718b_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
 
 def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None):
@@ -548,7 +549,8 @@ globalPrior = analyticDistributions.jointDistribution(\
         analyticDistributions.simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
+        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope'), \
+        analyticDistributions.simpleDistribution( 'pareto', [3.0], 'fsigma') ] )
 
 
 
@@ -799,7 +801,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
             r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{max}$', r'$\alpha_\mathrm{con}$', \
             r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', \
             r'$M_\mathrm{quench}$', r'$\chi_\mathrm{SN}$', r'$\alpha_{r,M_{h,0}}$', r'$f_h$'] 
-    labels = [r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$']
+    labels = [r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$', r'$f_\sigma$']
     
     logs = [1,1,1,1,0,0,1,0,1,0,1,1,1,1,0,0,1,0,1,0,1,1,0,0]
 
@@ -823,11 +825,11 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
 
 
     ## At this point sampleRed is a flat sample of the posterior, or at least our best guess thereof.
-    pickle.dump(sampleRed, open('fakemcmc24co2_posterior.pickle', 'w'))
+    pickle.dump(sampleRed, open('fakemcmc30_posterior.pickle', 'w'))
     header = ''
     for label in labels:
         header += label+' '
-    np.savetxt('fakemcmc24co2_posterior_glue.txt', sampleRed, header=header[:-1])
+    np.savetxt('fakemcmc30_posterior_glue.txt', sampleRed, header=header[:-1])
 
     extents=[]
     for i in range(np.shape(sampleRed)[1]):
@@ -865,7 +867,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     cluster_medians = []
     cluster_means = []
     clusters=[]
-    ndim = 23
+    ndim = 24
     for cl in range(n_clusters):
         cluster_filter = kmeans.labels_== cl 
         this_cluster = sampleRed[cluster_filter, :]
@@ -875,7 +877,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
         cluster_medians.append(cluster_median_est)
         cluster_means.append(Xtra.inverseTransform(kmeans.cluster_centers_[cl,:].reshape(1,ndim)))
 
-        trifig_cluster= corner.corner(this_cluster, color=colors[cl], plot_datapoints=False, plot_filled_contours=False, fig=trifig, range=extents, truths = cluster_median_est, truth_color=colors[cl])
+        #trifig_cluster= corner.corner(this_cluster, color=colors[cl], plot_datapoints=False, plot_filled_contours=False, fig=trifig, range=extents, truths = cluster_median_est, truth_color=colors[cl])
 
             
 
@@ -892,7 +894,7 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
     #result = lle.fit_transform(sampleTra)
     fig,ax = plt.subplots()
     ax.scatter(result[:,0], result[:,1], c=kmeans.labels_, alpha=0.2, s=10)
-    fig.savefig('fakemcmc24co2_lle.pdf')
+    fig.savefig('fakemcmc30_lle.pdf')
     plt.close(fig)
 
 
@@ -982,6 +984,35 @@ def trianglePlot(restart,fn,burnIn=0, nspace=10):
         print kmeans_center_msgs[k][:-2]+']'
 
     print "Shape of sampleRed: ", np.shape(sampleRed)
+
+def runDynesty(mpi=False):
+    import sys
+    if mpi:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        from emcee.utils import MPIPool
+        pool = MPIPool(comm=comm, loadbalance=True)
+        if not pool.is_master():
+            pool.wait()
+            sys.exit()
+    ndim = 24
+
+    import dynesty
+    from dynestry import plotting as dyplot
+    dsampler = dynesty.DynamicNestedSampler(lnlikelihood, globalPrior.sample_transform, ndim, bound='multi', sample='slice', queue_size=4, pool=pool )
+    dsampler.run_nested()
+    results = dsampler.results
+
+    rfig, raxes = dyplot.runplot(results)
+    plt.savefig('emu_dyn00_run.pdf')
+
+    tfig, taxes = dyplot.traceplot(results)
+    plt.savefig('emu_dyn00_trace.pdf')
+
+    cfig, caxes = dyplot.cornerplot(results)
+    plt.savefig('emu_dyn00_corner.pdf')
+
 
 
 def runEmcee(mpi=False, continueRun=False, seedWith=None):
@@ -1939,23 +1970,38 @@ def learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels,
 #        if True:
     regRF = ensemble.RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, min_samples_leaf=min_per_leaf, n_jobs=2, criterion='mse')
     #regRF = ensemble.ExtraTreesRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, min_samples_leaf=min_per_leaf, n_jobs=3)
-    invalid = Ys_train[:,k]!=Ys_train[:,k]
-    if np.any(invalid):
-        pdb.set_trace()
-    try:
-        regRF.fit(X_train, Ys_train[:,k])
-    except:
-        pdb.set_trace()
-    Y_pred_train = copy.deepcopy( regRF.predict(X_train) )
-    Y_pred_validate = copy.deepcopy( regRF.predict(X_validate) )
-    Y_pred_test = copy.deepcopy( regRF.predict(X_test) )
+    if k is not None:
+        invalid = Ys_train[:,k]!=Ys_train[:,k]
+        if np.any(invalid):
+            pdb.set_trace()
+        try:
+            regRF.fit(X_train, Ys_train[:,k])
+        except:
+            pdb.set_trace()
+        Y_pred_train = copy.deepcopy( regRF.predict(X_train) )
+        Y_pred_validate = copy.deepcopy( regRF.predict(X_validate) )
+        Y_pred_test = copy.deepcopy( regRF.predict(X_test) )
+        errors_train = np.std(Y_pred_train - Ys_train[:,k])
+        errors_validate = np.std(Y_pred_validate - Ys_validate[:,k]) 
+        errors_test = np.std(Y_pred_test - Ys_test[:,k])
+    else:
+        invalid = Ys_train!=Ys_train
+        if np.any(invalid):
+            pdb.set_trace()
+        try:
+            regRF.fit(X_train, Ys_train)
+        except:
+            pdb.set_trace()
+        Y_pred_train = copy.deepcopy( regRF.predict(X_train) )
+        Y_pred_validate = copy.deepcopy( regRF.predict(X_validate) )
+        Y_pred_test = copy.deepcopy( regRF.predict(X_test) )
+        errors_train = np.std(Y_pred_train - Ys_train)
+        errors_validate = np.std(Y_pred_validate - Ys_validate) 
+        errors_test = np.std(Y_pred_test - Ys_test)
     feature_importances = copy.deepcopy( regRF.feature_importances_[:] )
-    errors_train = np.std(Y_pred_train - Ys_train[:,k])
-    errors_validate = np.std(Y_pred_validate - Ys_validate[:,k]) 
-    errors_test = np.std(Y_pred_test - Ys_test[:,k])
     theModel = regRF
     #theModel[k] = copy.deepcopy( regRF )
-    print "Finished learning ",labels[k], "for ntrees=",n_estimators
+    print "Finished learning k=",k, "for ntrees=",n_estimators
 #        else:
 #            print "Failed for k=",k, labels[k]
 #            print " "
@@ -2387,6 +2433,342 @@ def quickPlot(arr, name):
     plt.close(fig)
 
 
+
+
+
+
+
+
+
+
+
+def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
+    ### Start with a model we like after our experience w/ searchTreeParams
+    ### Train and score the model
+    ### Predict Y, but shuffle values of one feature at a time in one mass bin at a time.
+    ### Record score reduction at each shuffle.
+    ### Plot score reduction as fn of mass for each feature.
+    from sklearn.metrics import r2_score
+
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broad24partial_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+
+
+    toZero = [] ## zero out a few variables that we have trouble fitting. -- for now, let's keep everything and see how it goes
+
+
+    nsamples = np.shape(X_train_orig)[0]
+    nfeatures = np.shape(X_train_orig)[1]
+    print "Number of samples being used: ", nsamples
+
+    # 10x cross-validation
+    nmasses = 1 # debug
+    ntargets = np.shape(Ys_train_orig)[1] # len(labels)
+    #ntargets=2 # debug
+    ncv =  1 # for debug -- in principle this should be larger
+    neval = 10
+    scores = np.zeros((nfeatures, nmasses, ntargets))
+    r2scores = np.zeros(ntargets)
+    feature_importances = np.zeros((nfeatures, ntargets))
+    derivs_mass = np.zeros((nfeatures,ntargets, nmasses))
+    predictions_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
+    ordinates_mass = np.zeros((nfeatures, ntargets, nmasses, neval))
+
+    #Mh0, raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope = emceeparams
+
+    feature_names = [r'$M_{h,0}$', r'$\alpha_r$', r'$\alpha_{r,*,0}$',  r'$\alpha_{r,g,0}$',  r'$\chi_{f_{g,0}}$', r'$\alpha_\Sigma$', r'$\alpha_{f_g}$', r'$\mu_0$', r'$\alpha_{M_h}$', r'$\chi_{Z_\mathrm{IGM}}$', r'$\xi_\mathrm{acc}$', r'$\eta$', r'$Q_f$', r'$\alpha_\mathrm{MRI}$', r'$\epsilon_\mathrm{quench}$', r'$\epsilon_\mathrm{ceil}$', r'$\alpha_\mathrm{con}$', r'$k_Z$', r'$\xi$', r'$\epsilon_\mathrm{ff}$', r'$\Delta\beta$', r'$M_Q$', r'$\chi_\mathrm{inj}$', r'$\chi_{dlogZ/dlogM}$']
+    #texlabels = labels[:]
+    labels = labelsTargets
+    for i in range(nfeatures-len(feature_names)):
+        #feature_names.append("AccHist"+str(i))
+        feature_names.append(r'$\dot{M}_'+str(i)+r'$')
+
+
+
+    residuals = np.zeros(( ntargets, int(nsamples*0.1), ncv )) # for every target variable record the residuals for later plotting
+    preds = np.zeros(( ntargets, int(nsamples*0.1), ncv )) # for QQ plots
+    val_preds = np.zeros(( ntargets, int(nsamples*0.1), ncv )) # for QQ plots
+    residual_ordinates = np.zeros(( ntargets, int(nsamples*0.1)) ) # record the x-coordinate we'll use to plot the residuals
+    correlations = np.zeros(ntargets)
+    residual_stdev = np.zeros(ntargets)
+    MSEb = np.zeros(ntargets)
+
+    doK = range(ntargets)
+    #doK = [200]
+    for cvi in range(ncv):
+        ### Select a random subset of the X_train to be the validation set for this iteration
+        #validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1)) # this is almost right, but will produce some overlap the X_validate below will have fewer than nsamples*0.1
+        validationIndices = np.random.choice(range(nsamples), replace=False, size=int(nsamples*0.1))
+        vi = [int(v) for v in validationIndices]
+        validationSample = np.array([ss in vi for ss in range(nsamples)])
+        X_validate = X_train_orig.copy()[validationSample, :]
+        X_train = X_train_orig.copy()[np.logical_not(validationSample), :]
+        Ys_validate = Ys_train_orig.copy()[validationSample,:]
+        Ys_train = Ys_train_orig.copy()[np.logical_not(validationSample),:]
+
+        if( np.any(np.logical_not(np.isfinite(X_train))) or np.any(np.isnan(X_train))):
+            pdb.set_trace()
+        if( np.any(np.logical_not(np.isfinite(Ys_train))) or np.any(np.isnan(Ys_train))):
+            pdb.set_trace()
+
+
+        # Regularize the input and output vectors to give the learning algorithm an easier time
+        Xtra = xtransform(X_train)
+        X_train = Xtra.transform(X_train)
+        X_validate = Xtra.transform(X_validate)
+        X_test = Xtra.transform(X_test_orig.copy()) 
+        
+        if( not np.all(np.isfinite(X_train)) or np.any(np.isnan(X_train))):
+            pdb.set_trace()
+
+
+        #### store a set of random factors to be used all throughout the emcee process
+        #### Draw a random element 
+        randomFactors = np.zeros(np.shape(randomFactorsKey01))
+        for jj in range(50):
+            randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),-nAccrBins+ii] for ii in range(nAccrBins)])
+
+        Ytra = xtransform(Ys_train)
+        Ys_train = Ytra.transform(Ys_train)
+        Ys_validate = Ytra.transform(Ys_validate)
+        Ys_test = Ytra.transform(Ys_test_orig.copy())
+
+        if( not np.all(np.isfinite(Ys_train)) or np.any(np.isnan(Ys_train))):
+            pdb.set_trace()
+
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=50, k=None, max_depth=300, max_features='auto', min_per_leaf=5 )
+        #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=10, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
+        if pick:
+            pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt30_'+str(cvi)+'.pickle','w')) ### save the model
+
+        for k in doK:
+            if analyze: 
+                feature_importances[:,k] += feature_importances_this[:]/float(ncv)
+                massmin, massmax = np.min(X_train[:,0]), np.max(X_train[:,0])
+                massminOrig, massmaxOrig = np.min(X_train_orig[:,0]), np.max(X_train_orig[:,0])
+                massbins = np.linspace(massminOrig, massmaxOrig, num=nmasses+1)
+                bincenters = (massbins[1:]+massbins[:-1])/2.0
+                try:
+                    acc = r2_score(Ys_validate[:,k], theModel.predict(X_validate)[:,k])
+                except:
+                    pdb.set_trace()
+                r2scores[k]+=acc/float(ncv)
+
+                print "r2 score, errors: ",cvi, acc, errors_train_this, errors_validate_this, errors_test_this
+                #if acc<0:
+                #    pdb.set_trace()
+
+                residuals[k, :, cvi] = Ytra.inverseTransformK( theModel.predict(X_validate)[:,k], k ) - Ytra.inverseTransformK( Ys_validate[:,k], k )
+                preds[k, :, cvi] = sorted( Ytra.inverseTransformK( theModel.predict(X_validate)[:,k], k ) )
+                val_preds[k, :, cvi] = sorted( Ytra.inverseTransformK(Ys_validate[:,k],k) ) # grab the thing to which we'll compare the above in a QQ plot
+                residual_stdev[k] += np.std(residuals[k,:,cvi])/float(ncv)
+                #target_stdev[k] += np.std(val_preds[k,:,cvi])
+                MSEb[k] += np.sum(np.power( val_preds[k,:,cvi] - np.mean(Ytra.inverseTransformK(Ys_train[:,k],k)), 2.0))/len(val_preds[k,:,cvi])/float(ncv)
+                correlations[k] += np.corrcoef( Ytra.inverseTransformK(Ys_validate[:,k],k), Ytra.inverseTransformK( theModel.predict(X_validate)[:,k], k)  )[0,1]/float(ncv)
+
+
+                if cvi==0:
+                    residual_ordinates[k, :] = Xtra.inverseTransform( X_validate )[:,0] # use the halo mass at z=0 as the x-axis. 
+
+
+                for nm in range(nmasses):
+                    binmin = massmin + (massmax-massmin)*float(nm)/float(nmasses)
+                    binmax = massmin + (massmax-massmin)*float(nm+1)/float(nmasses)
+                    binselec = np.logical_and( X_validate[:,0]>binmin, X_validate[:,0]<binmax )
+
+                    #Xvm = X_validate[binselec,:]
+                    #Yvm = Ys_validate[binselec,:]
+                    for nfi in range(nfeatures):
+
+                        X_construct_0 = np.mean(Xtra.inverseTransform(X_validate[binselec,:]), axis=0)
+                        X_construct_min = np.min(Xtra.inverseTransform(X_validate[binselec,:]), axis=0)
+                        X_construct_max = np.max(Xtra.inverseTransform(X_validate[binselec,:]), axis=0)
+                        X_construct_1 = X_construct_0.copy()
+                        X_construct_1[nfi] = X_construct_1[nfi]*1.1
+                        y1 = Ytra.inverseTransform(theModel.predict( Xtra.transform( X_construct_1.reshape(1,nfeatures)) ))[0,k]
+                        y0 = Ytra.inverseTransform(theModel.predict( Xtra.transform( X_construct_0.reshape(1,nfeatures)) ))[0,k]
+                        val = (y1-y0)/(X_construct_1[nfi] - X_construct_0[nfi])
+                        derivs_mass[nfi,k,nm] = val
+                        
+                        for ne in range(neval):
+                            xnfi = X_construct_min[nfi] + (X_construct_max[nfi]-X_construct_min[nfi])*float(ne)/float(neval-1)
+                            X_construct_1[nfi] = xnfi
+                            predictions_mass[nfi,k,nm,ne] = Ytra.inverseTransform(theModel.predict( Xtra.transform( X_construct_1.reshape(1,nfeatures))))[0,k]
+                            ordinates_mass[nfi,k,nm,ne] = xnfi
+
+
+                        X_v = X_validate.copy()
+                        X_vb = X_v[binselec,:]
+                        X_vnb = X_v[np.logical_not(binselec),:]
+                        #pdb.set_trace()
+                        np.random.shuffle(X_vb[:,nfi])
+                        X_v[binselec,nfi] = X_vb[:,nfi]
+                        shuffle_acc = r2_score(Ys_validate[:,k], theModel.predict(X_v)[:,k])
+                        if acc>0:
+                            scores[nfi,nm,k] += ((acc-shuffle_acc)/acc)/float(ncv)
+                        else:
+                            scores[nfi,nm,k] += 0
+
+
+
+        if analyze and plot:
+            try:
+                fig,ax = plt.subplots()
+                #colors = [(1.0-0.9*float(i)/float(nfeatures), 0.7, 0.1+0.9*float(i)/float(nfeatures)) for i in range(nfeatures)]
+                meanscores = np.mean(scores[:,:,k], axis=1)
+                sortedscores = sorted(meanscores)[::-1]
+                importantfeatures = []
+                for impfi in range(len(meanscores)):
+                    if meanscores[impfi] in sortedscores[:3]:
+                        importantfeatures.append(impfi)
+                #for nfi in range(nfeatures):
+                    #if np.mean(scores[nfi,:,k])>0.004:
+                for nfi in np.array(importantfeatures).flatten():
+                    ax.plot(bincenters, scores[nfi,:,k], label=feature_names[nfi])
+                ax.text( np.max(bincenters)*0.8, np.max(scores[:,:,k])*0.8, r'$R^2 = $'+str(r2scores[k])[:5] )
+                ax.set_yscale('log')
+                ax.set_xlabel(r'$\log_{10} M_{h,0}$')
+                ax.set_ylabel('Mean decrease accuracy')
+                ax.legend(loc=0)
+                plt.savefig('feature_importances_'+labels[k]+'.pdf')
+                plt.close(fig)
+
+
+                fig,ax = plt.subplots()
+                #for nfi in range(nfeatures):
+                #    if np.mean(scores[nfi,:,k])>0.004:
+                for nfi in np.array(importantfeatures).flatten():
+                    y = derivs_mass[nfi,k,:]
+                    print "y: ",y
+                    ax.plot(bincenters, y, label=feature_names[nfi])
+                ax.set_xlabel(r'$\log_{10} M_{h,0}$')
+                ax.set_ylabel(r'$\partial$'+labels[k]+r'$/\partial$ feature')
+                ax.legend(loc=0)
+                plt.savefig('feature_derivs_'+labels[k]+'.pdf')
+                plt.close(fig)
+
+                #for nfi in range(nfeatures):
+                for nfi in np.array(importantfeatures).flatten():
+                    fig,ax = plt.subplots()
+                    for nm in range(nmasses):
+                        y = predictions_mass[nfi,k,nm, :]
+                        x = ordinates_mass[nfi,k,nm, :]
+                        ax.plot(x, y, label='Mass Bin '+str(nm))
+                    ax.set_xlabel(feature_names[nfi])
+                    ax.set_ylabel(labels[k])
+                    ax.legend(loc=0)
+                    plt.savefig('feature_predictions_'+str(nfi)+'_'+labels[k]+'.pdf')
+                    plt.close(fig)
+
+            except:
+                print "FAILED to make plots for k=",k
+
+    ## assemble the tex labels for the tables below
+    texlabels=[]
+    tl0=[r'$M_h$', r'$M_*$', r'sSFR', r'$\langle Z\rangle_\mathrm{SFR}$', r'$Z_*$', r'$M_{\mathrm{H}_2}/M_*$', r'$M_{\mathrm{HI}}/M_*$', r'$r_*$', r'$v_{\phi, 2.2}$', r'$c_{82}$', r'$\Sigma_1$', r'$j_*$', r'$\partial\log_{10}Z/\partial r$', r'$\sigma_\mathrm{max}$', r'$\dot{M}_{\mathrm{bulge, gas}}$', r'$r_{GI}/r_*$', r'$t_\mathrm{dep}$', r'$t_{\mathrm{dep},\mathrm{H}_2}$', r'$r_{\mathrm{HI}}$', r'$M_{*,\mathrm{merge}}$']
+    for tl in tl0:
+        texlabels.append(tl)
+        texlabels.append(' ')
+        texlabels.append(' ')
+        texlabels.append(' ')
+        #texlabels.append( tl+ r'$(z=0)$')
+        #texlabels.append( tl+ r'$(z=1)$')
+        #texlabels.append( tl+ r'$(z=2)$')
+        #texlabels.append( tl+ r'$(z=3)$')
+    tl1 = [r'$v_\phi$', r'$\Sigma$', r'$\Sigma_*$', r'$\Sigma_\mathrm{SFR}$', r'$Z$', r'Age']
+    for tl in tl1:
+        texlabels.append(tl)
+        for ri in range(1,20):
+            #texlabels.append( tl+r'$(r/r_*='+ str(np.round(float(ri)/5.0, 2)) +r')$' )
+            texlabels.append( '' )
+    texlabels.append(r'$\ln \mathcal{L}$')
+    if analyze:
+ 
+        printScores(r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_scores_30.tex', normalize=False)
+        printFeatureImportancesMultipleArrays(feature_importances.T, np.mean(scores,axis=1).T, feature_names, texlabels, fn='feature_mult_importances_30.tex', normalize1=False, normalize2=False)
+
+        printFeatureImportances(feature_importances.T*1.0, r2scores, correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='feature_importance_compact_30.tex', normalize=False)
+        printFeatureImportances(np.mean(scores,axis=1).T, r2scores, correlations, residual_stdev, np.sqrt(MSEb),feature_names, texlabels, fn='avg_swap_scores_compact_30.tex', normalize=False)
+        printFeatureImportances(np.mean(derivs_mass,axis=2).T, r2scores,correlations, residual_stdev, np.sqrt(MSEb), feature_names, texlabels, fn='avg_derivs_compact_30.tex')
+        #printTable(feature_importances.T*1.0, feature_names, texlabels, fn='feature_importances.tex')
+        #printTable(np.mean(scores,axis=1).T, feature_names, texlabels, fn='avg_swap_scores.tex')
+
+    # only go up to 80, i.e. integrated quantities
+    fig,ax = plt.subplots(nrows=80/4, ncols=4, figsize=(8.5, 40))
+    #residuals = np.zeros(( ntargets, int(nsamples*0.1), ncv )) # for every target variable, see how we did!
+    for k in range(80):
+        for cvi in range(ncv):
+            ax.flatten()[k].scatter( residual_ordinates[k, :], residuals[k, :, cvi], c='k', alpha=0.1, s=10, lw=0 )
+            ax.flatten()[k].text( .6, .9, r'$R^2 = $'+str(np.round(r2scores[k],2)) , transform=ax.flatten()[k].transAxes)
+            ax.flatten()[k].set_ylabel(texlabels[k])
+            #ax.flatten()[k].set_xlabel(r'$\log_{10} M_{h,0}$')
+            if k%4!=0:
+                ax.flatten()[k].set_yticklabels([])
+            if k<ntargets/4-4:
+                ax.flatten()[k].set_xticklabels([])
+    plt.tight_layout()
+    plt.savefig('fakemcmc30_RF_residuals.pdf')
+
+
+    colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan', 'lightblue', 'grey', 'yellow', 'olive', 'magenta', 'lightgreen', 'maroon', 'lime', 'orchid', 'gold', 'deeppink', 'navy', 'moccasin', 'plum']*10
+    markers = ['o', 'v', '<', '>', '^', 's', 'p', 'h', 'D', '*', 'd', 'X', 'P', 'H']* 20
+    fig,ax = plt.subplots( figsize=(10,10) )
+    the_min = np.min([ np.min(val_preds), np.min(preds) ])
+    the_max = np.max([ np.max(val_preds), np.max(preds) ])
+    kplot = list(np.arange(48)) + list(np.arange(52,76)) 
+    for ik,k in enumerate(kplot):
+        for cvi in range(ncv):
+            label=None
+            if k%4==0:
+                if k<80:
+                    label=tl0[(k-k%4)/4]
+                else:
+                    label=texlabels[-1]
+            npts = len(val_preds[k,:,cvi])
+            low = int(npts*0.16)
+            high = int(npts*0.84)
+            offset = -3*(ik/8.0-38.0/8.0)
+            ax.scatter( val_preds[k,:,cvi], preds[k,:,cvi] - val_preds[k,:,cvi] + offset, c=colors[(k-k%4)/4], lw=0, label=label, s=5, marker=markers[(k-k%4)/4] )
+            ax.scatter( val_preds[k,low:high,cvi], preds[k,low:high,cvi] - val_preds[k,low:high,cvi]+offset, c=colors[(k-k%4)/4], lw=0, s=15 , marker=markers[(k-k%4)/4]) # emphasize central 68% of distr.
+    # do the emphasized points at the end
+    for ik,k in enumerate(kplot):
+        for cvi in range(ncv):
+            offset = -3*(ik/8.0-38.0/8.0)
+            label=None
+            if k%4==0:
+                if k<80:
+                    label=tl0[(k-k%4)/4]
+                else:
+                    label=texlabels[-1]
+                ax.text(  -14, offset, label, color=colors[(k-k%4)/4] )
+                ax.scatter( [-14.5], [offset], c=colors[(k-k%4)/4], s=80, marker=markers[(k-k%4)/4] )
+            npts = len(val_preds[k,:,cvi])
+            low = int(npts*0.16)
+            high = int(npts*0.84)
+            ax.scatter( [val_preds[k,low,cvi], val_preds[k,high,cvi]] , [preds[k,low,cvi] - val_preds[k,low,cvi] + offset, preds[k,high,cvi] - val_preds[k,high,cvi]+offset], c=colors[(k-k%4)/4], lw=1, s=20, edgecolors='k' , marker=markers[(k-k%4)/4]) # emphasize central 68% of distr.
+            #if offset<-3:
+            #    ax.plot( [-15,15], [offset]*2, c=colors[(k-k%4)/4], lw=1, ls=':' )
+            #else:
+            ax.plot( [-9,15], [offset]*2, c=colors[(k-k%4)/4], lw=1, ls=':' )
+    #ax.set_xlim(-11, the_max)
+    #ax.set_ylim(-11, the_max)
+    ax.set_xlim(-15,15)
+    ax.set_ylim(-15,15)
+    #ax.plot( [the_min, the_max], [the_min, the_max], c='k', lw=2, ls=':' )
+    #ax.legend(frameon=False, scatterpoints=1)
+    ax.set_xlabel(r'Sorted Test Sample')
+    ax.set_ylabel(r'Sorted Residual (Fit-Test) Sample')
+    plt.savefig('fakemcmc30_RF_QQ.pdf')
+
+
+    #print "Average feature importances from skl: ",feature_importances
+
+
+
+
+
+
+
+
 def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     ### Start with a model we like after our experience w/ searchTreeParams
     ### Train and score the model
@@ -2395,7 +2777,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     ### Plot score reduction as fn of mass for each feature.
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broad24hp_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broad24partial_to_lasso.txt') # no need to feed in arr, since we're just reading the data once.
 
     ## ok crazy idea. Instead of piecemeal fitting everything, let's just fit the likelihood and run the mcmc on that.
     #lnlik_train = globalLikelihood(Ys_train_orig)
@@ -2697,7 +3079,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
     fig,ax = plt.subplots( figsize=(10,10) )
     the_min = np.min([ np.min(val_preds), np.min(preds) ])
     the_max = np.max([ np.max(val_preds), np.max(preds) ])
-    kplot = list(np.arange(48)) + list(np.arange(52,76)) + [200]
+    kplot = list(np.arange(48)) + list(np.arange(52,76)) 
     for ik,k in enumerate(kplot):
         for cvi in range(ncv):
             label=None
@@ -3144,6 +3526,8 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
+    runDynesty(mpi=True)
+
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
     #runEmcee(mpi=True, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
@@ -3153,8 +3537,8 @@ if __name__=='__main__':
     #validateNPR()
     #plotResiduals()
 
-    #estimateFeatureImportances(analyze=True, pick=True) # just generate the pickled models 
-    #estimateFeatureImportances(analyze=True, pick=False) # do the analysis but don't save the models
+    #estimateFeatureImportancesJoint(analyze=True, pick=True) 
+    #estimateFeatureImportances(analyze=True, pick=True) 
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
 
@@ -3197,11 +3581,11 @@ if __name__=='__main__':
 
     if False:
         restart={}
-        updateRestart('fakemcmc25_restart.pickle', restart)
+        updateRestart('fakemcmc31_restart.pickle', restart)
         printRestart(restart)
-        tracePlots(restart, 'fakemcmc25_trace', burnIn=0)
-        probsPlots(restart, 'fakemcmc25_allProb', burnIn=0)
-        trianglePlot(restart,'fakemcmc25_triangle', burnIn=102, nspace=40)
+        tracePlots(restart, 'fakemcmc31_trace', burnIn=0)
+        probsPlots(restart, 'fakemcmc31_allProb', burnIn=0)
+        trianglePlot(restart,'fakemcmc31_triangle', burnIn=357, nspace=40)
 
         # Find the maximum among all models sampled so far.
         allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations
@@ -3216,34 +3600,34 @@ if __name__=='__main__':
 
         print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
 
-        zipped = zip(restart['allProbs'][:,25], range(len(restart['allProbs'][:,25])))
-        zsorted = sorted(zipped, key=lambda x: -x[0])
-        highProbInds = [zsorted[i][1] for i in range(10)]
+        ####zipped = zip(restart['allProbs'][:,25], range(len(restart['allProbs'][:,25])))
+        ####zsorted = sorted(zipped, key=lambda x: -x[0])
+        ####highProbInds = [zsorted[i][1] for i in range(10)]
 
-        zipped2 = zip(stlikelihoods[:,25], range(len(stlikelihoods[:,25])))
-        zsorted2 = sorted(zipped2, key=lambda x: -x[0])
-        highProbInds2 = [zsorted2[i][1] for i in range(10)]
+        ####zipped2 = zip(stlikelihoods[:,25], range(len(stlikelihoods[:,25])))
+        ####zsorted2 = sorted(zipped2, key=lambda x: -x[0])
+        ####highProbInds2 = [zsorted2[i][1] for i in range(10)]
 
-        for i in range(2):
-            #index = np.argmax(allProbs)
-            #index2 = np.argmax(likelihoods)
-            index = highProbInds[i]
-            print 'posterior:', restart['allProbs'][index,25]
-            print 'likelihood:', stlikelihoods[index,25]
-            ##print 'likelihood: ', likelihoods[index2]
-            #indices = np.unravel_index(index, np.shape(restart['allProbs']))
-            ##indices2 = np.unravel_index(index2, np.shape(restart['allProbs']))
-            #xmax = restart['chain'][indices[0],indices[1],:]
-            # (nwalkers x niterations x ndim)    
-            xmax = restart['chain'][index, 25, :]
-            #xmax2 = restart['chain'][indices2[0],indices2[1],:]
-            print "Favorite coordinates Posterior (", i, ")", xmax
-            printPriorOffsets(xmax)
-            #print "Favorite coordinates Likelihood: ", xmax2
-            #printPriorOffsets(xmax2)
+        ####for i in range(2):
+        ####    #index = np.argmax(allProbs)
+        ####    #index2 = np.argmax(likelihoods)
+        ####    index = highProbInds[i]
+        ####    print 'posterior:', restart['allProbs'][index,25]
+        ####    print 'likelihood:', stlikelihoods[index,25]
+        ####    ##print 'likelihood: ', likelihoods[index2]
+        ####    #indices = np.unravel_index(index, np.shape(restart['allProbs']))
+        ####    ##indices2 = np.unravel_index(index2, np.shape(restart['allProbs']))
+        ####    #xmax = restart['chain'][indices[0],indices[1],:]
+        ####    # (nwalkers x niterations x ndim)    
+        ####    xmax = restart['chain'][index, 25, :]
+        ####    #xmax2 = restart['chain'][indices2[0],indices2[1],:]
+        ####    print "Favorite coordinates Posterior (", i, ")", xmax
+        ####    printPriorOffsets(xmax)
+        ####    #print "Favorite coordinates Likelihood: ", xmax2
+        ####    #printPriorOffsets(xmax2)
 
-        #print " current shape of chain: (nwalkers x niterations x ndim) ",np.shape(restart['chain'])
+        #####print " current shape of chain: (nwalkers x niterations x ndim) ",np.shape(restart['chain'])
 
 
 
-        #fakeEmceePlotResiduals(restart, 'fakemcmc13_residuals', gidgetmodels='rf78')
+        #####fakeEmceePlotResiduals(restart, 'fakemcmc13_residuals', gidgetmodels='rf78')

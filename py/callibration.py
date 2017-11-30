@@ -20,7 +20,9 @@ def quickCheck(experiment_list):
             return 0
 
     #colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan']
-    colors = [None]*10
+    #colors = [None]*10
+    ncolors = 10
+    colors = [ (1.0-float(i)/float(ncolors),0.5,float(i)/float(ncolors)) for i in range(ncolors) ]
     colorby = 'accScaleLength'
 
     skip6 = range(1,len(experiment_list[0].models[0].var['z'].sensible()),6)
@@ -423,8 +425,8 @@ def quickCheck(experiment_list):
     plt.close(fig)
 
 
-    #colormap_list = ['Reds', 'Blues', 'Oranges']
-    colormap_list = ['viridis']
+    colormap_list = ['Reds', 'Blues', 'Oranges']*10
+    #colormap_list = ['viridis']
     fig,ax = plt.subplots(1,1, figsize=(6,6))
     #self.ptMovie(xvar='gbar', yvar=['gtot'], colorby='rx', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6)
     for i,ex in enumerate(experiment_list):
@@ -861,7 +863,10 @@ def quickCheck(experiment_list):
 
 
 if __name__=='__main__':
-    experiment_list = [Experiment('rf134')]
+    #experiment_list = []
+    #for k in range(9):
+    #    experiment_list.append( Experiment('rf136'+str(k)) )
+    experiment_list = [Experiment('rf139')]
     #experiment_list = [Experiment('rf118'), Experiment('rf119'), Experiment('rf120')]
     MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig']
     for ex in experiment_list:

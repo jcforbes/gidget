@@ -2858,6 +2858,29 @@ if __name__ == "__main__":
     emceeparams = [0.113894786374, 0.671606201397, 2.50724549634, 0.546062003219, 0.094368156197, -0.112848097766, 0.0345714839787, -0.426176771365, 4.94145658032, 0.538678882129, 3.98454628212, 1.0, 0.08133192535, 6.2784924053e-05, 0.400288619119, -0.150067876526, 2.77079137969, 0.209569425732, 0.0218331618273, -0.0116329761749, 3.51463541754e+12, 1.0, 0.258963202267]
     rf134 = experFromBroadMCMC( emceeparams, 'rf134', ngal=40)
 
+    onesigma = np.array([ 0.0639699634194, 0.175669345104, 0.194144965124, 0.196740693287, 0.0268951157936, 0.0452487795685, 0.180169700187, 0.208756138113, 0.296881946691, 0.171557030848, 0.157054980687, 0.214853033434, 0.24444032497, 0.196063180653, 0.0976129590677, 0.0745452119358, 0.196819984819, 0.0750604819935, 0.256380811552, 0.00417220030494, 0.238687094513, 0.248586810662, 0.0994240961595])
+    dx = np.zeros(len(onesigma))
+    dx[0] = onesigma[0] # only adjust the first parameter
+
+    accHistories= list(np.random.random(10))
+    emceeparams =  np.array([0.100375945617, 0.613138619039, 3.3021402233, 0.516231938506, 0.0441220425549, -0.128196711652, 0.028206808373, -0.438686312836, 3.38315173023, 0.497178218909, 2.52416835555, 5.45837198968, 0.0702394232504, 5.9214182623e-05, 0.451573935518, -0.154542539198, 3.49195314288, 0.182006429909, 0.0227990477544, -0.00892169395585, 3.64007286294e+12, 0.996089787935, 0.255067003247] ) #, 1.19966654417] 
+    rf136 = []
+    for k in range(9):
+        rf136.append(  experFromBroadMCMC( emceeparams*np.power(10.0,(-4.0+k)*dx/4.0), 'rf136'+str(k), ngal=10, accHistories=accHistories) )
+
+    # take a look at what happens if we reduce radial mixing of metals
+    emceeparams[-7] = 0.001
+    rf137 = experFromBroadMCMC( emceeparams, 'rf137', accHistories=accHistories, ngal=10)
+
+    # Return to our original value of kappa_Z, but this time the cpp code has been modified to prevent diffusion faster than \sigma*H
+    emceeparams[-7] = 3.49195314288
+    rf138 = experFromBroadMCMC( emceeparams, 'rf138', accHistories=accHistories, ngal=10)
+
+    # mode of new mcmc with lower kappa_Z prior
+    emceeparams = [0.111024857427, 0.651471090758, 3.60369988073, 1.32410848876, 0.00462162773379, -0.155722717901, 0.031880475053, -0.654077470322, 2.37229453732, 0.441016987977, 2.39816792077, 7.49401210998, 0.124550671584, 6.80468433312e-05, 0.599283305526, -0.136486524703, 0.145855283753, 0.172199330299, 0.0298417733283, -0.0164741738978, 2.68739637394e+12, 0.976891038462, 0.453901301973]
+    rf139 = experFromBroadMCMC( emceeparams, 'rf139', accHistories=accHistories, ngal=10)
+
+
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
         # Get a list of all defined models (allModels.keys())
         # for each such key (aModel) check whether this inputString is contained in its name

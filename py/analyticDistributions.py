@@ -25,6 +25,10 @@ def lnuniformdensity(theta, a, b):
     if theta<a or theta>b:
         return -np.inf
     return 0.0
+def lnparetodensity(theta, a):
+    if theta<1.0:
+        return -np.inf
+    return np.log(a) - (a+1.0)*np.log(theta)
 
 def samplefrombetadensity(a,b):
     assert a>0 and b>0
@@ -45,6 +49,9 @@ def samplefromloguniformdensity(a,b):
 def samplefromuniformdensity(a,b):
     assert b>a
     return np.random.uniform(a,b)
+def samplefromparetodensity(a):
+    assert a>0.0
+    return np.random.pareto(a)+1.0
 
 class simpleDistribution:
     ''' A little wrapper for a 1D distribution. Give it the name and parameters of the distribution
@@ -77,6 +84,10 @@ class simpleDistribution:
             assert len(parameters)==2
             self.samp = samplefromuniformdensity
             self.dens = lnuniformdensity
+        elif token=='pareto':
+            assert len(parameters)==1
+            self.samp = samplefromparetodensity
+            self.dens = lnparetodensity
         else:
             print "Didn't recognize the requested token", token
             raise ValueError

@@ -6,12 +6,23 @@ import halo
 import pdb
 import copy
 from scipy.interpolate import interp1d
+import pickle
 
 def standardizedEpsSkewNormal(x, epsilon):
-    if x<0:
-        return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1+epsilon)*(1+epsilon)))
+    if not hasattr(x, '__iter__'):
+        if x<0:
+            return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1+epsilon)*(1+epsilon)))
+        else:
+            return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1-epsilon)*(1-epsilon)))
     else:
-        return 1/np.sqrt(2*np.pi) * np.exp(-x*x/(2*(1-epsilon)*(1-epsilon)))
+        xThis = np.array(x)
+        epsThis = np.array(epsilon)
+        ltz = xThis < 0
+        ret = np.zeros(np.shape(xThis))
+        ret[ltz] = 1/np.sqrt(2*np.pi) * np.exp(-xThis[ltz]*xThis[ltz]/(2*(1+epsThis[ltz])*(1+epsThis[ltz])))
+        nltz = np.logical_not(ltz)
+        ret[nltz] = 1/np.sqrt(2*np.pi) * np.exp(-xThis[nltz]*xThis[nltz]/(2*(1-epsThis[nltz])*(1-epsThis[nltz])))
+        return ret
 def epsSkewNormalPDF(x, epsilon, theta, sigma):
     return standardizedEpsSkewNormal( (x-theta)/sigma, epsilon )/sigma
 from scipy.stats import norm
@@ -225,8 +236,8 @@ class DataSet:
             fig,ax=plt.subplots()
         else:
             ax=axIn
-        #ax.imshow( arr.T, origin='lower', interpolation='Nearest', norm=matplotlib.colors.LogNorm(), extent=(ex0,ex1,ey0,ey1))
-        ax.imshow( arr.T, origin='lower', interpolation='Nearest', extent=(ex0,ex1,ey0,ey1))
+        ax.imshow( arr.T, origin='lower', interpolation='Nearest', norm=matplotlib.colors.LogNorm(), extent=(ex0,ex1,ey0,ey1))
+        #ax.imshow( arr.T, origin='lower', interpolation='Nearest', extent=(ex0,ex1,ey0,ey1))
         if self.logx and self.logy:
             ax.plot( np.log10(self.xval), np.log10(self.yval), c='k', lw=2, ls='-' )
             ax.plot( np.log10(self.xval), np.log10(self.yUpper), c='k', lw=1, ls='-' )
@@ -316,6 +327,19 @@ class DataSet:
         ret = np.logical_and( np.logical_and( yfl<yEval, yEval < yfu ), inx)
         return ret
     def cacheQuantiles(self, x0=None, x1=None):
+        cachename = 'likelihood_arrays_'+self.label+'.pickle'
+        # if we already did this, just load up the data.
+        #if os.path.isfile( cachename ):
+        #    print "READING IN CACHED LIKELIHOOD VALUES FROM ",cachename
+        #    arrays = pickle.load(open(cachename,'rb'))
+        #    self.cacheq16 = arrays[0]
+        #    self.cacheq50 = arrays[1]
+        #    self.cacheq84 = arrays[2]
+        #    self.cacheEpsilons = arrays[3]
+        #    self.cacheThetas = arrays[4]
+        #    self.cacheSigmas = arrays[5]
+        #    return
+
         if self.logx:
             dynRange = np.max(self.xval)/np.min(self.xval)
             if x0 is None:
@@ -349,9 +373,13 @@ class DataSet:
             thetas.append(theta)
             sigmas.append(sigma)
         print "Storing cached versions of eps skew norm parameters for ",self.label
-        self.cacheEpsilons = interp1d( xcache, epsilons, kind='linear', bounds_error=True)
-        self.cacheThetas = interp1d( xcache, thetas, kind='linear', bounds_error=True)
-        self.cacheSigmas = interp1d( xcache, sigmas, kind='linear', bounds_error=True)
+        self.cacheEpsilons = interp1d( xcache, epsilons, kind='linear', bounds_error=False)
+        self.cacheThetas = interp1d( xcache, thetas, kind='linear', bounds_error=False)
+        self.cacheSigmas = interp1d( xcache, sigmas, kind='linear', bounds_error=False)
+
+        #print "Saving cached likelihood values to ",cachename
+        #arrays = [np.array(self.cacheq16), np.array(self.cacheq50), np.array(self.cacheq84), np.array(self.cacheEpsilons), np.array(self.cacheThetas), np.array(self.cacheSigmas)]
+        #pickle.dump( arrays, open(cachename, 'wb'), -1) 
 
 
     def returnCachedSkewParams(self,x):
@@ -359,16 +387,31 @@ class DataSet:
             xThis = np.log10(x)
         else:
             xThis = x
-        try:
-            eps = self.cacheEpsilons(xThis)
-            th = self.cacheThetas(xThis)
-            sig = self.cacheSigmas(xThis)
-            return eps,th,sig
-        except:
-            # tried to get it pre-computed, but we failed. Just compute directly
-            q16, q50, q84, logy = self.returnQuantiles(xThis)
-            eps,th,sig = computeEpsSkewParams( q16, q50, q84)
-            return eps,th,sig
+
+        eps = self.cacheEpsilons(xThis)
+        th = self.cacheThetas(xThis)
+        sig = self.cacheSigmas(xThis)
+
+        if np.any(np.isnan(eps)) or np.any(np.isnan(th)) or np.any(np.isnan(sig)):
+            invalid = np.logical_or( np.logical_or( np.isnan(eps), np.isnan(th) ), np.isnan(sig))
+            valid = np.logical_not(invalid)
+            if np.any(valid):
+                maxvalid = np.max(sig[valid] )
+                minvalid = np.min(eps[valid] )
+                medvalid = np.median(th[valid] )
+            else:
+                # reasonable default choices I hope?
+                maxvalid = 100
+                medvalid = 0
+                minvalid = 0
+                print "WARNING: no valid choices in returnCachedSkewParams for ", self.label, "for x=",x
+            eps[invalid] = minvalid
+            th[invalid] = medvalid
+            sig[invalid] = maxvalid
+
+            print "WARNING: replacing ", np.sum(np.ones(len(eps))[invalid]), " of ",len(eps), "quantiles with extreme values owing to requested x-values lying far outside range of extrapolation. ", self.label 
+        return eps,th,sig
+
 
     def returnCachedQuantiles(self,x):
         try:
@@ -405,8 +448,8 @@ class DataSet:
         belowx = xEval < np.min(xv)
         abovex = xEval > np.max(xv)
         inflate = np.ones(len(xEval))
-        inflate[abovex] = np.exp(2.0*( xEval[abovex] - np.max(xv))**2.0 )
-        inflate[belowx] = np.exp(2.0*( xEval[belowx] - np.min(xv))**2.0 )
+        inflate[abovex] = np.exp(4.0*( xEval[abovex] - np.max(xv))**2.0 )
+        inflate[belowx] = np.exp(4.0*( xEval[belowx] - np.min(xv))**2.0 )
         try:
             f = interp1d(xv,yv,kind='linear',bounds_error=False, fill_value='extrapolate')
         except:
@@ -448,7 +491,16 @@ class DataSet:
             if( len(inflate)!=len(yf) or len(yfu)!=len(yf)):
                 pdb.set_trace()
         if np.any(np.isnan(ret[0])) or np.any(np.isnan(ret[1])) or np.any(np.isnan(ret[2])):
-            pdb.set_trace()
+            invalid = np.logical_or( np.logical_or( np.isnan(ret[0]), np.isnan(ret[1]) ), np.isnan(ret[2]))
+            valid = np.logical_not(invalid)
+            maxvalid = np.max(ret[2][valid] )
+            minvalid = np.min(ret[0][valid] )
+            medvalid = np.median(ret[1][valid] )
+            ret[0][invalid] = minvalid
+            ret[1][invalid] = medvalid
+            ret[2][invalid] = maxvalid
+            print "WARNING: replacing ", np.sum(np.ones(len(ret[0]))[invalid]), " of ",len(ret[0]), "quantiles with extreme values owing to requested x-values lying far outside range of extrapolation. ", self.label 
+            #pdb.set_trace()
 
         
         return ret

@@ -19,7 +19,7 @@ import matplotlib.colors as mpcolors
 import matplotlib.cm as cmx
 from makeGidgetMovies import makeMovies
 import subprocess
-#import observationalData
+import observationalData
 
 speryear = 31557600.0
 cmperkpc = 3.08567758e21

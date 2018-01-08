@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name brd24q
+#SBATCH --job-name brd24qi
 #SBATCH -n 128
 #SBATCH -t 2-00:00
-#SBATCH -p general
+#SBATCH -p shared 
 #SBATCH --mem-per-cpu=1000
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=johncforbes@gmail.com

@@ -21,7 +21,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr29a'
+chaindirrel = 'broadDistr24qj'
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -78,8 +78,8 @@ globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e
 bolshoiSize =  len(globalBolshoiReader.keys)
 
 globalPrior = analyticDistributions.jointDistribution(\
-        [ analyticDistributions.simpleDistribution( 'loguniform', [5.0e9, 2.0e13], 'Mh0'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(3.0**2.0)], 'alphaR' ), \
+        [ analyticDistributions.simpleDistribution( 'loguniform', [5.0e7, 2.0e10], 'Mh0'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(5.0)**2.0], 'alphaR' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
@@ -350,7 +350,6 @@ def lnlikelihood(emceeparams, modelname=None):
             rNew = np.linspace(0.1, 3.0, nRadii)
             rVec = model.var['rx'].sensible(timeIndex=zinds[0])
             toFit[len(variables)*nz + l*nRadii : len(variables)*nz + (l+1)*nRadii ] = model.var[radialVars[l]].atR(rNew, rVec, zinds[0], sensible=True)
-
 
 
     # 200 + 1 + 24
@@ -698,12 +697,14 @@ def run(n, p00=None, nwalkers=500):
     restart['iterationCounter'] += n
     restart['mcmcRunCounter'] += 1
 
-    pool = MPIPool(comm=comm, loadbalance=True)
-    if not pool.is_master():
-        pool.wait()
-        sys.exit(0)
+    if False:
+        pool = MPIPool(comm=comm, loadbalance=True)
+        if not pool.is_master():
+            pool.wait()
+            sys.exit(0)
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)
+    #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)
     #pos, prob, state = sampler.run_mcmc(restart['currentPosition'], n, rstate0=restart['state'], lnprob0=restart['prob'])
 
     for result in sampler.sample(restart['currentPosition'], iterations=n, lnprob0=restart['prob'], rstate0=restart['state']):

@@ -601,7 +601,7 @@ def defineMoster(z0):
         return eff
     central = np.array([11.590, 1.195, 0.0351, -0.0247, 1.376, -0.826, 0.608, 0.329])
     unc =     np.array([0.236, 0.353, 0.0058, 0.0069, 0.153, 0.225, 0.059, 0.173])
-    logMhs = np.linspace(10, 14, num=100)
+    logMhs = np.linspace(8.5, 14, num=100)
     Mhs = np.power(10.0, logMhs)
     effC = Moster(Mhs, z0, central)
     eff = Moster(Mhs, z0, central)

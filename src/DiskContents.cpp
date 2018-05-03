@@ -123,7 +123,8 @@ DiskContents::DiskContents(double tH, double eta,
         double yrec,
         double ksup, double kpow,
         double mq, double muq,
-        double Zmx, double enInjFac) :
+        double Zmx, double enInjFac,
+        double chr) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
     uDisk(std::vector<double>(m.nx()+1,0.)),
@@ -151,6 +152,7 @@ DiskContents::DiskContents(double tH, double eta,
     fH2Min(fh2min),
     ksuppress(ksup), kpower(kpow),
     thickness(thk), migratePassive(migP),
+    CloudHeatingRate(chr),
     col(std::vector<double>(m.nx()+1,0.)),
     sig(std::vector<double>(m.nx()+1,0.)),
     energyInjectionFactor(enInjFac),
@@ -933,11 +935,17 @@ void DiskContents::UpdateStateVars(const double dt, const double dtPrev,
     for(unsigned int i=0; i!=spsPassive.size();++i) {
         if(migratePassive) {
             spsPassive[i]->MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+            if (CloudHeatingRate>0) {
+                spsPassive[i]->CloudHeatStellarPop(dt, (*this), CloudHeatingRate);
+            }
             spsPassive[i]->ComputeSpatialDerivs();
         }
     }
     for(unsigned int i=0; i!=spsActive.size();++i) {
         spsActive[i]->MigrateStellarPop(dt,tauvecStar,(*this),MdotiPlusHalfStar);
+        if (CloudHeatingRate>0) {
+            spsActive[i]->CloudHeatStellarPop(dt, (*this), CloudHeatingRate);
+        }
         spsActive[i]->ComputeSpatialDerivs();
     }
 

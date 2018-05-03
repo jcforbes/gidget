@@ -41,7 +41,7 @@ def samplefromlognormaldensityTrans(u,mean,var):
     return np.exp(samplefromnormaldensityTrans(u,mean,var))
 def samplefromnormaldensityTrans(u,mean,var):
     assert var>0
-    return scipy.stats.norm(u,mean,np.sqrt(var))
+    return scipy.stats.norm.ppf(u,mean,np.sqrt(var))
     #return np.random.normal(mean,np.sqrt(var))
 def samplefromloguniformdensityTrans(u,a,b):
     assert b>a
@@ -91,30 +91,37 @@ class simpleDistribution:
         if token=='beta':
             assert len(parameters)==2
             self.samp = samplefrombetadensity
+            self.samp_trans = samplefrombetadensityTrans
             self.dens = lnbetadensity
         elif token=='gamma':
             assert len(parameters)==2
             self.samp = samplefromgammadensity
+            self.samp_trans = samplefromgammadensityTrans
             self.dens = lngammadensity
         elif token=='lognormal':
             assert len(parameters)==2
             self.samp = samplefromlognormaldensity
+            self.samp_trans = samplefromlognormaldensityTrans
             self.dens = lnlognormaldensity
         elif token=='normal':
             assert len(parameters)==2
             self.samp = samplefromnormaldensity
+            self.samp_trans = samplefromnormaldensityTrans
             self.dens = lnnormaldensity
         elif token=='loguniform':
             assert len(parameters)==2
             self.samp = samplefromloguniformdensity
+            self.samp_trans = samplefromloguniformdensityTrans
             self.dens = lnloguniformdensity
         elif token=='uniform':
             assert len(parameters)==2
             self.samp = samplefromuniformdensity
+            self.samp_trans = samplefromuniformdensityTrans
             self.dens = lnuniformdensity
         elif token=='pareto':
             assert len(parameters)==1
             self.samp = samplefromparetodensity
+            self.samp_trans = samplefromparetodensityTrans
             self.dens = lnparetodensity
         else:
             print "Didn't recognize the requested token", token

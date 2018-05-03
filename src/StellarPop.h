@@ -1,6 +1,9 @@
 #ifndef STPOP_H
 #define STPOP_H
 
+#include <gsl/gsl_interp2d.h>
+#include <gsl/gsl_spline2d.h>
+
 #include <vector>
 #include <string>
 class DiskContents;
@@ -20,6 +23,9 @@ class StellarPop {
   // lookback times youngest and oldest (in seconds)
   StellarPop(FixedMesh & mesh);
 
+  // deallocate gsl objects
+  ~StellarPop();
+
   // Is this stellar population forming at this redshift?
 //  bool IsForming() const { return isForming; }; // It's probably a bad idea to do things this way.
 
@@ -33,6 +39,12 @@ class StellarPop {
   // Over a time period dt and given a dimensionless velocity yy inwards, migrate 
   // the stars in such a way that mass, energy, and mass in metals are conserved.
   void MigrateStellarPop(double dt,double ** tauvecStar, DiskContents&, std::vector<double>& MdotiPlusHalf);
+
+  void InitializeGSLObjs();
+  // Heat the stellar population following formalism of Lacey 1984.
+  void CloudHeatStellarPop(double dt, DiskContents&, double heatingRate);
+  double L(const double alpha,const double beta);
+  double K(const double alpha,const double beta);
 
   // Set the contents of the current stellar population equal to 
   // some fraction f of the mass in the population sp2.
@@ -86,6 +98,19 @@ class StellarPop {
   std::vector<double> dQdserr; // the error in dQ/ds_*
   //double youngest,oldest; // stored in seconds, boundaries on the ages of stars in this population
   FixedMesh & mesh;
+
+  const gsl_interp2d_type * interpTypeK;
+  const gsl_interp2d_type * interpTypeL;
+  gsl_spline2d * splineK;
+  gsl_spline2d * splineL;
+  gsl_interp_accel * accelKx;
+  gsl_interp_accel * accelKy;
+  gsl_interp_accel * accelLx;
+  gsl_interp_accel * accelLy;
+  double * zaK;
+  double * zaL;
+
+  bool allocated;
 };
 
 #endif /* STPOP_H */

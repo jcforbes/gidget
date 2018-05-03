@@ -281,7 +281,9 @@ class DataSet:
         else:
             ax = axIn
         label=None
-        if z<0.5:
+        if z<0.5 and self.zmin<z and z<self.zmax:
+            label=self.label
+        elif z>0.5 and z<1.5 and self.zmin<z and z<self.zmax:
             label=self.label
         if z>self.zmin and z<self.zmax:
             if not scatter:
@@ -290,7 +292,7 @@ class DataSet:
                 ax.scatter(self.xval, self.yval, c=color, lw=lw, label=label, s=10)
             ax.fill_between(self.xval, self.yLower, self.yUpper, facecolor=color, alpha=thisAlpha)
         else:
-            ax.plot(self.xval, self.yval, c=color, lw=lw, ls=':',label=label)
+            ax.plot(self.xval, self.yval, c='gray', lw=lw, ls=':',label=label)
         if axIn is None:
             plt.savefig(self.label+'_'+self.xvar+'_'+self.yvar+'.png')
             plt.close(fig)

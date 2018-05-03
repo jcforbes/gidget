@@ -37,7 +37,8 @@ class DiskContents {
                double yrec,
                double ksupp, double kpow,
                double mq, double muq, 
-               double ZMx, double enInjFac);
+               double ZMx, double enInjFac, 
+               double chr);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -333,7 +334,9 @@ class DiskContents {
     // Reasonable values are between 1 and 2 or so, depending on the
     // thickness correction used (if any). See Elmegreen (2011) for
     // details on why one should probably choose a number >1.
-    fixedQ; 
+    fixedQ,
+
+    CloudHeatingRate; 
 
   // the minimum sig_st = minsigst
   double minsigst;

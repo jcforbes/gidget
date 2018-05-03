@@ -134,6 +134,7 @@ int main(int argc, char **argv) {
     const double gaScaleReduction=   as.Set(1.4, "Factor by which to reduct initial gas scale length relative to initial exponential scale length of the accretion");
     const double ZMix =              as.Set(0.5, "Fraction of outflowing metals mixed back in to inflowing gas");
     const double energyInjectionFactor = as.Set(1.0, "Adjust the momentum per stellar mass formed relative to 3000 kps");
+    const double CloudHeatingRate =  as.Set(1.0, "Multiple of Lacey 1984 heating rate from star-cloud interactions. Assumes Mc=1e7 Msun and fcloud=0.1.");
 
 
     as.WriteOut();
@@ -246,7 +247,7 @@ int main(int argc, char **argv) {
             cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
           minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,yREC, ksuppress, kpower, MQuench, muQuench,
-          ZMix, energyInjectionFactor);
+          ZMix, energyInjectionFactor, CloudHeatingRate);
     // double sig0 = 8.0/220.0; 
     double sig0 = sigth;
     double stScaleLengthA = accScaleLength*r200/cmperkpc; // accScaleLength * pow(MhZs/Mh0,alphaAccProf);

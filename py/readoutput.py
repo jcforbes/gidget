@@ -36,8 +36,8 @@ gperH = 1.008*1.66053892e-24
 #cm = plt.get_cmap('gist_rainbow')
 #cm = plt.get_cmap('gnuplot_r')
 cmPer = plt.get_cmap('spring')
-cm = plt.get_cmap('viridis') # try it out
-#cm = plt.get_cmap('plasma') # try it out
+#cm = plt.get_cmap('viridis') # try it out
+cm = plt.get_cmap('plasma') # try it out
 
 # a convenient set of colors
 discretecolors=['k','b','r','g','orange','purple','pink','lightblue','lightgreen','m','olive','darkblue','tan','slateblue', 'tomato']*10
@@ -47,10 +47,7 @@ outward = [0,1,-1,2,-2,3,-3,4,-4]
 gidgetdir = os.environ['GIDGETDIR']+'/'
 
 
-
-
 def filledPlots(qvecs, perc, thisCM, ax, xx):
-
     if(perc is not None):
         if(len(perc) % 2 == 0):
             # a unique fill between each quantile
@@ -66,8 +63,6 @@ def filledPlots(qvecs, perc, thisCM, ax, xx):
                 ax.fill_between(xx, qvecs[(-k-2),:], qvecs[(-k-1),:], facecolor=col, alpha=0.3)
                 ax.plot( xx, qvecs[k,:], lw=k+1, color='k' )
                 ax.plot( xx, qvecs[(-k-1),:], lw=k+1, color='k' )
-
-
 
 
 
@@ -292,7 +287,7 @@ class SingleModel:
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','fg0mult','ZIGMfac','chiZslope','yREC', \
                     'concentrationRandomFactor','muFgScaling','muMhScaling','ksuppress', 'kpower', \
                     'MQuench','epsquench','muQuench','stScaleReduction','gaScaleReduction','ZMix', \
-                    'energyInjectionFactor']
+                    'energyInjectionFactor', 'CloudHeatingRate']
             params=[]
             line = lines[-1] # get the last line
             tmp = line.split() # split the line into a list of strings
@@ -589,9 +584,11 @@ class SingleModel:
         HIradius=[]
         self.var['Z'] = RadialFunction(np.copy(self.dataCube[:,:,21])*2.09+np.copy(self.dataCube[:,:,57])*1.06,'Z',cgsConv=1.0,sensibleConv=1.0/.02,texString=r'$Z_g (Z_\odot)$')
         self.var['alphaFe'] = RadialFunction( np.log10((self.dataCube[:,:,21]/self.dataCube[:,:,57])/(0.0057/0.0013)), 'alphaFe', cgsConv=1.0, sensibleConv=1.0, texString=r'$[\alpha/\mathrm{Fe}]$', log=False )
+        # note that at this moment vPhi as defined below should really be vcirc, the circular velocity of the potential
+        # In the next two variables, we attempt to define the true average azimuthal velocities accounting for asymmetric drift/pressure terms.
         self.var['vPhi'] = RadialFunction(np.copy(self.dataCube[:,:,15]),'vPhi',self.p['vphiR']*1.0e5,self.p['vphiR'], \
-                 r'$v_\phi$ (km/s)',log=True)
-        self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$')
+                 r'$v_\mathrm{circ}$ (km/s)',log=True)
+        self.var['Mh'] = TimeFunction(self.evarray[:,18],'Mh',gpermsun,1.0,r'$M_h (M_\odot)$', theRange=[1.0e9, 1.0e13])
         # Mdotext * 2pi R/vphiR ~ Msun/yr * kpc / (km/s) * g/Msun * km/kpc * yr/s -- checks out
         self.var['mCentral'] = TimeFunction( \
                 self.evarray[:,3], 'mCentral',
@@ -606,17 +603,17 @@ class SingleModel:
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] *gpermsun* kmperkpc/speryear, \
                 self.p['md0']*2.0*pi*self.p['R']/self.p['vphiR'] * kmperkpc/speryear, \
                 r'$M_\mathrm{center}\ (M_\odot)$')
-        self.var['mstar'] = TimeFunction( \
-                self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + ## try a version where we don't add this in
+        tempmstar = TimeFunction( \
+                self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
-                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
-	mcfilter = self.var['mCentral'].cgs()/self.var['mstar'].cgs()>0.05
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[0.9e7, 1.1e11])
+	mcfilter = self.var['mCentral'].cgs()/tempmstar.cgs()>0.05
         self.var['mCentral'].arr[mcfilter]=0.0 ### a horrifying hack to get around the fact that dwarf galaxies are unresolved b/c of too-large radii
 
         self.var['mstar'] = TimeFunction( \
-                self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + ## try a version where we don't add this in
+                self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
-                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)')
+                'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[0.3e7, 8.1e11])
 
         self.var['stellarHaloFraction'] = TimeFunction( self.var['mStellarHalo'].sensible()/self.var['mstar'].sensible(), 'stellarHaloFraction', 1.0, 1.0, r'$M_{*,\mathrm{halo}}/M_*$', log=False)
      
@@ -841,7 +838,30 @@ class SingleModel:
         self.var['Sigma1'] = TimeFunction( \
                 m1kpc/(1.0*cmperkpc)**2.0, 'Sigma1', cgsConv=1.0, sensibleConv = cmperkpc**2/gpermsun, \
                 texString=r'$\langle\Sigma_{*}\rangle_\mathrm{1 kpc}$', theRange=[1.0e7,1.0e10])
-        self.var['rho'] = RadialFunction( self.var['col'].cgs()/self.var['hGas'].cgs(), 'rho', 1.0, 1.0, r'$\rho (\mathrm{g}\ \mathrm{cm}^{-3})$' )
+        self.var['rho'] = RadialFunction( 0.5*self.var['col'].cgs()/self.var['hGas'].cgs(), 'rho', 1.0, 1.0, r'$\rho (\mathrm{g}\ \mathrm{cm}^{-3})$' )
+
+        theDeriv = np.zeros( np.shape(self.var['rho'].cgs()) )
+        arg = self.var['rho'].cgs() * np.power(self.var['sig'].cgs(),2.0) # to be numerically differentiated
+        theDeriv[:,:-1] = (arg[:,1:] - arg[:,:-1])/(np.log(self.var['r'].cgs()[:,1:]) - np.log(self.var['r'].cgs()[:,:-1]))
+        theDeriv[:,-1] = theDeriv[:,-2] # just sub in the last value to deal with the fact that this stenciled derivative has 1 fewer radial element than we need.
+        ## vphi^2 = vcirc^2 + (1/rho) * d/dlnr (rho * sig*sig)
+        arg2 = np.power(self.var['vPhi'].cgs(),2.0) + theDeriv/self.var['rho'].cgs()
+        vPhiGas = np.sqrt( np.clip(arg2, 1.0e12, None) ) # guarantee that the final answer is above 10 km/s
+        self.var['vPhiGasRadial'] = RadialFunction( vPhiGas,'vPhiGasRadial', cgsConv=1.0, sensibleConv=1.0e-5, \
+                 texString=r'$v_{\phi,\mathrm{gas}}$ (km/s)',log=True) 
+
+        # A very rough estimate of the asymmetric drift for the stars
+        vrbarsq = np.power(self.var['sigstR'].cgs(),2.0) + np.power(self.var['vrst'].cgs(),2.0)
+        theDeriv = np.zeros( np.shape(self.var['rho'].cgs()) )
+        arg = np.log(self.var['colst'].cgs()/(2.0*self.var['hStars'].cgs()) * np.power(self.var['sigstR'].cgs(),2.0)) # to be numerically differentiated 
+        theDeriv[:,:-1] = (arg[:,1:] - arg[:,:-1])/(np.log(self.var['r'].cgs()[:,1:]) - np.log(self.var['r'].cgs()[:,:-1]))
+        theDeriv[:,-1] = theDeriv[:,-2] # just sub in the last value to deal with the fact that this stenciled derivative has 1 fewer radial element than we need.
+        dlnrhovrbardlnr = theDeriv
+        va = vrbarsq / (2.0*self.var['vPhi'].cgs()) * ( np.power(self.var['sigstZ'].cgs(),2.0)/vrbarsq - 1.0 - dlnrhovrbardlnr - 0)        
+        self.var['vPhiStarsRadial'] = RadialFunction( self.var['vPhi'].cgs() - va, 'vPhiStarsRadial', cgsConv=1.0, sensibleConv=1.0e-5, texString=r'$v_{\phi,\mathrm{stars}}$ (km/s)', log=True)
+    
+
+
         self.var['colHI']= RadialFunction(np.clip((1.0-np.copy(self.dataCube[:,:,47])) * self.var['col'].sensible()*0.8 - 2.0* 0.00876/(self.var['rho'].cgs()/gperH),1.0e-4,np.inf),'colHI', \
                 cgsConv = gpermsun/cmperpc**2, sensibleConv=1, texString=r'$\Sigma_{\mathrm{HI}} (M_\odot/\mathrm{pc}^2)$',log=True,theRange=[0.02,3000.0])
         self.var['MHI'] = TimeFunction( np.sum(self.var['colHI'].cgs()*self.var['dA'].cgs(),axis=1), 'MHI', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$M_\mathrm{HI}\ (M_\odot)$')
@@ -1064,8 +1084,9 @@ class SingleModel:
         self.var['BTcen'] = TimeFunction( self.var['mCentral'].sensible()/self.var['mstar'].sensible(), 'BTcen', log=False, texString=r'$M_\mathrm{cen}/M_*$')
         self.var['BTmin'] = TimeFunction( (self.var['mCentral'].cgs()-self.var['colst'].cgs(locIndex=0)*np.pi*self.var['rb'].cgs(locIndex=0)**2.0)/self.var['mstar'].cgs(), 'BTcen', log=False, texString=r'BT min')
 
-        colNtile = np.tile( (0.448*self.var['mgas'].cgs()/np.power(0.015*self.var['Rvir'].cgs(),2.0)), (int(self.p['nx']),1) ).T
-        self.var['colNormalizedKravtsov'] = RadialFunction( self.var['col'].cgs()/colNtile, 'colNormalizedKravtsov', log=True, texString=r'$\Sigma/\Sigma_n$')
+        mgasvis = np.sum((self.var['colHI'].cgs() + self.var['colH2'].cgs())*self.var['dA'].cgs(),axis=1) 
+        colNtile = np.tile( (0.448*mgasvis/np.power(0.015*self.var['Rvir'].cgs(),2.0)), (int(self.p['nx']),1) ).T
+        self.var['colNormalizedKravtsov'] = RadialFunction( (self.var['colHI'].cgs()+self.var['colH2'].cgs())/colNtile, 'colNormalizedKravtsov', log=True, texString=r'$\Sigma/\Sigma_n$')
         colstNtile = np.tile( (0.448*self.var['mstar'].cgs()/np.power(0.015*self.var['Rvir'].cgs(),2.0)), (int(self.p['nx']),1) ).T
         self.var['colstNormalizedKravtsov'] = RadialFunction( self.var['colst'].cgs()/colstNtile, 'colstNormalizedKravtsov', log=True, texString=r'$\Sigma_*/\Sigma_{*,n}$')
 
@@ -1639,7 +1660,10 @@ class Experiment:
                 model = self.models[0]
                 ax.set_xlabel(model.get(indVar).texString)
                 ax.set_ylabel(model.get(v).texString)
-                sc = ax.scatter(r[:,0],theVar[:,0],c=colors,cmap=cm,vmin=overallColorRange[0],vmax=overallColorRange[1],lw=0,s=4)
+                try:
+                    sc = ax.scatter(r[:,0],theVar[:,0],c=colors,cmap=cm,vmin=overallColorRange[0],vmax=overallColorRange[1],lw=0,s=4)
+                except:
+                    pdb.set_trace()
                 fac = 1.0
                 if scaleR:
                     fac=5.0 # half mass stellar radius for MW (approx)
@@ -1758,9 +1782,9 @@ class Experiment:
                     model = self.models[k]
                     #try:
                     if color is None:
-                        ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm)
+                        ax.plot(r[k],theVar[k],c=theRGB[k],lw=2.0/lwnorm, alpha=0.4)
                     else:
-                        ax.plot(r[k],theVar[k],c=color,lw=2.0/lwnorm)
+                        ax.plot(r[k],theVar[k],c=color,lw=2.0/lwnorm, alpha=0.4)
                     #ax.scatter( r[k][0]/2.0, model.var[v].inner( timeIndex=ti ), c=theRGB[k], s=30, lw=1 ) # plot the innermost point?
                     if v=='colst':
                         pass
@@ -1861,17 +1885,47 @@ class Experiment:
 
         # First up, the age-velocity dispersion correlation at 8.3 kpc.
         fig,ax = plt.subplots()
-        for i in range(len(sigRs)):
+        #for i in range(len(sigRs)):
+        allSigRs = []
+        allSigZs = []
+        allAges = []
+        allZs = []
+        allZVars = []
+        for j,model in enumerate(self.models):
+            r= model.var['r'].sensible(timeIndex=-1)
             theSigRs = []
             theSigZs = []
             theAges = []
-            for j,model in enumerate(self.models):
-                r= model.var['r'].sensible(timeIndex=-1)
-                theSigRs.append( model.var[ sigRs[i] ].atR([8.3], r, -1)  )
-                theSigZs.append( model.var[ sigZs[i] ].atR([8.3], r, -1)  )
+            theZs = []
+            theZVars = []
+            #for j,model in enumerate(self.models):
+            #rSample = 8.3 # kpc
+            rSample = model.var['halfMassStars'].sensible(-1) 
+            for i in range(len(sigRs)):
+                theSigRs.append( model.var[ sigRs[i] ].atR([rSample], r, -1)  )
+                theSigZs.append( model.var[ sigZs[i] ].atR([rSample], r, -1)  )
                 theAges.append( model.var[ ages[i] ].sensible(timeIndex=-1) )
-            ax.errorbar( [np.mean(theAges)], [np.mean(theSigRs)], xerr=[np.std(theAges)], yerr=[np.std(theSigRs)], ecolor='blue')
-            ax.errorbar( [np.mean(theAges)], [np.mean(theSigZs)], xerr=[np.std(theAges)], yerr=[np.std(theSigZs)], ecolor='red')
+                theZs.append( model.var[ Zs[i] ].atR([rSample], r, -1) )
+                #theZVars.append( model.var[ VZs[i] ].atR([rSample], r, -1) )
+            theSigRs = np.array(theSigRs)
+            theSigZs = np.array(theSigZs)
+            theAges = np.array(theAges)
+            theZs = np.array(theZs)
+            #theZVars = np.array(theZVars)
+            #ax.errorbar( [np.mean(theAges)], [np.mean(theSigRs)], xerr=[np.std(theAges)], yerr=[np.std(theSigRs)], ecolor='blue')
+            #ax.errorbar( [np.mean(theAges)], [np.mean(theSigZs)], xerr=[np.std(theAges)], yerr=[np.std(theSigZs)], ecolor='red')
+            ax.plot( theAges, theSigRs, c='blue', lw=1, ls='-', alpha=0.5)
+            ax.plot( theAges, theSigZs, c='red', lw=1, ls='-', alpha=0.5)
+            allSigRs.append(theSigRs)
+            allSigZs.append(theSigZs)
+            allAges.append(theAges)
+            allZs.append(theZs)
+            #allZVars.append(theZVars)
+        allSigRs = np.array(allSigRs)
+        allSigZs = np.array(allSigZs)
+        allAges = np.array(allAges)
+        allZs = np.array(allZs)
+        #allZVars = np.array(allZVars)
 
 
 
@@ -1888,12 +1942,88 @@ class Experiment:
         sVp = np.array([ 18.099474966706556,15.822011245056265,15.389952399644592,15.697342797897065,16.395386062114245,16.92247311869177,17.056871562617147,17.53572763977108,15.08858141870079,18.460983870288672,17.956861401114423,15.947669810219333, 16.92247311869177,17.60522438531374,21.20200361071367,21.797230480984602,18.979259116958353,21.71118576226263,21.455084220864002,21.455084220864002,19.512084467414365,22.320707455986533,22.676657891822398,26.04360557809312,25.838396782854662,27.745047990670184,29.557646528486323,31.11722803954335,31.364361363287067,41.20622203183994 ])
 
         ax.errorbar( tU*1.0e9, sU, yerr=sUp-sU, label=r'U from Holmberg09', c='b', ls='--' )
+        ax.errorbar( tV*1.0e9, sV, yerr=sVp-sV, label=r'V from Holmberg09', c='darkred', ls='-.' )
         ax.errorbar( tW*1.0e9, sW, yerr=sWp-sW, label=r'W from Holmberg09', c='r', ls='--' )
-        ax.errorbar( tV*1.0e9, sV, yerr=sVp-sV, label=r'V from Holmberg09', c='g', ls='--' )
+        ax.text(np.max(tU)*0.6*1.0e9, np.max(sU), r'Holmberg09 $\sigma_U$', color='b')
+        ax.text(np.max(tU)*0.77*1.0e9, np.max(sV), r'Holmberg09 $\sigma_V$', color='darkred')
+        ax.text(np.max(tU)*0.83*1.0e9, np.max(sW)*.87, r'Holmberg09 $\sigma_W$', color='r')
+        ax.text(np.max(tU)*0.43*1.0e9, 30, r'Forbes18 $\sigma_r$', color='b')
+        ax.text(np.max(tU)*0.4*1.0e9, 8, r'Forbes18 $\sigma_z$', color='r')
+
         ax.set_xlabel( 'Age (yr)' )
         ax.set_ylabel( r'$\sigma_*$ (km/s)' )
-        plt.savefig( self.name+'_age-vel-disp.png' )
+        plt.savefig( self.name+'_age-vel-disp.pdf' )
         plt.close(fig)
+
+
+
+
+
+        fig,ax = plt.subplots()
+        for j, model in enumerate(self.models):
+            #ax.plot( allAges[j,:], np.sqrt(2.0)*allSigZs[j,:]/np.sqrt(allSigZs[j,:]*allSigZs[j,:] + allSigRs[j,:]*allSigRs[j,:]), c='r')
+            ax.plot( allZs[j,:], allSigZs[j,:], c='r', alpha=0.5)
+            ax.plot( allZs[j,:], allSigRs[j,:], c='b', alpha=0.5)
+            #ax.errorbar( [theAges[j]], [theSigZs[j]/np.sqrt(theSigZs[j]*theSigZs[j] + theSigRs[j]*theSigRs[j])] , ecolor='blue')
+        ax.text(np.max(allZs)*0.8, 0.9, r'Forbes18 Models', color='r')
+        ax.plot( [np.min(allZs), np.max(allZs)], [1.0]*2,lw=2, c='k', ls='--')
+        ax.plot( [np.min(allZs), np.max(allZs)], [np.sqrt(2.0/5.0)]*2,lw=2, c='k', ls='--')
+        ax.text( np.max(allZs)*.8, np.sqrt(2.0/5.0)-0.05, r'Disk Heating')
+        ax.text( np.max(allZs)*.8, 1.006, r'Hot Formation')
+        ax.set_xlabel( 'Z' )
+        ax.set_ylabel( r'$\sigma_*$ (km/s)' )
+        plt.savefig( self.name+'_Z-vel-disp.pdf')
+        plt.close(fig)
+
+
+
+        fig,ax = plt.subplots()
+        su = sUp-sU
+        #sv = sVp-sV
+        sv=0
+        sw = sWp-sW
+        u = sU
+        #v = sV
+        v=0
+        w = sW
+        yE = np.sqrt( su*su * 2*u*u*w*w / np.power(u*u+v*v,3) + sv*sv*2*v*v*w*w/np.power(u*u+v*v,3) + sw*sw*2/(u*u+v*v) )
+        #ax.errorbar( tU*1.0e9, np.sqrt(2.0)*sW/np.sqrt(sU*sU + sV*sV), yerr=yE, label=r'Holmberg09', c='b', ls='--' )
+        ax.errorbar( tU*1.0e9, sW/sU, yerr=yE, label=r'Holmberg09', c='b', ls='--' )
+        ax.text(np.max(tU)*0.1*1.0e9, 0.41, r'Holmberg09 Data', color='b')
+        for j, model in enumerate(self.models):
+            #ax.plot( allAges[j,:], np.sqrt(2.0)*allSigZs[j,:]/np.sqrt(allSigZs[j,:]*allSigZs[j,:] + allSigRs[j,:]*allSigRs[j,:]), c='r')
+            ax.plot( allAges[j,:], allSigZs[j,:]/allSigRs[j,:], c='r')
+            #ax.errorbar( [theAges[j]], [theSigZs[j]/np.sqrt(theSigZs[j]*theSigZs[j] + theSigRs[j]*theSigRs[j])] , ecolor='blue')
+        ax.text(np.max(tU)*0.8*1.0e9, 0.9, r'Forbes18 Models', color='r')
+        ax.plot( [np.min(tU)*1.0e9, np.max(tU)*1.0e9], [1.0]*2,lw=2, c='k', ls='--')
+        ax.plot( [np.min(tU)*1.0e9, np.max(tU)*1.0e9], [np.sqrt(2.0/5.0)]*2,lw=2, c='k', ls='--')
+        ax.text( np.max(tU)*.8*1.0e9, np.sqrt(2.0/5.0)-0.05, r'Disk Heating')
+        ax.text( np.max(tU)*.8*1.0e9, 1.006, r'Hot Formation')
+        ax.set_xlabel( 'Age (yr)' )
+        ax.set_ylabel( r'$\sigma_{*,z}/\sigma_{*,r}$ ' )
+        plt.savefig( self.name+'_age_vdr.pdf')
+        plt.close(fig)
+
+
+
+        fig,ax = plt.subplots()
+        #ax.errorbar( tU*1.0e9, np.sqrt(2.0)*sW/np.sqrt(sU*sU + sV*sV), yerr=yE, label=r'Holmberg09', c='b', ls='--' )
+        #ax.errorbar( tU*1.0e9, sW/sU, yerr=yE, label=r'Holmberg09', c='b', ls='--' )
+        #ax.text(np.max(tU)*0.1*1.0e9, 0.41, r'Holmberg09 Data', color='b')
+        for j, model in enumerate(self.models):
+            #ax.plot( allAges[j,:], np.sqrt(2.0)*allSigZs[j,:]/np.sqrt(allSigZs[j,:]*allSigZs[j,:] + allSigRs[j,:]*allSigRs[j,:]), c='r')
+            ax.plot( allZs[j,:], allSigZs[j,:]/allSigRs[j,:], c='r')
+            #ax.errorbar( [theAges[j]], [theSigZs[j]/np.sqrt(theSigZs[j]*theSigZs[j] + theSigRs[j]*theSigRs[j])] , ecolor='blue')
+        ax.text(np.max(allZs)*0.8, 0.9, r'Forbes18 Models', color='r')
+        ax.plot( [np.min(allZs), np.max(allZs)], [1.0]*2,lw=2, c='k', ls='--')
+        ax.plot( [np.min(allZs), np.max(allZs)], [np.sqrt(2.0/5.0)]*2,lw=2, c='k', ls='--')
+        ax.text( np.max(allZs)*.8, np.sqrt(2.0/5.0)-0.05, r'Disk Heating')
+        ax.text( np.max(allZs)*.8, 1.006, r'Hot Formation')
+        ax.set_xlabel( 'Z' )
+        ax.set_ylabel( r'$\sigma_{*,z}/\sigma_{*,r}$ ' )
+        plt.savefig( self.name+'_Z_vdr.pdf')
+        plt.close(fig)
+
 
 
         # Next up, the age-metallicity correlation at 8.3 kpc.
@@ -1950,10 +2080,10 @@ class Experiment:
         fig,ax = plt.subplots()
         allR,_,_,_ = self.constructQuantity('r')
         ti = -1
+        thisCM = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]*20
         for i in range(len(sigRs)):
             sti = str(i).zfill(2)
             v = 'sigstR'+sti
-            thisCM = [plt.get_cmap('Reds'),plt.get_cmap('Greens'),plt.get_cmap('Blues')]*20
             thisCM = thisCM[i]
             percentiles = [2.5, 16, 50, 84, 97.5]
 
@@ -2806,7 +2936,7 @@ class Experiment:
                         #s=2
                         pass
                     if color is None:
-                        sc = ax.scatter(xx,yy,c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm,lw=1,s=s)
+                        sc = ax.scatter(xx,yy,c=colorLoc,vmin=overallColorRange[0],vmax=overallColorRange[1],cmap=cm,lw=1,s=s, edgecolors='k', alpha=0.6)
                     else:
                         sc = ax.scatter(xx,yy,c=color,lw=1,s=s, edgecolors='k', alpha=0.4)
 

@@ -19,11 +19,11 @@ def quickCheck(experiment_list):
         else:
             return 0
 
-    #colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan']
+    bigcolors = ['k','r','b','orange', 'green', 'pink', 'purple', 'tan','lightblue']*20
     #colors = [None]*10
-    ncolors = 10
-    colors = [ (1.0-float(i)/float(ncolors),0.5,float(i)/float(ncolors)) for i in range(ncolors) ]
-    colorby = 'accScaleLength'
+    ncolors = len(experiment_list)
+    colors = [ (1.0-float(i)/float(ncolors),0.2,float(i+1)/float(ncolors)) for i in range(ncolors) ]
+    colorby = 'Mh'
 
     skip6 = range(1,len(experiment_list[0].models[0].var['z'].sensible()),6)
     #self.ptMovie(xvar='Mh', yvar=['mstar'],colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
@@ -51,7 +51,7 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[j].set_title( r'$z=$'+str(j))
         for i,ex in enumerate(experiment_list):
-            experiment_list[i].ptMovie(xvar='Mh', yvar=['mstar'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[j], textsize=6, color=colors[i], plotObs=(i==0))
+            experiment_list[i].ptMovie(xvar='Mh', yvar=['mstar'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[j], textsize=6, plotObs=(i==0))
             #self.ptMovie(xvar='Rvir', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
             #self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
     for j in range(4):
@@ -59,7 +59,9 @@ def quickCheck(experiment_list):
             if j>0:
                 ax[j].set_ylabel('')
                 ax[j].get_yaxis().set_ticks([])
-        ax[j].get_xaxis().set_ticks([1.0e11,1.0e13])
+        ax[j].get_xaxis().set_ticks([1.0e9, 1.0e11,1.0e13])
+        ax[j].set_xlim(1.0e8, 2.0e13)
+        ax[j].set_ylim(1.0e6, 2.0e11)
         markAs(ax[j], 1)
     plt.savefig(basename+'calibration0.pdf')
     plt.close(fig)
@@ -70,11 +72,11 @@ def quickCheck(experiment_list):
         ax[0,j].set_title( r'$z=$'+str(j))
 
         for i,ex in enumerate(experiment_list):
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['sSFR'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, color=colors[i], plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, color=colors[i], plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['stZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, color=colors[i], plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, color=colors[i], plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6, color=colors[i], plotObs=(i==0))
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['sSFR'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0))
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['stZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0))
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0))
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6, plotObs=(i==0))
 
         
         markAs(ax[0,j], 1)
@@ -103,13 +105,14 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i,ex in enumerate(experiment_list):
-            ex.ptMovie(xvar='mstar', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, color=colors[i], plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['vPhi22'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, color=colors[i], plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['c82'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, color=colors[i], plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['Sigma1'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, color=colors[i], plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6,  plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['vPhi22'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['c82'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['Sigma1'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0))
         markAs(ax[0,j], 1)
         markAs(ax[1,j], 1-Theta(j-1), (1-Theta(j))*0.1)
-        markAs(ax[2,j], 1-Theta(j), (1-Theta(j))*-0.3)
+        #markAs(ax[2,j], 1-Theta(j), (1-Theta(j))*-0.3)
+        markAs(ax[2,j], 0)
         markAs(ax[3,j], 1)
 
     for j in range(4):
@@ -121,6 +124,12 @@ def quickCheck(experiment_list):
                 ax[i,j].set_xlabel('')
                 ax[i,j].get_xaxis().set_ticks([])
         ax[3,j].get_xaxis().set_ticks([1.0e7, 1.0e9, 1.0e11])
+    ax[1,1].get_yaxis().set_ticks([])
+    ax[1,2].get_yaxis().set_ticks([])
+    ax[1,3].get_yaxis().set_ticks([])
+    ax[1,1].get_yaxis().set_visible(False)
+    ax[1,2].get_yaxis().set_visible(False)
+    ax[1,3].get_yaxis().set_visible(False)
     plt.savefig(basename+'calibration2.pdf')
     plt.close(fig)
 
@@ -155,10 +164,10 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i, ex in enumerate(experiment_list):
-            ex.ptMovie(xvar='mstar', yvar=['metallicityGradient2kpc'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, color=colors[i], plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['metallicityGradientR90'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, color=colors[i], plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['metallicityGradient'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, color=colors[i], plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['massWeightedMetallicityGradient'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, color=colors[i], plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['metallicityGradient2kpc'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['metallicityGradientR90'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['metallicityGradient'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6,  plotObs=(i==0))
+            ex.ptMovie(xvar='mstar', yvar=['massWeightedMetallicityGradient'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6,  plotObs=(i==0))
         #ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
     for j in range(4):
         for i in range(4):
@@ -201,11 +210,11 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i, ex in enumerate(experiment_list):
-            ex.ptMovie(xvar='mstar', yvar=['MJeansAvg'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='mstar', yvar=['BTcen'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='mstar', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='mstar', yvar=['mdotBulgeG'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='mstar', yvar=['stellarHaloFraction'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6, plotObs=(i==0), color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['MJeansAvg'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['BTcen'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['mdotBulgeG'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['stellarHaloFraction'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6, plotObs=(i==0))#, color=colors[i])
         #ax[1,j].text(1.0e10, 80.0, r'$z=$'+str(j))
     for j in range(4):
         for i in range(5):
@@ -225,10 +234,10 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i, ex in enumerate(experiment_list):
-            ex.ptMovie(xvar='mstar', yvar=['fractionGI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='mstar', yvar=['tdep'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='mstar', yvar=['tDepH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='mstar', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0), color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['fractionGI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['tdep'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['tDepH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='mstar', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0))#, color=colors[i])
         #self.ptMovie(xvar='mstar', yvar=['v1kpc'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6)
         #self.ptMovie(xvar='mstar', yvar=['v1PerSFR'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6)
         #self.ptMovie(xvar='mstar', yvar=['vOverSigGlobal'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[5,j], textsize=6)
@@ -253,13 +262,13 @@ def quickCheck(experiment_list):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i,ex in enumerate(experiment_list):
         #self.ptMovie(xvar='sfr', yvar=['LXProxy'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            ex.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='sfr', yvar=['sfsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='sfr', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0), color=colors[i])
+            ex.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='sfr', yvar=['sfsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='sfr', yvar=['maxsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0))#, color=colors[i])
             #self.ptMovie(xvar='mbar', yvar=['vPhiOuter'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6)
-            ex.ptMovie(xvar='gbar', yvar=['gtot'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='stellarToGasMass', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6, color=colors[i])
-            ex.ptMovie(xvar='Mh', yvar=['integratedMLF'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[5,j], textsize=6, plotObs=(i==0), color=colors[i])
+            ex.ptMovie(xvar='gbar', yvar=['gtot'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='stellarToGasMass', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6)#, color=colors[i])
+            ex.ptMovie(xvar='Mh', yvar=['integratedMLF'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[5,j], textsize=6, plotObs=(i==0))#, color=colors[i])
         #ax[1,j].text(1.0e7, 2.0, r'$z=$'+str(j))
     for j in range(4):
         for i in range(5):
@@ -328,11 +337,11 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i, ex in enumerate(experiment_list):
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colst'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[0,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colsfr'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[1,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['sSFRRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[2,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[3,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colHI'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[4,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colst'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[0,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colsfr'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[1,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['sSFRRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[2,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[3,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colHI'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[4,j]) #, color=colors[i])
         #ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
     for j in range(4):
         for i in range(5):
@@ -351,12 +360,12 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i, ex in enumerate(experiment_list):
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['Z'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[0,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['fH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[1,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['sig'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[2,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['hGas'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[3,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['ageRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[4,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[5,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['Z'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[0,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['fH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[1,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['sig'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[2,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['hGas'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[3,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['ageRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[4,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[5,j]) #, color=colors[i])
         #ax[2,j].text(2, 70.0, r'$z=$'+str(j))
     for j in range(4):
         for i in range(6):
@@ -383,11 +392,11 @@ def quickCheck(experiment_list):
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i, ex in enumerate(experiment_list):
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colst'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[0,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colsfr'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[1,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['sSFRRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[2,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[3,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['colHI'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[4,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colst'],colorby='Mh',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[0,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colsfr'],colorby='Mh',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[1,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['sSFRRadial'],colorby='Mh',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[2,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colH2'],colorby='Mh',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[3,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['colHI'],colorby='Mh',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[4,j])#, color=colors[i])
         #ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
     for j in range(4):
         for i in range(5):
@@ -403,15 +412,16 @@ def quickCheck(experiment_list):
 
     fig,ax = plt.subplots(6,4, figsize=(8,9))
     fig.subplots_adjust(wspace=0.01, hspace=0.03)
+    cbthis = 'Mh'
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i, ex in enumerate(experiment_list):
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['Z'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[0,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['fH2'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[1,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['sig'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[2,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['hGas'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[3,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['ageRadial'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[4,j], color=colors[i])
-            ex.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[5,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['Z'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[0,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['fH2'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[1,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['sig'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[2,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['hGas'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[3,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['ageRadial'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[4,j])#, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[5,j])#, color=colors[i])
         #ax[2,j].text(2, 70.0, r'$z=$'+str(j))
     for j in range(4):
         for i in range(6):
@@ -422,6 +432,32 @@ def quickCheck(experiment_list):
                 ax[i,j].set_xlabel('')
                 ax[i,j].set_xticks([])
     plt.savefig(basename+'calibration9.pdf')
+    plt.close(fig)
+
+
+
+    fig,ax = plt.subplots(6,4, figsize=(8,9))
+    fig.subplots_adjust(wspace=0.01, hspace=0.03)
+    cbthis = 'Mh'
+    for j in range(4):
+        ax[0,j].set_title( r'$z=$'+str(j))
+        for i, ex in enumerate(experiment_list):
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['vPhi'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[0,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['vPhiGasRadial'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[1,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['vPhiStarsRadial'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[2,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['sig'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[3,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['sigstR'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[4,j], color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['sigstZ'],colorby=cbthis,percentiles=percentiles,logR=False,scaleR=True,movie=False, axIn=ax[5,j], color=colors[i])
+        #ax[2,j].text(2, 70.0, r'$z=$'+str(j))
+    for j in range(4):
+        for i in range(6):
+            if j>0:
+                ax[i,j].set_ylabel('')
+                ax[i,j].set_yticks([])
+            if i<5:
+                ax[i,j].set_xlabel('')
+                ax[i,j].set_xticks([])
+    plt.savefig(basename+'calibration9q.pdf')
     plt.close(fig)
 
 
@@ -545,6 +581,13 @@ def quickCheck(experiment_list):
 #    plt.savefig(basename+'calibration14.pdf')
 #    plt.close(fig)
 
+
+    import matplotlib.colors as colors
+    import matplotlib.cm as cmx
+    plasma = plt.get_cmap('plasma')
+    cNorm = colors.Normalize(vmin=10,vmax=12.5)
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=plasma)
+
     fig,ax = plt.subplots(2,4, figsize=(12,7))
     fig.subplots_adjust(wspace=0.04, hspace=0.05)
     for j in range(4):
@@ -552,16 +595,21 @@ def quickCheck(experiment_list):
             for model in ex.models:
                 ax[0,j].set_title( r'$z=$'+str(j))
                 cmod = np.max([np.min( [ (np.log10(model.p['accScaleLength']/0.13) + 0.1 ) * 5, .8 ]), 0])
-                ax[0,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colstNormalizedKravtsov'].cgs(timeIndex=zinds[j]), c=( 1.0- cmod, 1.0-cmod, 0.1+cmod  ), alpha=.4, lw=1 )
+                colorVal = scalarMap.to_rgba(np.log10(model.var['Mh'].sensible(timeIndex=zinds[j])))
+                ax[0,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colstNormalizedKravtsov'].cgs(timeIndex=zinds[j]), color=colorVal, alpha=.4, lw=1 )
                 kravtsovr = np.linspace(0,6, 200)
                 kravtsovcolst = 0.6308*np.exp(-kravtsovr/(0.011/0.015))
                 kravtsovcol = 0.099944*np.exp(-kravtsovr/(0.029/0.015))
                 ls = '-'
                 if j>0:
                     ls=':'
-                ax[0,j].plot( kravtsovr, kravtsovcolst, lw=2, c='k', ls=ls)
-                ax[1,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colNormalizedKravtsov'].cgs(timeIndex=zinds[j]), c=(1.0-cmod, 1.0-cmod, 0.1+cmod), alpha=.4, lw=1 )
-                ax[1,j].plot( kravtsovr, kravtsovcol, lw=2, c='k', ls=ls)
+                ax[1,j].plot( model.var['r'].cgs(timeIndex=zinds[j])/(0.015*model.var['Rvir'].cgs(timeIndex=zinds[j])), model.var['colNormalizedKravtsov'].cgs(timeIndex=zinds[j]), color=colorVal, alpha=.4, lw=1 )
+                if j==0:
+                     ax[0,j].plot( kravtsovr, kravtsovcolst, lw=3, c='b', ls=ls)
+                     ax[1,j].plot( kravtsovr, kravtsovcol, lw=3, c='b', ls=ls)
+                else:
+                     ax[0,j].plot( kravtsovr, kravtsovcolst, lw=2, c='gray', ls=ls)
+                     ax[1,j].plot( kravtsovr, kravtsovcol, lw=2, c='gray', ls=ls)
         ax[0,j].set_xlim(0,5.97)
         ax[1,j].set_xlim(0,5.97)
         ax[0,j].set_ylim(1.0e-4, 10.0)
@@ -629,7 +677,7 @@ def quickCheck(experiment_list):
         for i,ex in enumerate(experiment_list):
             mstar,_,_,_ = ex.constructQuantity('mstar', timeIndex=[zinds[j]], locIndex=None, flatten=False)
             mlf,_,_,_ = ex.constructQuantity('metalMassCGM',timeIndex=[zinds[j]], locIndex=None, flatten=False)
-            ax.scatter( mstar, mlf, c=colors[j], lw=0, s=10 )
+            ax.scatter( mstar, mlf, c=bigcolors[j], lw=0, s=10 )
     ax.errorbar( [10**10.1], [(0.23+0.46+0.50)*1.0e8], xerr=np.array([10**10.1-10**9.3, 10**10.8-10**10.1]).reshape((1,2)), yerr=np.array([np.sqrt((0.23-0.069)**2 + (0.46-0.28)**2 + (0.5-0.16)**2)*1.0e8,  np.sqrt((0.23-0.89)**2 + (0.46-1.1)**2 + (0.5-1.16)**2)*1.0e8]).reshape((1,2)), lw=2, c='k') # Werk14
     fac = 2.06*10400.0/4600.0
     ax.errorbar( [2.0*10**9], [5.0e5*fac], xerr=np.array([2.0e9-1.5e8, 3.0e9-2.0e9]).reshape((1,2)), yerr=fac*np.array([5.0e5-4.5e5,  1.0e7-5.0e5]).reshape((1,2)), lw=2, c='r') # Bordoloi14
@@ -646,7 +694,7 @@ def quickCheck(experiment_list):
         for i,ex in enumerate(experiment_list):
             mstar,_,_,_ = ex.constructQuantity('mstar', timeIndex=[zinds[j]], locIndex=None, flatten=False)
             mstarInt,_,_,_ = ex.constructQuantity('mstarIntegrated',timeIndex=[zinds[j]], locIndex=None, flatten=False)
-            ax.scatter( mstar, mstarInt/mstar, c=colors[j], lw=0, s=10 )
+            ax.scatter( mstar, mstarInt/mstar, c=bigcolors[j], lw=0, s=10 )
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel(r'$M_* (M_\odot)$')
@@ -667,12 +715,12 @@ def quickCheck(experiment_list):
             Mh,_,_,_ = ex.constructQuantity('Mh',timeIndex=[zinds[j]], locIndex=None, flatten=False)
             mbar,_,_,_ = ex.constructQuantity('mbar',timeIndex=[zinds[j]], locIndex=None, flatten=False)
             Mout,_,_,_ = ex.constructQuantity('mOut',timeIndex=[zinds[j]], locIndex=None, flatten=False)
-            ax.scatter( Mh, mstar/Mh/0.17, c=colors[0], lw=0, s=10, label=r'$M_*$', alpha=0.6 )
-            ax.scatter( Mh, HI/Mh/0.17, c=colors[1], lw=0, s=10, label=r'$M_\mathrm{HI}$', alpha=0.6 )
-            ax.scatter( Mh, HII/Mh/0.17, c=colors[2], lw=0, s=10, label=r'$M_\mathrm{HII}$', alpha=0.6 )
-            ax.scatter( Mh, H2/Mh/0.17, c=colors[3], lw=0, s=10, label=r'$M_{\mathrm{H}_2}$', alpha=0.6 )
-            ax.scatter( Mh, mbar/Mh/0.17, c=colors[4], lw=0, s=10, label=r'$M_{\mathrm{bar}}$', alpha=0.6 )
-            ax.scatter( Mh, Mout/Mh/0.17, c=colors[5], lw=0, s=15, marker='s', label=r'$M_{\mathrm{out}}$', alpha=0.6 )
+            ax.scatter( Mh, mstar/Mh/0.17, c=bigcolors[0], lw=0, s=10, label=r'$M_*$', alpha=0.6 )
+            ax.scatter( Mh, HI/Mh/0.17, c=bigcolors[1], lw=0, s=10, label=r'$M_\mathrm{HI}$', alpha=0.6 )
+            ax.scatter( Mh, HII/Mh/0.17, c=bigcolors[2], lw=0, s=10, label=r'$M_\mathrm{HII}$', alpha=0.6 )
+            ax.scatter( Mh, H2/Mh/0.17, c=bigcolors[3], lw=0, s=10, label=r'$M_{\mathrm{H}_2}$', alpha=0.6 )
+            ax.scatter( Mh, mbar/Mh/0.17, c=bigcolors[4], lw=0, s=10, label=r'$M_{\mathrm{bar}}$', alpha=0.6 )
+            ax.scatter( Mh, Mout/Mh/0.17, c=bigcolors[5], lw=0, s=15, marker='s', label=r'$M_{\mathrm{out}}$', alpha=0.6 )
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel(r'$M_h (M_\odot)$')
@@ -693,7 +741,7 @@ def quickCheck(experiment_list):
             #ex.ptMovie( xvar='mstar', yvar=['integratedMLF'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax, textsize=6, color=colors[i])
             mstar,_,_,_ = ex.constructQuantity('mstar', timeIndex=[zinds[j]], locIndex=None, flatten=False)
             mlf,_,_,_ = ex.constructQuantity('ZOutZDisk',timeIndex=[zinds[j]], locIndex=None, flatten=False)
-            ax.scatter( mstar, mlf, c=colors[j], lw=0, s=10 )
+            ax.scatter( mstar, mlf, c=bigcolors[j], lw=0, s=10 )
     mstars = np.power(10.0, np.linspace(6,10.5, 100))
     etas = 3.6 * np.power(mstars/1.0e10, -0.35)
     ax.plot(mstars, etas, c='cyan', label='Muratov15')
@@ -744,7 +792,7 @@ def quickCheck(experiment_list):
             #ex.ptMovie( xvar='mstar', yvar=['integratedMLF'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax, textsize=6, color=colors[i])
             mstar,_,_,_ = ex.constructQuantity('mstar', timeIndex=[zinds[j]], locIndex=None, flatten=False)
             mlf,_,_,_ = ex.constructQuantity('ZOutZSF',timeIndex=[zinds[j]], locIndex=None, flatten=False)
-            ax.scatter( mstar, mlf, c=colors[j], lw=0, s=10 )
+            ax.scatter( mstar, mlf, c=bigcolors[j], lw=0, s=10 )
     mstars = np.power(10.0, np.linspace(6,10.5, 100))
     etas = 3.6 * np.power(mstars/1.0e10, -0.35)
     ax.plot(mstars, etas, c='cyan', label='Muratov15')
@@ -795,7 +843,7 @@ def quickCheck(experiment_list):
             #ex.ptMovie( xvar='mstar', yvar=['integratedMLF'], colorby='z', prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax, textsize=6, color=colors[i])
             mstar,_,_,_ = ex.constructQuantity('mstar', timeIndex=[zinds[j]], locIndex=None, flatten=False)
             mlf,_,_,_ = ex.constructQuantity('integratedMLF',timeIndex=[zinds[j]], locIndex=None, flatten=False)
-            ax.scatter( mstar, mlf, c=colors[j], lw=0, s=10 )
+            ax.scatter( mstar, mlf, c=bigcolors[j], lw=0, s=10 )
     mstars = np.power(10.0, np.linspace(6,10.5, 100))
     etas = 3.6 * np.power(mstars/1.0e10, -0.35)
     ax.plot(mstars, etas, c='cyan', label='Muratov15')
@@ -842,8 +890,8 @@ def quickCheck(experiment_list):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i,ex in enumerate(experiment_list):
         #self.ptMovie(xvar='sfr', yvar=['LXProxy'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6)
-            ex.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0), color=colors[i])
-            ex.ptMovie(xvar='sfr', yvar=['sfsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0), color=colors[i])
+            ex.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0))#, color=colors[i])
+            ex.ptMovie(xvar='sfr', yvar=['sfsig'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))#, color=colors[i])
         #ax[1,j].text(1.0e7, 2.0, r'$z=$'+str(j))
         markAs(ax[0,j], 1-Theta(j))
         markAs(ax[1,j], 1)
@@ -864,11 +912,13 @@ def quickCheck(experiment_list):
 
 if __name__=='__main__':
     #experiment_list = []
-    #for k in range(9):
-    #    experiment_list.append( Experiment('rf136'+str(k)) )
-    experiment_list = [Experiment('rf139')]
+    #for k in range(10):
+    #    experiment_list.append( Experiment('rf150_'+str(k)) )
+    #experiment_list = [Experiment('rf153'), Experiment('rf154'), Experiment('rf151'), Experiment('rf152') ]
+    #experiment_list = [Experiment('rf161'), Experiment('rf162'), Experiment('rf163') ]
+    experiment_list = [Experiment('rf212'), Experiment('rf213')]
     #experiment_list = [Experiment('rf118'), Experiment('rf119'), Experiment('rf120')]
-    MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig']
+    MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig', 'col', 'vPhiGasRadial', 'vPhiStarsRadial']
     for ex in experiment_list:
         ex.read(MONDargs, keepStars=True)
     quickCheck(experiment_list)

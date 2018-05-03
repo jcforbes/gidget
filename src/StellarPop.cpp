@@ -8,6 +8,9 @@
 #include <math.h>
 #include <vector>
 #include <iostream>
+#include <fstream>
+
+#include <gsl/gsl_integration.h>
 
 // typical constructor
 StellarPop::StellarPop(FixedMesh & m) :
@@ -28,9 +31,73 @@ StellarPop::StellarPop(FixedMesh & m) :
   dcoldtREC(std::vector<double>(m.nx()+1,0.)),
   dcoldtIA(std::vector<double>(m.nx()+1,0.)),
   ageAtz0(-1.0),startingAge(-1.0),endingAge(-1.0),
-  mesh(m)
+  mesh(m),
+  allocated(false),
+  interpTypeK(gsl_interp2d_bilinear),
+  interpTypeL(gsl_interp2d_bilinear)
 { }
 
+StellarPop::~StellarPop()
+{
+  if(allocated) {
+    gsl_spline2d_free( splineK );
+    gsl_spline2d_free( splineL );
+    gsl_interp_accel_free( accelKx );
+    gsl_interp_accel_free( accelKy );
+    gsl_interp_accel_free( accelLx );
+    gsl_interp_accel_free( accelLy );
+    free(zaK);
+    free(zaL);
+  }
+}
+void StellarPop::InitializeGSLObjs()
+{
+    allocated = true; // keep track that we have actually initialized the GSL objects that we're constructing here.
+    const size_t nx = 300;
+    const size_t ny = 300;
+    zaK = (double*) malloc(nx*ny*sizeof(double));
+    zaL = (double*) malloc(nx*ny*sizeof(double));
+    splineK = gsl_spline2d_alloc(interpTypeK, nx, ny);
+    splineL = gsl_spline2d_alloc(interpTypeL, nx, ny);
+    // is there a better way? Maybe!?
+    const double xa[] = { 0.001, 0.0076856187291, 0.0143712374582, 0.0210568561873, 0.0277424749164, 0.0344280936455, 0.0411137123746, 0.0477993311037, 0.0544849498328, 0.0611705685619, 0.067856187291, 0.0745418060201, 0.0812274247492, 0.0879130434783, 0.0945986622074, 0.101284280936, 0.107969899666, 0.114655518395, 0.121341137124, 0.128026755853, 0.134712374582, 0.141397993311, 0.14808361204, 0.154769230769, 0.161454849498, 0.168140468227, 0.174826086957, 0.181511705686, 0.188197324415, 0.194882943144, 0.201568561873, 0.208254180602, 0.214939799331, 0.22162541806, 0.228311036789, 0.234996655518, 0.241682274247, 0.248367892977, 0.255053511706, 0.261739130435, 0.268424749164, 0.275110367893, 0.281795986622, 0.288481605351, 0.29516722408, 0.301852842809, 0.308538461538, 0.315224080268, 0.321909698997, 0.328595317726, 0.335280936455, 0.341966555184, 0.348652173913, 0.355337792642, 0.362023411371, 0.3687090301, 0.375394648829, 0.382080267559, 0.388765886288, 0.395451505017, 0.402137123746, 0.408822742475, 0.415508361204, 0.422193979933, 0.428879598662, 0.435565217391, 0.44225083612, 0.448936454849, 0.455622073579, 0.462307692308, 0.468993311037, 0.475678929766, 0.482364548495, 0.489050167224, 0.495735785953, 0.502421404682, 0.509107023411, 0.51579264214, 0.52247826087, 0.529163879599, 0.535849498328, 0.542535117057, 0.549220735786, 0.555906354515, 0.562591973244, 0.569277591973, 0.575963210702, 0.582648829431, 0.589334448161, 0.59602006689, 0.602705685619, 0.609391304348, 0.616076923077, 0.622762541806, 0.629448160535, 0.636133779264, 0.642819397993, 0.649505016722, 0.656190635452, 0.662876254181, 0.66956187291, 0.676247491639, 0.682933110368, 0.689618729097, 0.696304347826, 0.702989966555, 0.709675585284, 0.716361204013, 0.723046822742, 0.729732441472, 0.736418060201, 0.74310367893, 0.749789297659, 0.756474916388, 0.763160535117, 0.769846153846, 0.776531772575, 0.783217391304, 0.789903010033, 0.796588628763, 0.803274247492, 0.809959866221, 0.81664548495, 0.823331103679, 0.830016722408, 0.836702341137, 0.843387959866, 0.850073578595, 0.856759197324, 0.863444816054, 0.870130434783, 0.876816053512, 0.883501672241, 0.89018729097, 0.896872909699, 0.903558528428, 0.910244147157, 0.916929765886, 0.923615384615, 0.930301003344, 0.936986622074, 0.943672240803, 0.950357859532, 0.957043478261, 0.96372909699, 0.970414715719, 0.977100334448, 0.983785953177, 0.990471571906, 0.997157190635, 1.00384280936, 1.01052842809, 1.01721404682, 1.02389966555, 1.03058528428, 1.03727090301, 1.04395652174, 1.05064214047, 1.0573277592, 1.06401337793, 1.07069899666, 1.07738461538, 1.08407023411, 1.09075585284, 1.09744147157, 1.1041270903, 1.11081270903, 1.11749832776, 1.12418394649, 1.13086956522, 1.13755518395, 1.14424080268, 1.1509264214, 1.15761204013, 1.16429765886, 1.17098327759, 1.17766889632, 1.18435451505, 1.19104013378, 1.19772575251, 1.20441137124, 1.21109698997, 1.2177826087, 1.22446822742, 1.23115384615, 1.23783946488, 1.24452508361, 1.25121070234, 1.25789632107, 1.2645819398, 1.27126755853, 1.27795317726, 1.28463879599, 1.29132441472, 1.29801003344, 1.30469565217, 1.3113812709, 1.31806688963, 1.32475250836, 1.33143812709, 1.33812374582, 1.34480936455, 1.35149498328, 1.35818060201, 1.36486622074, 1.37155183946, 1.37823745819, 1.38492307692, 1.39160869565, 1.39829431438, 1.40497993311, 1.41166555184, 1.41835117057, 1.4250367893, 1.43172240803, 1.43840802676, 1.44509364548, 1.45177926421, 1.45846488294, 1.46515050167, 1.4718361204, 1.47852173913, 1.48520735786, 1.49189297659, 1.49857859532, 1.50526421405, 1.51194983278, 1.51863545151, 1.52532107023, 1.53200668896, 1.53869230769, 1.54537792642, 1.55206354515, 1.55874916388, 1.56543478261, 1.57212040134, 1.57880602007, 1.5854916388, 1.59217725753, 1.59886287625, 1.60554849498, 1.61223411371, 1.61891973244, 1.62560535117, 1.6322909699, 1.63897658863, 1.64566220736, 1.65234782609, 1.65903344482, 1.66571906355, 1.67240468227, 1.679090301, 1.68577591973, 1.69246153846, 1.69914715719, 1.70583277592, 1.71251839465, 1.71920401338, 1.72588963211, 1.73257525084, 1.73926086957, 1.74594648829, 1.75263210702, 1.75931772575, 1.76600334448, 1.77268896321, 1.77937458194, 1.78606020067, 1.7927458194, 1.79943143813, 1.80611705686, 1.81280267559, 1.81948829431, 1.82617391304, 1.83285953177, 1.8395451505, 1.84623076923, 1.85291638796, 1.85960200669, 1.86628762542, 1.87297324415, 1.87965886288, 1.88634448161, 1.89303010033, 1.89971571906, 1.90640133779, 1.91308695652, 1.91977257525, 1.92645819398, 1.93314381271, 1.93982943144, 1.94651505017, 1.9532006689, 1.95988628763, 1.96657190635, 1.97325752508, 1.97994314381, 1.98662876254, 1.99331438127, 2.0 };     
+    const double ya[] = { 0.5, 0.506688963211, 0.513377926421, 0.520066889632, 0.526755852843, 0.533444816054, 0.540133779264, 0.546822742475, 0.553511705686, 0.560200668896, 0.566889632107, 0.573578595318, 0.580267558528, 0.586956521739, 0.59364548495, 0.600334448161, 0.607023411371, 0.613712374582, 0.620401337793, 0.627090301003, 0.633779264214, 0.640468227425, 0.647157190635, 0.653846153846, 0.660535117057, 0.667224080268, 0.673913043478, 0.680602006689, 0.6872909699, 0.69397993311, 0.700668896321, 0.707357859532, 0.714046822742, 0.720735785953, 0.727424749164, 0.734113712375, 0.740802675585, 0.747491638796, 0.754180602007, 0.760869565217, 0.767558528428, 0.774247491639, 0.780936454849, 0.78762541806, 0.794314381271, 0.801003344482, 0.807692307692, 0.814381270903, 0.821070234114, 0.827759197324, 0.834448160535, 0.841137123746, 0.847826086957, 0.854515050167, 0.861204013378, 0.867892976589, 0.874581939799, 0.88127090301, 0.887959866221, 0.894648829431, 0.901337792642, 0.908026755853, 0.914715719064, 0.921404682274, 0.928093645485, 0.934782608696, 0.941471571906, 0.948160535117, 0.954849498328, 0.961538461538, 0.968227424749, 0.97491638796, 0.981605351171, 0.988294314381, 0.994983277592, 1.0016722408, 1.00836120401, 1.01505016722, 1.02173913043, 1.02842809365, 1.03511705686, 1.04180602007, 1.04849498328, 1.05518394649, 1.0618729097, 1.06856187291, 1.07525083612, 1.08193979933, 1.08862876254, 1.09531772575, 1.10200668896, 1.10869565217, 1.11538461538, 1.1220735786, 1.12876254181, 1.13545150502, 1.14214046823, 1.14882943144, 1.15551839465, 1.16220735786, 1.16889632107, 1.17558528428, 1.18227424749, 1.1889632107, 1.19565217391, 1.20234113712, 1.20903010033, 1.21571906355, 1.22240802676, 1.22909698997, 1.23578595318, 1.24247491639, 1.2491638796, 1.25585284281, 1.26254180602, 1.26923076923, 1.27591973244, 1.28260869565, 1.28929765886, 1.29598662207, 1.30267558528, 1.30936454849, 1.31605351171, 1.32274247492, 1.32943143813, 1.33612040134, 1.34280936455, 1.34949832776, 1.35618729097, 1.36287625418, 1.36956521739, 1.3762541806, 1.38294314381, 1.38963210702, 1.39632107023, 1.40301003344, 1.40969899666, 1.41638795987, 1.42307692308, 1.42976588629, 1.4364548495, 1.44314381271, 1.44983277592, 1.45652173913, 1.46321070234, 1.46989966555, 1.47658862876, 1.48327759197, 1.48996655518, 1.49665551839, 1.50334448161, 1.51003344482, 1.51672240803, 1.52341137124, 1.53010033445, 1.53678929766, 1.54347826087, 1.55016722408, 1.55685618729, 1.5635451505, 1.57023411371, 1.57692307692, 1.58361204013, 1.59030100334, 1.59698996656, 1.60367892977, 1.61036789298, 1.61705685619, 1.6237458194, 1.63043478261, 1.63712374582, 1.64381270903, 1.65050167224, 1.65719063545, 1.66387959866, 1.67056856187, 1.67725752508, 1.68394648829, 1.69063545151, 1.69732441472, 1.70401337793, 1.71070234114, 1.71739130435, 1.72408026756, 1.73076923077, 1.73745819398, 1.74414715719, 1.7508361204, 1.75752508361, 1.76421404682, 1.77090301003, 1.77759197324, 1.78428093645, 1.79096989967, 1.79765886288, 1.80434782609, 1.8110367893, 1.81772575251, 1.82441471572, 1.83110367893, 1.83779264214, 1.84448160535, 1.85117056856, 1.85785953177, 1.86454849498, 1.87123745819, 1.8779264214, 1.88461538462, 1.89130434783, 1.89799331104, 1.90468227425, 1.91137123746, 1.91806020067, 1.92474916388, 1.93143812709, 1.9381270903, 1.94481605351, 1.95150501672, 1.95819397993, 1.96488294314, 1.97157190635, 1.97826086957, 1.98494983278, 1.99163879599, 1.9983277592, 2.00501672241, 2.01170568562, 2.01839464883, 2.02508361204, 2.03177257525, 2.03846153846, 2.04515050167, 2.05183946488, 2.05852842809, 2.0652173913, 2.07190635452, 2.07859531773, 2.08528428094, 2.09197324415, 2.09866220736, 2.10535117057, 2.11204013378, 2.11872909699, 2.1254180602, 2.13210702341, 2.13879598662, 2.14548494983, 2.15217391304, 2.15886287625, 2.16555183946, 2.17224080268, 2.17892976589, 2.1856187291, 2.19230769231, 2.19899665552, 2.20568561873, 2.21237458194, 2.21906354515, 2.22575250836, 2.23244147157, 2.23913043478, 2.24581939799, 2.2525083612, 2.25919732441, 2.26588628763, 2.27257525084, 2.27926421405, 2.28595317726, 2.29264214047, 2.29933110368, 2.30602006689, 2.3127090301, 2.31939799331, 2.32608695652, 2.33277591973, 2.33946488294, 2.34615384615, 2.35284280936, 2.35953177258, 2.36622073579, 2.372909699, 2.37959866221, 2.38628762542, 2.39297658863, 2.39966555184, 2.40635451505, 2.41304347826, 2.41973244147, 2.42642140468, 2.43311036789, 2.4397993311, 2.44648829431, 2.45317725753, 2.45986622074, 2.46655518395, 2.47324414716, 2.47993311037, 2.48662207358, 2.49331103679, 2.5};
+
+    accelKx = gsl_interp_accel_alloc();
+    accelKy = gsl_interp_accel_alloc();
+    accelLx = gsl_interp_accel_alloc();
+    accelLy = gsl_interp_accel_alloc();
+
+    std::string kfn = "Lacey84_table_K.txt";
+    std::string lfn = "Lacey84_table_L.txt";
+    std::ifstream kf;
+    kf.open("Lacey84_table_K.txt");
+    if(!kf) {
+        errormsg("Couldn't find Lacey84_table_K.txt");
+    }
+    int i,j;
+    double val;
+    while( !kf.eof() ) {
+        kf >> i >> j >> val;
+	gsl_spline2d_set( splineK, zaK, i, j, val );
+
+    }
+    gsl_spline2d_init( splineK, xa, ya, zaK, nx, ny );
+    kf.close();
+
+    std::ifstream lf;
+    lf.open("Lacey84_table_L.txt");
+    if(!lf) {
+        errormsg("Couldn't find Lacey84_table_L.txt");
+    }
+    while( !lf.eof() ) {
+        lf >> i >> j >> val;
+	gsl_spline2d_set( splineL, zaL, i, j, val );
+
+    }
+    gsl_spline2d_init( splineL, xa, ya, zaL, nx, ny );
+    lf.close();
+}
 
 void StellarPop::ComputeSpatialDerivs()
 {
@@ -172,6 +239,191 @@ void StellarPop::ComputeRecycling(DiskContents& disk, double z)
     }
 }
 
+double tanfac(double s)
+{
+    if (s>=0) {
+        return atan(sqrt(s))/sqrt(s);
+    }
+    else {
+        return atanh(sqrt(-s))/sqrt(-s);
+    }
+    return 0;
+};
+
+
+double Lintegrand(double chi, void * params)
+{
+    std::vector<double> * par =  (std::vector<double> *) params; // yikes
+    double alpha = par[0][0];
+    double beta = par[0][1];
+    double sinchi = sin(chi);
+    double coschi = cos(chi);
+    double betasq = beta*beta;
+    double b = 2.0 - (betasq*sinchi*sinchi + (1.0/betasq)*coschi*coschi); 
+    double a = sinchi*sinchi + (1.0/betasq)*coschi*coschi;
+    double s = a/(alpha*alpha) - 1.0;
+    double ret = (-3.0 + (s+3.0)*tanfac(s))/(alpha*s);
+    return ret;
+};
+
+//double L(double alpha, double beta)
+//{
+//    int nintervals = 1000; // nothing varying rapidly with chi I think...
+//    gsl_integration_workspace *w = gsl_integration_workspace_alloc( nintervals ); 
+//    gsl_function F;
+//    double result, error;
+//
+//    std::vector<double> par(2);
+//    par[0] = alpha;
+//    par[1] = beta;
+//    F.function = &Lintegrand;
+//    F.params = & par;
+//
+//    gsl_integration_qags( &F, 0, M_PI/2.0, 1.0e-2, 1.0e-2, nintervals, w, &result, &error );
+//
+//    gsl_integration_workspace_free(w);
+//    return result*2.0/M_PI;
+//};
+
+
+double Kintegrand(double chi, void * params)
+{
+    std::vector<double> * par =  (std::vector<double> *) params; // yikes
+    double alpha = par[0][0];
+    double beta = par[0][1];
+    //printf("chi, alpha, beta: % .18f % .18f % .18f \n", chi,alpha,beta);
+    double sinchi = sin(chi);
+    double coschi = cos(chi);
+    double betasq = beta*beta;
+    double b = 2.0 - (betasq*sinchi*sinchi + (1.0/betasq)*coschi*coschi); 
+    double a = sinchi*sinchi + (1.0/betasq)*coschi*coschi;
+    double s = a/(alpha*alpha) - 1.0;
+    double ret = (3.0 - (b*s+3.0)*tanfac(s))/(alpha*alpha*alpha*s*(s+1.0));
+    return ret;
+};
+
+//double K(double alpha, double beta)
+//{
+//    int nintervals = 1000; // nothing varying rapidly with chi I think...
+//    gsl_integration_workspace *w = gsl_integration_workspace_alloc( nintervals ); 
+//    gsl_function F;
+//    double result, error;
+//
+//    std::vector<double> par(2);
+//    par[0] = alpha;
+//    par[1] = beta;
+//    F.function = &Kintegrand;
+//    F.params = & par;
+//
+//    gsl_integration_qags( &F, 0, M_PI/2.0, 1.0e-2, 1.0e-2, nintervals, w, &result, &error );
+//
+//    gsl_integration_workspace_free(w);
+//    return result*2.0/M_PI;
+//};
+
+double StellarPop::L(const double alpha,const double beta)
+{
+    if(!allocated) {
+        (*this).InitializeGSLObjs();
+    }
+    // ugh hack for now:
+    double alphaEval, betaEval;
+    if (alpha>1.9999) {
+	alphaEval = 1.9999;
+    }
+    else if( alpha<0.0 ) {
+	alphaEval = 0.0;
+    }
+    else {
+        alphaEval = alpha;
+    }
+    if (beta>2.4999) {
+	betaEval = 2.4999;
+    }
+    else if (beta<0.5) {
+        betaEval = 0.5;
+    }
+    else {
+        betaEval = beta;
+    }
+    const double alphaEvalReal = alphaEval;
+    const double betaEvalReal = betaEval;
+    //std::cout << "Evaluating L spline for alpha, beta "<<alpha<<" "<<beta<<std::endl;
+    return gsl_spline2d_eval( splineL, alphaEvalReal, betaEvalReal, accelLx, accelLy );
+
+}
+
+double StellarPop::K(const double alpha,const double beta)
+{
+    if(!allocated) {
+        (*this).InitializeGSLObjs();
+    }
+    //std::cout << "Evaluating K spline for alpha, beta "<<alpha<<" "<<beta<<std::endl;
+    // ugh hack for now:
+    double alphaEval, betaEval;
+    if (alpha>1.9999) {
+	alphaEval = 1.9999;
+    }
+    else if( alpha<0.01 ) {
+	alphaEval = 0.01;
+    }
+    else {
+        alphaEval = alpha;
+    }
+    if (beta>2.4999) {
+	betaEval = 2.4999;
+    }
+    else if (beta<0.501) {
+        betaEval = 0.501;
+    }
+    else {
+        betaEval = beta;
+    }
+    const double alphaEvalReal = alphaEval;
+    const double betaEvalReal = betaEval;
+
+    return gsl_spline2d_eval( splineK, alphaEvalReal, betaEvalReal, accelKx, accelKy );
+
+}
+
+
+void StellarPop::CloudHeatStellarPop(double dt, DiskContents& disk, double heatingRate)
+{
+  std::vector<double> dsigRdt(spcol.size());
+  std::vector<double> dsigZdt(spcol.size());
+  unsigned int nx=spcol.size()-1;
+  std::vector<double>& uu = disk.GetUu();
+  std::vector<double>& beta = disk.GetBeta();
+  std::vector<double>& x = disk.GetX();
+  for(unsigned int n=1; n<=nx; ++n) {
+    double hc = disk.hGas(n); // in cm!
+    double alpha = spsigZ[n]/spsigR[n];
+    double q = disk.hStars(n)/hc ;  
+    double gamma = sqrt(2.0/(1.0+beta[n])); // 2\Omega/\kappa. This is \beta in Lacey 1984's notation.
+    double Mcloud = 1.0e7 * 2.0e33 /( disk.GetDim().MdotExt0 * (2.0*M_PI*disk.GetDim().Radius / disk.GetDim().vphiR));
+    double ac = 10.0 * 3.086e18; // 10 pc in cm
+    // this formula is probably `correct' but there's no guarantee Lambda>1 For now neglect the case that causes that.
+    //double lnLambda = log(sqrt(2.0)* spsigR[n]*x[n]/(uu[n]*sqrt(2.0*(beta[n]+1.0))) * min( disk.GetDim().Radius/ac, spsigR[n]*spsigR[n] / (2.0*M_PI*Mcloud * disk.GetDim().chi())));
+    double lnLambda = log(sqrt(2.0)* spsigR[n]*x[n]/(uu[n]*sqrt(2.0*(beta[n]+1.0))) *disk.GetDim().Radius/ac);
+    if (lnLambda<0.3) {
+	//errormsg("Unphysical coulomb logarithm in stellar heating");
+	lnLambda=0.3;
+    }
+    //if (lnLambda<1)
+	//std::cerr << "WARNING: the coulomb logarithm is kind of small "<<lnLambda<<" "<<spsigR[n]<<std::endl;
+    // the factor of 0.1 comes from assuming the surface mass density of "clouds" is 0.1 of the total gas disk column density.
+    double C = heatingRate* 2.0 * (4.0*M_PI*M_PI) * disk.GetDim().chi() * disk.GetDim().chi() * 0.1 * disk.GetCol()[n] * Mcloud * lnLambda * disk.GetDim().Radius/hc;
+    dsigRdt[n] = 0.5/spsigR[n] * C*K(alpha,gamma)/(spsigR[n]*sqrt(1.0+q*q));
+    dsigZdt[n] = 0.5/spsigZ[n] * C*L(alpha,gamma)/(spsigR[n]*sqrt(1.0+q*q));
+    //std::cout << "dbgCH q, alpha, Mcloud, lnLambda, C, disgRdtt, dsigZdt, sigR, sigZ, n, dt: " <<q<<" "<<alpha<<" "<<Mcloud<<" "<<lnLambda<<" "<<C<<" "<<dsigRdt[n]<<" "<<dsigZdt[n]<<" "<<spsigR[n]<<" "<<spsigZ[n]<<" "<<n<<" "<<dt<<std::endl;
+  }
+  for(unsigned int n=1; n<=spcol.size()-1; ++n) {
+    spsigR[n] += dsigRdt[n]*dt;
+    spsigZ[n] += dsigZdt[n]*dt;
+  }
+
+
+}
 
 void StellarPop::MigrateStellarPop(double dt, double ** tauvecStar, DiskContents& disk, std::vector<double>& MdotiPlusHalf)
 {

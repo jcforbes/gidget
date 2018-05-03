@@ -81,7 +81,7 @@ class experiment:
                 -0.25,1.0,1.0,0.3,1.0, \
                 0,0.0,.1,.03,2.0, \
                 .002,1.0,1.0,0.3,0.0,.054,0.0,0.0, -1.0/3.0, 10.0, 2.0, 1.0e12, \
-                0.1, 2.0, 2.0, 1.4, 0.5, 1.0, 0.5]
+                0.1, 2.0, 2.0, 1.4, 0.5, 1.0, -1.0, 0.5]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -100,7 +100,7 @@ class experiment:
                 'accAlphaMh','accCeiling','fscatter','invMassRatio','fcool', \
                 'whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC', \
                 'ZIGM','fg0mult','ZIGMfac','chiZslope','deltaBeta','yREC','concentrationRandomFactor','muFgScaling', 'muMhScaling', 'ksuppress', 'kpower', 'MQuench', \
-                'epsquench', 'muQuench', 'stScaleReduction', 'gaScaleReduction', 'ZMix', 'energyInjectionFactor', 'bolshoiWeight']
+                'epsquench', 'muQuench', 'stScaleReduction', 'gaScaleReduction', 'ZMix', 'energyInjectionFactor', 'CloudHeatingRate', 'bolshoiWeight']
         assert len(self.p)==len(self.names)
         self.keys={}
         ctr=0
@@ -165,7 +165,7 @@ class experiment:
         this list is specified explicitly in "values"'''
         keyNum = self.keys[name] # the element of the list self.p which we're editing today.
         typ = type(self.p_orig[keyNum]) # what type of variable is this in a single run of gidget?
-        if(type(values) == type([1])): # if values is a list..
+        if(type(values) == type([1]) or type(values)==type(np.array([1.0,2.0]))): # if values is a list..
             # replace the given index of p with the list given by values.
             self.p[keyNum]=[typ(value) for value in values]
         else:
@@ -360,7 +360,7 @@ class experiment:
         return (cmds,stdo,stde,expDirs)
 
 
-    def localRun(self,nproc,startAt,maxTime=36000,overwrite=False):
+    def localRun(self,nproc,startAt,maxTime=7200.0,overwrite=False):
         ''' Run the specified experiment on this machine,
         using no more than nproc processors, and starting
         at the "startAt"th run in the experiment '''
@@ -387,6 +387,12 @@ class experiment:
             ctr+=1
             tmpap=a_p[:]
             globalBolshoiReader.copynearest(expDir, a_p[self.keys['name']]+'_inputRandomFactors.txt', a_p[self.keys['bolshoiWeight']], np.log10(a_p[self.keys['Mh0']]))
+            try:
+                shutil.copy('Lacey84_table_K.txt', expDir+'/'+'Lacey84_table_K.txt')
+                shutil.copy('Lacey84_table_L.txt', expDir+'/'+'Lacey84_table_L.txt')
+            except:
+                #pdb.set_trace()
+                print "WARNING: failed to copy Lacey84 files. May need to add a set_trace in exper.py::experiment::localRun"
             with open(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt','w') as stdo:
                 with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','w') as stde:
                     print "Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core."
@@ -431,7 +437,7 @@ class experiment:
     
                 # if our processors are all booked, wait a minute and try again
                 if(nStillRunning >= nproc):
-                    time.sleep(10) # wait a little bit
+                    time.sleep(60) # wait a little bit
                     if(nPrinted):
                         print "Waiting for a free processor..."
                         nPrinted=False # only print the above message if we haven't seen it since 
@@ -552,37 +558,69 @@ def NewSetOfExperiments(copyFrom, name, N=1):
     return theList
 
 
-def experSuiteFromBroadMCMC(emceeparams, name, accHistories=None):
-    offsets = [ 3.0, 2.0, 2.0, 2.0, 2.0, # raccVir, rstarRed, rgasRed, fg0mult, muColScaling
-            2.0, 10.0, 1.0, 3.0, 0.28, # muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix
-            2.0, 2.0, 2.0, 10.0, 0.28, # eta, Qf, alphaMRI, epsquench, accCeiling
-            0.3, 3.0, 0.23, 2.0, 0.5, # conRF, kZ, xiREC, epsff, initialSlope
-            3.0, 3.0] # mquench, enInjFac
-    logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1]
-    from broad_svm import lnprior 
+def experSuiteFromBroadMCMC(list_of_emceeparams, list_of_news, name, list_of_masses, ngal=10, accHistories=None):
+    #offsets = [ 3.0, 2.0, 2.0, 2.0, 2.0, # raccVir, rstarRed, rgasRed, fg0mult, muColScaling
+    #        2.0, 10.0, 1.0, 3.0, 0.28, # muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix
+    #        2.0, 2.0, 2.0, 10.0, 0.28, # eta, Qf, alphaMRI, epsquench, accCeiling
+    #        0.3, 3.0, 0.23, 2.0, 0.5, # conRF, kZ, xiREC, epsff, initialSlope
+    #        3.0, 3.0, 0.1] # mquench, enInjFac, chiZslope
+    #logVars = [1, 1, 1, 1, 
+    #        1, 0, 0, 1, 
+    #        0, 1, 0, 1, 
+    #        1, 1, 1, 0,
+    #        0, 1, 0, 1, 
+    #        0, 1, 1, 0]
+    logVars = [1,1,1,1,
+            0,0,1,0,
+            1,0,1,1,
+            1,1,0,0,
+            1,0,1,0,
+            1,1,0,0]
+    
+    # example\:
+    #q50_11 = [ -0.75225373,   0.45321502,   0.46782298,   0.76024269, 
+    #  -0.08407033, 0.29444897,  -0.7869128,   -0.94169641,  
+    #  -0.07408208,   0.18528492, 0.25329861,   0.20123192, 
+    # -1.33669819,  -2.75274658,   0.96226019, -0.09557928, 
+    #  -1.26589114,   0.54808871,  -1.88592761,  -0.03303261,
+    #  12.16116276,  -0.51294004,   0.24137744,   1.00588415]
+    #from broad_svm import lnprior 
     experList = []
-    for i in range(len(offsets)):
-        thisX = emceeparams[:]
-        if logVars[i]==1:
-            thisX[i] = thisX[i]*offsets[i]
-        else:
-            thisX[i] = thisX[i]+offsets[i]
-        if not np.isfinite(lnprior(thisX)):
-            if logVars[i]==1:
-                thisX[i] = thisX[i]/offsets[i]/offsets[i]
-            else:
-                thisX[i] = thisX[i] - 2.0*offsets[i]
-            print "WARNING: Going the opposite direction for variable ",i
-            if not np.isfinite(lnprior(thisX)):
-                pdb.set_trace() # tried adjusting in both directions and still ended up outside the allowed range?!
 
-        experList.append(experFromBroadMCMC(thisX[:-1], name=name+chr(65+i), ngal=30, accHistories=accHistories))
+    for k in range(len(list_of_emceeparams)):
+        emceeparams = list_of_emceeparams[k]
+        news = list_of_news[k]
+        for i in range(len(emceeparams)):
+            if logVars[i]==1:
+                news[i] = 10.0**news[i]
+                emceeparams[i] = 10.0**emceeparams[i]
+        experList.append(experFromBroadMCMC(emceeparams, name=name+'fid_k'+str(k), ngal=10, accHistories=accHistories, mass=list_of_masses[k]))
+        for i in range(len(news)):
+            thisX = emceeparams[:]
+            thisX[i] = news[i]
+            #if logVars[i]==1:
+            #    thisX[i] = thisX[i]*offsets[i]
+            #else:
+            #    thisX[i] = thisX[i]+offsets[i]
+            #if not np.isfinite(lnprior(thisX)): 
+                #if logVars[i]==1:
+                #    thisX[i] = thisX[i]/offsets[i]/offsets[i]
+                #else:
+                #    thisX[i] = thisX[i] - 2.0*offsets[i]
+                #print "WARNING: Going the opposite direction for variable ",i
+                #if not np.isfinite(lnprior(thisX)):
+            #    pdb.set_trace() # tried adjusting in both directions and still ended up outside the allowed range?!
+    
+            experList.append(experFromBroadMCMC(thisX, name=name+'_k'+str(k)+'_'+chr(65+i), ngal=10, accHistories=accHistories, mass=list_of_masses[k]))
     return experList
 
-def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
+def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=12.0):
     raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, chiZslope = emceeparams
 
-    Mhz0 = list(np.power(10.0, np.linspace(10.0,13.0,ngal)))
+    if hasattr( mass, '__len__' ):
+        Mhz0 = list(mass)
+    else:
+        Mhz0 = list(np.power(10.0, np.linspace(mass, mass+0.001,ngal)))
 
     # create experiment
     
@@ -629,13 +667,14 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None):
     rat4 = 1.0/(1.0/fgz4 - 1.0)
     rat4 *= fg0mult # double the gas content
     fgUsed =1.0/(1.0/rat4 + 1.0)*(1.0*weight1+1.0*weight2) 
-    assert np.all(fgUsed<=1.0)
+    if not np.all(fgUsed<=1.0):
+        pdb.set_trace()
     thisexper.irregularVary( 'fg0', list(fgUsed), 5)
     thisexper.irregularVary( 'Mh0', list(Mhz0), 5)
     fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (1.0*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
 
     if not np.all(fcools<=1.0):
-        pdb.set_trace()
+        print "WARNING: ", name, "fcools exceed unity: ", fcools
     thisexper.irregularVary('fcool', list(fcools), 5)
     thisexper.irregularVary('NChanges', 1001)
 
@@ -2879,6 +2918,210 @@ if __name__ == "__main__":
     # mode of new mcmc with lower kappa_Z prior
     emceeparams = [0.111024857427, 0.651471090758, 3.60369988073, 1.32410848876, 0.00462162773379, -0.155722717901, 0.031880475053, -0.654077470322, 2.37229453732, 0.441016987977, 2.39816792077, 7.49401210998, 0.124550671584, 6.80468433312e-05, 0.599283305526, -0.136486524703, 0.145855283753, 0.172199330299, 0.0298417733283, -0.0164741738978, 2.68739637394e+12, 0.976891038462, 0.453901301973]
     rf139 = experFromBroadMCMC( emceeparams, 'rf139', accHistories=accHistories, ngal=10)
+
+    # mode of new mcmc with narrower prior than emulator training set + joint random forest.
+    emceeparams = [0.111745803862, 0.818929938542, 2.92780328018, 0.689587010711, 0.0759295601488, -0.120461318724, 0.0373432928034, -0.447286494649, 4.07357838129, 0.438033563556, 3.05791992511, 4.65041927578, 0.0667650233566, 7.01564802143e-05, 0.629283785624, -0.127203487947, 0.153112902804, 0.21538734542, 0.0207646517441, -0.00861003837926, 2.58750951275e+12, 0.456186615647, 0.257580989521]
+    rf140 = experFromBroadMCMC( emceeparams, 'rf140', ngal=20)
+
+    emceeparams = [0.112880634252, 0.850512948862, 2.94324103318, 0.726404182119, 0.0765400107456, -0.113405865243, 0.0379355384555, -0.445309091863, 3.98749021939, 0.429406535455, 2.90270296704, 4.50395986877, 0.0657333353017, 7.19362415873e-05, 0.648057158224, -0.121730154033, 0.154392627919, 0.219206161863, 0.0195372597215, -0.00806271599118, 2.43079764943e+12, 0.444498655945, 0.260298512737] 
+
+    # the emcee run that produced this 'most likely' posterior as an intermediate result was NOT including low-mass halos :-/ RIP
+    emceeparams = [0.0745144532323, 0.858069954263, 5.87230260006, 1.96353721838, 0.107385556409, 0.0221126800279, 0.0273660570926, 0.563533677496, 8.51523653643, 0.388320023513, 3.1423891774, 5.85848733881, 0.102879385215, 8.36754857925e-05, 0.612561051121, -0.101195537545, 0.13438834465, 0.180837918126, 0.0163591503975, -0.0139227815788, 3.00305723759e+12, 1.08131222464, 0.368861767907]
+    rf141 = experFromBroadMCMC(emceeparams, 'rf141', ngal=20)
+
+    # fakemcmc33 - including lower masses in the likelihood
+    emceeparams = [0.0615434193287, 1.0188697904, 2.71537731422, 2.8650882819, 0.126784188369, 0.0185776666524, 0.0224351900625, 0.506267601629, 4.91488161105, 0.431751909881, 3.47660964674, 5.20346226824, 0.0597290394181, 7.90700983682e-05, 0.651026074296, -0.0744182306864, 0.123672492022, 0.259861700898, 0.0114748421283, -0.0143883263752, 2.57979242747e+12, 0.969561683518, 0.404615667626] #, 1.12238263527]
+    rf142 = experFromBroadMCMC(emceeparams, 'rf142', ngal=20)
+
+    # fakemcmc32 - don't include the lower masses.
+    emceeparams = [0.0911888958652, 1.04655690451, 4.38325072714, 3.2518319456, 0.134721601083, 0.0253339527922, 0.0195856004897, 0.69093945893, 7.42660694634, 0.339106596995, 2.80373921479, 5.26695689595, 0.0622408843234, 8.92190488573e-05, 0.75398793696, -0.101800552071, 0.101885838734, 0.183527349299, 0.00998409814552, -0.0229489863927, 1.76964592889e+12, 1.09092880211, 0.371839664948] #, 1.08803217226]
+    rf143 = experFromBroadMCMC(emceeparams, 'rf143', ngal=20)
+
+    # keepin it 1600 - this is fakemcmc34 after ~1600 iterations.
+    emceeparams = [0.0696202889818, 2.36010095611, 1.19592519448, 3.80922040118, -0.331287157289, 0.16162232186, 0.0632291452063, 0.112694021741, 3.45596589733, 0.487314812337, 2.29321794439, 2.90572826728, 0.0759838285036, 0.00216076266301, 0.445410559116, 0.213309060707, 0.221933216054, 0.370702662448, 0.00848192935542, -0.10315237063, 2.33494750629e+12, 0.602354295423, 0.304498038927] #, 1.17790054244]
+    rf144 = experFromBroadMCMC(emceeparams, 'rf144', ngal=20)
+
+    # for comparison to rf144. This is from iteration ~400, of the same run, i.e. before the big jump.
+    emceeparams = [0.0645463323585, 1.24490023205, 1.37016152977, 3.37739992627, -0.333972689602, 0.135411790336, 0.045241077512, -0.101705141014, 1.42370069748, 0.224273418275, 2.01794607053, 2.3362673358, 0.0506343529443, 0.00113506777348, 0.437137064909, 0.158533010722, 0.100937381681, 0.292608054786, 0.0102875271548, -0.00833082266041, 1.05349338052e+12, 0.564760738996, 0.315726762435] #, 1.461132142]
+    rf145 = experFromBroadMCMC(emceeparams, 'rf145', ngal=20)
+
+    emceeparams = [0.0956469497757, 1.99285788932, 1.78714981237, 3.85725072693, -0.692176903981, 0.229933457174, 0.496815342413, 0.161039798449, 6.26550400742, 0.524210070726, 1.99388037894, 2.93784500968, 0.0496425558527, 0.00106066317858, 0.680680809064, 0.204087529469, 0.132989260954, 0.388495832368, 0.0101878682016, -0.287335836629, 1.39055446444e+12, 0.785719406143, 0.278149845856] #, 1.16169054047]
+    rf146 = experFromBroadMCMC(emceeparams, 'rf146', ngal=20)
+
+    # Just fit to the low masses! But uh, still run iwht the high masses, just to see what happens
+    emceeparams = [0.20377959675, 2.87483502867, 2.05176159435, 3.88073551669, -0.785769160474, 0.112272977122, 0.248641010924, -0.0347512596024, 2.20285162759, 0.256418374472, 0.836093042324, 1.13426050696, 0.0965334012358, 0.00189971250816, 0.0119955233538, 0.264882780791, 0.177874824271, 0.54469845242, 0.0107986304816, -0.297241409544, 1.57753338029e+12, 0.761841258858, 0.208645157021]#, 1.23650169849]
+    rf147 = experFromBroadMCMC(emceeparams, 'rf147', ngal=20)
+
+    # fakemcmc38 - only low masses, expand prior range to allow model flexibility to not crazily miss SMHM dramatically
+    emceeparams = [0.515999947529, 2.1513451284, 3.37498168545, 2.75513209655, -1.1887348189, 0.199053703065, 0.114806918599, -0.341514394344, 1.46255785778, 0.260182805024, 2.5870352537, 1.69162963992, 0.0553965699285, 0.00226329083285, 0.455971884528, 0.440146053141, 0.127098283096, 0.450881309485, 0.016617152179, 0.00839484065324, 2.07362390011e+12, 0.585585599938, 0.189414491515] #, 1.03161566146]
+    rf148 = experFromBroadMCMC(emceeparams, 'rf148', ngal=20)
+    # 148 went from 8.5 to 13 in logMh0 - this is a bit unfair since the fit was only done from 9 to 11. 149 uses that range to see if the fits look as awful.
+    rf149 = experFromBroadMCMC(emceeparams, 'rf149', ngal=20)
+
+    import pickle
+    def fairPosteriorSample(bn, pikfilename, nsamp, ngal, mass):
+        #accHistories= list(np.random.random(10))
+        accHistories = None
+        arr = pickle.load(open(pikfilename,'r'))
+        exps = []
+        # if we've been given a list o f masses, assume we want a different random sample at each mass.
+        if hasattr(mass,'__len__'):
+            assert len(mass)==nsamp
+            masses = mass
+        else:
+            masses = np.ones(nsamp)*mass
+        for i in range(nsamp):
+            j = int(np.random.uniform()*np.shape(arr)[0]) # pick a random integer!
+            emceeparams = arr[j,:-1]
+            exps.append( experFromBroadMCMC(emceeparams, bn+'_'+str(i).zfill(2), ngal=ngal, accHistories=accHistories, mass=masses[i]) )
+        return exps
+
+    rf150 = fairPosteriorSample('rf150','py/fakemcmc39_filteredposterior.pickle', 4, 10, 10.8)
+    rf151 = fairPosteriorSample('rf151','py/fakemcmc40_filteredposterior.pickle', 4, 10, 12.0)
+    rf152 = fairPosteriorSample('rf152','py/fakemcmc41_filteredposterior.pickle', 4, 10, 13.0)
+    rf153 = fairPosteriorSample('rf153','py/fakemcmc42_filteredposterior.pickle', 4, 10, 10.0)
+    rf154 = fairPosteriorSample('rf154','py/fakemcmc43_filteredposterior.pickle', 4, 10, 11.0)
+
+            
+    rf160 = fairPosteriorSample('rf160','py/fakemcmc60_filteredposterior.pickle', 10, 1, 10.0)
+    rf161 = fairPosteriorSample('rf161','py/fakemcmc61_filteredposterior.pickle', 10, 1, 11.0)
+    rf162 = fairPosteriorSample('rf162','py/fakemcmc62_filteredposterior.pickle', 10, 1, 12.0)
+    rf163 = fairPosteriorSample('rf163','py/fakemcmc63_filteredposterior.pickle', 10, 1, 13.0)
+
+
+    rf170 = fairPosteriorSample('rf170','py/fakemcmc70_filteredposterior.pickle', 10, 1, 10.0)
+
+    rf167 = fairPosteriorSample('rf167','py/fakemcmc61_filteredposterior.pickle', 10, 1, 11.0)
+    rf168 = fairPosteriorSample('rf168','py/fakemcmc62_filteredposterior.pickle', 10, 1, 12.0)
+    rf165 = fairPosteriorSample('rf165','py/fakemcmc61_filteredposterior.pickle', 3, 1, 11.0)
+    rf166 = fairPosteriorSample('rf166','py/fakemcmc62_filteredposterior.pickle', 3, 1, 12.0)
+    for q in range(len(rf165)):
+        rf165[q].irregularVary('CloudHeatingRate', 1.0)
+        rf166[q].irregularVary('CloudHeatingRate', 1.0)
+
+    # ok, let's set up a sensible grid. rf180 is a fairPosteriorSample at 10^11, and rf181 is a fairPosteriorSample at 10^12 with CHR=1.
+    # rf182(3) are copies with CHR=3
+    # rf184(5) are copies with CHR=-.3
+    # rf186(7) are copies with CHR=1 but no spirals/GI heating
+    # rf188(9) are copies with no SN turbulent injection (i.e. the other source of gas phase turbulence)
+    # rf190(1) are copies with spiral heating, but not gas GI.
+    # rf192(3) are copies with identically zero CHR - This may be qual. different from 0.1 if it's a self-regulating process...
+    rf180 = fairPosteriorSample('rf180', 'py/fakemcmc61_filteredposterior.pickle', 4, 1, 11.0)
+    rf181 = fairPosteriorSample('rf181', 'py/fakemcmc62_filteredposterior.pickle', 4, 1, 12.0)
+    for q in range(len(rf180)):
+        rf180[q].irregularVary('CloudHeatingRate', 1.0)
+        rf181[q].irregularVary('CloudHeatingRate', 1.0)
+    rf182 = NewSetOfExperiments(rf180, 'rf182')
+    rf183 = NewSetOfExperiments(rf181, 'rf183')
+    rf184 = NewSetOfExperiments(rf180, 'rf184')
+    rf185 = NewSetOfExperiments(rf181, 'rf185')
+    rf186 = NewSetOfExperiments(rf180, 'rf186')
+    rf187 = NewSetOfExperiments(rf181, 'rf187')
+    rf188 = NewSetOfExperiments(rf180, 'rf188')
+    rf189 = NewSetOfExperiments(rf181, 'rf189')
+    rf190 = NewSetOfExperiments(rf180, 'rf190')
+    rf191 = NewSetOfExperiments(rf181, 'rf191')
+    rf192 = NewSetOfExperiments(rf180, 'rf192')
+    rf193 = NewSetOfExperiments(rf181, 'rf193')
+    for q in range(len(rf180)):
+        rf182[q].irregularVary('CloudHeatingRate',10.0)
+        rf183[q].irregularVary('CloudHeatingRate',10.0)
+
+        rf184[q].irregularVary('CloudHeatingRate',0.1)
+        rf185[q].irregularVary('CloudHeatingRate',0.1)
+
+        rf186[q].irregularVary('Qlim',0.02)
+        rf186[q].irregularVary('fixedQ',0.01)
+        rf187[q].irregularVary('Qlim',0.02)
+        rf187[q].irregularVary('fixedQ',0.01)
+
+        rf188[q].irregularVary('energyInjectionFactor',0.0)
+        rf189[q].irregularVary('energyInjectionFactor',0.0)
+
+        rf190[q].irregularVary('fixedQ',0.01)
+        rf191[q].irregularVary('fixedQ',0.01)
+
+        rf192[q].irregularVary('CloudHeatingRate',-1)
+        rf193[q].irregularVary('CloudHeatingRate',-1)
+
+    # These experiments start with the posterior sample from 10^11 or 10^12, and systematically vary the halo mass up (down) resp.
+    rf194 = NewSetOfExperiments(rf180, 'rf194')
+    rf195 = NewSetOfExperiments(rf181, 'rf195') 
+    rf196 = NewSetOfExperiments(rf181, 'rf196')
+    rf197 = NewSetOfExperiments(rf181, 'rf197')
+    rf198 = NewSetOfExperiments(rf181, 'rf198')
+    rf199 = NewSetOfExperiments(rf181, 'rf199')
+    
+    for q in range(len(rf194)):
+        rf194[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.0,12.0,10)))
+        rf195[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.0,12.0,10)))
+        rf196[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.5,13.0,15)))
+        rf197[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.5,13.0,15)))
+        rf197[q].irregularVary('Qlim', 0.5)
+        rf197[q].irregularVary('fixedQ', 0.45)
+        rf198[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.5,13.0,15)))
+        rf198[q].irregularVary('Qlim', 1.5)
+        rf198[q].irregularVary('fixedQ', 1.4)
+        rf199[q].irregularVary('Mh0', 3.0e12)
+        rf199[q].irregularVary('Qlim', np.linspace(0.5,3.0,10), 6)
+        rf199[q].irregularVary('fixedQ', 0.05+np.linspace(0.5,3.0,10), 6)
+    rf200 = NewSetOfExperiments(rf198, 'rf200')
+    rf201 = NewSetOfExperiments(rf198, 'rf200')
+    for q in range(len(rf200)):
+        rf200[q].irregularVary('NPassive', 100)
+        rf201[q].irregularVary('NPassive', 20)
+        rf201[q].irregularVary('dbg', 2**0 + 2**1 + 2**2 + 2**4 + 2**5 + 2**6 + 2**7 + 2**10 + 2**16 )
+
+    rf202 = NewSetOfExperiments(rf181, 'rf202')
+    for q in range(len(rf202)):
+        rf202[q].irregularVary('Mh0', 4.0e11)
+        rf202[q].irregularVary('NPassive', 100)
+    ## VARY the cloud heating rate
+    rf203 = NewSetOfExperiments(rf202, 'rf203')
+    rf204 = NewSetOfExperiments(rf202, 'rf204')
+    rf205 = NewSetOfExperiments(rf202, 'rf205')
+    # Vary spiral heating
+    rf206 = NewSetOfExperiments(rf202, 'rf206') # weak spirals & GI
+    rf207 = NewSetOfExperiments(rf202, 'rf207') # strong spirals & GI
+    rf208 = NewSetOfExperiments(rf202, 'rf208') # default spirals & weak GI
+    for q in range(len(rf202)):
+        rf203[q].irregularVary('CloudHeatingRate', 0)
+        rf204[q].irregularVary('CloudHeatingRate', 0.1)
+        rf205[q].irregularVary('CloudHeatingRate', 10.0)
+        rf206[q].irregularVary('Qlim',0.1)
+        rf206[q].irregularVary('fixedQ',0.07)
+        rf207[q].irregularVary('Qlim',5.0)
+        rf207[q].irregularVary('fixedQ',4.9)
+
+        rf208[q].irregularVary('fixedQ',0.1)
+
+    rf210 = fairPosteriorSample('rf210', 'py/fakemcmc61_filteredposterior.pickle', 8, 1, 11.0)
+    rf211 = fairPosteriorSample('rf211', 'py/fakemcmc62_filteredposterior.pickle', 8, 1, 12.0)
+    for q in range(len(rf210)):
+        rf210[q].irregularVary('Mh0', np.power(10.0,np.linspace(10.5,11.6,10)))
+        rf211[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.4,12.5,10)))
+
+    rf210 = fairPosteriorSample('rf210', 'py/fakemcmc61_filteredposterior.pickle', 8, 1, 11.0)   
+    rf211 = fairPosteriorSample('rf211', 'py/fakemcmc62_filteredposterior.pickle', 8, 1, 12.0)
+
+
+    rf212 = fairPosteriorSample('rf212', 'py/fakemcmc61_filteredposterior.pickle', 80, 1, np.linspace(10.5,11.6,80))  
+    rf213 = fairPosteriorSample('rf213', 'py/fakemcmc62_filteredposterior.pickle', 80, 1, np.linspace(11.4,12.5,80))
+    rf214 = fairPosteriorSample('rf214', 'py/fakemcmc63_filteredposterior.pickle', 40, 1, np.linspace(12.4,13.1,40))
+    rf215 = fairPosteriorSample('rf215', 'py/fakemcmc62_filteredposterior.pickle', 80, 1, np.linspace(10.5,11.6,80))
+
+
+    accHistories= list(np.random.random(10))
+    q16_11 = [ -1.05088846,   0.13834354,   0.31405994,   0.62888325,  -0.32617801, 0.10334779,  -1.08774886,  -1.36700699,  -0.72495458,   0.05863257, 0.05523378,  -0.02084213,  -1.63043691,  -3.59637562,   0.87521381, -0.1465907,   -1.72537571,   0.26181371,  -2.20546932,  -0.11316338, 11.67381493,  -0.7385748,   0.0950592,    1.00127159]
+    q50_11 = [ -0.75225373,   0.45321502,   0.46782298,   0.76024269,  -0.08407033, 0.29444897,  -0.7869128,   -0.94169641,  -0.07408208,   0.18528492, 0.25329861,   0.20123192,  -1.33669819,  -2.75274658,   0.96226019, -0.09557928,  -1.26589114,   0.54808871,  -1.88592761,  -0.03303261, 12.16116276,  -0.51294004,   0.24137744,   1.00588415]
+    q84_11 = [ -5.31343218e-01,   7.04676739e-01,   6.41505136e-01,   8.51990498e-01, 1.09689704e-01,   4.75616244e-01,  -5.38057130e-01,  -6.61245355e-01, 4.64334953e-01,   3.84721003e-01,   4.51690725e-01,   3.73886719e-01, -1.07275236e+00,  -2.34948285e+00,   9.91483935e-01,  -4.66504302e-02, -7.31073982e-01,   7.98163315e-01,  -1.61303625e+00,  -1.59384457e-03, 1.25208719e+01,  -2.64902796e-01,   3.88586961e-01,   1.01916248e+00]
+    q16_12 = [ -1.36099586,   0.03298742,   0.29537503,   0.2698089,   -0.01814452, 0.22143462,  -0.93141049,  -0.79859496,   0.02323836,   0.07596869, -0.1499827,   0.26161742,  -1.48297988,  -3.89795499,   0.79994738, -0.12257395,  -0.96105815,   0.17717399,  -2.21971403,  -0.0695584, 11.60562971,  -0.81459753,   0.23591057,   1.16630607]
+    q50_12 = [ -1.30058897e+00,   3.25076065e-01,   4.31974901e-01,   3.96614165e-01, 9.96626143e-02,   4.00773365e-01,  -6.30870927e-01,  -5.72767284e-01, 4.68393597e-01,   2.46160430e-01,   5.13649194e-02,   3.90923710e-01, -1.23601870e+00,  -2.96657207e+00,   8.62325898e-01,  -7.74131221e-02, -6.49582344e-01,   4.41299084e-01,  -1.91255742e+00,   1.69291642e-03, 1.20797964e+01,  -5.92329706e-01,   3.43964869e-01,   1.21613750e+00]
+    q84_12 = [ -1.27346146,   0.60657344,   0.62929767,   0.4998368,    0.24831494, 0.53554881,  -0.42147337,  -0.4717248,    0.75997139,   0.52233543, 0.30914725,   0.4358157,   -1.00359962,  -2.29529492,   0.92822664, -0.03526599,  -0.38877263,   0.73501689,  -1.61556825,   0.02899324, 12.51111342,  -0.31235696,   0.4438137,    1.26802409]
+    list_of_emceeparams = [q50_11[:-1], q50_12[:-1]]
+    list_of_news = [q84_11[:-1], q84_12[:-1]]
+    list_of_masses = [np.power(10.0, np.linspace(10.5,11.5,10)), np.power(10.0, np.linspace(11.5,12.5,10)) ]
+    experSuiteFromBroadMCMC(list_of_emceeparams, list_of_news, 'rf220', list_of_masses, ngal=10, accHistories=accHistories) 
 
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

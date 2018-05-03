@@ -13,7 +13,7 @@ def runner(basename, fidname, fh=0.0):
     fid = ro.Experiment(fidname)
     MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig']
     fid.read(keepOnly= MONDargs, fh=fh, keepStars=True)
-    experimentNameList = sorted(glob.glob( '../analysis/'+basename+'?'))
+    experimentNameList = sorted(glob.glob( '../analysis/'+basename+'*'))
     experimentList = []
     for exp in experimentNameList:
         experimentList.append( ro.Experiment(exp[12:]) ) # 12 gets rid of the "../analysis/" part of the string used to find all the relevant models.
@@ -294,8 +294,8 @@ def singlePanel(xvar, yvar, zind, axIn, featureNames, colorNames, fidExper, expe
 
     meanDiffs = np.zeros(len(experimentList)) ## the avg diff for each experiment
     for i in range(len(experimentList)):
-        if yvar=='sfZ':
-            pdb.set_trace()
+        #if yvar=='sfZ':
+        #    pdb.set_trace()
         counter=0
         for j in range(4): #### only include the first 6 galaxies in the average!
             if diffs[j,i]>-0.5: 
@@ -338,5 +338,6 @@ def singlePanel(xvar, yvar, zind, axIn, featureNames, colorNames, fidExper, expe
 
 if __name__ =='__main__':
     #runner('rf100', 'rf100fid', fh=0.4)
-    runner('rf109', 'rf107', fh=0.533)
+    #runner('rf109', 'rf107', fh=0.533)
+    runner('rf220_', 'rf220fid')
 

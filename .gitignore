@@ -23,3 +23,6 @@ estd.*
 triangle.py
 !py/*.py
 *.DS_Store
+*.tex
+*.txt
+*.glu

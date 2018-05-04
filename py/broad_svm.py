@@ -341,7 +341,10 @@ def residualsFromGidget(bn, fh=0.0, fsigma=1.0):
         return [],[]
 
 print "Reading models.. this could take a sec"
-models80 = pickle.load( open( 'rfnt81_0.pickle', 'r') )
+#models80 = pickle.load( open( 'rfnt81_0.pickle', 'r') )
+#models30 = pickle.load( open( 'rfnt30_0.pickle', 'r') )
+#models60 = pickle.load( open( 'rfnt60_0.pickle', 'r') )
+#models90 = pickle.load( open( 'rfnt90_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -520,7 +523,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
 
 def lnlikelihoodFromPickle(emceeparams, models=None):
     nmh = 20
-    MhGrid = np.power(10.0, np.linspace(10.0,13.0,nmh)) ## try out only going up to 10^13
+    MhGrid = np.power(10.0, np.linspace(8.5,13.0,nmh)) ## try out only going up to 10^13
     lnlik = 0.0
 
     for k,Mh in enumerate(MhGrid):
@@ -566,14 +569,14 @@ def lnlikelihood(emceeparams, models=None):
         #for j in range(80):
         #    if j in neededModels:
         #        Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
-	Y_eval[0,:] = predictFill(models80, X1, k)[0]
+	Y_eval[0,:] = predictFill(models90, X1, k)[0]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
         fsigma = emceeparams[-1]
         lnlik += np.sum( globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True) )
 
 
-    print "Returning lnlik = ", lnlik, "for emceeparams ",emceeparams
+    print "Returning lnlik = ", lnlik #, "for emceeparams ",emceeparams
     if not np.isfinite(lnlik):
         return -np.inf
     return lnlik
@@ -581,9 +584,9 @@ def lnlikelihood(emceeparams, models=None):
 def sampleFromGaussianBall():
     ## the max posterior probability estimated from the previous run.
     #xmax = [  3.77274603e-02, 7.60850948e-01, 1.49261405e+00, 8.96710122e-01, 3.24127453e-01, -2.95591681e-01, 2.35329503e-02, -2.29120438e+00, 4.90155667e+01, 3.62467850e-01, 2.42953261e+00, 2.44659997e+00, 7.99493942e-02, 4.37735172e-05, 4.81805279e-01, 2.75940879e-01, 3.17078465e+00, 1.74401966e-01, 1.97481061e-02,-1.37921564e-02, 2.76371012e+12, 4.14894397e+00, 2.17629370e-01]
-    # mode from fakemcmc24co2aftersplit
-    #xmax = [ 0.114785922343, 0.656817173378, 2.66103429214, 0.436075435026, 0.112192431035, -0.129416709889, 0.0358907871528, -1.28978511023, 4.18110531509, 0.494182821752, 3.70658492364, 4.94680017104, 0.0801370653293, 6.31417046843e-05, 0.394211795435, -0.165214045377, 3.22479494404, 0.176906243046, 0.0221127418329, -0.0104729675354, 3.13453091307e+12, 2.99361371481, 0.233608662191, 1.5 ]
-    xmax = [0.107044411658, 0.632451112225, 3.03941361824, 0.458489799671, 0.0873395263375, -0.129664779224, 0.0314327774151, -0.741925594195, 4.25189694105, 0.521612097208, 3.96362507478, 5.33079838753, 0.0788867443428, 6.0460105006e-05, 0.387620494897, -0.164813202629, .15329492433, 0.175536767129, 0.0244044733784, -0.00979051171502, 3.54112659475e+12, 1.0, 0.236278095008, 1.27536191887]
+
+    ## alphaR, alphaRSt0, alphaG0, chifg0, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope, fsigma
+    xmax = [0.1,  1.5,  1.5,  2.0, -0.3, 0.2, 0.1, -0.4, 1.0, 0.1, 1.0, 2.0, 0.03, 1.0e-3, 0.5, 0.1, 0.1, 0.2, 1.0e-2, -0.01, 1.0e12, 1.0, 0.3, 1.5]
     draw = []
     for i in range(len(xmax)):
         draw.append( xmax[i]*(1.0 + 0.001*np.random.normal()) )
@@ -598,31 +601,31 @@ def sampleFromGaussianBall():
 
 
 
-narrowFac = 0.5
+narrowFac = 1.0
 globalPrior = analyticDistributions.jointDistribution(\
-        [ analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0)**2.0], 'alphaR' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2 * np.log(2.0)**2.0], 'alphaRSt0' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2* np.log(2.0)**2.0], 'alphaRGa0' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2* np.log(2.0)**2.0], 'chifg0' ), \
-        analyticDistributions.simpleDistribution( 'normal', [0,narrowFac**2*  1.0**2.0], 'muColScaling'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.2, narrowFac**2* 0.2**2.0], 'muFgScaling'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), narrowFac**2* np.log(10.0)**2.0], 'muNorm'), \
-        analyticDistributions.simpleDistribution( 'normal', [-.5, narrowFac**2* 1.0**2.0], 'muMhScaling'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), narrowFac**2* np.log(10.0)**2.0], 'ZIGMfac'), \
+        [ analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.141), np.log(3.0)**2.0], 'alphaR', trunc=2.0 ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2 * np.log(2.0)**2.0], 'alphaRSt0', trunc=2.0 ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2* np.log(2.0)**2.0], 'alphaRGa0', trunc=2.0 ), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), narrowFac**2* np.log(2.0)**2.0], 'chifg0', trunc=2.0 ), \
+        analyticDistributions.simpleDistribution( 'normal', [0,narrowFac**2*  1.0**2.0], 'muColScaling', trunc=2.0 ), \
+        analyticDistributions.simpleDistribution( 'normal', [0.2, narrowFac**2* 0.2**2.0], 'muFgScaling', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), narrowFac**2* np.log(10.0)**2.0], 'muNorm', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'normal', [-.5, narrowFac**2* 1.0**2.0], 'muMhScaling', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), narrowFac**2* np.log(10.0)**2.0], 'ZIGMfac', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'beta', [1,1], 'zmix' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), narrowFac**2* np.log(2.0)**2.0], 'eta'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), narrowFac**2* np.log(2.0)**2.0], 'Qf'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.05), narrowFac**2* np.log(2.0)**2.0], 'alphaMRI'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), narrowFac**2* np.log(10.0)**2.0], 'epsquench'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), narrowFac**2* np.log(2.0)**2.0], 'eta', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), narrowFac**2* np.log(2.0)**2.0], 'Qf', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.05), narrowFac**2* np.log(2.0)**2.0], 'alphaMRI', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), narrowFac**2* np.log(10.0)**2.0], 'epsquench', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.3, narrowFac**2* 0.3**2.0], 'conRF'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(.1), narrowFac**2* np.log(3.0)**2.0], 'kZ'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, narrowFac**2* 0.3**2.0], 'conRF', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(.1), narrowFac**2* np.log(3.0)**2.0], 'kZ', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'beta', [1,2], 'xiREC'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), narrowFac**2* np.log(2.0)**2.0], 'epsff'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.0, narrowFac**2* 0.3**2], 'scaleAdjust'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), narrowFac**2* np.log(3.0)**2.0], 'mquench'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), narrowFac**2* np.log(3.0)**2.0], 'enInjFac'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.3, narrowFac**2* 0.2**2], 'chiZslope'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), narrowFac**2* np.log(2.0)**2.0], 'epsff', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'normal', [0.0, narrowFac**2* 0.3**2], 'scaleAdjust', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), narrowFac**2* np.log(3.0)**2.0], 'mquench', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), narrowFac**2* np.log(3.0)**2.0], 'enInjFac', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, narrowFac**2* 0.2**2], 'chiZslope', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'pareto', [3.0], 'fsigma') ] )
 
 
@@ -661,7 +664,7 @@ def lnprob(emceeparams, models=None):
     #pr = lnprior(emceeparams)
     pr = globalPrior.lndensity(emceeparams)
     if np.isfinite(pr):
-        return lnlikelihoodFromPickle(emceeparams, models=models) + pr
+        return lnlikelihood(emceeparams, models=models) + pr
         #return constlikelihood(emceeparams) + pr
     return pr
 
@@ -730,6 +733,10 @@ def printPriorOffsets(emceeparams):
 #        return -np.inf
 #    return accum
 
+def trimRestart(restart, frac=0.8):
+    niter = np.shape(restart['chain'])[1]
+    restart['chain'] = restart['chain'][:,int((1-frac)*niter):,:]
+    return restart
 
 def saveRestart(fn,restart):
     with open(fn,'wb') as f:
@@ -1344,9 +1351,9 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 24, 2000 
+    ndim, nwalkers = 24, 4000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc31_restart.pickle'  # reduce prior on kappaz by factor of 10 (in location parameter)
+    fn = 'fakemcmc38_restart.pickle'  # reduce prior on kappaz by factor of 10 (in location parameter); include more masses in the likelihood function
     restart = {}
     nsteps = 3000 
     #p0 = [ globalPrior.sample() for w in range(nwalkers) ]
@@ -1388,7 +1395,9 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)#, args=[models])
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=[models])
     
+    counter =0
     for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], rstate0=restart['state']) :
+        counter+=1
         pos, prob, state = result
 
         #restart['acor'] = sampler.acor[:] # autocorr length for each param (ndim)
@@ -1403,12 +1412,20 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
             print np.shape(restart['chain']), np.shape(sampler.chain[:,-1,:]), np.shape(sampler.chain)
             print restart['mcmcRunCounter'], restart['iterationCounter']
             #restart['chain'] = np.concatenate((restart['chain'], sampler.chain[:,-1,:]), axis=1)
-            print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(np.expand_dims(pos,1))
+            print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(np.expand_dims(pos,1)), counter
             restart['chain'] = np.concatenate((restart['chain'], np.expand_dims(pos, 1)),axis=1)
             restart['allProbs'] = np.concatenate((restart['allProbs'], np.expand_dims(prob, 1)),axis=1)
 
         
-        saveRestart(fn,restart)
+        if counter%10==1:
+            #try:
+            print "Attempting to save checkpoint, counter=",counter
+	    saveRestart('int'+str(counter).zfill(5)+'_'+fn, restart) # save an actual checkpoint file instead of writing over the same one every timestep.
+           # saveRestart(fn,restart)
+            #except:
+            #    print "WARNING: checkpoint failed, trimming the chain and trying again"
+            #    restart = trimRestart(restart,0.8)
+            #    saveRestart('int'+str(counter).zfill(5)+'_'+fn, restart) 
 
 
 
@@ -1455,6 +1472,8 @@ def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
             res = resLimit*np.sign(resThis)
         #print "dbg singleRelationLikelihood: ", lik, likThis, q16, q50, q84
         #print "dbg singleRelationLikelihood2: ", x,y,datasets
+    #if lik<=0.0:
+    #    pdb.set_trace()
     return np.log(lik),res
 
 
@@ -1602,7 +1621,7 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
 
     lnlik[:,26] += singleRelationLikelihood(10.0**(logMst0+loggasToStellarRatioHIz0),10.0**logbroeilsHIz0,['broeils97'],fsigma)[srlInd]
 
-    lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
+    #lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
 
     lnlik[:,28] += singleRelationLikelihood(10.0**logMst0,10.0**logvPhi22z0,['miller11'])[srlInd]
 
@@ -1616,8 +1635,11 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
     #worstfit = np.argmin(lnlik[0,:])
     #print "Worst fit ", worstfit
 
-    if np.any(np.isnan(lnlik)):
+    if np.any(np.isnan(lnlik)) :
         pdb.set_trace()
+    if np.any(np.logical_not(np.isfinite(lnlik))):
+        pass
+        #pdb.set_trace()
 
     if returnlikelihood:
         # should be an array with one element per mass in our array of test galaxies 

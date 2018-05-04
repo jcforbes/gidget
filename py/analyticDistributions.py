@@ -2,92 +2,101 @@ import numpy as np
 import scipy.stats
 import copy
 
-def lnbetadensity(theta, a,b):
+def lnbetadensity(theta, trunc, a,b):
     if theta<0 or theta>1:
         return -np.inf
     return (a-1.0)*np.log(theta) + (b-1.0)*np.log(1.0-theta)
-def lngammadensity(theta, a,b):
+def lngammadensity(theta, trunc, a,b):
     if theta<0:
         return -np.inf
     return (a-1.0)*np.log(theta) - b*theta
-def lnlognormaldensity(theta, mean, var):
+def lnlognormaldensity(theta, trunc, mean, var):
     if theta<=0:
         return -np.inf
+    if np.abs((np.log(theta)-mean)/np.sqrt(var)) > trunc:
+        return -np.inf
     return -np.log(theta) - 0.5*(np.log(theta) - mean)**2.0/var
-def lnnormaldensity(theta, mean, var):
+def lnnormaldensity(theta, trunc, mean, var):
+    if np.abs((theta-mean)/np.sqrt(var)) > trunc:
+        return -np.inf
     return -0.5*(theta-mean)**2.0/var
-def lnloguniformdensity(theta, a, b):
+def lnloguniformdensity(theta, trunc, a, b):
     if theta<a or theta>b:
         return -np.inf
     return -np.log(theta)
-def lnuniformdensity(theta, a, b):
+def lnuniformdensity(theta, trunc, a, b):
     if theta<a or theta>b:
         return -np.inf
     return 0.0
-def lnparetodensity(theta, a):
+def lnparetodensity(theta, trunc, a):
     if theta<1.0:
         return -np.inf
     return np.log(a) - (a+1.0)*np.log(theta)
 
-def samplefrombetadensityTrans(u,a,b):
+
+def samplefrombetadensityTrans(u, trunc,a,b):
     assert a>0 and b>0
     return scipy.stats.beta.ppf(u, a,b)
-def samplefromgammadensityTrans(u,a,b):
+def samplefromgammadensityTrans(u, trunc,a,b):
     assert a>0 and b>0
     return scipy.stats.gamma.ppf(u, a, scale=1.0/b)
     #return np.random.gamma(a,1.0/b) # numpy's definition of the gamma uses e^{-x/scale}/scale^a
-def samplefromlognormaldensityTrans(u,mean,var):
+def samplefromlognormaldensityTrans(u, trunc,mean,var):
     assert var>0
-    return np.exp(samplefromnormaldensityTrans(u,mean,var))
-def samplefromnormaldensityTrans(u,mean,var):
+    return np.exp(samplefromnormaldensityTrans(u,mean,var,trunc))
+def samplefromnormaldensityTrans(u, trunc,mean,var):
     assert var>0
-    return scipy.stats.norm.ppf(u,mean,np.sqrt(var))
+    return scipy.stats.truncnorm.ppf(u,-trunc,trunc,mean,np.sqrt(var))
     #return np.random.normal(mean,np.sqrt(var))
-def samplefromloguniformdensityTrans(u,a,b):
+def samplefromloguniformdensityTrans(u, trunc,a,b):
     assert b>a
     assert a>0
     return a*(b/a)**u
     #return a*(b/a)**np.random.uniform()
-def samplefromuniformdensityTrans(u,a,b):
+def samplefromuniformdensityTrans(u, trunc,a,b):
     assert b>a
     return (b-a)*u+a
     #return np.random.uniform(a,b)
-def samplefromparetodensityTrans(u,a):
+def samplefromparetodensityTrans(u, trunc,a):
     assert a>0.0
     return scipy.stats.pareto.ppf(u, a )
     #return np.random.paretoTrans(a)
 
 
-def samplefrombetadensity(a,b):
+def samplefrombetadensity(trunc,a,b):
     assert a>0 and b>0
     return np.random.beta(a,b)
-def samplefromgammadensity(a,b):
+def samplefromgammadensity(trunc,a,b):
     assert a>0 and b>0
     return np.random.gamma(a,1.0/b) # numpy's definition of the gamma uses e^{-x/scale}/scale^a
-def samplefromlognormaldensity(mean,var):
+def samplefromlognormaldensity(trunc,mean,var):
     assert var>0
-    return np.exp(samplefromnormaldensity(mean,var))
-def samplefromnormaldensity(mean,var):
+    return np.exp(samplefromnormaldensity(trunc,mean,var))
+def samplefromnormaldensity(trunc,mean,var):
     assert var>0
-    return np.random.normal(mean,np.sqrt(var))
-def samplefromloguniformdensity(a,b):
+    ret = np.random.normal(mean,np.sqrt(var))
+    while np.abs((ret-mean)/np.sqrt(var))>trunc:
+	ret = np.random.normal(mean,np.sqrt(var))
+    return ret
+def samplefromloguniformdensity(trunc,a,b):
     assert b>a
     assert a>0
     return a*(b/a)**np.random.uniform()
-def samplefromuniformdensity(a,b):
+def samplefromuniformdensity(trunc,a,b):
     assert b>a
     return np.random.uniform(a,b)
-def samplefromparetodensity(a):
+def samplefromparetodensity(trunc,a):
     assert a>0.0
     return np.random.pareto(a)+1.0
 
 class simpleDistribution:
     ''' A little wrapper for a 1D distribution. Give it the name and parameters of the distribution
         you want to use, and then later you can sample from this distribution or get the ln of the density at a given point.'''
-    def __init__(self, token, parameters,name):
+    def __init__(self, token, parameters,name, trunc=10.0):
         self.token=token # specify the family of analytic distribution to use
         self.name=name # store a human-recognizable name for this variable.
         self.parameters=copy.deepcopy(parameters)
+        self.trunc=trunc
         if token=='beta':
             assert len(parameters)==2
             self.samp = samplefrombetadensity
@@ -127,11 +136,11 @@ class simpleDistribution:
             print "Didn't recognize the requested token", token
             raise ValueError
     def sample(self):
-        return self.samp(*self.parameters)
+        return self.samp(self.trunc,*self.parameters)
     def sample_transform(self,u):
-        return self.samp_trans(u,*self.parameters)
+        return self.samp_trans(u,self.trunc,*self.parameters)
     def lndensity(self, x):
-        return self.dens(x,*self.parameters)
+        return self.dens(x,self.trunc, *self.parameters)
 
 
 class jointDistribution:

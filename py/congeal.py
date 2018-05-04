@@ -30,10 +30,14 @@ for k,si in enumerate(SIs):
     arr[:len(thisSI),k] = thisSI[:]
     arr[len(thisSI):,k] = inputs[:]
 
+    if k%3000==10:
+        print "Progress! ",k,"/",len(SIs)
+        np.savetxt( 'broad24q_to_lasso.txt', arr.T )
+
 counter = np.ones(len(SIs))
 successes = np.sum(counter[ arr[-1003,:]>0 ])
 print "Success rate: ", successes, " of ",len(counter)
     
-np.savetxt( 'broad24partial_to_lasso.txt', arr.T )
+np.savetxt( 'broad24q_to_lasso.txt', arr.T )
 
 

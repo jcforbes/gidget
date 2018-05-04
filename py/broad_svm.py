@@ -6,7 +6,7 @@ import pickle
 import matplotlib.pyplot as plt
 import pdb
 import emcee
-from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold
+from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold, preprocessing
 
 import analyticDistributions
 
@@ -27,7 +27,7 @@ nRadii=20
 nz=4
 nvars = len(logVars)
 
-nAccrBins = 8  # number of time bins into which to average accretion history
+nAccrBins = 16  # number of time bins into which to average accretion history
 np.random.seed(1487)
 randomFactorsKey01 = np.random.random(size=(50,nAccrBins)) 
 
@@ -54,19 +54,19 @@ class fntModel:
         self.randomFactors = randomFactors
     def predict(self, x):
         return self.ytr.inverseTransform( self.model.predict( self.xtr.transform(x)))
-    def predictFill(self,x):
-        if np.shape(x)[1]<len(self.xtr.minxps):
-            tofill =  len(self.xtr.minxps) - np.shape(x)[1]
-            fillers = np.random.random(size=(np.shape(x)[0], tofill))
-            thisx = np.vstack([x.T, fillers.T]).T
-            transformed_thisx = self.xtr.transform(thisx)
-            #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
-            transformed_thisx[:,-tofill:] = fillers[:,:]
-            pred = self.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
-            yinv = self.ytr.inverseTransform(pred)
-            return yinv
-        else:
-            return self.predict(x)
+#    def predictFill(self,x):
+#        if np.shape(x)[1]<len(self.xtr.minxps):
+#            tofill =  len(self.xtr.minxps) - np.shape(x)[1]
+#            fillers = np.random.random(size=(np.shape(x)[0], tofill))
+#            thisx = np.vstack([x.T, fillers.T]).T
+#            transformed_thisx = self.xtr.transform(thisx)
+#            #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
+#            transformed_thisx[:,-tofill:] = fillers[:,:]
+#            pred = self.model.predict( transformed_thisx ).reshape(np.shape(x)[0],1)
+#            yinv = self.ytr.inverseTransform(pred)
+#            return yinv
+#        else:
+#            return self.predict(x)
 
 def predictFill( model, x, rfkey):
     if np.shape(x)[1]<len(model.xtr.minxps):
@@ -86,22 +86,44 @@ def predictFill( model, x, rfkey):
 
 
 class xtransform:
-    def __init__(self, X_train):
+    def __init__(self, X_train, deg=-1):
         xps = X_train[:,:] # All physical parameters and 
+
         # now normalize ordinate variables so that we can sensibly evaluate distances
-        self.minxps = np.min(xps, axis=0)
+	self.scale = preprocessing.RobustScaler()
+        self.scale.fit(X_train)
+        self.deg = deg
+        if deg>1:
+            self.poly  = preprocessing.PolynomialFeatures(degree=deg, include_bias=False)
+            xps = self.poly.fit_transform(xps) # so that minxps and maxxps will include the additional columns... since they're used to decide how much filling to include :-/
+        self.minxps = np.min(xps, axis=0) # no harm in keeping these maybe?
         self.maxxps = np.max(xps, axis=0)
+            
     def transform(self, X_other):
-        minxpsTiled = np.tile( self.minxps, (np.shape(X_other)[0],1))
-        maxxpsTiled = np.tile( self.maxxps, (np.shape(X_other)[0],1))
-        return (X_other - minxpsTiled)/(maxxpsTiled-minxpsTiled)
+        #minxpsTiled = np.tile( self.minxps, (np.shape(X_other)[0],1))
+        #maxxpsTiled = np.tile( self.maxxps, (np.shape(X_other)[0],1))
+        #return (X_other - minxpsTiled)/(maxxpsTiled-minxpsTiled)
+        ret = self.scale.transform(X_other)
+        if self.deg>1:
+            ret = self.poly.fit_transform(ret)
+        return ret
     def inverseTransform(self, x_transformed):
-        minxpsTiled = np.tile( self.minxps, (np.shape(x_transformed)[0],1))
-        maxxpsTiled = np.tile( self.maxxps, (np.shape(x_transformed)[0],1))
-        return x_transformed*(maxxpsTiled-minxpsTiled) + minxpsTiled
+        #minxpsTiled = np.tile( self.minxps, (np.shape(x_transformed)[0],1))
+        #maxxpsTiled = np.tile( self.maxxps, (np.shape(x_transformed)[0],1))
+        #return x_transformed*(maxxpsTiled-minxpsTiled) + minxpsTiled
+        if self.deg>1:
+            return self.scale.inverse_transform(x_transformed[:,:len(self.scale.center_)]) # only inverse-transform the original elements.
+        return self.scale.inverse_transform(x_transformed)
     def inverseTransformK(self, x_transformed, k):
         ''' For when you only want the inverse transform of the kth element'''
-        return x_transformed*(self.maxxps[k]-self.minxps[k]) + self.minxps[k]
+        #return x_transformed*(self.maxxps[k]-self.minxps[k]) + self.minxps[k]
+        if self.deg>1:
+            raise ValueError
+        dummy = np.zeros((len(x_transformed),len(self.scale.center_)))
+        dummy[:,k] = x_transformed
+        #pdb.set_trace()
+    
+        return self.inverseTransform(dummy)[:,k]
 
 def smooth2d(hist, n, width=1.0):
     newhist = np.zeros(np.shape(hist))
@@ -1402,7 +1424,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         pool.close()
 
 
-import observationalData
+#import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
 def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
     lik = 0
     resLimit = 7.9
@@ -2254,6 +2276,41 @@ def learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels,
 #            print " "
     return errors_train, errors_validate, errors_test, labels, feature_importances, theModel
 
+
+def learnPolyNet(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, l1_ratio=0.5, alpha=0.1, tol=1.0e-5):
+    
+    theModel= None
+    regNet = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
+
+
+    invalid = Ys_train!=Ys_train
+    if np.any(invalid):
+        pdb.set_trace()
+    try:
+	regNet.fit(X_train, Ys_train)
+        theModel = regNet 
+    except:
+        pdb.set_trace()
+
+    Y_pred_train = copy.deepcopy( theModel.predict(X_train) )
+    Y_pred_validate = copy.deepcopy( theModel.predict(X_validate) )
+    Y_pred_test = copy.deepcopy( theModel.predict(X_test) )
+    errors_train = np.std(Y_pred_train - Ys_train)
+    errors_validate = np.std(Y_pred_validate - Ys_validate) 
+    errors_test = np.std(Y_pred_test - Ys_test)
+    #feature_importances = copy.deepcopy( regRF.feature_importances_[:] )
+    #feature_importances = np.zeros((np.shape(X_train)[1]))
+    feature_importances = None
+    #theModel[k] = copy.deepcopy( regRF )
+    print "Finished learning for ntrees=0"
+#        else:
+#            print "Failed for k=",k, labels[k]
+#            print " "
+    return errors_train, errors_validate, errors_test, labels, feature_importances, theModel
+
+
+
+
 def learnLassoRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=1000, max_depth=10, max_features=10, min_per_leaf=5, alpha=0.1, tol=1.0e-5):
     theModel= None
     #regLasso = linear_model.Lasso(alpha=alpha, selection='random', tol=tol, max_iter=1e6, normalize=True, warm_start=True)
@@ -2780,7 +2837,6 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
     X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broad24q_to_lasso.txt', dbg=True) # no need to feed in arr, since we're just reading the data once.
 
-    toZero = [] ## zero out a few variables that we have trouble fitting. -- for now, let's keep everything and see how it goes
 
 
     nsamples = np.shape(X_train_orig)[0]
@@ -2822,7 +2878,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
     doK = range(ntargets)
     #doK = [200]
-    identifier='81'
+    identifier='90' # 90 is "Ridge Poly with alpha~10^-3, l1_fraction=0.5."
     for cvi in range(ncv):
         ### Select a random subset of the X_train to be the validation set for this iteration
         #validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1)) # this is almost right, but will produce some overlap the X_validate below will have fewer than nsamples*0.1
@@ -2841,7 +2897,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
 
         # Regularize the input and output vectors to give the learning algorithm an easier time
-        Xtra = xtransform(X_train)
+        Xtra = xtransform(X_train, deg=2)
         X_train = Xtra.transform(X_train)
         X_validate = Xtra.transform(X_validate)
         X_test = Xtra.transform(X_test_orig.copy()) 
@@ -2864,22 +2920,21 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
         if( not np.all(np.isfinite(Ys_train)) or np.any(np.isnan(Ys_train))):
             pdb.set_trace()
 
-        errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnLassoRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, max_features='auto', min_per_leaf=5, alpha=1.0e-5, tol=1.0e-5 )
+        #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnLassoRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, max_features='auto', min_per_leaf=5, alpha=1.0e-5, tol=1.0e-5 )
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnPolyNet(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, l1_ratio=0.5, alpha=0.008, tol=1.0e-5)
         #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=10, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
         if pick:
             pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt'+identifier+'_'+str(cvi)+'.pickle','w')) ### save the model -- fewer trees
 
         for k in doK:
             if analyze: 
-                feature_importances[:,k] += feature_importances_this[:]/float(ncv)
+                #feature_importances[:,k] += feature_importances_this[:]/float(ncv)
                 massmin, massmax = np.min(X_train[:,0]), np.max(X_train[:,0])
                 massminOrig, massmaxOrig = np.min(X_train_orig[:,0]), np.max(X_train_orig[:,0])
                 massbins = np.linspace(massminOrig, massmaxOrig, num=nmasses+1)
                 bincenters = (massbins[1:]+massbins[:-1])/2.0
-                try:
-                    acc = r2_score(Ys_validate[:,k], theModel.predict(X_validate)[:,k])
-                except:
-                    pdb.set_trace()
+	        #pdb.set_trace()
+                acc = r2_score(Ys_validate[:,k], theModel.predict(X_validate)[:,k])
                 r2scores[k]+=acc/float(ncv)
 
                 print "r2 score, errors: ",cvi, acc, errors_train_this, errors_validate_this, errors_test_this
@@ -3041,7 +3096,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
 
     #colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan', 'lightblue', 'grey', 'yellow', 'olive', 'magenta', 'lightgreen', 'maroon', 'lime', 'orchid', 'gold', 'deeppink', 'navy', 'moccasin', 'plum']*10
-    colors = ['r', 'b' 'purple', 'gray', 'magenta', 'green', 'navy']*50
+    colors = ['r', 'b', 'purple', 'orange', 'gray', 'magenta', 'green', 'navy']*50
     markers = ['o', 'v', '<', '>', '^', 's', 'p', 'h', 'D', '*', 'd', 'X', 'P', 'H']* 20
     fig,ax = plt.subplots( figsize=(10,10) )
     the_min = np.min([ np.min(val_preds), np.min(preds) ])
@@ -3098,7 +3153,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
     fig,ax = plt.subplots( figsize=(4,10) )
     the_min = np.min([ np.min(val_preds), np.min(preds) ])
     the_max = np.max([ np.max(val_preds), np.max(preds) ])
-    kplot = list(np.arange(48)) + list(np.arange(52,76)) 
+    kplot = list(np.arange(48)) + list(np.arange(52,60)) + list(np.arange(64,76)) 
     for ik,k in enumerate(kplot):
         for cvi in range(ncv):
             label=None
@@ -3110,21 +3165,21 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             npts = len(val_preds[k,:,cvi])
             low = int(npts*0.16)
             high = int(npts*0.84)
-            offset = -.75*(ik/8.0-38.0/8.0)
+            offset = -1.5*(ik/8.0-38.0/8.0)
             ax.scatter( QQX[k,:,cvi], QQY[k,:,cvi] + offset, c=colors[(k-k%4)/4], lw=0, label=label, s=5, marker=markers[(k-k%4)/4] )
             ax.scatter( QQX[k,low:high,cvi], QQY[k,low:high,cvi] + offset, c=colors[(k-k%4)/4], lw=0, s=15 , marker=markers[(k-k%4)/4]) # emphasize central 68% of distr.
     # do the emphasized points at the end
     for ik,k in enumerate(kplot):
         for cvi in range(ncv):
-            offset = -.75*(ik/8.0-38.0/8.0)
+            offset = -1.5*(ik/8.0-38.0/8.0)
             label=None
             if k%4==0:
                 if k<80:
                     label=tl0[(k-k%4)/4]
                 else:
                     label=texlabels[-1]
-                ax.text(  1.18, offset+0.8, label, color=colors[(k-k%4)/4] )
-                ax.scatter( [1.09], [offset+0.8], c=colors[(k-k%4)/4], s=80, marker=markers[(k-k%4)/4] )
+                ax.text(  3.28, offset+3.0, label, color=colors[(k-k%4)/4] )
+                ax.scatter( [3.19], [offset+3.0], c=colors[(k-k%4)/4], s=80, marker=markers[(k-k%4)/4] )
             npts = len(val_preds[k,:,cvi])
             low = int(npts*0.16)
             high = int(npts*0.84)
@@ -3132,11 +3187,11 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             #if offset<-3:
             #    ax.plot( [-15,15], [offset]*2, c=colors[(k-k%4)/4], lw=1, ls=':' )
             #else:
-            ax.plot( [-.3,1.0], [-.3+offset,1.0+offset], c=colors[(k-k%4)/4], lw=1, ls=':' )
+            ax.plot( [-3,3.0], [-3+offset,3.0+offset], c=colors[(k-k%4)/4], lw=1, ls=':' )
     #ax.set_xlim(-11, the_max)
     #ax.set_ylim(-11, the_max)
-    ax.set_xlim(-0.3,1.7)
-    ax.set_ylim(-3.25,4.8)
+    ax.set_xlim(-3,4)
+    ax.set_ylim(-9.25,11.0)
     ax.set_aspect('equal')
     #ax.plot( [the_min, the_max], [the_min, the_max], c='k', lw=2, ls=':' )
     #ax.legend(frameon=False, scatterpoints=1)
@@ -4017,7 +4072,7 @@ if __name__=='__main__':
     minimumlnliks = [-3130, -635]
     burnins = [2700, 2700]
     nspaces = [1000, 1000]
-    multiTrianglePlot(restarts, minimumlnliks, burnins, nspaces, identifier='61_62')
+    #multiTrianglePlot(restarts, minimumlnliks, burnins, nspaces, identifier='61_62')
 
     if False:
         restart={}

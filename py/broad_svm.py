@@ -33,7 +33,8 @@ randomFactorsKey01 = np.random.random(size=(50,nAccrBins))
 
 labelsTargets = ["Mh0", "Mh1", "Mh2", "Mh3", "Mst0", "Mst1", "Mst2", "Mst3", "sSFR0", "sSFR1", "sSFR2", "sSFR3", "Zg0", "Zg1", "Zg2", "Zg3", "Zst0", "Zst1", "Zst2", "Zst3", "fgmol0", "fgmol1", "fgmol2", "fgmol3", "fgHI0", "fgHI1", "fgHI2", "fgHI3", "rst0", "rst1", "rst2", "rst3", "vphitf0", "vphitf1", "vphitf2", "vphitf3", "c0", "c1", "c2", "c3", "SigCen0", "SigCen1", "SigCen2", "SigCen3", "jst0", "jst1", "jst2", "jst3", "Zgrad0", "Zgrad1", "Zgrad2", "Zgrad3", "sigmax0", "sigmax1", "sigmax2", "sigmax3", "mdotb0", "mdotb1", "mdotb2", "mdotb3", "rGI0", "rGI1", "rGI2", "rGI3", "tdep0", "tdep1", "tdep2", "tdep3", "tdepmol0", "tdepmol1", "tdepmol2", "tdepmol3", "rHI0", "rHI1", "rHI2", "rHI3", "Mmerge0", "Mmerge1", "Mmerge2", "Mmerge3", "vphi00", "vphi01", "vphi02", "vphi03", "vphi04", "vphi05", "vphi06", "vphi07", "vphi08", "vphi09", "vphi10", "vphi11", "vphi12", "vphi13", "vphi14", "vphi15", "vphi16", "vphi17", "vphi18", "vphi19", "Sigma00", "Sigma01", "Sigma02", "Sigma03", "Sigma04", "Sigma05", "Sigma06", "Sigma07", "Sigma08", "Sigma09", "Sigma10",  "Sigma11", "Sigma12", "Sigma13", "Sigma14", "Sigma15", "Sigma16", "Sigma17", "Sigma18", "Sigma19",   "SigmaSt00", "SigmaSt01", "SigmaSt02", "SigmaSt03", "SigmaSt04", "SigmaSt05", "SigmaSt06", "SigmaSt07", "SigmaSt08", "SigmaSt09", "SigmaSt10",  "SigmaSt11", "SigmaSt12", "SigmaSt13", "SigmaSt14", "SigmaSt15", "SigmaSt16", "SigmaSt17", "SigmaSt18", "SigmaSt19",  "SigmaSFR00", "SigmaSFR01", "SigmaSFR02", "SigmaSFR03", "SigmaSFR04", "SigmaSFR05", "SigmaSFR06", "SigmaSFR07", "SigmaSFR08", "SigmaSFR09", "SigmaSFR10", "SigmaSFR11", "SigmaSFR12", "SigmaSFR13", "SigmaSFR14", "SigmaSFR15", "SigmaSFR16", "SigmaSFR17", "SigmaSFR18", "SigmaSFR19", "Zr00", "Zr01", "Zr02", "Zr03", "Zr04", "Zr05", "Zr06", "Zr07", "Zr08", "Zr09", "Zr10", "Zr11", "Zr12", "Zr13", "Zr14", "Zr15", "Zr16", "Zr17", "Zr18", "Zr19", "Age00", "Age01", "Age02", "Age03", "Age04", "Age05", "Age06", "Age07", "Age08", "Age09", "Age10", "Age11", "Age12", "Age13", "Age14", "Age15", "Age16", "Age17", "Age18", "Age19", "lnLik"  ]
 
-globalFakemcmcName = 'fakemcmc70'
+globalFakemcmcName = 'fakemcmc90'
+globalHaloMass = 10.0
 
 class LassoPlusRF:
     ''' A little wrapper so that an sklearn model for random forest regression on the residuals of a linear+regularization model can be stored in the same object'''
@@ -70,15 +71,17 @@ class fntModel:
 
 def predictFill( model, x, rfkey):
     if np.shape(x)[1]<len(model.xtr.minxps):
-        tofill =  len(model.xtr.minxps) - np.shape(x)[1]
+        #tofill =  len(model.xtr.minxps) - np.shape(x)[1]
+        tofill = nAccrBins
         #fillers = np.random.random(size=(np.shape(x)[0], tofill))
         fillers = model.randomFactors[rfkey,:].reshape(np.shape(x)[0], tofill)
         thisx = np.vstack([x.T, fillers.T]).T
         transformed_thisx = model.xtr.transform(thisx)
         #transformed_thisx = np.vstack([transformed_thisx.T, fillers.T]).T
-        transformed_thisx[:,-tofill:] = fillers[:,:]
+        #transformed_thisx[:,-tofill:] = fillers[:,:]
         pred = model.model.predict( transformed_thisx ).reshape(np.shape(x)[0],-1)
         yinv = model.ytr.inverseTransform(pred)
+        #pdb.set_trace()
         return yinv
     else:
         return model.predict(x)
@@ -307,7 +310,7 @@ def fakeEmceeResiduals(emceeparams, models):
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
 
-	Y_eval = predictFill(models80, X1, k)[0].reshape(1,-1)
+	Y_eval = predictFill(models90, X1, k)[0].reshape(1,-1)
         #Y_eval = np.array( [predictFill(models[j], X1, k)[0][j] for j in range(80)] ).reshape(1,80)
         residuals.append( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=False) )
 
@@ -344,7 +347,7 @@ print "Reading models.. this could take a sec"
 #models80 = pickle.load( open( 'rfnt81_0.pickle', 'r') )
 #models30 = pickle.load( open( 'rfnt30_0.pickle', 'r') )
 #models60 = pickle.load( open( 'rfnt60_0.pickle', 'r') )
-#models90 = pickle.load( open( 'rfnt90_0.pickle', 'r') )
+models90 = pickle.load( open( 'rfnt90_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -418,7 +421,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
             #xmaxThis[-1] = 0.0
             pass
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models80) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models90) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -552,7 +555,7 @@ def lnlikelihood(emceeparams, models=None):
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     nmh = 20
-    MhGrid = np.power(10.0, np.linspace(8.5,13.0,nmh)) ## try out only going up to 10^13
+    MhGrid = np.power(10.0, np.linspace(globalHaloMass,globalHaloMass+.001,nmh)) ## look only at a very narrow range of masses
     lnlik = 0.0
 
     for k,Mh in enumerate(MhGrid):
@@ -1353,7 +1356,8 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     
     ndim, nwalkers = 24, 4000 
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
-    fn = 'fakemcmc38_restart.pickle'  # reduce prior on kappaz by factor of 10 (in location parameter); include more masses in the likelihood function
+    #fn = 'fakemcmc38_restart.pickle'  # reduce prior on kappaz by factor of 10 (in location parameter); include more masses in the likelihood function
+    fn = globalFakemcmcName+'_restart.pickle'
     restart = {}
     nsteps = 3000 
     #p0 = [ globalPrior.sample() for w in range(nwalkers) ]
@@ -1441,7 +1445,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         pool.close()
 
 
-#import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
+import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
 def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
     lik = 0
     resLimit = 7.9
@@ -2862,7 +2866,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
 
     nsamples = np.shape(X_train_orig)[0]
-    nfeatures = np.shape(X_train_orig)[1]
+    nfeatures = np.shape(X_train_orig)[1] ### note that this refers to the number of physical parameters + number of binned accretion history values. It does not include potential polynomial terms derived from the original features that the model itself may use.
     print "Number of samples being used: ", nsamples
 
     # 10x cross-validation
@@ -2932,7 +2936,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
         #### Draw a random element 
         randomFactors = np.zeros(np.shape(randomFactorsKey01))
         for jj in range(50):
-            randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),-nAccrBins+ii] for ii in range(nAccrBins)])
+            randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),nfeatures-1-nAccrBins+ii] for ii in range(nAccrBins)])
 
         Ytra = xtransform(Ys_train)
         Ys_train = Ytra.transform(Ys_train)
@@ -3118,7 +3122,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
 
     #colors = ['r','b','orange', 'green', 'pink', 'purple', 'tan', 'lightblue', 'grey', 'yellow', 'olive', 'magenta', 'lightgreen', 'maroon', 'lime', 'orchid', 'gold', 'deeppink', 'navy', 'moccasin', 'plum']*10
-    colors = ['r', 'b', 'purple', 'orange', 'gray', 'magenta', 'green', 'navy']*50
+    colors = ['r', 'b', 'purple', 'green', 'orange', 'gray', 'magenta', 'navy']*50
     markers = ['o', 'v', '<', '>', '^', 's', 'p', 'h', 'D', '*', 'd', 'X', 'P', 'H']* 20
     fig,ax = plt.subplots( figsize=(10,10) )
     the_min = np.min([ np.min(val_preds), np.min(preds) ])
@@ -3200,8 +3204,8 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
                     label=tl0[(k-k%4)/4]
                 else:
                     label=texlabels[-1]
-                ax.text(  3.28, offset+3.0, label, color=colors[(k-k%4)/4] )
-                ax.scatter( [3.19], [offset+3.0], c=colors[(k-k%4)/4], s=80, marker=markers[(k-k%4)/4] )
+                ax.text(  3.58, offset+.7, label, color=colors[(k-k%4)/4] )
+                ax.scatter( [3.39], [offset+.7], c=colors[(k-k%4)/4], s=80, marker=markers[(k-k%4)/4] )
             npts = len(val_preds[k,:,cvi])
             low = int(npts*0.16)
             high = int(npts*0.84)
@@ -3212,8 +3216,8 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             ax.plot( [-3,3.0], [-3+offset,3.0+offset], c=colors[(k-k%4)/4], lw=1, ls=':' )
     #ax.set_xlim(-11, the_max)
     #ax.set_ylim(-11, the_max)
-    ax.set_xlim(-3,4)
-    ax.set_ylim(-9.25,11.0)
+    ax.set_xlim(-3,5)
+    ax.set_ylim(-8.25,9.0)
     ax.set_aspect('equal')
     #ax.plot( [the_min, the_max], [the_min, the_max], c='k', lw=2, ls=':' )
     #ax.legend(frameon=False, scatterpoints=1)
@@ -3986,7 +3990,7 @@ if __name__=='__main__':
     #runDynesty(mpi=True)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    #runEmcee(mpi=True, continueRun=True, seedWith=None )
+    runEmcee(mpi=True, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
@@ -3994,7 +3998,7 @@ if __name__=='__main__':
     #validateNPR()
     #plotResiduals()
 
-    estimateFeatureImportancesJoint(analyze=True, pick=True) 
+    #estimateFeatureImportancesJoint(analyze=True, pick=True) 
     #estimateFeatureImportances(analyze=True, pick=True) 
     
     #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)

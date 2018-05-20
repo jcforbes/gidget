@@ -685,7 +685,7 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=
     asls = np.clip(asls, 0.005, np.inf)
     thisexper.irregularVary('accScaleLength', list(asls), 5)
     thisexper.irregularVary( 'R', list(np.power(reff4/reff411, 1.0)*50* asls/0.042)  , 5)
-    thisexper.irregularVary('xmin',0.001)
+    thisexper.irregularVary('xmin',0.001) 
 
     if accHistories is None:
         bolweights = list( np.random.random(len(Mhz0)) )
@@ -3122,6 +3122,12 @@ if __name__ == "__main__":
     list_of_news = [q84_11[:-1], q84_12[:-1]]
     list_of_masses = [np.power(10.0, np.linspace(10.5,11.5,10)), np.power(10.0, np.linspace(11.5,12.5,10)) ]
     experSuiteFromBroadMCMC(list_of_emceeparams, list_of_news, 'rf220', list_of_masses, ngal=10, accHistories=accHistories) 
+
+
+    rf230 = fairPosteriorSample('rf230', 'py/fakemcmc100b_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
+    rf231 = fairPosteriorSample('rf231', 'py/fakemcmc101b_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
+    rf232 = fairPosteriorSample('rf232', 'py/fakemcmc102b_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
+    rf233 = fairPosteriorSample('rf233', 'py/fakemcmc103b_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
 
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args

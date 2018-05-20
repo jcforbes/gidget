@@ -6,7 +6,7 @@ import pickle
 import matplotlib.pyplot as plt
 import pdb
 import emcee
-from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold, preprocessing
+from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold, preprocessing, neural_network
 
 import analyticDistributions
 
@@ -33,8 +33,8 @@ randomFactorsKey01 = np.random.random(size=(50,nAccrBins))
 
 labelsTargets = ["Mh0", "Mh1", "Mh2", "Mh3", "Mst0", "Mst1", "Mst2", "Mst3", "sSFR0", "sSFR1", "sSFR2", "sSFR3", "Zg0", "Zg1", "Zg2", "Zg3", "Zst0", "Zst1", "Zst2", "Zst3", "fgmol0", "fgmol1", "fgmol2", "fgmol3", "fgHI0", "fgHI1", "fgHI2", "fgHI3", "rst0", "rst1", "rst2", "rst3", "vphitf0", "vphitf1", "vphitf2", "vphitf3", "c0", "c1", "c2", "c3", "SigCen0", "SigCen1", "SigCen2", "SigCen3", "jst0", "jst1", "jst2", "jst3", "Zgrad0", "Zgrad1", "Zgrad2", "Zgrad3", "sigmax0", "sigmax1", "sigmax2", "sigmax3", "mdotb0", "mdotb1", "mdotb2", "mdotb3", "rGI0", "rGI1", "rGI2", "rGI3", "tdep0", "tdep1", "tdep2", "tdep3", "tdepmol0", "tdepmol1", "tdepmol2", "tdepmol3", "rHI0", "rHI1", "rHI2", "rHI3", "Mmerge0", "Mmerge1", "Mmerge2", "Mmerge3", "vphi00", "vphi01", "vphi02", "vphi03", "vphi04", "vphi05", "vphi06", "vphi07", "vphi08", "vphi09", "vphi10", "vphi11", "vphi12", "vphi13", "vphi14", "vphi15", "vphi16", "vphi17", "vphi18", "vphi19", "Sigma00", "Sigma01", "Sigma02", "Sigma03", "Sigma04", "Sigma05", "Sigma06", "Sigma07", "Sigma08", "Sigma09", "Sigma10",  "Sigma11", "Sigma12", "Sigma13", "Sigma14", "Sigma15", "Sigma16", "Sigma17", "Sigma18", "Sigma19",   "SigmaSt00", "SigmaSt01", "SigmaSt02", "SigmaSt03", "SigmaSt04", "SigmaSt05", "SigmaSt06", "SigmaSt07", "SigmaSt08", "SigmaSt09", "SigmaSt10",  "SigmaSt11", "SigmaSt12", "SigmaSt13", "SigmaSt14", "SigmaSt15", "SigmaSt16", "SigmaSt17", "SigmaSt18", "SigmaSt19",  "SigmaSFR00", "SigmaSFR01", "SigmaSFR02", "SigmaSFR03", "SigmaSFR04", "SigmaSFR05", "SigmaSFR06", "SigmaSFR07", "SigmaSFR08", "SigmaSFR09", "SigmaSFR10", "SigmaSFR11", "SigmaSFR12", "SigmaSFR13", "SigmaSFR14", "SigmaSFR15", "SigmaSFR16", "SigmaSFR17", "SigmaSFR18", "SigmaSFR19", "Zr00", "Zr01", "Zr02", "Zr03", "Zr04", "Zr05", "Zr06", "Zr07", "Zr08", "Zr09", "Zr10", "Zr11", "Zr12", "Zr13", "Zr14", "Zr15", "Zr16", "Zr17", "Zr18", "Zr19", "Age00", "Age01", "Age02", "Age03", "Age04", "Age05", "Age06", "Age07", "Age08", "Age09", "Age10", "Age11", "Age12", "Age13", "Age14", "Age15", "Age16", "Age17", "Age18", "Age19", "lnLik"  ]
 
-globalFakemcmcName = 'fakemcmc90'
-globalHaloMass = 10.0
+globalFakemcmcName = 'fakemcmc102b'
+globalHaloMass = 12.0
 
 class LassoPlusRF:
     ''' A little wrapper so that an sklearn model for random forest regression on the residuals of a linear+regularization model can be stored in the same object'''
@@ -81,7 +81,8 @@ def predictFill( model, x, rfkey):
         #transformed_thisx[:,-tofill:] = fillers[:,:]
         pred = model.model.predict( transformed_thisx ).reshape(np.shape(x)[0],-1)
         yinv = model.ytr.inverseTransform(pred)
-        #pdb.set_trace()
+        #if yinv[0][0]<yinv[0][1]:
+        #    pdb.set_trace()
         return yinv
     else:
         return model.predict(x)
@@ -347,7 +348,8 @@ print "Reading models.. this could take a sec"
 #models80 = pickle.load( open( 'rfnt81_0.pickle', 'r') )
 #models30 = pickle.load( open( 'rfnt30_0.pickle', 'r') )
 #models60 = pickle.load( open( 'rfnt60_0.pickle', 'r') )
-models90 = pickle.load( open( 'rfnt90_0.pickle', 'r') )
+#models90 = pickle.load( open( 'rfnt90_0.pickle', 'r') )
+#models100 = pickle.load( open( 'rfnt100_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -1014,12 +1016,12 @@ def multiTrianglePlot(restarts, minimumlnliks, burnins, nspaces, identifier='mul
                 histplot( axHP.flatten()[j], hist,edges, c='g', vertical=False, lw=3, fill=False, label=label )
             label=None
             #axHP.flatten()[j].set_xlabel(labels[j])
-            axHP.flatten()[j].text(.5,.85,labels[j],horizontalalignment='center',transform=axHP.flatten()[j].transAxes)
+            axHP.flatten()[j].text(.05,.85,labels[j],horizontalalignment='center',transform=axHP.flatten()[j].transAxes)
             if k==0 and j==5:
                 axHP.flatten()[j].plot([0,1],[-1,-2],lw=1,c='b', label=r'$M_{h,0}=10^{11} M_\odot$')
                 axHP.flatten()[j].plot([0,1],[-1,-2],lw=1,c='r', label=r'$M_{h,0}=10^{12} M_\odot$')
             #axHP.flatten()[j].set_xlim( avg-3*std, avg+3*std )
-            axHP.flatten()[j].set_xlim( lower, upper )
+            axHP.flatten()[j].set_xlim( lower - 0.1*(upper-lower), upper )
             axHP.flatten()[j].set_ylim( 0, med_indicator_height )
             axHP.flatten()[j].set_yticklabels(['']*len(axHP.flatten()[j].get_yticklabels()))
             axHP.flatten()[j].legend(fontsize=7)
@@ -1983,7 +1985,7 @@ def trimDownForGlue(fn='broad1718b_to_lasso.txt', naccr=8, arr=None, kscale=10, 
 
 
 
-def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=50, arr=None, kscale=10, logscale=0, includeCrossTerms=False, dbg=True):
+def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=50, arr=None, kscale=10, logscale=0, includeCrossTerms=False, dbg=True, zeroOut=[]):
     ''' trainFrac denotes what fraction of the sample should be used for training 
         validateFrac denotes what fraction of the sample should be used for validation
         1 - trainFrac - validateFrac is the out-of-sample test.'''
@@ -2061,6 +2063,12 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
     X_orig = copy.deepcopy(X)
     X =  filterArrayRows( X, valid )
     Ys = filterArrayRows( Ys, valid)
+    for i in zeroOut:
+        j = i*4
+        Ys[:,j] = 0
+        Ys[:,j+1] = 0
+        Ys[:,j+2] = 0
+        Ys[:,j+3] = 0
     Xfail = filterArrayRows( X_orig, invalid )
 
     if dbg:
@@ -2297,6 +2305,38 @@ def learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels,
     theModel = regRF
     #theModel[k] = copy.deepcopy( regRF )
     print "Finished learning ",labels[k], "for ntrees=",n_estimators
+#        else:
+#            print "Failed for k=",k, labels[k]
+#            print " "
+    return errors_train, errors_validate, errors_test, labels, feature_importances, theModel
+
+
+
+def learnMLP(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, hidden_layer_sizes=(100,), activation='relu', alpha=1.0e-5, shuffle=True):
+    
+    theModel= None
+    regMLP = neural_network.MLPRegressor(hidden_layer_sizes=hidden_layer_sizes,activation=activation,alpha=alpha,shuffle=shuffle)
+
+    invalid = Ys_train!=Ys_train
+    if np.any(invalid):
+        pdb.set_trace()
+    try:
+	regMLP.fit(X_train, Ys_train)
+        theModel = regMLP 
+    except:
+        pdb.set_trace()
+
+    Y_pred_train = copy.deepcopy( theModel.predict(X_train) )
+    Y_pred_validate = copy.deepcopy( theModel.predict(X_validate) )
+    Y_pred_test = copy.deepcopy( theModel.predict(X_test) )
+    errors_train = np.std(Y_pred_train - Ys_train)
+    errors_validate = np.std(Y_pred_validate - Ys_validate) 
+    errors_test = np.std(Y_pred_test - Ys_test)
+    #feature_importances = copy.deepcopy( regRF.feature_importances_[:] )
+    #feature_importances = np.zeros((np.shape(X_train)[1]))
+    feature_importances = None
+    #theModel[k] = copy.deepcopy( regRF )
+    print "Finished learning for ntrees=0"
 #        else:
 #            print "Failed for k=",k, labels[k]
 #            print " "
@@ -2861,7 +2901,7 @@ def quickPlot(arr, name):
 def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broad24q_to_lasso.txt', dbg=True) # no need to feed in arr, since we're just reading the data once.
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broad24q_to_lasso.txt', dbg=True, zeroOut=[12,15,19]) # no need to feed in arr, since we're just reading the data once.
 
 
 
@@ -2904,7 +2944,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
     doK = range(ntargets)
     #doK = [200]
-    identifier='90' # 90 is "Ridge Poly with alpha~10^-3, l1_fraction=0.5."
+    identifier='100' # 90 is "Ridge Poly with alpha~10^-3, l1_fraction=0.5." 100 is multi-layer perceptron
     for cvi in range(ncv):
         ### Select a random subset of the X_train to be the validation set for this iteration
         #validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1)) # this is almost right, but will produce some overlap the X_validate below will have fewer than nsamples*0.1
@@ -2922,8 +2962,14 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             pdb.set_trace()
 
 
+        #### store a set of random factors to be used all throughout the emcee process
+        #### Draw a random element 
+        randomFactors = np.zeros(np.shape(randomFactorsKey01))
+        for jj in range(50):
+            randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),nfeatures-1-nAccrBins+ii] for ii in range(nAccrBins)])
+
         # Regularize the input and output vectors to give the learning algorithm an easier time
-        Xtra = xtransform(X_train, deg=2)
+        Xtra = xtransform(X_train, deg=1)
         X_train = Xtra.transform(X_train)
         X_validate = Xtra.transform(X_validate)
         X_test = Xtra.transform(X_test_orig.copy()) 
@@ -2932,11 +2978,6 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             pdb.set_trace()
 
 
-        #### store a set of random factors to be used all throughout the emcee process
-        #### Draw a random element 
-        randomFactors = np.zeros(np.shape(randomFactorsKey01))
-        for jj in range(50):
-            randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),nfeatures-1-nAccrBins+ii] for ii in range(nAccrBins)])
 
         Ytra = xtransform(Ys_train)
         Ys_train = Ytra.transform(Ys_train)
@@ -2947,7 +2988,8 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             pdb.set_trace()
 
         #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnLassoRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, max_features='auto', min_per_leaf=5, alpha=1.0e-5, tol=1.0e-5 )
-        errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnPolyNet(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, l1_ratio=0.5, alpha=0.008, tol=1.0e-5)
+        #errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnPolyNet(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, l1_ratio=0.5, alpha=0.008, tol=1.0e-5)
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnMLP(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, hidden_layer_sizes=(200,200,200), activation='tanh', alpha=1.0e-5, shuffle=True)
         #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=10, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
         if pick:
             pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt'+identifier+'_'+str(cvi)+'.pickle','w')) ### save the model -- fewer trees
@@ -3990,7 +4032,7 @@ if __name__=='__main__':
     #runDynesty(mpi=True)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    runEmcee(mpi=True, continueRun=True, seedWith=None )
+    #runEmcee(mpi=False, continueRun=True, seedWith=None )
     #runEmcee(mpi=False, continueRun=False, seedWith=None )
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
@@ -4100,13 +4142,13 @@ if __name__=='__main__':
     nspaces = [1000, 1000]
     #multiTrianglePlot(restarts, minimumlnliks, burnins, nspaces, identifier='61_62')
 
-    if False:
+    if True:
         restart={}
         updateRestart(globalFakemcmcName +'_restart.pickle', restart)
         printRestart(restart)
         tracePlots(restart, globalFakemcmcName +'_trace', burnIn=0)
         probsPlots(restart, globalFakemcmcName +'_allProb', burnIn=0)
-        trianglePlot(restart, globalFakemcmcName +'_triangle', burnIn=2000, nspace=20000, minimumlnlik=-3e6)
+        trianglePlot(restart, globalFakemcmcName +'_triangle', burnIn=350, nspace=20000, minimumlnlik=-140)
 
         # Find the maximum among all models sampled so far.
         allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations

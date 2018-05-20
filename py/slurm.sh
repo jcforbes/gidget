@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name fmc38
-#SBATCH -n 120
+#SBATCH --job-name fmc101d
+#SBATCH -n 12 
 #SBATCH -t 2-00:00
 #SBATCH -p shared
 #SBATCH --mem-per-cpu=10000
@@ -12,5 +12,5 @@ module unload python/2.7.6-fasrc01
 module load python/2.7.13-fasrc01
 
 cd $GIDGETDIR/py
-mpirun -n 120 python broad_svm.py > estd.${SLURM_JOB_ID}.out 
+mpirun -n 12 python broad_svm.py > estd.${SLURM_JOB_ID}.out 
 

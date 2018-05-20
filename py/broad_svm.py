@@ -2,9 +2,9 @@ import numpy as np
 import time
 import os
 import copy
-import pickle
+import cPickle as pickle
 import matplotlib.pyplot as plt
-import pdb
+import pdb,glob
 import emcee
 from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold, preprocessing
 
@@ -33,8 +33,8 @@ randomFactorsKey01 = np.random.random(size=(50,nAccrBins))
 
 labelsTargets = ["Mh0", "Mh1", "Mh2", "Mh3", "Mst0", "Mst1", "Mst2", "Mst3", "sSFR0", "sSFR1", "sSFR2", "sSFR3", "Zg0", "Zg1", "Zg2", "Zg3", "Zst0", "Zst1", "Zst2", "Zst3", "fgmol0", "fgmol1", "fgmol2", "fgmol3", "fgHI0", "fgHI1", "fgHI2", "fgHI3", "rst0", "rst1", "rst2", "rst3", "vphitf0", "vphitf1", "vphitf2", "vphitf3", "c0", "c1", "c2", "c3", "SigCen0", "SigCen1", "SigCen2", "SigCen3", "jst0", "jst1", "jst2", "jst3", "Zgrad0", "Zgrad1", "Zgrad2", "Zgrad3", "sigmax0", "sigmax1", "sigmax2", "sigmax3", "mdotb0", "mdotb1", "mdotb2", "mdotb3", "rGI0", "rGI1", "rGI2", "rGI3", "tdep0", "tdep1", "tdep2", "tdep3", "tdepmol0", "tdepmol1", "tdepmol2", "tdepmol3", "rHI0", "rHI1", "rHI2", "rHI3", "Mmerge0", "Mmerge1", "Mmerge2", "Mmerge3", "vphi00", "vphi01", "vphi02", "vphi03", "vphi04", "vphi05", "vphi06", "vphi07", "vphi08", "vphi09", "vphi10", "vphi11", "vphi12", "vphi13", "vphi14", "vphi15", "vphi16", "vphi17", "vphi18", "vphi19", "Sigma00", "Sigma01", "Sigma02", "Sigma03", "Sigma04", "Sigma05", "Sigma06", "Sigma07", "Sigma08", "Sigma09", "Sigma10",  "Sigma11", "Sigma12", "Sigma13", "Sigma14", "Sigma15", "Sigma16", "Sigma17", "Sigma18", "Sigma19",   "SigmaSt00", "SigmaSt01", "SigmaSt02", "SigmaSt03", "SigmaSt04", "SigmaSt05", "SigmaSt06", "SigmaSt07", "SigmaSt08", "SigmaSt09", "SigmaSt10",  "SigmaSt11", "SigmaSt12", "SigmaSt13", "SigmaSt14", "SigmaSt15", "SigmaSt16", "SigmaSt17", "SigmaSt18", "SigmaSt19",  "SigmaSFR00", "SigmaSFR01", "SigmaSFR02", "SigmaSFR03", "SigmaSFR04", "SigmaSFR05", "SigmaSFR06", "SigmaSFR07", "SigmaSFR08", "SigmaSFR09", "SigmaSFR10", "SigmaSFR11", "SigmaSFR12", "SigmaSFR13", "SigmaSFR14", "SigmaSFR15", "SigmaSFR16", "SigmaSFR17", "SigmaSFR18", "SigmaSFR19", "Zr00", "Zr01", "Zr02", "Zr03", "Zr04", "Zr05", "Zr06", "Zr07", "Zr08", "Zr09", "Zr10", "Zr11", "Zr12", "Zr13", "Zr14", "Zr15", "Zr16", "Zr17", "Zr18", "Zr19", "Age00", "Age01", "Age02", "Age03", "Age04", "Age05", "Age06", "Age07", "Age08", "Age09", "Age10", "Age11", "Age12", "Age13", "Age14", "Age15", "Age16", "Age17", "Age18", "Age19", "lnLik"  ]
 
-globalFakemcmcName = 'fakemcmc90'
-globalHaloMass = 10.0
+globalFakemcmcName = 'fakemcmc101d'
+globalHaloMass = 11.0
 
 class LassoPlusRF:
     ''' A little wrapper so that an sklearn model for random forest regression on the residuals of a linear+regularization model can be stored in the same object'''
@@ -310,7 +310,7 @@ def fakeEmceeResiduals(emceeparams, models):
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
 
-	Y_eval = predictFill(models90, X1, k)[0].reshape(1,-1)
+	Y_eval = predictFill(models100, X1, k)[0].reshape(1,-1)
         #Y_eval = np.array( [predictFill(models[j], X1, k)[0][j] for j in range(80)] ).reshape(1,80)
         residuals.append( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=False) )
 
@@ -347,7 +347,7 @@ print "Reading models.. this could take a sec"
 #models80 = pickle.load( open( 'rfnt81_0.pickle', 'r') )
 #models30 = pickle.load( open( 'rfnt30_0.pickle', 'r') )
 #models60 = pickle.load( open( 'rfnt60_0.pickle', 'r') )
-models90 = pickle.load( open( 'rfnt90_0.pickle', 'r') )
+models100 = pickle.load( open( 'rfnt100_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -421,7 +421,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
             #xmaxThis[-1] = 0.0
             pass
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models90) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models100) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -572,11 +572,12 @@ def lnlikelihood(emceeparams, models=None):
         #for j in range(80):
         #    if j in neededModels:
         #        Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
-	Y_eval[0,:] = predictFill(models90, X1, k)[0]
+	Y_eval[0,:] = predictFill(models100, X1, k)[0]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
         fsigma = emceeparams[-1]
-        lnlik += np.sum( globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True) )
+        lnlikThis = np.sum( globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True) )
+        lnlik += lnlikThis
 
 
     print "Returning lnlik = ", lnlik #, "for emceeparams ",emceeparams
@@ -584,7 +585,7 @@ def lnlikelihood(emceeparams, models=None):
         return -np.inf
     return lnlik
 
-def sampleFromGaussianBall():
+def sampleFromGaussianBall(var=0.001):
     ## the max posterior probability estimated from the previous run.
     #xmax = [  3.77274603e-02, 7.60850948e-01, 1.49261405e+00, 8.96710122e-01, 3.24127453e-01, -2.95591681e-01, 2.35329503e-02, -2.29120438e+00, 4.90155667e+01, 3.62467850e-01, 2.42953261e+00, 2.44659997e+00, 7.99493942e-02, 4.37735172e-05, 4.81805279e-01, 2.75940879e-01, 3.17078465e+00, 1.74401966e-01, 1.97481061e-02,-1.37921564e-02, 2.76371012e+12, 4.14894397e+00, 2.17629370e-01]
 
@@ -592,10 +593,10 @@ def sampleFromGaussianBall():
     xmax = [0.1,  1.5,  1.5,  2.0, -0.3, 0.2, 0.1, -0.4, 1.0, 0.1, 1.0, 2.0, 0.03, 1.0e-3, 0.5, 0.1, 0.1, 0.2, 1.0e-2, -0.01, 1.0e12, 1.0, 0.3, 1.5]
     draw = []
     for i in range(len(xmax)):
-        draw.append( xmax[i]*(1.0 + 0.001*np.random.normal()) )
-    if not np.isfinite( globalPrior.lndensity(draw) ):
-        print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()"
-        return sampleFromGaussianBall() ## if this is a bad draw don't use it!
+        draw.append( xmax[i]*(1.0 + var*np.random.normal()) )
+    if not np.isfinite( globalPrior.lndensity(draw) ) or not np.isfinite(lnlikelihood(draw)):
+        print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()", var
+        return sampleFromGaussianBall(var*1.1) ## if this is a bad draw don't use it!
     return draw
 
 
@@ -741,9 +742,13 @@ def trimRestart(restart, frac=0.8):
     restart['chain'] = restart['chain'][:,int((1-frac)*niter):,:]
     return restart
 
-def saveRestart(fn,restart):
+def saveRestart(fn,restart, truncate=0):
     with open(fn,'wb') as f:
         print "checkpoint to "+fn
+        # if some truncation is specified, and the chain is large enough to actually be truncated at that scale:
+        if truncate!=0 and np.shape(restart['chain'])[1] > np.abs(truncate) :
+            print "Truncating chain! "
+            restart['chain'] = restart['chain'][:,truncate:,:]  #nwalkers x niterations x ndim
         pickle.dump(restart,f,2)
 
 def updateRestart(fn,restart):
@@ -1386,7 +1391,9 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     restart['mcmcRunCounter'] = 0
 
     if continueRun:
-        updateRestart(fn, restart)
+        extantCheckpoints = sorted(glob.glob('int*'+fn+'*'))
+        if len(extantCheckpoints)>2:
+	    updateRestart(extantCheckpoints[-2], restart)
 
     restart['iterationCounter'] += nsteps
     restart['mcmcRunCounter'] += 1
@@ -1424,7 +1431,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         if counter%10==1:
             #try:
             print "Attempting to save checkpoint, counter=",counter
-	    saveRestart('int'+str(counter).zfill(5)+'_'+fn, restart) # save an actual checkpoint file instead of writing over the same one every timestep.
+	    saveRestart('int'+str(counter).zfill(5)+'_'+fn, restart, truncate=0) # save an actual checkpoint file instead of writing over the same one every timestep.
            # saveRestart(fn,restart)
             #except:
             #    print "WARNING: checkpoint failed, trimming the chain and trying again"
@@ -2923,7 +2930,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
 
         # Regularize the input and output vectors to give the learning algorithm an easier time
-        Xtra = xtransform(X_train, deg=2)
+        Xtra = xtransform(X_train)
         X_train = Xtra.transform(X_train)
         X_validate = Xtra.transform(X_validate)
         X_test = Xtra.transform(X_test_orig.copy()) 
@@ -3990,8 +3997,8 @@ if __name__=='__main__':
     #runDynesty(mpi=True)
 
     #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-    runEmcee(mpi=True, continueRun=True, seedWith=None )
-    #runEmcee(mpi=False, continueRun=False, seedWith=None )
+    #runEmcee(mpi=True, continueRun=False, seedWith=None )
+    runEmcee(mpi=True, continueRun=False, seedWith='int01891_fakemcmc101c_restart.pickle') 
     #fractionalVariancePlot()
     #ridgeCoeffsPlot()
 

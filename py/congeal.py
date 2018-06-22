@@ -5,7 +5,7 @@ import numpy as np
 
 andirec = os.environ['GIDGETDIR']+'/analysis/' 
 
-SIs = glob.glob( andirec + 'broadDistr24*_sampleInfo.txt' )
+SIs = glob.glob( andirec + 'broadDistr133*_sampleInfo.txt' )
 
 nchar = 4+4+7
 ncol = 1000+24+1+200
@@ -32,12 +32,11 @@ for k,si in enumerate(SIs):
 
     if k%3000==10:
         print "Progress! ",k,"/",len(SIs)
-        np.savetxt( 'broad24q_to_lasso.txt', arr.T )
+        np.savetxt( 'broad133_to_lasso.txt', arr[:,:k+1].T )
 
-counter = np.ones(len(SIs))
-successes = np.sum(counter[ arr[-1003,:]>0 ])
-print "Success rate: ", successes, " of ",len(counter)
+	successes = np.sum( arr[-1003,:]>0 )
+	print "Success rate: ", successes, " of ",k+1
     
-np.savetxt( 'broad24q_to_lasso.txt', arr.T )
+np.savetxt( 'broad133_to_lasso.txt', arr.T )
 
 

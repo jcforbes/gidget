@@ -1,7 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name rf285
-#SBATCH -n 16
-#SBATCH -N 1-1
+#SBATCH --job-name brd130c
+#SBATCH -n 128
 #SBATCH -t 2-00:00
 #SBATCH -p shared 
 #SBATCH --mem-per-cpu=1000
@@ -17,5 +16,5 @@ module load python/2.7.14-fasrc01
 source activate ody
 
 
-python exper.py --nproc 16 rf285 
-#mpirun -n 128 python mcmc_broad.py 
+#python exper.py --nproc 16 rf264
+mpirun -n 128 python mcmc_broad.py 

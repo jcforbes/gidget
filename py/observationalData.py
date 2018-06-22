@@ -676,6 +676,24 @@ def defineMetalRelations(z):
     Z84Tremonti = np.power(10.0, np.array([8.64, 8.65, 8.70, 8.73, 8.75, 8.82, 8.82, 8.86, 8.88, 8.92, 8.94, 8.96, 8.99, 9.01, 9.05, 9.06, 9.09, 9.10, 9.11, 9.12, 9.14, 9.15, 9.15, 9.16, 9.17, 9.17, 9.18, 9.18 ]) -8.7 )
     datasets['Tremonti04'] = DataSet( 'mstar', 'sfZ', mTremonti, Z50Tremonti, yLower=Z16Tremonti, yUpper=Z84Tremonti, label='Tremonti04', zmin=-0.5, zmax=0.5, alpha=0.5 )
 
+    def kewleyfit(a,b,c,d,rms, label, alpha=0.5):
+        # 8.69 is from Asplund09
+        # solar abundance is 0.0134 according to Asplund09, but throughout the rest of the codebase 0.02 is assumed.
+        kmass = np.power(10, np.linspace(8.5,11,100))
+        x = np.log10(kmass)
+	y =np.power(10.0,  a+b*x+c*x*x+d*x*x*x - 8.69 + np.log10(0.02/0.0134))
+        datasets[label] = DataSet('mstar', 'sfZ', kmass, y, yLower=y/10.0**rms, yUpper=y*10.0**rms, label=label, zmin=-0.5, zmax=0.5, alpha=alpha)
+    #kewleyfit( -0.694114, 1.30207, 0.00271531, -0.00364112, 0.12, 'T04', alpha=0.1 )
+    #kewleyfit( 72.0142, -20.6826, 2.22124, -0.0783089, 0.13, 'Z94', alpha=0.1 )
+    #kewleyfit( 27.7911, -6.94493, 0.808097, -0.0301508, 0.1, 'KK04', alpha=0.1 )
+    #kewleyfit( 28.0974, -7.23631, 0.850344, -0.0318315, 0.1, 'KD02', alpha=0.1 )
+    #kewleyfit( 45.5323, -12.2469, 1.32882, -0.0471074, 0.11, 'M91', alpha=0.1 )
+    #kewleyfit( -8.71120, 4.15003, -0.322156, 0.00818179, 0.08, 'D02', alpha=0.1)
+    #kewleyfit( 32.1488, -8.51258, 0.976384, -0.0359763, 0.10, 'PP04O3', alpha=0.1)
+    #kewleyfit( 23.9049, -5.62784, 0.645142, -0.0235065, 0.09, 'PP04N2', alpha=0.1)
+    #kewleyfit( 91.6457, -25.9355, 2.67172, -0.0909689, 0.12, 'P01', alpha=0.1)
+    #kewleyfit( 41.9463, -10.3253, 1.04371, -0.0347747, 0.13, 'P05', alpha=0.1)
+
 
 def defineStructureRelations():
     mstThis = np.power(10.0, np.linspace(9.75, 11.25, 100))

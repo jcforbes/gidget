@@ -3109,6 +3109,8 @@ if __name__ == "__main__":
     rf213 = fairPosteriorSample('rf213', 'py/fakemcmc62_filteredposterior.pickle', 80, 1, np.linspace(11.4,12.5,80))
     rf214 = fairPosteriorSample('rf214', 'py/fakemcmc63_filteredposterior.pickle', 40, 1, np.linspace(12.4,13.1,40))
     rf215 = fairPosteriorSample('rf215', 'py/fakemcmc62_filteredposterior.pickle', 80, 1, np.linspace(10.5,11.6,80))
+    
+    ### rf216 is a dummy combo of rf212 and rf213, just FYI
 
 
     accHistories= list(np.random.random(10))

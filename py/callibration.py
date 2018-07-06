@@ -44,14 +44,26 @@ def quickCheck(experiment_list):
     basename = ''
     for ex in experiment_list:
         basename+=ex.name+'_'
+    print "*******************************************************"
+    print "ANALYZING GALAXIES WITH THE FOLLOWING BREAKDOWN:"
+    for ex in experiment_list:
+        print ex.name, len(ex.models), [np.log10(model.p['Mh0']) for model in ex.models]
+    print "*******************************************************"
 
     # just try making the plots you want directly!
     fig,ax = plt.subplots(1,4, figsize=(8,3))
     fig.subplots_adjust(wspace=0.06, hspace=0.3, bottom=0.18)
+    LOL = []
     for j in range(4):
         ax[j].set_title( r'$z=$'+str(j))
         for i,ex in enumerate(experiment_list):
-            experiment_list[i].ptMovie(xvar='Mh', yvar=['mstar'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[j], textsize=6, plotObs=(i==0))
+            if j==0:
+                LOL=[1,2]
+            elif j==1:
+                LOL=[0,3]
+            else:
+                LOL=[]
+            experiment_list[i].ptMovie(xvar='Mh', yvar=['mstar'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[j], textsize=6, plotObs=(i==0), labelObsList=LOL)
             #self.ptMovie(xvar='Rvir', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
             #self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6)
     for j in range(4):
@@ -66,17 +78,45 @@ def quickCheck(experiment_list):
     plt.savefig(basename+'calibration0.pdf')
     plt.close(fig)
 
+
+
+
     fig,ax = plt.subplots(5,4, figsize=(8,8))
     fig.subplots_adjust(wspace=0.042, hspace=0.07, bottom=0.1)
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
 
         for i,ex in enumerate(experiment_list):
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['sSFR'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['stZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0))
-            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6, plotObs=(i==0))
+            # customize which labels to show on which panel. Gross.
+            if j==0:
+                LOL = [0,1]
+            elif j==1:
+                LOL = [2]
+            elif j==2:
+                LOL = [3,4]
+            else:
+                LOL = []
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['sSFR'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6, plotObs=(i==0), labelObsList=LOL )
+            if j==0:
+                LOL = [2,3]
+            elif j==1:
+                LOL = [0,1]
+            else:
+                LOL = []
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0), labelObsList=LOL)
+            if j==0:
+                LOL=[0,1]
+            else:
+                LOL=[]
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['stZ'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0), labelObsList=LOL)
+            if j==0:
+                LOL = [2]
+            elif j==3:
+                LOL = [0,1]
+            else:
+                LOL = []
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioH2'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0), labelObsList=LOL)
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['gasToStellarRatioHI'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[4,j], textsize=6, plotObs=(i==0), labelObsList=[0,1])
 
         
         markAs(ax[0,j], 1)
@@ -100,15 +140,37 @@ def quickCheck(experiment_list):
         
 
 
+
+
+
+
+
     fig,ax = plt.subplots(4,4, figsize=(8,7))
     fig.subplots_adjust(wspace=0.01, hspace=0.04, bottom=0.1)
+    LOL=[]
     for j in range(4):
         ax[0,j].set_title( r'$z=$'+str(j))
         for i,ex in enumerate(experiment_list):
-            ex.ptMovie(xvar='mstar', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6,  plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['vPhi22'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0))
+            if j==0:
+                LOL=[0,1]
+            elif j==3:
+                LOL=[2,3]
+            else:
+                LOL=[]
+            ex.ptMovie(xvar='mstar', yvar=['halfMassStars'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[0,j], textsize=6,  plotObs=(i==0), labelObsList=LOL)
+            if j==1:
+                LOL=[1]
+            else:
+                LOL=[]
+            ex.ptMovie(xvar='mstar', yvar=['vPhi22'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[1,j], textsize=6, plotObs=(i==0), labelObsList=LOL)
             ex.ptMovie(xvar='mstar', yvar=['c82'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[2,j], textsize=6, plotObs=(i==0))
-            ex.ptMovie(xvar='mstar', yvar=['Sigma1'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0))
+            if j==0:
+                LOL=[2]
+            elif j==3:
+                LOL=[1,2]
+            else:
+                LOL=[]
+            ex.ptMovie(xvar='mstar', yvar=['Sigma1'], colorby=colorby, prev=0, timeIndex=[zinds[j]], movie=False, axIn=ax[3,j], textsize=6, plotObs=(i==0), labelObsList=LOL)
         markAs(ax[0,j], 1)
         markAs(ax[1,j], 1-Theta(j-1), (1-Theta(j))*0.1)
         #markAs(ax[2,j], 1-Theta(j), (1-Theta(j))*-0.3)
@@ -329,6 +391,27 @@ def quickCheck(experiment_list):
     plt.savefig(basename+'calibration39.pdf')
     plt.close(fig)
 
+
+    percentiles=None
+    fig,ax = plt.subplots(3,4, figsize=(8,7))
+    fig.subplots_adjust(wspace=0.01, hspace=0.03)
+    for j in range(4):
+        ax[0,j].set_title( r'$z=$'+str(j))
+        for i, ex in enumerate(experiment_list):
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['kappaZ'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[0,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['kappaZlimit'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[1,j]) #, color=colors[i])
+            ex.radialPlot(timeIndex=[zinds[j]],variables=['kappaZconservativeLimit'],colorby='Mh0',percentiles=percentiles,logR=False,scaleR=False,movie=False, axIn=ax[2,j]) #, color=colors[i])
+        #ax[0,j].text(1.0e12, 1.0e7, r'$z=$'+str(j))
+    for j in range(4):
+        for i in range(3):
+            if j>0:
+                ax[i,j].set_ylabel('')
+                ax[i,j].get_yaxis().set_ticks([])
+            if i<2:
+                ax[i,j].set_xlabel('')
+                ax[i,j].get_xaxis().set_ticks([])
+    plt.savefig(basename+'calibration27kz.pdf')
+    plt.close(fig)
 
 
     percentiles=None
@@ -702,6 +785,21 @@ def quickCheck(experiment_list):
     plt.savefig(basename+'calibration18i.pdf')
     plt.close(fig)
 
+    fig,ax=plt.subplots(figsize=(5,5))
+    for j in range(4):
+        for i,ex in enumerate(experiment_list):
+            sfr,_,_,_ = ex.constructQuantity('sfr', timeIndex=[zinds[j]], locIndex=None, flatten=False)
+            mdotBulgeG,_,_,_ = ex.constructQuantity('mdotBulgeG',timeIndex=[zinds[j]], locIndex=None, flatten=False)
+            ax.scatter( sfr, mdotBulgeG, c=bigcolors[j], lw=0, s=10 )
+    ax.set_xlim(1.0e-5, 100)
+    ax.set_ylim(1.0e-8, 100)
+    ax.plot( [1.0e-5, 100], [1.0e-5, 100], lw=2, c='gray', ls='--' )
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel(r'SFR $(M_\odot/\mathrm{yr})$')
+    ax.set_ylabel(r'$\dot{M}_{g,\mathrm{bulge}}$')
+    plt.savefig(basename+'calibration18j.pdf')
+    plt.close(fig)
 
 
 
@@ -904,8 +1002,37 @@ def quickCheck(experiment_list):
     plt.close(fig)
 
 
-
-
+    fig,ax = plt.subplots(1,1, figsize=(8,8))
+    ax.plot([2.0e-2,5.0],[2.0e-2,5.0], c='gray', ls='--', lw=3)
+    for i,ex in enumerate(experiment_list):
+        ex.ptMovie( xvar='stZ', yvar=['sfZ'], colorby=colorby, prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6, plotObs=(i==0)) 
+    gas_z_datasets,gas_z_colors = obsDat.identifyApplicableDatasets('mstar','sfZ',0) 
+    star_z_datasets,star_z_colors = obsDat.identifyApplicableDatasets('mstar','stZ',0) 
+    mstars = np.power(10, np.linspace(8, 11, 100))
+    counter=0
+    for k, gds in enumerate(gas_z_datasets):
+        # only plot datasets valid at z=0
+        if obsDat.datasets[gds].zmin <=0 and obsDat.datasets[gds].zmax>=0:
+            y16, y50, y84, logy = obsDat.datasets[gds].returnCachedQuantiles( mstars ) 
+            for l, sds in enumerate(star_z_datasets):
+                if obsDat.datasets[sds].zmin <=0 and obsDat.datasets[sds].zmax>=0:
+                    x16, x50, x84, logx = obsDat.datasets[sds].returnCachedQuantiles( mstars ) 
+                    # no extrapolations! Only plot cases where the two datasets have actual overlap in the stellar masses probed.
+                    filt = np.logical_and( mstars > np.min(obsDat.datasets[sds].xval), mstars < np.max(obsDat.datasets[sds].xval))
+                    filt = np.logical_and( filt, mstars > np.min(obsDat.datasets[gds].xval) )
+                    filt = np.logical_and( filt, mstars < np.max(obsDat.datasets[gds].xval) )
+                    if np.any(filt):
+                        ax.plot(np.power(10,x50[filt]), np.power(10,y50[filt]), c=bigcolors[counter], lw=2, label=obsDat.datasets[sds].label+'+'+obsDat.datasets[gds].label)
+                        ax.plot(np.power(10,x84[filt]), np.power(10,y50[filt]), c=bigcolors[counter], lw=1)
+                        ax.plot(np.power(10,x50[filt]), np.power(10,y84[filt]), c=bigcolors[counter], lw=1)
+                        ax.plot(np.power(10,x16[filt]), np.power(10,y50[filt]), c=bigcolors[counter], lw=1)
+                        ax.plot(np.power(10,x50[filt]), np.power(10,y16[filt]), c=bigcolors[counter], lw=1)
+                        counter+=1
+    ax.set_xlim(2.0e-2,5.0)
+    ax.set_ylim(2.0e-2,5.0)
+    ax.legend()
+    plt.savefig(basename+'calibration19.pdf')
+    plt.close(fig)
 
     ## To add: age-velocity dispersion correlation?
 
@@ -916,9 +1043,11 @@ if __name__=='__main__':
     #    experiment_list.append( Experiment('rf150_'+str(k)) )
     #experiment_list = [Experiment('rf153'), Experiment('rf154'), Experiment('rf151'), Experiment('rf152') ]
     #experiment_list = [Experiment('rf161'), Experiment('rf162'), Experiment('rf163') ]
-    experiment_list = [Experiment('rf212'), Experiment('rf213')]
+#    experiment_list = [Experiment('rf212'), Experiment('rf213')]
+    #experiment_list = [ Experiment('rf285')]
+    experiment_list = [ Experiment('rf290'), Experiment('rf291'), Experiment('rf292'), Experiment('rf293') ]
     #experiment_list = [Experiment('rf118'), Experiment('rf119'), Experiment('rf120')]
-    MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig', 'col', 'vPhiGasRadial', 'vPhiStarsRadial']
+    MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig', 'col', 'vPhiGasRadial', 'vPhiStarsRadial', 'kappaZ', 'kappaZlimit', 'kappaZconservativeLimit']
     for ex in experiment_list:
         ex.read(MONDargs, keepStars=True)
     quickCheck(experiment_list)

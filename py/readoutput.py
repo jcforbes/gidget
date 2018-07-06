@@ -269,6 +269,7 @@ class SingleModel:
         return sums
 
     def read(self, keepOnly=[], keepStars=False, paramsOnly=False, computeFit=False, fh=0.3):
+        print "Reading in model ",self.path
         with open(self.path+'_comment.txt','r') as comment:
             lines = comment.readlines()
             # paramnames - copied from exper.py's experiment class.
@@ -616,6 +617,14 @@ class SingleModel:
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[0.3e7, 8.1e11])
 
         self.var['stellarHaloFraction'] = TimeFunction( self.var['mStellarHalo'].sensible()/self.var['mstar'].sensible(), 'stellarHaloFraction', 1.0, 1.0, r'$M_{*,\mathrm{halo}}/M_*$', log=False)
+
+
+        self.var['kappaZlimit'] = RadialFunction( self.var['r'].cgs()*self.var['sig'].cgs(), 'kappaZlimit', cgsConv=1.0, sensibleConv=speryear*1.0e9/cmperkpc**2, texString = r'$r\sigma (\mathrm{kpc}^2\ \mathrm{Gyr}^{-1})$', theRange=[1.0e-2, 1.0e4])
+        firstEstimate = 3.32e-3 * self.p['kappaMetals']*self.var['Qg'].cgs() * np.pi*np.power(self.var['sig'].cgs(),3.0) / (Gcgs * self.var['col'].cgs()) 
+        filt = firstEstimate > self.var['kappaZlimit'].cgs()
+        firstEstimate[filt] = self.var['kappaZlimit'].cgs()[filt]
+        self.var['kappaZ'] = RadialFunction( firstEstimate, 'kappaZ', cgsConv=1.0, sensibleConv = 1.0/cmperkpc**2 *speryear*1.0e9, texString=r'$\kappa_Z (\mathrm{kpc}^2\ \mathrm{Gyr}^{-1})$', theRange=[1.0e-2, 1.0e4])
+        self.var['kappaZconservativeLimit'] = RadialFunction( self.var['hGas'].cgs()*self.var['sig'].cgs(),'kappaZconservativeLimit', cgsConv=1.0, sensibleConv=speryear*1.0e9/cmperkpc**2, texString = r'$H\sigma (\mathrm{kpc}^2\ \mathrm{Gyr}^{-1})$', theRange=[1.0e-2, 1.0e4])
      
         mstdist = np.column_stack( (self.var['mCentral'].cgs()  , self.var['colst'].cgs()*self.var['dA'].cgs()) ) # stellar mass in each bin
         mstcu = np.cumsum(mstdist, axis=1) #
@@ -639,6 +648,8 @@ class SingleModel:
         rds = []
         metallicityGradientsR90 = []
         metallicityGradients2kpc = []
+        radiusOfMaxColumnDensity = []
+        radiusOfMaxSFR = []
         v22s=[]
         for z in range(np.shape(mstcu)[0]):
             sthalfind = np.searchsorted(mstcu[z,:], [mstcu[z,-1]*0.5])[0] 
@@ -707,6 +718,18 @@ class SingleModel:
             r2 = self.var['r'].cgs(timeIndex=z, locIndex=st2ind)
             cst8 = self.var['colst'].cgs(timeIndex=z, locIndex=st8ind)
             cst2 = self.var['colst'].cgs(timeIndex=z, locIndex=st2ind)
+
+            argOfMaxColumnDensity = np.argmax(self.var['col'].cgs(timeIndex=z))
+            if argOfMaxColumnDensity==0:
+                radiusOfMaxColumnDensity.append(0.0) # if the column density increases all the way to the center of our grid, the max is 'unresolved'
+            else:
+                radiusOfMaxColumnDensity.append( self.var['r'].cgs(timeIndex=z, locIndex=argOfMaxColumnDensity) )
+
+            argOfMaxSFR = np.argmax(self.var['colsfr'].cgs(timeIndex=z))
+            if argOfMaxSFR==0:
+                radiusOfMaxSFR.append(0.0) # if the column density increases all the way to the center of our grid, the max is 'unresolved'
+            else:
+                radiusOfMaxSFR.append( self.var['r'].cgs(timeIndex=z, locIndex=argOfMaxSFR) )
             ## col=A exp(-r/rd)
             ## log col = log A - r/rd
             ## log cst8 = log A - r8/rd
@@ -738,10 +761,14 @@ class SingleModel:
         self.var['r2'] = TimeFunction( r2s, 'r2', sensibleConv=1/cmperkpc, texString=r'$r_{20\% M_*} (kpc)$')
         self.var['rd82'] = TimeFunction( rds, 'rd82', sensibleConv=1/cmperkpc, texString=r'$r_{d,82} (kpc)$')
 
-        self.var['vPhi22'] = TimeFunction( v22s, 'vPhi22', sensibleConv=1, cgsConv=1.0e5, texString=r'$v_{2.2} (\mathrm{km}/\mathrm{s})$')
+        self.var['vPhi22'] = TimeFunction( v22s, 'vPhi22', sensibleConv=1, cgsConv=1.0e5, texString=r'$v_{2.2} (\mathrm{km}/\mathrm{s})$', theRange=[10,500])
         self.var['fghm'] = TimeFunction( fgHalfMassStars, 'fghm', sensibleConv=1, texString=r'$\langle f_g \rangle_{r_*}$')
         self.var['fg2hm'] = TimeFunction( fgTwoHalfMassStars, 'fg2hm', sensibleConv=1, texString=r'$\langle f_g \rangle_{2r_*}$')
         self.var['halfMassStars'] = TimeFunction( halfMassRadiiStars, 'halfMassStars', cgsConv = cmperkpc, texString=r'$r_*$ (kpc)', theRange=[0.1, 10.0])
+        ## This will extract the global maximum in gas column density at any given redshift, and divide by the half stellar mass radius.
+        self.var['radiusOfMaximumColumnDensity'] = TimeFunction( np.array(radiusOfMaxColumnDensity)/self.var['halfMassStars'].cgs(), 'radiusOfMaximumColumnDensity', texString=r'$r_{\max(\Sigma)}/r_*$', log=False, theRange=[0,1.5])
+        self.var['radiusOfMaximumSFR'] = TimeFunction( np.array(radiusOfMaxSFR)/self.var['halfMassStars'].cgs(), 'radiusOfMaximumSFR', texString=r'$r_{\max(\dot{\Sigma}^\mathrm{SF})}/r_*$', log=False, theRange=[0,0.4])
+
         self.var['halfMassEst'] = TimeFunction( halfMassEst, 'halfMassEst', cgsConv = cmperkpc, texString=r'$r_{*,\mathrm{est}}$ (kpc)', theRange=[0.1, 10.0])
         self.var['c82'] = TimeFunction( c82Stars, 'c82', cgsConv = 1.0, texString=r'$c_{82} = r_{80}/r_{20}$ ', theRange=[2.0, 30.0])
         self.var['halfMassGas'] = TimeFunction( halfMassRadiiGas, 'halfMassGas', cgsConv = cmperkpc, texString=r'$r_g$ (kpc)')
@@ -815,7 +842,7 @@ class SingleModel:
                 'sfr',gpermsun/speryear, 1.0, r'$\dot{M}_\mathrm{SF}\ (M_\odot\ \mathrm{yr}^{-1}$)', theRange=[5.0e-5,1.0e3])
 
 
-        self.var['mstarIntegrated'] = TimeFunction( np.cumsum(self.var['sfr'].cgs()*self.var['dt'].cgs()), 'mstarIntegrated', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$\int \mathrm{SFR} dt$')
+        self.var['mstarIntegrated'] = TimeFunction( self.var['mstar'].cgs(timeIndex=0) + np.cumsum(self.var['sfr'].cgs()*self.var['dt'].cgs()), 'mstarIntegrated', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$\int \mathrm{SFR} dt$')
 
         self.var['sigmaPerSFR'] = TimeFunction( np.sqrt(self.var['maxsig'].sensible()**2.0 - 7.601**2.0)/self.var['sfr'].sensible(), 'sigmaPerSFR', sensibleConv=1.0, cgsConv=1.0e5/(gpermsun/speryear), texString=r'$\sigma_\mathrm{max}/\mathrm{SFR} (\mathrm{km}/\mathrm{s}/(M_\odot/\mathrm{yr}))$' , theRange=[0.1,50.0])
         onekpc = np.searchsorted( self.var['r'].sensible(timeIndex=-1), 1.0 )+1
@@ -1430,7 +1457,9 @@ class Experiment:
             # The former should be a subset of the latter.
             # I recently added the latter to allow the analysis of large experiments which are still running,
             #    excluding the models that are running as all models are read in.
-            if(os.stat(fnames[i]+'_stde_aux.txt')[6]==0) and reachedRedshiftZero(fnames[i]):
+            #if(os.stat(fnames[i]+'_stde_aux.txt')[6]==0) and reachedRedshiftZero(fnames[i]):
+            #if reachedRedshiftZero(fnames[i]):
+            if(os.stat(fnames[i]+'_stde.txt')[6]==0) and reachedRedshiftZero(fnames[i]):
                 self.models.append(SingleModel(fnames[i]))
             else:
                 pass
@@ -2725,8 +2754,8 @@ class Experiment:
 
         assert len(funcs) == len(yvars)
 
-        NMhBins = 20
-        NzBins = 20
+        NMhBins = 40
+        NzBins = 40
 
         overallMh,_,overallMhLog,overallMhRange = self.constructQuantity(xv1) 
         overallOnePlusZ,_,overallOnePlusZLog,overallOnePlusZRange = self.constructQuantity(xv2)
@@ -2754,16 +2783,16 @@ class Experiment:
             try:
                 fig,ax= plt.subplots()
                 if overallYLog: 
-                    pl = ax.imshow(hist, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])), aspect='auto', interpolation='Nearest', origin='lower', norm=LogNorm(), vmin=overallYRange[0], vmax=overallYRange[1] ) 
+                    pl = ax.imshow(hist, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])), aspect='auto', origin='lower', norm=LogNorm(), vmin=overallYRange[0], vmax=overallYRange[1] ) 
                 else:
-                    pl = ax.imshow(hist, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])), aspect='auto', interpolation='Nearest', origin='lower', vmin=overallYRange[0], vmax=overallYRange[1] ) 
+                    pl = ax.imshow(hist, extent=(np.log10(overallOnePlusZRange[0]), np.log10(overallOnePlusZRange[1]), np.log10(overallMhRange[0]),np.log10(overallMhRange[1])), aspect='auto', origin='lower', vmin=overallYRange[0], vmax=overallYRange[1] ) 
                 cbar = plt.colorbar(pl,ax=ax)
                 cbar.set_label(self.models[0].var[yv].texString)
                 ax.set_ylabel(r'$\log_{10} $ '+self.models[0].var[xv1].texString)
                 ax.set_xlabel(r'$\log_{10} $ '+self.models[0].var[xv2].texString)
                 funcname = repr(funcs[iyv]).replace(' ','').replace('<','').replace('>','')
                 atind = funcname.find('at')
-                plt.savefig( self.name+'_globalFraction_'+yv+'_'+funcname[:atind]+'.png')
+                plt.savefig( self.name+'_globalFraction_'+yv+'_'+funcname[:atind]+'.pdf')
                 plt.close(fig)
             except:
                 pdb.set_trace()
@@ -2773,7 +2802,7 @@ class Experiment:
 
 
 
-    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True, axIn=None, textsize=10, caxIn=None, arrows=False, color=None, plotObs=False):
+    def ptMovie(self,xvar='mstar',yvar=None,colorby=None,timeIndex=None,prev=0,movie=True, axIn=None, textsize=10, caxIn=None, arrows=False, color=None, plotObs=False, labelObsList=range(10)):
         if(yvar is None):
             variables = self.models[0].getTimeFunctions()
         else:
@@ -2978,10 +3007,10 @@ class Experiment:
                 labelled=False
 
                 applicableDatasets, dsColorIndices = observationalData.identifyApplicableDatasets(xvar,v, z[ti])
-                systematicColors = [  'b', 'orange', 'purple', 'r', 'darkgreen', 'lightblue', 'k'] 
+                systematicColors = [  'b', 'orange', 'purple', 'r', 'darkgreen', 'lightblue', 'k', 'pink', 'yellow', 'darkblue', 'lightgreen']*20 
                 if plotObs:
                     for ids, ds in enumerate(applicableDatasets) :
-                        observationalData.datasets[ds].plot(z[ti], axIn=ax, color=systematicColors[dsColorIndices[ids]])
+                        observationalData.datasets[ds].plot(z[ti], axIn=ax, color=systematicColors[dsColorIndices[ids]], showLabel=(ids in labelObsList))
                     if len(applicableDatasets)>0 :
                         labelled=True
 
@@ -3006,7 +3035,7 @@ class Experiment:
                 ax.set_xlim(overallXRange[0],overallXRange[1])
                 ax.set_ylim(overallRange[0],overallRange[1])
                 if labelled:
-                    ax.legend(frameon=False, loc=0, prop={'size':textsize})
+                    ax.legend(frameon=True, loc=0, prop={'size':textsize})
                 if(overallLog and not histFlag):
                     ax.set_yscale('log')
                 if(overallXLog and not histFlag):

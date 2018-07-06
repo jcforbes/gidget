@@ -1,8 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name rf29x
-#SBATCH -n 16
-#SBATCH -N 1-1
-#SBATCH -t 2-00:00
+#SBATCH --job-name bpost153a
+#SBATCH -n 128
+#SBATCH -t 4-00:00
 #SBATCH -p shared 
 #SBATCH --mem-per-cpu=1000
 #SBATCH --mail-type=ALL
@@ -17,5 +16,5 @@ module load python/2.7.14-fasrc01
 source activate ody
 
 
-python exper.py --nproc 16 rf290 rf291 rf292 rf293 
-#mpirun -n 128 python mcmc_broad.py 
+#python exper.py --nproc 16 rf264
+mpirun -n 128 python mcmc_broad.py 

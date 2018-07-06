@@ -43,7 +43,10 @@ def samplefromgammadensityTrans(u, trunc,a,b):
     #return np.random.gamma(a,1.0/b) # numpy's definition of the gamma uses e^{-x/scale}/scale^a
 def samplefromlognormaldensityTrans(u, trunc,mean,var):
     assert var>0
-    return np.exp(samplefromnormaldensityTrans(u,mean,var,trunc))
+    arg = samplefromnormaldensityTrans(u,trunc, mean,var)
+    ret = np.exp(arg)
+    #print "arg, ret: ", arg,ret
+    return ret
 def samplefromnormaldensityTrans(u, trunc,mean,var):
     assert var>0
     return scipy.stats.truncnorm.ppf(u,-trunc,trunc,mean,np.sqrt(var))
@@ -161,4 +164,12 @@ class jointDistribution:
         if not np.isfinite(result):
             return -np.inf
         return result
+
+def test_sampleTransforms():
+    for u in np.linspace(0.01, .99, 100):
+        print u, samplefromnormaldensityTrans(u, 2.0,0,np.log(4.0)**2*0.8**2)
+        print u, samplefromlognormaldensityTrans(u, 2.0,0,np.log(4.0)**2*0.8**2)
+
+if __name__=='__main__':
+    test_sampleTransforms()
 

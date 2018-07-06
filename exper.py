@@ -616,6 +616,7 @@ def experSuiteFromBroadMCMC(list_of_emceeparams, list_of_news, name, list_of_mas
 
 def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=12.0):
     raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, chiZslope = emceeparams
+    assert mass<20
 
     if hasattr( mass, '__len__' ):
         Mhz0 = list(mass)
@@ -3112,27 +3113,144 @@ if __name__ == "__main__":
     
     ### rf216 is a dummy combo of rf212 and rf213, just FYI
 
+    def systematicPosteriorSample(bn, pikfilename, nsamp, ngal, mass, startSampling=0):
+        #accHistories= list(np.random.random(10))
+        accHistories = None
+        arr = pickle.load(open(pikfilename,'r'))
+        exps = []
+        # if we've been given a list o f masses, assume we want a different random sample at each mass.
+        if hasattr(mass,'__len__'):
+            assert len(mass)==nsamp
+            masses = mass
+        else:
+            masses = np.ones(nsamp)*mass
+        for i in range(nsamp):
+            #j = int(np.random.uniform()*np.shape(arr)[0]) # pick a random integer!
+            j = i + startSampling
+            emceeparams = arr[j,:-1]
+            exps.append( experFromBroadMCMC(emceeparams, bn+'_'+str(i).zfill(2), ngal=ngal, accHistories=accHistories, mass=masses[i]) )
+        return exps
 
-    accHistories= list(np.random.random(10))
-    q16_11 = [ -1.05088846,   0.13834354,   0.31405994,   0.62888325,  -0.32617801, 0.10334779,  -1.08774886,  -1.36700699,  -0.72495458,   0.05863257, 0.05523378,  -0.02084213,  -1.63043691,  -3.59637562,   0.87521381, -0.1465907,   -1.72537571,   0.26181371,  -2.20546932,  -0.11316338, 11.67381493,  -0.7385748,   0.0950592,    1.00127159]
-    q50_11 = [ -0.75225373,   0.45321502,   0.46782298,   0.76024269,  -0.08407033, 0.29444897,  -0.7869128,   -0.94169641,  -0.07408208,   0.18528492, 0.25329861,   0.20123192,  -1.33669819,  -2.75274658,   0.96226019, -0.09557928,  -1.26589114,   0.54808871,  -1.88592761,  -0.03303261, 12.16116276,  -0.51294004,   0.24137744,   1.00588415]
-    q84_11 = [ -5.31343218e-01,   7.04676739e-01,   6.41505136e-01,   8.51990498e-01, 1.09689704e-01,   4.75616244e-01,  -5.38057130e-01,  -6.61245355e-01, 4.64334953e-01,   3.84721003e-01,   4.51690725e-01,   3.73886719e-01, -1.07275236e+00,  -2.34948285e+00,   9.91483935e-01,  -4.66504302e-02, -7.31073982e-01,   7.98163315e-01,  -1.61303625e+00,  -1.59384457e-03, 1.25208719e+01,  -2.64902796e-01,   3.88586961e-01,   1.01916248e+00]
-    q16_12 = [ -1.36099586,   0.03298742,   0.29537503,   0.2698089,   -0.01814452, 0.22143462,  -0.93141049,  -0.79859496,   0.02323836,   0.07596869, -0.1499827,   0.26161742,  -1.48297988,  -3.89795499,   0.79994738, -0.12257395,  -0.96105815,   0.17717399,  -2.21971403,  -0.0695584, 11.60562971,  -0.81459753,   0.23591057,   1.16630607]
-    q50_12 = [ -1.30058897e+00,   3.25076065e-01,   4.31974901e-01,   3.96614165e-01, 9.96626143e-02,   4.00773365e-01,  -6.30870927e-01,  -5.72767284e-01, 4.68393597e-01,   2.46160430e-01,   5.13649194e-02,   3.90923710e-01, -1.23601870e+00,  -2.96657207e+00,   8.62325898e-01,  -7.74131221e-02, -6.49582344e-01,   4.41299084e-01,  -1.91255742e+00,   1.69291642e-03, 1.20797964e+01,  -5.92329706e-01,   3.43964869e-01,   1.21613750e+00]
-    q84_12 = [ -1.27346146,   0.60657344,   0.62929767,   0.4998368,    0.24831494, 0.53554881,  -0.42147337,  -0.4717248,    0.75997139,   0.52233543, 0.30914725,   0.4358157,   -1.00359962,  -2.29529492,   0.92822664, -0.03526599,  -0.38877263,   0.73501689,  -1.61556825,   0.02899324, 12.51111342,  -0.31235696,   0.4438137,    1.26802409]
-    list_of_emceeparams = [q50_11[:-1], q50_12[:-1]]
-    list_of_news = [q84_11[:-1], q84_12[:-1]]
-    list_of_masses = [np.power(10.0, np.linspace(10.5,11.5,10)), np.power(10.0, np.linspace(11.5,12.5,10)) ]
-    experSuiteFromBroadMCMC(list_of_emceeparams, list_of_news, 'rf220', list_of_masses, ngal=10, accHistories=accHistories) 
 
 
     rf230 = fairPosteriorSample('rf230', 'py/fakemcmc100b_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
     rf231 = fairPosteriorSample('rf231', 'py/fakemcmc101b_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
     rf232 = fairPosteriorSample('rf232', 'py/fakemcmc102b_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
-    rf233 = fairPosteriorSample('rf233', 'py/fakemcmc103b_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
+    rf233 = fairPosteriorSample('rf233', 'py/fakemcmc103a_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
 
+    rf240 = fairPosteriorSample('rf240', 'py/fakemcmc110zz1_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
+    rf241 = fairPosteriorSample('rf241', 'py/fakemcmc111zz1_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
+    rf242 = fairPosteriorSample('rf242', 'py/fakemcmc112zz1_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
+    rf243 = fairPosteriorSample('rf243', 'py/fakemcmc113zz1_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
+
+    rf250 = fairPosteriorSample('rf250', 'py/fakemcmc110efgh_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
+    rf251 = fairPosteriorSample('rf251', 'py/fakemcmc111defgh_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
+    rf252 = fairPosteriorSample('rf252', 'py/fakemcmc112efgh_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
+    rf253 = fairPosteriorSample('rf253', 'py/fakemcmc113defghi_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
+
+
+    rf260 = fairPosteriorSample('rf260', 'py/fakemcmc110efgh_filteredposterior.pickle', 40, 1, np.linspace(9.999,10.001, 40) )
+    rf261 = fairPosteriorSample('rf261', 'py/fakemcmc111defgh_filteredposterior.pickle', 40, 1, np.linspace(10.999,11.001, 40) )
+    rf262 = fairPosteriorSample('rf262', 'py/fakemcmc112efgh_filteredposterior.pickle', 40, 1, np.linspace(11.999,12.001, 40) )
+    rf263 = fairPosteriorSample('rf263', 'py/fakemcmc113defghi_filteredposterior.pickle', 40, 1, np.linspace(12.999,13.001, 40) )
+
+    masterparams = np.zeros((160, 23))
+    mhs = np.power(10, np.linspace(9.5, 13.15, 160))
+    masterparams[:,0] = np.power(10, np.linspace( -0.45, -0.9, 160))
+    masterparams[:,1] = [10.0**0.3]*160
+    masterparams[:,2] = [10.0**0.3]*160
+    masterparams[:,3] = np.power(10, np.linspace( 0.5, -0.1, 160))
+    masterparams[:,4] = [0.1]*160
+    masterparams[:,5] = [0.5]*160
+    masterparams[:,6] = np.power(10, np.linspace( -.25, -1, 160))
+    masterparams[:,7] = np.power(10, np.linspace(-1.67,0, 160))
+    masterparams[:,8] = np.power(10, np.linspace( 0.5, -2, 160))
+    masterparams[:,9] = np.linspace(0.1, 0.4, 160)
+    masterparams[:,10] = np.power(10, np.linspace( 0.5, -.1, 160))
+    masterparams[:,11] = [3.2]*160
+    masterparams[:,12] = [10**-1.6]*160
+    masterparams[:,13] = np.power(10, np.linspace(-3,-1.5,160))
+    masterparams[:,14] = np.linspace(0.8, 0.4, 160)
+    masterparams[:,15] = np.linspace(0, -.2, 160)
+    masterparams[:,16] = np.power(10, np.linspace(-1.8, -.5, 160))
+    masterparams[:,17] = [0.4]*160
+    masterparams[:,18] = [0.02]*160
+    masterparams[:,19] = np.linspace(-0.2, -0.4, 160)
+    masterparams[:,20] = np.power(10, np.linspace(12,12.7,160))
+    masterparams[:,21] = np.power(10, np.linspace(-0.8, -0.4, 160))
+    masterparams[:,22] = np.linspace(0.25, 0, 160)
+    rf264 = []
+    for i in range(160):
+        rf264.append( experFromBroadMCMC(masterparams[i,:], 'rf264_'+str(i).zfill(2), ngal=1, accHistories=None, mass=np.log10(mhs[i])) )
+
+
+    rf270 = fairPosteriorSample('rf270', 'py/fakemcmc110efgh_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
+    rf271 = fairPosteriorSample('rf271', 'py/fakemcmc111defgh_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
+    rf272 = fairPosteriorSample('rf272', 'py/fakemcmc112efgh_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
+    rf273 = fairPosteriorSample('rf273', 'py/fakemcmc113defghi_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
+    for q in range(len(rf270)):
+        rf270[q].irregularVary('fixedQ', 3.0)
+        rf271[q].irregularVary('fixedQ', 3.0)
+        rf272[q].irregularVary('fixedQ', 3.0)
+        rf273[q].irregularVary('fixedQ', 3.0)
+        rf270[q].irregularVary('Qlim', 3.05)
+        rf271[q].irregularVary('Qlim', 3.05)
+        rf272[q].irregularVary('Qlim', 3.05)
+        rf273[q].irregularVary('Qlim', 3.05)
+
+    rf280 = fairPosteriorSample('rf280', 'py/fakemcmc130f_filteredposterior.pickle', 40, 1, np.linspace( 9.95,10.05, 40) )
+    rf281 = fairPosteriorSample('rf281', 'py/fakemcmc131f_filteredposterior.pickle', 40, 1, np.linspace(10.95,11.05, 40) )
+    rf282 = fairPosteriorSample('rf282', 'py/fakemcmc132f_filteredposterior.pickle', 40, 1, np.linspace(11.95,12.05, 40) )
+    rf283 = fairPosteriorSample('rf283', 'py/fakemcmc133f_filteredposterior.pickle', 40, 1, np.linspace(12.95,13.05, 40) )
+
+    rf284 = fairPosteriorSample('rf284', 'py/fakemcmc130f_filteredposterior.pickle', 40, 1, np.linspace( 9.95,10.05, 40) )
+    for q in range(len(rf284)):
+        rf284[q].irregularVary('kappaMetals', 1.0e-3)
+
+
+
+    masterparams = np.zeros((160, 23))
+    mhs = np.power(10, np.linspace(9.5, 13.15, 160))
+    masterparams[:,0] = [0.1]*160 
+    masterparams[:,1] = [10.0**0.5]*160
+    masterparams[:,2] = [10.0**0.5]*160
+    masterparams[:,3] = np.power(10, np.linspace( 0.3, 0.1, 160))
+    masterparams[:,4] = [-0.2]*160
+    masterparams[:,5] = [0.4]*160
+    masterparams[:,6] = np.power(10, np.linspace( -.25, -1, 160))
+    masterparams[:,7] = np.power(10, np.linspace(-0.75,0, 160))
+    masterparams[:,8] = np.power(10, np.linspace( -0.5, 0, 160))
+    masterparams[:,9] = np.linspace(0.5, 1.0, 160)
+    masterparams[:,10] = np.power(10, np.linspace( -0.1, -.1, 160))
+    masterparams[:,11] = np.power(10, np.linspace(-0.2, 0.3, 160))
+    masterparams[:,12] = [10**-1.6]*160
+    masterparams[:,13] = np.power(10, np.linspace(-3,-1.5,160))
+    masterparams[:,14] = np.linspace(0.9, 0.9, 160)
+    masterparams[:,15] = np.linspace(0, -.2, 160)
+    masterparams[:,16] = np.power(10, np.linspace(-1.2, -1.2, 160))
+    masterparams[:,17] = [0.5]*160
+    masterparams[:,18] = [10**-2]*160
+    masterparams[:,19] = np.linspace(0.1, -0.6, 160)
+    masterparams[:,20] = np.power(10, np.linspace(11.2,12.7,160))
+    masterparams[:,21] = np.power(10, np.linspace(-0.8, -0.4, 160))
+    masterparams[:,22] = np.linspace(0.6, 0.6, 160)
+    rf285 = []
+    for i in range(160):
+        rf285.append( experFromBroadMCMC(masterparams[i,:], 'rf285_'+str(i).zfill(2), ngal=1, accHistories=None, mass=np.log10(mhs[i])) )
+
+    rf290 = fairPosteriorSample('rf290', 'py/fakemcmc140c_filteredposterior.pickle', 40, 1, np.linspace( 9.95,10.05, 40) )
+    rf291 = fairPosteriorSample('rf291', 'py/fakemcmc141c_filteredposterior.pickle', 40, 1, np.linspace(10.95,11.05, 40) )
+    rf292 = fairPosteriorSample('rf292', 'py/fakemcmc142c_filteredposterior.pickle', 40, 1, np.linspace(11.95,12.05, 40) )
+    rf293 = fairPosteriorSample('rf293', 'py/fakemcmc143c_filteredposterior.pickle', 40, 1, np.linspace(12.95,13.05, 40) )
+
+    rf300 = systematicPosteriorSample('rf300', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=0)
+    rf301 = systematicPosteriorSample('rf301', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=100)
+    rf302 = systematicPosteriorSample('rf302', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=200)
+    rf303 = systematicPosteriorSample('rf303', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=300)
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
+
+
         # Get a list of all defined models (allModels.keys())
         # for each such key (aModel) check whether this inputString is contained in its name
         matches = [aModel for aModel in sorted(allModels.keys()) if inputString in aModel]

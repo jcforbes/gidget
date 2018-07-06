@@ -21,7 +21,8 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadDistr24qj'
+chaindirrel = 'broadPostSim153a'
+haloMass = 1.0e13
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -78,31 +79,30 @@ globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e
 bolshoiSize =  len(globalBolshoiReader.keys)
 
 globalPrior = analyticDistributions.jointDistribution(\
-        [ analyticDistributions.simpleDistribution( 'loguniform', [5.0e7, 2.0e10], 'Mh0'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(5.0)**2.0], 'alphaR' ), \
+        [ analyticDistributions.simpleDistribution( 'loguniform', [haloMass*0.99, haloMass*1.01], 'Mh0'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(4.0)**2.0], 'alphaR' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'chifg0' ), \
-        analyticDistributions.simpleDistribution( 'normal', [0, 1.0**2.0], 'muColScaling'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.2, 0.2**2.0], 'muFgScaling'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'chifg0' ), \
+        analyticDistributions.simpleDistribution( 'normal', [-0.5, 0.5**2.0], 'muColScaling'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.2**2.0], 'muFgScaling'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(10.0)**2.0], 'muNorm'), \
         analyticDistributions.simpleDistribution( 'normal', [-.5, 1.0**2.0], 'muMhScaling'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(10.0)**2.0], 'ZIGMfac'), \
         analyticDistributions.simpleDistribution( 'beta', [1,1], 'zmix' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'eta'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.5), np.log(2.0)**2.0], 'Qf'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.05), np.log(2.0)**2.0], 'alphaMRI'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.03), np.log(2.0)**2.0], 'alphaMRI'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
         analyticDistributions.simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.3**2.0], 'conRF'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'kZ'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.0, 0.3**2.0], 'conRF'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(2.0)**2.0], 'kZ'), \
         analyticDistributions.simpleDistribution( 'beta', [1,2], 'xiREC'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.0, 0.3**2], 'scaleAdjust'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(3.0)**2.0], 'mquench'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(3.0)**2.0], 'enInjFac'), \
-        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.2**2], 'chiZslope') ] )
-
+        analyticDistributions.simpleDistribution( 'normal', [0.0, 0.4**2], 'scaleAdjust'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), np.log(4.0)**2.0], 'mquench'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), np.log(4.0)**2.0], 'enInjFac'), \
+        analyticDistributions.simpleDistribution( 'normal', [0.3, 0.3**2], 'chiZslope') ] )
 
 
 
@@ -660,7 +660,7 @@ def getposteriorpredictive(restart, burnin=0, nspace=10):
 #                #print sorted(modeldict.keys())
 
 
-def run(n, p00=None, nwalkers=500):
+def run(n, p00=None, nwalkers=500, prior=True, pikfilename=None):
     # accScaleLength, muNorm, muMassScaling, muFgScaling, muColScaling, accCeiling, eta, fixedQ, Qlim, conRF, kappaNormalization, kappaMassScaling = emceeparams
 
 
@@ -670,7 +670,18 @@ def run(n, p00=None, nwalkers=500):
     if p00 is not None:
         p0 = [p00*(1.0+0.01*np.random.randn( ndim )) for i in range(nwalkers)]
     else:
-        p0 = [globalPrior.sample() for i in range(nwalkers)]
+        if prior:
+            p0 = [globalPrior.sample() for i in range(nwalkers)]
+        else:
+            assert pikfilename is not None
+
+            arr = pickle.load( open(pikfilename,'r') )
+            assert nwalkers>len(arr[:,0])
+            print "Simulating cases for ",pikfilename, "with ",nwalkers,"walkers and ",len(arr[:,0]),"samples"
+            p0 = []
+            for i in range(nwalkers):
+                j = i % len(arr[:,0])
+                p0.append( [haloMass]+list(arr[j,:-1]) ) 
 
     restart = {}
     restart['currentPosition'] = p0
@@ -988,7 +999,8 @@ if __name__=="__main__":
 
    
     #run(400, nwalkers=1024,p00=xmax) 
-    run(2, nwalkers=131072)
+    #run(2, nwalkers=131072)
+    run(1, nwalkers=131072, prior=False, pikfilename='py/fakemcmc153c_filteredposterior.pickle')
     #rerunPosteriorPredictive()
 
     if False:

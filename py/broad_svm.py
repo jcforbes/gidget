@@ -1,11 +1,15 @@
 import numpy as np
+<<<<<<< HEAD
 import glob
+=======
+import argparse
+>>>>>>> 0a1f2822361cfdfbc7a306ab21e26f7a8e1dedbe
 import time
 import os
 import copy
-import pickle
-import matplotlib.pyplot as plt
-import pdb
+import cPickle as pickle
+#import matplotlib.pyplot as plt
+import pdb,glob
 import emcee
 from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold, preprocessing, neural_network
 
@@ -34,8 +38,13 @@ randomFactorsKey01 = np.random.random(size=(50,nAccrBins))
 
 labelsTargets = ["Mh0", "Mh1", "Mh2", "Mh3", "Mst0", "Mst1", "Mst2", "Mst3", "sSFR0", "sSFR1", "sSFR2", "sSFR3", "Zg0", "Zg1", "Zg2", "Zg3", "Zst0", "Zst1", "Zst2", "Zst3", "fgmol0", "fgmol1", "fgmol2", "fgmol3", "fgHI0", "fgHI1", "fgHI2", "fgHI3", "rst0", "rst1", "rst2", "rst3", "vphitf0", "vphitf1", "vphitf2", "vphitf3", "c0", "c1", "c2", "c3", "SigCen0", "SigCen1", "SigCen2", "SigCen3", "jst0", "jst1", "jst2", "jst3", "Zgrad0", "Zgrad1", "Zgrad2", "Zgrad3", "sigmax0", "sigmax1", "sigmax2", "sigmax3", "mdotb0", "mdotb1", "mdotb2", "mdotb3", "rGI0", "rGI1", "rGI2", "rGI3", "tdep0", "tdep1", "tdep2", "tdep3", "tdepmol0", "tdepmol1", "tdepmol2", "tdepmol3", "rHI0", "rHI1", "rHI2", "rHI3", "Mmerge0", "Mmerge1", "Mmerge2", "Mmerge3", "vphi00", "vphi01", "vphi02", "vphi03", "vphi04", "vphi05", "vphi06", "vphi07", "vphi08", "vphi09", "vphi10", "vphi11", "vphi12", "vphi13", "vphi14", "vphi15", "vphi16", "vphi17", "vphi18", "vphi19", "Sigma00", "Sigma01", "Sigma02", "Sigma03", "Sigma04", "Sigma05", "Sigma06", "Sigma07", "Sigma08", "Sigma09", "Sigma10",  "Sigma11", "Sigma12", "Sigma13", "Sigma14", "Sigma15", "Sigma16", "Sigma17", "Sigma18", "Sigma19",   "SigmaSt00", "SigmaSt01", "SigmaSt02", "SigmaSt03", "SigmaSt04", "SigmaSt05", "SigmaSt06", "SigmaSt07", "SigmaSt08", "SigmaSt09", "SigmaSt10",  "SigmaSt11", "SigmaSt12", "SigmaSt13", "SigmaSt14", "SigmaSt15", "SigmaSt16", "SigmaSt17", "SigmaSt18", "SigmaSt19",  "SigmaSFR00", "SigmaSFR01", "SigmaSFR02", "SigmaSFR03", "SigmaSFR04", "SigmaSFR05", "SigmaSFR06", "SigmaSFR07", "SigmaSFR08", "SigmaSFR09", "SigmaSFR10", "SigmaSFR11", "SigmaSFR12", "SigmaSFR13", "SigmaSFR14", "SigmaSFR15", "SigmaSFR16", "SigmaSFR17", "SigmaSFR18", "SigmaSFR19", "Zr00", "Zr01", "Zr02", "Zr03", "Zr04", "Zr05", "Zr06", "Zr07", "Zr08", "Zr09", "Zr10", "Zr11", "Zr12", "Zr13", "Zr14", "Zr15", "Zr16", "Zr17", "Zr18", "Zr19", "Age00", "Age01", "Age02", "Age03", "Age04", "Age05", "Age06", "Age07", "Age08", "Age09", "Age10", "Age11", "Age12", "Age13", "Age14", "Age15", "Age16", "Age17", "Age18", "Age19", "lnLik"  ]
 
+<<<<<<< HEAD
 globalFakemcmcName = 'fakemcmc90b'
 globalHaloMass = 10.0
+=======
+#globalFakemcmcName = 'youNeedToChangeThe_globalFakemcmcName'
+#globalHaloMass = 12.0
+>>>>>>> 0a1f2822361cfdfbc7a306ab21e26f7a8e1dedbe
 
 class LassoPlusRF:
     ''' A little wrapper so that an sklearn model for random forest regression on the residuals of a linear+regularization model can be stored in the same object'''
@@ -108,7 +117,14 @@ class xtransform:
         #minxpsTiled = np.tile( self.minxps, (np.shape(X_other)[0],1))
         #maxxpsTiled = np.tile( self.maxxps, (np.shape(X_other)[0],1))
         #return (X_other - minxpsTiled)/(maxxpsTiled-minxpsTiled)
-        ret = self.scale.transform(X_other)
+        try: 
+            ret = self.scale.transform(X_other)
+        except:
+            print "*****************************"
+            print "Failed to transform new values of X."
+            print X_other
+            print '*****************************'
+            raise ValueError
         if self.deg>1:
             ret = self.poly.fit_transform(ret)
         return ret
@@ -306,13 +322,23 @@ def fakeEmceeResiduals(emceeparams, models):
 
 
     for k,Mh in enumerate(MhGrid):
+        models15x = None
+        if np.abs(np.log10(Mh)-10.0)<0.01:
+            models15x = models150
+        if np.abs(np.log10(Mh)-11.0)<0.01:
+            models15x = models151
+        if np.abs(np.log10(Mh)-12.0)<0.01:
+            models15x = models152
+        if np.abs(np.log10(Mh)-13.0)<0.01:
+            models15x = models153
+
         X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
         for i in range(len(logVars)):
             # Take the log of the input variable if it makes sense to do so
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
 
-	Y_eval = predictFill(models90, X1, k)[0].reshape(1,-1)
+	Y_eval = predictFill(models15x, X1, k)[0].reshape(1,-1)
         #Y_eval = np.array( [predictFill(models[j], X1, k)[0][j] for j in range(80)] ).reshape(1,80)
         residuals.append( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=False) )
 
@@ -349,8 +375,20 @@ print "Reading models.. this could take a sec"
 #models80 = pickle.load( open( 'rfnt81_0.pickle', 'r') )
 #models30 = pickle.load( open( 'rfnt30_0.pickle', 'r') )
 #models60 = pickle.load( open( 'rfnt60_0.pickle', 'r') )
-models90 = pickle.load( open( 'rfnt90_0.pickle', 'r') )
 #models100 = pickle.load( open( 'rfnt100_0.pickle', 'r') )
+#models100 = pickle.load( open( 'rfnt90_0.pickle', 'r') ) ## too lazy to change this everywhere in the code, so i'm calling models90 models100.
+#models130 = pickle.load( open( 'rfnt130_0.pickle', 'r') )
+#models131 = pickle.load( open( 'rfnt131_0.pickle', 'r') )
+#models132 = pickle.load( open( 'rfnt132_0.pickle', 'r') )
+#models133 = pickle.load( open( 'rfnt133_0.pickle', 'r') )
+#models140 = pickle.load( open( 'rfnt140_0.pickle', 'r') )
+#models141 = pickle.load( open( 'rfnt141_0.pickle', 'r') )
+#models142 = pickle.load( open( 'rfnt142_0.pickle', 'r') )
+#models143 = pickle.load( open( 'rfnt143_0.pickle', 'r') )
+models150 = pickle.load( open( 'rfnt150_0.pickle', 'r') )
+models151 = pickle.load( open( 'rfnt151_0.pickle', 'r') )
+models152 = pickle.load( open( 'rfnt152_0.pickle', 'r') )
+models153 = pickle.load( open( 'rfnt153_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -410,6 +448,16 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
 
     #massLim = (8.5,13) 
 
+    models15x = None
+    if np.abs(massLim[0]-10.0)<0.01 and np.abs(massLim[1]-10.0)<0.01:
+        models15x = models150
+    if np.abs(massLim[0]-11.0)<0.01 and np.abs(massLim[1]-11.0)<0.01:
+        models15x = models151
+    if np.abs(massLim[0]-12.0)<0.01 and np.abs(massLim[1]-12.0)<0.01:
+        models15x = models152
+    if np.abs(massLim[0]-13.0)<0.01 and np.abs(massLim[1]-13.0)<0.01:
+        models15x = models153
+
     chiSquared = np.zeros((10, 33))
     chiSquaredFh0 = np.zeros((10, 33))
 
@@ -424,7 +472,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
             #xmaxThis[-1] = 0.0
             pass
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models90) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models15x) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -554,12 +602,22 @@ def lnlikelihoodFromPickle(emceeparams, models=None):
     
 
     
-def lnlikelihood(emceeparams, models=None):
+def lnlikelihood(emceeparams, models=None, debug=False):
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     nmh = 20
     MhGrid = np.power(10.0, np.linspace(globalHaloMass,globalHaloMass+.001,nmh)) ## look only at a very narrow range of masses
     lnlik = 0.0
+
+    models15x = None
+    if np.abs(globalHaloMass-10.0)<0.01:
+        models15x = models150
+    if np.abs(globalHaloMass-11.0)<0.01:
+        models15x = models151
+    if np.abs(globalHaloMass-12.0)<0.01:
+        models15x = models152
+    if np.abs(globalHaloMass-13.0)<0.01:
+        models15x = models153
 
     for k,Mh in enumerate(MhGrid):
         # Let's see.. Mh + emcee parameters, minus the last two "artificial" parameters
@@ -575,30 +633,46 @@ def lnlikelihood(emceeparams, models=None):
         #for j in range(80):
         #    if j in neededModels:
         #        Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
-	Y_eval[0,:] = predictFill(models90, X1, k)[0]
+	Y_eval[0,:] = predictFill(models15x, X1, k)[0]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
         fsigma = emceeparams[-1]
-        lnlik += np.sum( globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True) )
+
+        lnlikThis = np.sum( globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True) )
+        if debug:
+            print "Debugging likelihood fn: Residuals and liklihoods:"
+            print "likelihoods: ",globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True, debug=True) 
+            print "residuals: ",globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=False) 
+       
+        lnlik += lnlikThis
 
 
-    print "Returning lnlik = ", lnlik #, "for emceeparams ",emceeparams
+    #print "Returning lnlik = ", lnlik #, "for emceeparams ",emceeparams
     if not np.isfinite(lnlik):
         return -np.inf
     return lnlik
 
-def sampleFromGaussianBall():
+def sampleFromGaussianBall(var=0.001):
     ## the max posterior probability estimated from the previous run.
     #xmax = [  3.77274603e-02, 7.60850948e-01, 1.49261405e+00, 8.96710122e-01, 3.24127453e-01, -2.95591681e-01, 2.35329503e-02, -2.29120438e+00, 4.90155667e+01, 3.62467850e-01, 2.42953261e+00, 2.44659997e+00, 7.99493942e-02, 4.37735172e-05, 4.81805279e-01, 2.75940879e-01, 3.17078465e+00, 1.74401966e-01, 1.97481061e-02,-1.37921564e-02, 2.76371012e+12, 4.14894397e+00, 2.17629370e-01]
 
     ## alphaR, alphaRSt0, alphaG0, chifg0, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, scaleAdjust, mquench, enInjFac, chiZslope, fsigma
-    xmax = [0.1,  1.5,  1.5,  2.0, -0.3, 0.2, 0.1, -0.4, 1.0, 0.1, 1.0, 2.0, 0.03, 1.0e-3, 0.5, 0.1, 0.1, 0.2, 1.0e-2, -0.01, 1.0e12, 1.0, 0.3, 1.5]
+    xmax = [0.1,  1.5,  1.5,  2.0, -0.8, 0.2, 0.5, -0.8, 1.0, 0.1, 1.0, 2.0, 0.03, 1.0e-3, 0.5, 0.1, 0.02, 0.2, 1.0e-2, -0.01, 1.0e12, 1.0, 0.3, 1.5]
     draw = []
     for i in range(len(xmax)):
-        draw.append( xmax[i]*(1.0 + 0.001*np.random.normal()) )
+        draw.append( xmax[i]*(1.0 + var*np.random.normal()) )
     if not np.isfinite( globalPrior.lndensity(draw) ):
-        print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()"
-        return sampleFromGaussianBall() ## if this is a bad draw don't use it!
+        print "Prior is not finite at initialization... yikes!"
+        for k in range(len(xmax)):
+            print "Prior of ",k,"th component: ",globalPrior.list_of_dist[i].lndensity(draw[k])
+    if not np.isfinite(lnlikelihood(draw)):
+        #print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()", var
+        #print "FAILED: ",draw
+        #return sampleFromGaussianBall(var) ## if this is a bad draw don't use it!
+        print "Zero likelihood at initialization. Debugging:"
+        lnlikelihood(draw, debug=True)
+        assert False
+    #print "SUCCES: ",draw
     return draw
 
 
@@ -625,9 +699,9 @@ globalPrior = analyticDistributions.jointDistribution(\
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), narrowFac**2* np.log(10.0)**2.0], 'epsquench', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
         analyticDistributions.simpleDistribution( 'normal', [0.0, narrowFac**2* 0.3**2.0], 'conRF', trunc=2.0), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(.1), narrowFac**2* np.log(2.0)**2.0], 'kZ', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(.1/4), narrowFac**2* np.log(2.0)**2.0], 'kZ', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'beta', [1,2], 'xiREC'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), narrowFac**2* np.log(2.0)**2.0], 'epsff', trunc=2.0), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), narrowFac**2 * np.log(2.0)**2.0], 'epsff', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'normal', [0.0, narrowFac**2* 0.4**2], 'scaleAdjust', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e12), narrowFac**2* np.log(4.0)**2.0], 'mquench', trunc=2.0), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0), narrowFac**2* np.log(4.0)**2.0], 'enInjFac', trunc=2.0), \
@@ -744,10 +818,31 @@ def trimRestart(restart, frac=0.8):
     restart['chain'] = restart['chain'][:,int((1-frac)*niter):,:]
     return restart
 
-def saveRestart(fn,restart):
+def saveRestart(fn,restart, truncate=0):
     with open(fn,'wb') as f:
         print "checkpoint to "+fn
-        pickle.dump(restart,f,2)
+        # if some truncation is specified, and the chain is large enough to actually be truncated at that scale:
+        if truncate!=0 and np.shape(restart['chain'])[1] > np.abs(truncate) :
+            print "Truncating chain! "
+            #restart['chain'] = restart['chain'][:,truncate:,:]  #nwalkers x niterations x ndim
+            #restartCopy = copy.deepcopy(restart)
+            #restartCopy['chain'] = restart['chain'][:,truncate:,:]
+
+            restartCopy = {}
+            for k in restart.keys():
+                if k=='chain':
+                    restartCopy['chain'] = restart['chain'][:,truncate:,:]
+                elif k=='allProbs':
+                    restartCopy['allProbs'] = restart['allProbs'][:,truncate:] 
+                else:
+                    restartCopy[k] = copy.deepcopy(restart[k])
+
+            if np.shape(restart['chain'])[1]>np.abs(truncate)*2:
+                restart['chain'] = restart['chain'][:,(truncate*2):,:]
+                restart['allProbs'] = restart['allProbs'][:,(truncate*2):]
+            pickle.dump(restartCopy,f,2)
+        else:
+            pickle.dump(restart,f,2)
 
 def updateRestart(fn,restart):
     if os.path.isfile(fn):
@@ -1325,24 +1420,37 @@ def runDynesty(mpi=False):
     #    if not pool.is_master():
     #        pool.wait()
     #        sys.exit()
+    #else:
+    #    pool = None
+    print "d00"
+    if mpi:
+        from multiprocessing import Pool
+        pool = Pool(processes=15)
+    else:
+        pool = None
     ndim = 24
-
+    print "d0"
     import dynesty
     from dynesty import plotting as dyplot
+    print "d1"
     dsampler = dynesty.DynamicNestedSampler(lnlikelihood, globalPrior.sample_transform, ndim, bound='multi', sample='slice')
-    dsampler.run_nested()
+    print "d2"
+    dsampler.run_nested(dlogz_init=0.1, maxcall=3000000)
+    print "d3"
     results = dsampler.results
+    print "d4"
+    pickle.dump(results, open(globalFakemcmcName+'_dyn_results.pickle','w'))
+    print "d5"
 
     rfig, raxes = dyplot.runplot(results)
-    plt.savefig('emu_dyn00_run.pdf')
+    plt.savefig(globalFakemcmcName+'_dyn_run.pdf')
 
     tfig, taxes = dyplot.traceplot(results)
-    plt.savefig('emu_dyn00_trace.pdf')
+    plt.savefig(globalFakemcmcName+'_dyn_trace.pdf')
 
     cfig, caxes = dyplot.cornerplot(results)
-    plt.savefig('emu_dyn00_corner.pdf')
+    plt.savefig(globalFakemcmcName+'_dyn_corner.pdf')
 
-    pickle.dump(results, open('emu_dyn00_results.pickle','w'))
 
 
 
@@ -1367,7 +1475,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     #fn = 'fakemcmc38_restart.pickle'  # reduce prior on kappaz by factor of 10 (in location parameter); include more masses in the likelihood function
     fn = globalFakemcmcName+'_restart.pickle'
     restart = {}
-    nsteps = 3000 
+    nsteps = 300001
     #p0 = [ globalPrior.sample() for w in range(nwalkers) ]
     p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
 
@@ -1394,7 +1502,9 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     restart['mcmcRunCounter'] = 0
 
     if continueRun:
-        updateRestart(fn, restart)
+        extantCheckpoints = sorted(glob.glob('int*'+fn+'*'))
+        if len(extantCheckpoints)>2:
+	    updateRestart(extantCheckpoints[-2], restart)
 
     restart['iterationCounter'] += nsteps
     restart['mcmcRunCounter'] += 1
@@ -1408,7 +1518,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=[models])
     
     counter =0
-    for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], rstate0=restart['state']) :
+    for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], rstate0=restart['state'], storechain=False) :
         counter+=1
         pos, prob, state = result
 
@@ -1418,10 +1528,10 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         restart['state'] = state # random number generator state
         restart['prob'] = prob # nwalkers x __
         if restart['chain'] is None:
-            restart['chain'] = np.expand_dims(sampler.chain[:,0,:],1) # nwalkers x niterations x ndim
+            restart['chain'] = np.expand_dims(pos,1) # nwalkers x niterations x ndim
             restart['allProbs'] = np.expand_dims(prob,1)  # nwalkers x niterations
         else:
-            print np.shape(restart['chain']), np.shape(sampler.chain[:,-1,:]), np.shape(sampler.chain)
+            print np.shape(restart['chain']), np.shape(pos)
             print restart['mcmcRunCounter'], restart['iterationCounter']
             #restart['chain'] = np.concatenate((restart['chain'], sampler.chain[:,-1,:]), axis=1)
             print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(np.expand_dims(pos,1)), counter
@@ -1429,10 +1539,10 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
             restart['allProbs'] = np.concatenate((restart['allProbs'], np.expand_dims(prob, 1)),axis=1)
 
         
-        if counter%10==1:
+        if counter%50==1:
             #try:
             print "Attempting to save checkpoint, counter=",counter
-	    saveRestart('int'+str(counter).zfill(5)+'_'+fn, restart) # save an actual checkpoint file instead of writing over the same one every timestep.
+	    saveRestart('intq'+str(counter).zfill(5)+'_'+fn, restart, truncate=-50) # save an actual checkpoint file instead of writing over the same one every timestep.
            # saveRestart(fn,restart)
             #except:
             #    print "WARNING: checkpoint failed, trimming the chain and trying again"
@@ -1453,8 +1563,8 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         pool.close()
 
 
-#import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
-def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
+import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
+def singleRelationLikelihood(x,y,datasets, fsigma=1.0, debug=False):
     lik = 0
     resLimit = 7.9
     for i,ds in enumerate(datasets):
@@ -1478,6 +1588,9 @@ def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
         likThis *= observationalData.epsSkewNormalPDF( yThis, epsilon,theta,sigma*fsigma )
         lik += likThis/float(len(datasets))
         resThis = (yThis - theta)/sigma
+        if debug:
+            print "singleRelationLikelihood: ", ds, x, y, np.log(lik), likThis, resThis, yThis, theta, sigma, epsilon
+
         if abs(resThis) < abs(resLimit):
             res = resThis
         else:
@@ -1525,7 +1638,7 @@ def singleRelationLikelihoodOld(x,y,datasets):
 
     return lnlik, finalResiduals
 
-def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
+def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True, debug=False):
     ### neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
     logMh0 = Ys_train[:,0]
     logMh1 = Ys_train[:,1]
@@ -1617,14 +1730,14 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
     #lnlik += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13','Barro15HS','Barro15HQ'])
     #lnlik[:,18] += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13'])[srlInd]
     lnlik[:,19] += singleRelationLikelihood(10.0**logMst1,10.0**logSigma1z1,['Barro151S'],fsigma)[srlInd]
-    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S'],fsigma)[srlInd]
-    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S'],fsigma)[srlInd]
+    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S'],fsigma,debug=debug)[srlInd]
+    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S'],fsigma,debug=debug)[srlInd]
 
 
     # Label points that fit galaxy sizes
-    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14LTG0'],fsigma)[srlInd]
-    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14LTG1'],fsigma)[srlInd]
-    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14LTG2'],fsigma)[srlInd]
+    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14LTG0', 'baldry12LTG0'],fsigma, debug=debug)[srlInd]
+    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14LTG1'],fsigma, debug=debug)[srlInd]
+    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14LTG2'],fsigma, debug=debug)[srlInd]
     lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14LTG3'],fsigma)[srlInd]
     #lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14ETG0','vdW14LTG0'])[srlInd]
     #lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14ETG1','vdW14LTG1'])[srlInd]
@@ -1637,6 +1750,7 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
 
     lnlik[:,28] += singleRelationLikelihood(10.0**logMst0,10.0**logvPhi22z0,['miller11'])[srlInd]
 
+    # try a case not including krumholz17 data.
     lnlik[:,29] += singleRelationLikelihood(10.0**(logMst0+logsSFRz0-9), 10.0**logmaxsigz0, ['krumholz17'] )[srlInd]
     lnlik[:,30] += singleRelationLikelihood(10.0**(logMst1+logsSFRz1-9), 10.0**logmaxsigz1, ['krumholz17'])[srlInd]
     lnlik[:,31] += singleRelationLikelihood(10.0**(logMst2+logsSFRz2-9), 10.0**logmaxsigz2, ['krumholz17'])[srlInd]
@@ -1654,6 +1768,8 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
         #pdb.set_trace()
 
     if returnlikelihood:
+        if debug:
+            print "Array of lnlik's: ", lnlik
         # should be an array with one element per mass in our array of test galaxies 
         return np.sum(lnlik,axis=1)
     else:
@@ -3373,7 +3489,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
                     invalid = np.logical_not(valid)
                     minvalid = np.min(Ys_train[:,k][valid])
                     Ys_train[:,k][invalid]=minvalid
-                    print "WARNING: replacing ", np.sum(np.ones(len(Ys_train[:,k]))[invalid]), "values of the likelihood with very negative values."
+                    #print "WARNING: replacing ", np.sum(np.ones(len(Ys_train[:,k]))[invalid]), "values of the likelihood with very negative values."
 
                     valid = np.logical_and( np.isfinite(Ys_validate[:,k]), np.logical_not(np.isnan(Ys_validate[:,k])))
                     invalid = np.logical_not(valid)
@@ -4140,7 +4256,7 @@ def importanceResampling():
 
 
 
-if __name__=='__main__':
+def main(args):
     #learn(1.0e4, 1.0e-5)
     #validateSVM()
     #appendLabels()
@@ -4153,13 +4269,20 @@ if __name__=='__main__':
     #searchTreeParams(400)
     #searchLinearModels(800)
 
-    #runDynesty(mpi=True)
+    if args.runDynesty:
+        print "running dynesty"
+        runDynesty(mpi=True)
 
-    #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc91coll_restart.pickle' ) ### be sure to set globalFakemcmcName
-    #runEmcee(mpi=False, continueRun=True, seedWith=None )
-    #runEmcee(mpi=False, continueRun=False, seedWith=None )
-    #fractionalVariancePlot()
-    #ridgeCoeffsPlot()
+    if args.runEmcee:
+        print "running emcee"
+        seedWith=None
+        if args.seedWith!='':
+            seedWith = args.seedWith
+        #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
+        runEmcee(mpi=True, continueRun=False, seedWith=seedWith)
+        #runEmcee(mpi=True, continueRun=False, seedWith='int00961_fakemcmc91d_restart.pickle') 
+        #fractionalVariancePlot()
+        #ridgeCoeffsPlot()
 
     #validateNPR()
     #plotResiduals()
@@ -4270,7 +4393,6 @@ if __name__=='__main__':
     #three = sorted( glob.glob('intq*_fakemcmc143a_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc143b_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc143c_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc143d_restart.pickle'))
 
 
-    # jfc.
     def getRestartList(bn):
         letters = ['a','b','c','d','e','f','g','h','i','j','k','l','m']
         full_list = []
@@ -4325,72 +4447,82 @@ if __name__=='__main__':
     #burnins = [2700, 2700, 2700 ]
     #nspaces = [1000, 1000, 1000]
 
-    #minimumlnliks = [-3130, -635]
-    #burnins = [2700, 2700]
-    #nspaces = [1000, 1000]
-    minimumlnliks = [-9100, -2500, -420, 40]
-    burnins = [40]*4
-    nspaces=[1000]*4
-    #multiTrianglePlot(restarts, minimumlnliks, burnins, nspaces, identifier='140_141_142_143')
-
-
-    print "q3"
-
-#    analyzeSingleRestart( 'fakemcmc110zz1', burnIn=1540, minimumlnlik=-1e8 )
-#    analyzeSingleRestart( 'fakemcmc111zz1', burnIn=1540, minimumlnlik=-1e8 )
-#    analyzeSingleRestart( 'fakemcmc112zz1', burnIn=1780, minimumlnlik=-430 )
-#    analyzeSingleRestart( 'fakemcmc113zz1', burnIn=840, minimumlnlik=70 )
-#    if True:
-#        restart={}
-#        updateRestart(globalFakemcmcName +'_restart.pickle', restart)
-#        printRestart(restart)
-#        tracePlots(restart, globalFakemcmcName +'_trace', burnIn=0)
-#        probsPlots(restart, globalFakemcmcName +'_allProb', burnIn=0)
-#        trianglePlot(restart, globalFakemcmcName +'_triangle', burnIn=2000, nspace=20000, minimumlnlik=-1400000)
-#
-#        # Find the maximum among all models sampled so far.
-#        allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations
-#        priors = np.zeros((np.shape(restart['allProbs'])[0],np.shape(restart['allProbs'])[1]))
-#        for i in range(np.shape(restart['chain'])[0]):
-#            for j in range(np.shape(restart['chain'])[1]):
-#                priors[i,j] = globalPrior.lndensity( restart['chain'][i,j,:] )
-#
-#        stlikelihoods = restart['allProbs'] - priors
-#        likelihoods = allProbs.flatten() - priors.flatten()
-#        print "likelihoods stats: ", np.max(likelihoods), np.percentile(likelihoods,[5,50,90,95,97.5,99])
-#
-#        print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
-#
-#        zipped = zip(restart['allProbs'][:,25], range(len(restart['allProbs'][:,25])))
-#        zsorted = sorted(zipped, key=lambda x: -x[0])
-#        highProbInds = [zsorted[i][1] for i in range(10)]
-#
-#        zipped2 = zip(stlikelihoods[:,25], range(len(stlikelihoods[:,25])))
-#        zsorted2 = sorted(zipped2, key=lambda x: -x[0])
-#        highProbInds2 = [zsorted2[i][1] for i in range(10)]
-#
-#        for i in range(2):
-#            #index = np.argmax(allProbs)
-#            #index2 = np.argmax(likelihoods)
-#            index = highProbInds[i]
-#            print 'posterior:', restart['allProbs'][index,25]
-#            print 'likelihood:', stlikelihoods[index,25]
-#            ##print 'likelihood: ', likelihoods[index2]
-#            #indices = np.unravel_index(index, np.shape(restart['allProbs']))
-#            ##indices2 = np.unravel_index(index2, np.shape(restart['allProbs']))
-#            #xmax = restart['chain'][indices[0],indices[1],:]
-#            # (nwalkers x niterations x ndim)    
-#            xmax = restart['chain'][index, 25, :]
-#            #xmax2 = restart['chain'][indices2[0],indices2[1],:]
-#            print "Favorite coordinates Posterior (", i, ")", xmax
-#            printPriorOffsets(xmax)
-#            #print "Favorite coordinates Likelihood: ", xmax2
-#            #printPriorOffsets(xmax2)
-#
-#        #print " current shape of chain: (nwalkers x niterations x ndim) ",np.shape(restart['chain'])
-#
-#
-#
-#        #####fakeEmceePlotResiduals(restart, 'fakemcmc13_residuals', gidgetmodels='rf78')
 
     print "q4"
+    minimumlnliks = [-3130, -635]
+    burnins = [2700, 2700]
+    nspaces = [1000, 1000]
+    #multiTrianglePlot(restarts, minimumlnliks, burnins, nspaces, identifier='61_62')
+
+    if args.analyzeMCMC:
+        restart={}
+        updateRestart(globalFakemcmcName +'_restart.pickle', restart)
+        printRestart(restart)
+        tracePlots(restart, globalFakemcmcName +'_trace', burnIn=0)
+        probsPlots(restart, globalFakemcmcName +'_allProb', burnIn=0)
+        trianglePlot(restart, globalFakemcmcName +'_triangle', burnIn=350, nspace=20000, minimumlnlik=-140)
+
+        # Find the maximum among all models sampled so far.
+        allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations
+        priors = np.zeros((np.shape(restart['allProbs'])[0],np.shape(restart['allProbs'])[1]))
+        for i in range(np.shape(restart['chain'])[0]):
+            for j in range(np.shape(restart['chain'])[1]):
+                priors[i,j] = globalPrior.lndensity( restart['chain'][i,j,:] )
+
+        stlikelihoods = restart['allProbs'] - priors
+        likelihoods = allProbs.flatten() - priors.flatten()
+        print "likelihoods stats: ", np.max(likelihoods), np.percentile(likelihoods,[5,50,90,95,97.5,99])
+
+        print "probs stats: ", np.max(allProbs), np.percentile(allProbs,[5,50,90,95,97.5,99])
+
+        zipped = zip(restart['allProbs'][:,25], range(len(restart['allProbs'][:,25])))
+        zsorted = sorted(zipped, key=lambda x: -x[0])
+        highProbInds = [zsorted[i][1] for i in range(10)]
+
+        zipped2 = zip(stlikelihoods[:,25], range(len(stlikelihoods[:,25])))
+        zsorted2 = sorted(zipped2, key=lambda x: -x[0])
+        highProbInds2 = [zsorted2[i][1] for i in range(10)]
+
+        for i in range(2):
+            #index = np.argmax(allProbs)
+            #index2 = np.argmax(likelihoods)
+            index = highProbInds[i]
+            print 'posterior:', restart['allProbs'][index,25]
+            print 'likelihood:', stlikelihoods[index,25]
+            ##print 'likelihood: ', likelihoods[index2]
+            #indices = np.unravel_index(index, np.shape(restart['allProbs']))
+            ##indices2 = np.unravel_index(index2, np.shape(restart['allProbs']))
+            #xmax = restart['chain'][indices[0],indices[1],:]
+            # (nwalkers x niterations x ndim)    
+            xmax = restart['chain'][index, 25, :]
+            #xmax2 = restart['chain'][indices2[0],indices2[1],:]
+            print "Favorite coordinates Posterior (", i, ")", xmax
+            printPriorOffsets(xmax)
+            #print "Favorite coordinates Likelihood: ", xmax2
+            #printPriorOffsets(xmax2)
+
+        #print " current shape of chain: (nwalkers x niterations x ndim) ",np.shape(restart['chain'])
+
+
+
+        #####fakeEmceePlotResiduals(restart, 'fakemcmc13_residuals', gidgetmodels='rf78')
+
+
+if __name__=='__main__':
+    parser = argparse.ArgumentParser(description='Run an emulator-based mcmc, or analyze such a run.')
+    parser.add_argument('--logMh0', type=float, default=12.0, help='log10 of the z=0 halo mass in solar masses')
+    parser.add_argument('--fakemcmcName', type=str, help='the basename of the files used to store the emulator mcmc')
+    parser.add_argument('--runEmcee', action='store_true', help='run the emulator mcmc')
+    parser.add_argument('--runDynesty', action='store_true', help='run the emulator dynamic nested sampling')
+    parser.add_argument('--analyzeMCMC', action='store_true', help='run standard analysis on the arg of fakemcmcName')
+    parser.add_argument('--seedWith', type=str, help='The name of a pickle file to seed the mcmc')
+    parser.set_defaults( runEmcee=False, analyzeMCMC=False, seedWith='', runDynesty=False)
+    args = parser.parse_args()
+    global globalFakemcmcName
+    global globalHaloMass
+    globalFakemcmcName = args.fakemcmcName
+    globalHaloMass = args.logMh0
+    main(args)
+
+
+

@@ -1,6 +1,6 @@
-LDFLAGS		= -O3  -L/usr/local/Cellar/gsl/lib -lgsl -lgslcblas -lm 
-CFLAGS		= -O3  -I/usr/local/Cellar/gsl/include -c 
-CC		= g++
+LDFLAGS		= -O3  -L/usr/local/Cellar/gsl/2.3/lib -lgsl -lgslcblas -lm 
+CFLAGS		= -O3  -I/usr/local/Cellar/gsl/2.3/include -c 
+CC		= g++ 
 EXECUTABLE=../bin/gidget
 
 SOURCES := $(wildcard *.cpp)

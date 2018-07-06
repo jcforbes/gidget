@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name rf285
+#SBATCH --job-name rf29x
 #SBATCH -n 16
 #SBATCH -N 1-1
 #SBATCH -t 2-00:00
@@ -17,5 +17,5 @@ module load python/2.7.14-fasrc01
 source activate ody
 
 
-python exper.py --nproc 16 rf285 
+python exper.py --nproc 16 rf290 rf291 rf292 rf293 
 #mpirun -n 128 python mcmc_broad.py 

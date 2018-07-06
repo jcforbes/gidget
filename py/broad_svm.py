@@ -313,15 +313,15 @@ def fakeEmceeResiduals(emceeparams, models):
 
 
     for k,Mh in enumerate(MhGrid):
-        models14x = None
+        models15x = None
         if np.abs(np.log10(Mh)-10.0)<0.01:
-            models14x = models140
+            models15x = models150
         if np.abs(np.log10(Mh)-11.0)<0.01:
-            models14x = models141
+            models15x = models151
         if np.abs(np.log10(Mh)-12.0)<0.01:
-            models14x = models142
+            models15x = models152
         if np.abs(np.log10(Mh)-13.0)<0.01:
-            models14x = models143
+            models15x = models153
 
         X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
         for i in range(len(logVars)):
@@ -329,7 +329,7 @@ def fakeEmceeResiduals(emceeparams, models):
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
 
-	Y_eval = predictFill(models14x, X1, k)[0].reshape(1,-1)
+	Y_eval = predictFill(models15x, X1, k)[0].reshape(1,-1)
         #Y_eval = np.array( [predictFill(models[j], X1, k)[0][j] for j in range(80)] ).reshape(1,80)
         residuals.append( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=False) )
 
@@ -368,14 +368,18 @@ print "Reading models.. this could take a sec"
 #models60 = pickle.load( open( 'rfnt60_0.pickle', 'r') )
 #models100 = pickle.load( open( 'rfnt100_0.pickle', 'r') )
 #models100 = pickle.load( open( 'rfnt90_0.pickle', 'r') ) ## too lazy to change this everywhere in the code, so i'm calling models90 models100.
-models130 = pickle.load( open( 'rfnt130_0.pickle', 'r') )
-models131 = pickle.load( open( 'rfnt131_0.pickle', 'r') )
-models132 = pickle.load( open( 'rfnt132_0.pickle', 'r') )
-models133 = pickle.load( open( 'rfnt133_0.pickle', 'r') )
-models140 = pickle.load( open( 'rfnt140_0.pickle', 'r') )
-models141 = pickle.load( open( 'rfnt141_0.pickle', 'r') )
-models142 = pickle.load( open( 'rfnt142_0.pickle', 'r') )
-models143 = pickle.load( open( 'rfnt143_0.pickle', 'r') )
+#models130 = pickle.load( open( 'rfnt130_0.pickle', 'r') )
+#models131 = pickle.load( open( 'rfnt131_0.pickle', 'r') )
+#models132 = pickle.load( open( 'rfnt132_0.pickle', 'r') )
+#models133 = pickle.load( open( 'rfnt133_0.pickle', 'r') )
+#models140 = pickle.load( open( 'rfnt140_0.pickle', 'r') )
+#models141 = pickle.load( open( 'rfnt141_0.pickle', 'r') )
+#models142 = pickle.load( open( 'rfnt142_0.pickle', 'r') )
+#models143 = pickle.load( open( 'rfnt143_0.pickle', 'r') )
+models150 = pickle.load( open( 'rfnt150_0.pickle', 'r') )
+models151 = pickle.load( open( 'rfnt151_0.pickle', 'r') )
+models152 = pickle.load( open( 'rfnt152_0.pickle', 'r') )
+models153 = pickle.load( open( 'rfnt153_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -435,15 +439,15 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
 
     #massLim = (8.5,13) 
 
-    models14x = None
+    models15x = None
     if np.abs(massLim[0]-10.0)<0.01 and np.abs(massLim[1]-10.0)<0.01:
-        models14x = models140
+        models15x = models150
     if np.abs(massLim[0]-11.0)<0.01 and np.abs(massLim[1]-11.0)<0.01:
-        models14x = models141
+        models15x = models151
     if np.abs(massLim[0]-12.0)<0.01 and np.abs(massLim[1]-12.0)<0.01:
-        models14x = models142
+        models15x = models152
     if np.abs(massLim[0]-13.0)<0.01 and np.abs(massLim[1]-13.0)<0.01:
-        models14x = models143
+        models15x = models153
 
     chiSquared = np.zeros((10, 33))
     chiSquaredFh0 = np.zeros((10, 33))
@@ -459,7 +463,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
             #xmaxThis[-1] = 0.0
             pass
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models14x) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models15x) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -589,22 +593,22 @@ def lnlikelihoodFromPickle(emceeparams, models=None):
     
 
     
-def lnlikelihood(emceeparams, models=None):
+def lnlikelihood(emceeparams, models=None, debug=False):
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     nmh = 20
     MhGrid = np.power(10.0, np.linspace(globalHaloMass,globalHaloMass+.001,nmh)) ## look only at a very narrow range of masses
     lnlik = 0.0
 
-    models14x = None
+    models15x = None
     if np.abs(globalHaloMass-10.0)<0.01:
-        models14x = models140
+        models15x = models150
     if np.abs(globalHaloMass-11.0)<0.01:
-        models14x = models141
+        models15x = models151
     if np.abs(globalHaloMass-12.0)<0.01:
-        models14x = models142
+        models15x = models152
     if np.abs(globalHaloMass-13.0)<0.01:
-        models14x = models143
+        models15x = models153
 
     for k,Mh in enumerate(MhGrid):
         # Let's see.. Mh + emcee parameters, minus the last two "artificial" parameters
@@ -620,15 +624,21 @@ def lnlikelihood(emceeparams, models=None):
         #for j in range(80):
         #    if j in neededModels:
         #        Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
-	Y_eval[0,:] = predictFill(models14x, X1, k)[0]
+	Y_eval[0,:] = predictFill(models15x, X1, k)[0]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
         fsigma = emceeparams[-1]
+
         lnlikThis = np.sum( globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True) )
+        if debug:
+            print "Debugging likelihood fn: Residuals and liklihoods:"
+            print "likelihoods: ",globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=True, debug=True) 
+            print "residuals: ",globalLikelihood(Y_eval, fsigma=fsigma, fh=0.0, returnlikelihood=False) 
+       
         lnlik += lnlikThis
 
 
-    print "Returning lnlik = ", lnlik #, "for emceeparams ",emceeparams
+    #print "Returning lnlik = ", lnlik #, "for emceeparams ",emceeparams
     if not np.isfinite(lnlik):
         return -np.inf
     return lnlik
@@ -643,12 +653,17 @@ def sampleFromGaussianBall(var=0.001):
     for i in range(len(xmax)):
         draw.append( xmax[i]*(1.0 + var*np.random.normal()) )
     if not np.isfinite( globalPrior.lndensity(draw) ):
-        print "Prior is not finite aat initialization... yikes!"
+        print "Prior is not finite at initialization... yikes!"
         for k in range(len(xmax)):
             print "Prior of ",k,"th component: ",globalPrior.list_of_dist[i].lndensity(draw[k])
     if not np.isfinite(lnlikelihood(draw)):
-        print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()", var
-        return sampleFromGaussianBall(var*1.1) ## if this is a bad draw don't use it!
+        #print "WARNING: doing recursion in broad_svm.py:sampleFromGaussianBall()", var
+        #print "FAILED: ",draw
+        #return sampleFromGaussianBall(var) ## if this is a bad draw don't use it!
+        print "Zero likelihood at initialization. Debugging:"
+        lnlikelihood(draw, debug=True)
+        assert False
+    #print "SUCCES: ",draw
     return draw
 
 
@@ -1404,12 +1419,14 @@ def runDynesty(mpi=False):
     import dynesty
     from dynesty import plotting as dyplot
     print "d1"
-    dsampler = dynesty.DynamicNestedSampler(lnlikelihood, globalPrior.sample_transform, ndim, bound='multi', sample='slice', maxcall=800000)
+    dsampler = dynesty.DynamicNestedSampler(lnlikelihood, globalPrior.sample_transform, ndim, bound='multi', sample='slice')
     print "d2"
-    dsampler.run_nested(dlogz_init=0.1)
+    dsampler.run_nested(dlogz_init=0.1, maxcall=3000000)
     print "d3"
     results = dsampler.results
     print "d4"
+    pickle.dump(results, open(globalFakemcmcName+'_dyn_results.pickle','w'))
+    print "d5"
 
     rfig, raxes = dyplot.runplot(results)
     plt.savefig(globalFakemcmcName+'_dyn_run.pdf')
@@ -1420,7 +1437,6 @@ def runDynesty(mpi=False):
     cfig, caxes = dyplot.cornerplot(results)
     plt.savefig(globalFakemcmcName+'_dyn_corner.pdf')
 
-    pickle.dump(results, open(globalFakemcmcName+'_dyn_results.pickle','w'))
 
 
 
@@ -1534,7 +1550,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
 
 
 import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
-def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
+def singleRelationLikelihood(x,y,datasets, fsigma=1.0, debug=False):
     lik = 0
     resLimit = 7.9
     for i,ds in enumerate(datasets):
@@ -1558,6 +1574,9 @@ def singleRelationLikelihood(x,y,datasets, fsigma=1.0):
         likThis *= observationalData.epsSkewNormalPDF( yThis, epsilon,theta,sigma*fsigma )
         lik += likThis/float(len(datasets))
         resThis = (yThis - theta)/sigma
+        if debug:
+            print "singleRelationLikelihood: ", ds, x, y, np.log(lik), likThis, resThis, yThis, theta, sigma, epsilon
+
         if abs(resThis) < abs(resLimit):
             res = resThis
         else:
@@ -1605,7 +1624,7 @@ def singleRelationLikelihoodOld(x,y,datasets):
 
     return lnlik, finalResiduals
 
-def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
+def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True, debug=False):
     ### neededModels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 16, 20,21,22,23, 24, 28,29,30,31, 32,33,34, 36, 40,41,42,43, 52,53,54,55, 72, 76,77,78,79]
     logMh0 = Ys_train[:,0]
     logMh1 = Ys_train[:,1]
@@ -1697,14 +1716,14 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
     #lnlik += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13','Barro15HS','Barro15HQ'])
     #lnlik[:,18] += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13'])[srlInd]
     lnlik[:,19] += singleRelationLikelihood(10.0**logMst1,10.0**logSigma1z1,['Barro151S'],fsigma)[srlInd]
-    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S'],fsigma)[srlInd]
-    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S'],fsigma)[srlInd]
+    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S'],fsigma,debug=debug)[srlInd]
+    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S'],fsigma,debug=debug)[srlInd]
 
 
     # Label points that fit galaxy sizes
-    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14LTG0', 'baldry12LTG0'],fsigma)[srlInd]
-    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14LTG1'],fsigma)[srlInd]
-    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14LTG2'],fsigma)[srlInd]
+    lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14LTG0', 'baldry12LTG0'],fsigma, debug=debug)[srlInd]
+    lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14LTG1'],fsigma, debug=debug)[srlInd]
+    lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14LTG2'],fsigma, debug=debug)[srlInd]
     lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14LTG3'],fsigma)[srlInd]
     #lnlik[:,22] += singleRelationLikelihood(10.0**logMst0,10.0**loghalfMassStarsz0,['vdW14ETG0','vdW14LTG0'])[srlInd]
     #lnlik[:,23] += singleRelationLikelihood(10.0**logMst1,10.0**loghalfMassStarsz1,['vdW14ETG1','vdW14LTG1'])[srlInd]
@@ -1735,6 +1754,8 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True):
         #pdb.set_trace()
 
     if returnlikelihood:
+        if debug:
+            print "Array of lnlik's: ", lnlik
         # should be an array with one element per mass in our array of test galaxies 
         return np.sum(lnlik,axis=1)
     else:
@@ -3454,7 +3475,7 @@ def estimateFeatureImportances(analyze=True, pick=True, plot=False):
                     invalid = np.logical_not(valid)
                     minvalid = np.min(Ys_train[:,k][valid])
                     Ys_train[:,k][invalid]=minvalid
-                    print "WARNING: replacing ", np.sum(np.ones(len(Ys_train[:,k]))[invalid]), "values of the likelihood with very negative values."
+                    #print "WARNING: replacing ", np.sum(np.ones(len(Ys_train[:,k]))[invalid]), "values of the likelihood with very negative values."
 
                     valid = np.logical_and( np.isfinite(Ys_validate[:,k]), np.logical_not(np.isnan(Ys_validate[:,k])))
                     invalid = np.logical_not(valid)

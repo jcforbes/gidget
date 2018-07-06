@@ -45,21 +45,21 @@ def computeEpsSkewParams(q16, q50, q84):
         #print "eps_tozero:", ret
         return ret
     #print "Attempting brentq with ",q16,q50,q84,';', to_zero(-.99), to_zero(0), to_zero(.99)
-    lower_bound = -.99
+    lower_bound = -.9
     middle_value = 0
-    upper_bound = 0.99
+    upper_bound = 0.9
     if( to_zero(lower_bound)*to_zero(upper_bound)>0 ):
         vlb = to_zero(lower_bound)
         vub = to_zero(upper_bound)
         vlz = to_zero(middle_value)
         if(abs(vlb)<abs(vub) and abs(vlb)<abs(vlz)):
-            print "WARNING: returning lower_bound" 
+            #print "WARNING: returning lower_bound" 
             x0 = lower_bound
         elif(abs(vub)<abs(vlb) and abs(vub)<abs(vlz)):
-            print "WARNING: returning upper_bound" 
+            #print "WARNING: returning upper_bound" 
             x0 = upper_bound
         else:
-            print "WARNING: returning epsilon=", middle_value," without minimizing"
+            #print "WARNING: returning epsilon=", middle_value," without minimizing"
             x0 = middle_value
     else:
         x0 = brentq(to_zero, lower_bound, upper_bound)
@@ -374,7 +374,7 @@ class DataSet:
             epsilons.append(epsilon)
             thetas.append(theta)
             sigmas.append(sigma)
-        print "Storing cached versions of eps skew norm parameters for ",self.label
+        #print "Storing cached versions of eps skew norm parameters for ",self.label
         self.cacheEpsilons = interp1d( xcache, epsilons, kind='linear', bounds_error=False)
         self.cacheThetas = interp1d( xcache, thetas, kind='linear', bounds_error=False)
         self.cacheSigmas = interp1d( xcache, sigmas, kind='linear', bounds_error=False)
@@ -406,12 +406,12 @@ class DataSet:
                 maxvalid = 100
                 medvalid = 0
                 minvalid = 0
-                print "WARNING: no valid choices in returnCachedSkewParams for ", self.label, "for x=",x
+                #print "WARNING: no valid choices in returnCachedSkewParams for ", self.label, "for x=",x
             eps[invalid] = minvalid
             th[invalid] = medvalid
             sig[invalid] = maxvalid
 
-            print "WARNING: replacing ", np.sum(np.ones(len(eps))[invalid]), " of ",len(eps), "quantiles with extreme values owing to requested x-values lying far outside range of extrapolation. ", self.label 
+            #print "WARNING: replacing ", np.sum(np.ones(len(eps))[invalid]), " of ",len(eps), "quantiles with extreme values owing to requested x-values lying far outside range of extrapolation. ", self.label 
         return eps,th,sig
 
 
@@ -501,7 +501,7 @@ class DataSet:
             ret[0][invalid] = minvalid
             ret[1][invalid] = medvalid
             ret[2][invalid] = maxvalid
-            print "WARNING: replacing ", np.sum(np.ones(len(ret[0]))[invalid]), " of ",len(ret[0]), "quantiles with extreme values owing to requested x-values lying far outside range of extrapolation. ", self.label 
+            #print "WARNING: replacing ", np.sum(np.ones(len(ret[0]))[invalid]), " of ",len(ret[0]), "quantiles with extreme values owing to requested x-values lying far outside range of extrapolation. ", self.label 
             #pdb.set_trace()
 
         

@@ -2977,6 +2977,24 @@ if __name__ == "__main__":
             exps.append( experFromBroadMCMC(emceeparams, bn+'_'+str(i).zfill(2), ngal=ngal, accHistories=accHistories, mass=masses[i]) )
         return exps
 
+    def systematicPosteriorSample(bn, pikfilename, nsamp, ngal, mass, startSampling=0):
+        #accHistories= list(np.random.random(10))
+        accHistories = None
+        arr = pickle.load(open(pikfilename,'r'))
+        exps = []
+        # if we've been given a list o f masses, assume we want a different random sample at each mass.
+        if hasattr(mass,'__len__'):
+            assert len(mass)==nsamp
+            masses = mass
+        else:
+            masses = np.ones(nsamp)*mass
+        for i in range(nsamp):
+            #j = int(np.random.uniform()*np.shape(arr)[0]) # pick a random integer!
+            j = i + startSampling
+            emceeparams = arr[j,:-1]
+            exps.append( experFromBroadMCMC(emceeparams, bn+'_'+str(i).zfill(2), ngal=ngal, accHistories=accHistories, mass=masses[i]) )
+        return exps
+
 #    rf150 = fairPosteriorSample('rf150','py/fakemcmc39_filteredposterior.pickle', 4, 10, 10.8)
 #    rf151 = fairPosteriorSample('rf151','py/fakemcmc40_filteredposterior.pickle', 4, 10, 12.0)
 #    rf152 = fairPosteriorSample('rf152','py/fakemcmc41_filteredposterior.pickle', 4, 10, 13.0)
@@ -3229,6 +3247,16 @@ if __name__ == "__main__":
     rf285 = []
     for i in range(160):
         rf285.append( experFromBroadMCMC(masterparams[i,:], 'rf285_'+str(i).zfill(2), ngal=1, accHistories=None, mass=np.log10(mhs[i])) )
+
+    rf290 = fairPosteriorSample('rf290', 'py/fakemcmc140c_filteredposterior.pickle', 40, 1, np.linspace( 9.95,10.05, 40) )
+    rf291 = fairPosteriorSample('rf291', 'py/fakemcmc141c_filteredposterior.pickle', 40, 1, np.linspace(10.95,11.05, 40) )
+    rf292 = fairPosteriorSample('rf292', 'py/fakemcmc142c_filteredposterior.pickle', 40, 1, np.linspace(11.95,12.05, 40) )
+    rf293 = fairPosteriorSample('rf293', 'py/fakemcmc143c_filteredposterior.pickle', 40, 1, np.linspace(12.95,13.05, 40) )
+
+    rf300 = systematicPosteriorSample('rf300', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=0)
+    rf301 = systematicPosteriorSample('rf301', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=100)
+    rf302 = systematicPosteriorSample('rf302', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=200)
+    rf303 = systematicPosteriorSample('rf303', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=300)
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
 

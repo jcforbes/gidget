@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name brd130c
+#SBATCH --job-name bpost153a
 #SBATCH -n 128
-#SBATCH -t 2-00:00
+#SBATCH -t 4-00:00
 #SBATCH -p shared 
 #SBATCH --mem-per-cpu=1000
 #SBATCH --mail-type=ALL

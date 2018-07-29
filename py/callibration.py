@@ -25,7 +25,8 @@ def quickCheck(experiment_list):
     colors = [ (1.0-float(i)/float(ncolors),0.2,float(i+1)/float(ncolors)) for i in range(ncolors) ]
     colorby = 'Mh'
 
-    skip6 = range(1,len(experiment_list[0].models[0].var['z'].sensible()),6)
+    nz = len(experiment_list[0].models[0].var['z'].sensible())
+    skip6 = range(1,nz,6)
     #self.ptMovie(xvar='Mh', yvar=['mstar'],colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
     #self.ptMovie(xvar='mstar', yvar=['halfMassStars','halfMassSFR','integratedZ','sfZ','Z1','fg','fgh2','fghm','vPhiOuter','sfr','Sigma1','gasToStellarRatio','gasToStellarRatioH2'], colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
     #self.ptMovie(xvar='MHI', yvar=['broeilsHI'], colorby='Mh0',prev=1,timeIndex=skip6, movie=True)
@@ -49,6 +50,35 @@ def quickCheck(experiment_list):
     for ex in experiment_list:
         print ex.name, len(ex.models), [np.log10(model.p['Mh0']) for model in ex.models]
     print "*******************************************************"
+
+
+    fig,ax = plt.subplots(1,1, figsize=(7,7))
+    for i, ex in enumerate(experiment_list):
+        for j in range(1,nz,2):
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['halfMassStars'], colorby='deltaBeta', prev=0, timeIndex=[j], movie=False, axIn=ax, textsize=6, plotObs=(i==0 and (j in zinds) or (j+1 in zinds)) )
+    plt.savefig(basename+'calibration80.pdf')
+    plt.close(fig)
+
+    fig,ax = plt.subplots(1,1, figsize=(7,7))
+    for i, ex in enumerate(experiment_list):
+        for j in range(1,nz,2):
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['Sigma1'], colorby='deltaBeta', prev=0, timeIndex=[j], movie=False, axIn=ax, textsize=6, plotObs=(i==0 and (j in zinds) or (j+1 in zinds)) )
+    plt.savefig(basename+'calibration81.pdf')
+    plt.close(fig)
+
+    fig,ax = plt.subplots(1,1, figsize=(7,7))
+    for i, ex in enumerate(experiment_list):
+        for j in range(1,nz,2):
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['sfZ'], colorby='deltaBeta', prev=0, timeIndex=[j], movie=False, axIn=ax, textsize=6, plotObs=(i==0 and (j in zinds) or (j+1 in zinds)) )
+    plt.savefig(basename+'calibration82.pdf')
+    plt.close(fig)
+
+    fig,ax = plt.subplots(1,1, figsize=(7,7))
+    for i, ex in enumerate(experiment_list):
+        for j in range(1,nz,2):
+            experiment_list[i].ptMovie(xvar='mstar', yvar=['BTExtrap'], colorby='deltaBeta', prev=0, timeIndex=[j], movie=False, axIn=ax, textsize=6, plotObs=(i==0 and (j in zinds) or (j+1 in zinds)) )
+    plt.savefig(basename+'calibration83.pdf')
+    plt.close(fig)
 
     # just try making the plots you want directly!
     fig,ax = plt.subplots(1,4, figsize=(8,3))
@@ -1045,7 +1075,8 @@ if __name__=='__main__':
     #experiment_list = [Experiment('rf161'), Experiment('rf162'), Experiment('rf163') ]
 #    experiment_list = [Experiment('rf212'), Experiment('rf213')]
     #experiment_list = [ Experiment('rf285')]
-    experiment_list = [ Experiment('rf290'), Experiment('rf291'), Experiment('rf292'), Experiment('rf293') ]
+    experiment_list = [ Experiment('rf313')]
+    #experiment_list = [ Experiment('rf290'), Experiment('rf291'), Experiment('rf292'), Experiment('rf293') ]
     #experiment_list = [Experiment('rf118'), Experiment('rf119'), Experiment('rf120')]
     MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig', 'col', 'vPhiGasRadial', 'vPhiStarsRadial', 'kappaZ', 'kappaZlimit', 'kappaZconservativeLimit']
     for ex in experiment_list:

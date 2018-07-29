@@ -1,14 +1,11 @@
 import numpy as np
-<<<<<<< HEAD
 import glob
-=======
 import argparse
->>>>>>> 0a1f2822361cfdfbc7a306ab21e26f7a8e1dedbe
 import time
 import os
 import copy
 import cPickle as pickle
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import pdb,glob
 import emcee
 from sklearn import svm, linear_model, ensemble, neighbors, cluster, manifold, preprocessing, neural_network
@@ -24,6 +21,7 @@ import analyticDistributions
 logVars = [1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0]
 ### targets
 logPreds = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
+logPredsFull = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1] + [1]*30
 logRadials = [1,1,1,1,1,1]
 #logVars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 #logPreds = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -38,13 +36,9 @@ randomFactorsKey01 = np.random.random(size=(50,nAccrBins))
 
 labelsTargets = ["Mh0", "Mh1", "Mh2", "Mh3", "Mst0", "Mst1", "Mst2", "Mst3", "sSFR0", "sSFR1", "sSFR2", "sSFR3", "Zg0", "Zg1", "Zg2", "Zg3", "Zst0", "Zst1", "Zst2", "Zst3", "fgmol0", "fgmol1", "fgmol2", "fgmol3", "fgHI0", "fgHI1", "fgHI2", "fgHI3", "rst0", "rst1", "rst2", "rst3", "vphitf0", "vphitf1", "vphitf2", "vphitf3", "c0", "c1", "c2", "c3", "SigCen0", "SigCen1", "SigCen2", "SigCen3", "jst0", "jst1", "jst2", "jst3", "Zgrad0", "Zgrad1", "Zgrad2", "Zgrad3", "sigmax0", "sigmax1", "sigmax2", "sigmax3", "mdotb0", "mdotb1", "mdotb2", "mdotb3", "rGI0", "rGI1", "rGI2", "rGI3", "tdep0", "tdep1", "tdep2", "tdep3", "tdepmol0", "tdepmol1", "tdepmol2", "tdepmol3", "rHI0", "rHI1", "rHI2", "rHI3", "Mmerge0", "Mmerge1", "Mmerge2", "Mmerge3", "vphi00", "vphi01", "vphi02", "vphi03", "vphi04", "vphi05", "vphi06", "vphi07", "vphi08", "vphi09", "vphi10", "vphi11", "vphi12", "vphi13", "vphi14", "vphi15", "vphi16", "vphi17", "vphi18", "vphi19", "Sigma00", "Sigma01", "Sigma02", "Sigma03", "Sigma04", "Sigma05", "Sigma06", "Sigma07", "Sigma08", "Sigma09", "Sigma10",  "Sigma11", "Sigma12", "Sigma13", "Sigma14", "Sigma15", "Sigma16", "Sigma17", "Sigma18", "Sigma19",   "SigmaSt00", "SigmaSt01", "SigmaSt02", "SigmaSt03", "SigmaSt04", "SigmaSt05", "SigmaSt06", "SigmaSt07", "SigmaSt08", "SigmaSt09", "SigmaSt10",  "SigmaSt11", "SigmaSt12", "SigmaSt13", "SigmaSt14", "SigmaSt15", "SigmaSt16", "SigmaSt17", "SigmaSt18", "SigmaSt19",  "SigmaSFR00", "SigmaSFR01", "SigmaSFR02", "SigmaSFR03", "SigmaSFR04", "SigmaSFR05", "SigmaSFR06", "SigmaSFR07", "SigmaSFR08", "SigmaSFR09", "SigmaSFR10", "SigmaSFR11", "SigmaSFR12", "SigmaSFR13", "SigmaSFR14", "SigmaSFR15", "SigmaSFR16", "SigmaSFR17", "SigmaSFR18", "SigmaSFR19", "Zr00", "Zr01", "Zr02", "Zr03", "Zr04", "Zr05", "Zr06", "Zr07", "Zr08", "Zr09", "Zr10", "Zr11", "Zr12", "Zr13", "Zr14", "Zr15", "Zr16", "Zr17", "Zr18", "Zr19", "Age00", "Age01", "Age02", "Age03", "Age04", "Age05", "Age06", "Age07", "Age08", "Age09", "Age10", "Age11", "Age12", "Age13", "Age14", "Age15", "Age16", "Age17", "Age18", "Age19", "lnLik"  ]
 
-<<<<<<< HEAD
-globalFakemcmcName = 'fakemcmc90b'
-globalHaloMass = 10.0
-=======
-#globalFakemcmcName = 'youNeedToChangeThe_globalFakemcmcName'
-#globalHaloMass = 12.0
->>>>>>> 0a1f2822361cfdfbc7a306ab21e26f7a8e1dedbe
+globalFakemcmcName = 'youNeedToChangeThe_globalFakemcmcName'
+globalHaloMassMin = 11.0
+globalHaloMassMax = 12.0
 
 class LassoPlusRF:
     ''' A little wrapper so that an sklearn model for random forest regression on the residuals of a linear+regularization model can be stored in the same object'''
@@ -322,15 +316,7 @@ def fakeEmceeResiduals(emceeparams, models):
 
 
     for k,Mh in enumerate(MhGrid):
-        models15x = None
-        if np.abs(np.log10(Mh)-10.0)<0.01:
-            models15x = models150
-        if np.abs(np.log10(Mh)-11.0)<0.01:
-            models15x = models151
-        if np.abs(np.log10(Mh)-12.0)<0.01:
-            models15x = models152
-        if np.abs(np.log10(Mh)-13.0)<0.01:
-            models15x = models153
+        models16x = models160
 
         X1 = np.array([Mh]+list(emceeparams[:-1])).reshape((1,len(emceeparams[:-1])+1))
         for i in range(len(logVars)):
@@ -338,7 +324,7 @@ def fakeEmceeResiduals(emceeparams, models):
             if logVars[i] == 1:
                 X1[:,i] = np.log10(X1[:,i])
 
-	Y_eval = predictFill(models15x, X1, k)[0].reshape(1,-1)
+	Y_eval = predictFill(models16x, X1, k)[0].reshape(1,-1)
         #Y_eval = np.array( [predictFill(models[j], X1, k)[0][j] for j in range(80)] ).reshape(1,80)
         residuals.append( globalLikelihood(Y_eval, fh=0.0, returnlikelihood=False) )
 
@@ -385,10 +371,11 @@ print "Reading models.. this could take a sec"
 #models141 = pickle.load( open( 'rfnt141_0.pickle', 'r') )
 #models142 = pickle.load( open( 'rfnt142_0.pickle', 'r') )
 #models143 = pickle.load( open( 'rfnt143_0.pickle', 'r') )
-models150 = pickle.load( open( 'rfnt150_0.pickle', 'r') )
-models151 = pickle.load( open( 'rfnt151_0.pickle', 'r') )
-models152 = pickle.load( open( 'rfnt152_0.pickle', 'r') )
-models153 = pickle.load( open( 'rfnt153_0.pickle', 'r') )
+#models150 = pickle.load( open( 'rfnt150_0.pickle', 'r') )
+#models151 = pickle.load( open( 'rfnt151_0.pickle', 'r') )
+#models152 = pickle.load( open( 'rfnt152_0.pickle', 'r') )
+#models153 = pickle.load( open( 'rfnt153_0.pickle', 'r') )
+#models160 = pickle.load( open( 'rfnt160_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -448,15 +435,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
 
     #massLim = (8.5,13) 
 
-    models15x = None
-    if np.abs(massLim[0]-10.0)<0.01 and np.abs(massLim[1]-10.0)<0.01:
-        models15x = models150
-    if np.abs(massLim[0]-11.0)<0.01 and np.abs(massLim[1]-11.0)<0.01:
-        models15x = models151
-    if np.abs(massLim[0]-12.0)<0.01 and np.abs(massLim[1]-12.0)<0.01:
-        models15x = models152
-    if np.abs(massLim[0]-13.0)<0.01 and np.abs(massLim[1]-13.0)<0.01:
-        models15x = models153
+    models16x = models160
 
     chiSquared = np.zeros((10, 33))
     chiSquaredFh0 = np.zeros((10, 33))
@@ -472,7 +451,7 @@ def fakeEmceePlotResiduals(restart, basefn, gidgetmodels=None, xmax=None, massLi
             #xmaxThis[-1] = 0.0
             pass
     
-        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models15x) )
+        treeResiduals = np.array( fakeEmceeResiduals(xmaxThis, models16x) )
         if i%2==0:
             chiSquaredFh0[i/2, :] = np.sum(np.power(treeResiduals[:,:,:],2.0), axis=0)
         else:
@@ -602,22 +581,14 @@ def lnlikelihoodFromPickle(emceeparams, models=None):
     
 
     
-def lnlikelihood(emceeparams, models=None, debug=False):
+def lnlikelihood(emceeparams, models=None, debug=False, haloMassMin=globalHaloMassMin, haloMassMax=globalHaloMassMax):
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     nmh = 20
-    MhGrid = np.power(10.0, np.linspace(globalHaloMass,globalHaloMass+.001,nmh)) ## look only at a very narrow range of masses
+    MhGrid = np.power(10.0, np.linspace(haloMassMin,haloMassMax,nmh)) ## look only at a very narrow range of masses
     lnlik = 0.0
 
-    models15x = None
-    if np.abs(globalHaloMass-10.0)<0.01:
-        models15x = models150
-    if np.abs(globalHaloMass-11.0)<0.01:
-        models15x = models151
-    if np.abs(globalHaloMass-12.0)<0.01:
-        models15x = models152
-    if np.abs(globalHaloMass-13.0)<0.01:
-        models15x = models153
+    models16X = models160b
 
     for k,Mh in enumerate(MhGrid):
         # Let's see.. Mh + emcee parameters, minus the last two "artificial" parameters
@@ -633,7 +604,7 @@ def lnlikelihood(emceeparams, models=None, debug=False):
         #for j in range(80):
         #    if j in neededModels:
         #        Y_eval[0,j] = predictFill(models24[j], X1, k)[0][j]
-	Y_eval[0,:] = predictFill(models15x, X1, k)[0]
+	Y_eval[0,:] = predictFill(models16x, X1, k)[0]
         #Y_eval = np.array( [predictFill(models10[j], X1)[0][j] for j in range(80)] ).reshape(1,80)
         #lnlik += np.sum( globalLikelihood(Y_eval, fh=emceeparams[-1], returnlikelihood=True) )
         fsigma = emceeparams[-1]
@@ -853,7 +824,17 @@ def updateRestart(fn,restart):
 ### some functions to make plots of mcmc
 def tracePlots(restart, fn, burnIn=0):
     chain = restart['chain']
-    ndim = np.shape(chain)[2]
+    shape = np.shape(chain)
+    # did we use parallel tempering?
+    pt = False
+    if len(shape)==4:
+        pt=True
+    if not pt:
+        ndim = shape[2]
+        nwalkers = shape[0]
+    else:
+        nwalkers = shape[1]
+        ndim = shape[3]
     sq = np.sqrt(float(ndim))
     #nr = int(np.ceil(sq))
     #nc=nr
@@ -885,9 +866,12 @@ def tracePlots(restart, fn, burnIn=0):
     for dim in range(ndim):
         j = np.mod(dim, nr) ## 0-5
         i = ( dim -j )/nr
-        for walker in range(np.shape(chain)[0]):
+        for walker in range(nwalkers):
             if np.random.uniform(0,1) <= 1.0: # print every one ----tenth-ish----
-                ax[j,i].plot(  transform(chain[walker,burnIn:,dim], logs[dim]), alpha=.02,ls='-', c='gray')
+                if not pt:
+                    ax[j,i].plot(  transform(chain[walker,burnIn:,dim], logs[dim]), alpha=.02,ls='-', c='gray')
+                else:
+                    ax[j,i].plot(  transform(chain[0,walker,burnIn:,dim], logs[dim]), alpha=.02,ls='-', c='gray')
 #        ax[j,i].set_ylim( np.min(transform(chain[:, len(chain[0,burnIn:,dim])/2 :, dim],logs[dim]) ), np.max(transform(chain[:, len(chain[0,burnIn:,dim])/2 :, dim], logs[dim]) ) )
         ax[j,i].set_ylabel(labels[dim])
 
@@ -898,41 +882,82 @@ def tracePlots(restart, fn, burnIn=0):
 def probsPlots(restart, fn, burnIn=0):
     allProbs = restart['allProbs']
     
-    ndim = np.shape(allProbs)[0]
-    iters = np.shape(allProbs)[1]
+    PT=False
+    # no parallel tempering
+    if len(np.shape(allProbs))==2:
+        ndim = np.shape(allProbs)[0]
+        iters = np.shape(allProbs)[1]
+    # WITH PT
+    elif len(np.shape(allProbs))==3:
+        PT=True
+        ntemp = np.shape(allProbs)[0]
+        ndim = np.shape(allProbs)[1]
+        iters = np.shape(allProbs)[2]
+    else:
+        # Unexpected shape of allProbs.
+        pdb.set_trace()
 
     # Plot the trace of the probabilities for every walker.
     fig,ax = plt.subplots()
     for walker in range(ndim):
-        ax.plot(allProbs[walker,burnIn:],alpha=.02,ls='-', c='gray')
+        if not PT:
+            ax.plot(allProbs[walker,burnIn:],alpha=.02,ls='-', c='gray')
+        else:
+            for k in range(ntemp):
+                ax.plot(allProbs[k,walker,burnIn:],alpha=0.02,ls='-', c=(0.1+0.9*float(k)/float(ntemp-0.9),0.1,0.1))
+
     ax.set_xlabel('Iteration')
     ax.set_ylabel(r'$\ln p(\theta|\mathcal{D}) + \mathrm{const}.$')
-    halfway = len(allProbs[0,burnIn:])/2
-    valid = np.isfinite(allProbs[:, halfway:].flatten())
-    minvalid = np.min(allProbs[:,halfway:].flatten()[valid])
-    maxvalid = np.max(allProbs[:,halfway:].flatten()[valid])
+    if not PT:
+        halfway = len(allProbs[0,burnIn:])/2
+        valid = np.isfinite(allProbs[:, halfway:].flatten())
+        minvalid = np.min(allProbs[:,halfway:].flatten()[valid])
+        maxvalid = np.max(allProbs[:,halfway:].flatten()[valid])
+        ymin = np.min(allProbs[:, len(allProbs[0,burnIn:])/2 :] )
+        ymax = np.max(allProbs[:, len(allProbs[0,burnIn:])/2 :] )
+    else:
+        halfway = len(allProbs[0,0,burnIn:])/2
+        valid = np.isfinite(allProbs[:,:, halfway:].flatten())
+        minvalid = np.min(allProbs[:,:,halfway:].flatten()[valid])
+        maxvalid = np.max(allProbs[:,:,halfway:].flatten()[valid])
+        ymin = np.min(allProbs[0,:, halfway :] )
+        ymax = np.max(allProbs[0,:, halfway :] )
     print "***********************************************"
-    print "probsPlots desired range for y-axis: ", np.min(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), np.max(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), minvalid, maxvalid
+    print "probsPlots desired range for y-axis: ", ymin, ymax, minvalid, maxvalid
     print "***********************************************"
-    ax.set_ylim( np.min(allProbs[:, len(allProbs[0,burnIn:])/2 :] ), np.max(allProbs[:, len(allProbs[0,burnIn:])/2 :] ) )
+    ax.set_ylim( ymin, ymax )
     #ax.set_ylim(-1000, maxvalid)
     plt.savefig(fn+'_probs.pdf',dpi=200)
     plt.close(fig)
     print "Saved "+fn+'_probs.pdf'
 
-    changes = np.zeros(ndim)
-    for walker in range(ndim):
-        for iter in range(iters-1):
-            if allProbs[walker,iter]!=allProbs[walker,iter+1]:
-                changes[walker]+=1.0
-    changes = changes/float(iters-1.0)
-    print "Long-term acceptance fraction stats: "
-    stats(changes)
+    if not PT:
+        changes = np.zeros(ndim)
+        for walker in range(ndim):
+            for iter in range(iters-1):
+                if allProbs[walker,iter]!=allProbs[walker,iter+1]:
+                    changes[walker]+=1.0
+        changes = changes/float(iters-1.0)
+        print "Long-term acceptance fraction stats: "
+        stats(changes)
+    else:
+        for temp in range(ntemp):
+            changes = np.zeros(ndim)
+            for walker in range(ndim):
+                for iter in range(iters-1):
+                    if allProbs[temp,walker,iter]!=allProbs[temp,walker,iter+1]:
+                        changes[walker]+=1.0
+            changes = changes/float(iters-1.0)
+            print "Long-term acceptance fraction stats for temperature index ",temp,": "
+            stats(changes)
 
     try:
         acor = np.zeros(ndim)
         for walker in range(ndim):
-            acor[walker] = emcee.autocorr.integrated_time(allProbs[walker,burnIn:] )#,  window=min([50,iters/2]))
+            if PT:
+                acor[walker] = emcee.autocorr.integrated_time(allProbs[0,walker,burnIn:] )#,  window=min([50,iters/2]))
+            else:
+                acor[walker] = emcee.autocorr.integrated_time(allProbs[walker,burnIn:] )#,  window=min([50,iters/2]))
         print "acor stats: "
         stats(acor)
     except:
@@ -1200,9 +1225,14 @@ def multiTrianglePlot(restarts, minimumlnliks, burnins, nspaces, identifier='mul
 
 def trianglePlot(restart,fn, fakemcmcName, burnIn=0, nspace=10, minimumlnlik=-np.inf):
     shp = np.shape(restart['chain'])
-    prs = shp[0]*(shp[1]-burnIn)*shp[2]/nspace
-    shape = np.shape(restart['chain'])
-    ndim = shape[2]
+    PT=False # did this run use parallel tempering?
+    if len(shp)==4:
+        PT=True
+    #prs = shp[0]*(shp[1]-burnIn)*shp[2]/nspace
+    if not PT:
+        ndim = shp[2]
+    else:
+        ndim = shp[3]
     labels = [r"$\eta$",r"$\epsilon_\mathrm{ff}$",r"$f_{g,0}$",r"$\mu_0$", \
             r"$\mu_{M_h}$",r"Q",r"$r_\mathrm{acc}/r_\mathrm{vir}$", \
             r"$f_\mathrm{cool}$", r"$M_{h,0}$", r"$\sigma$ (dex)", \
@@ -1229,7 +1259,10 @@ def trianglePlot(restart,fn, fakemcmcName, burnIn=0, nspace=10, minimumlnlik=-np
     #sampleRed = sampleRed[selection, :]
 
     ### Instead we take a sample not at random, but evenly spaced:
-    sampleRed = restart['chain'][:,burnIn::nspace,:].reshape((-1,ndim))
+    if not PT:
+        sampleRed = restart['chain'][:,burnIn::nspace,:].reshape((-1,ndim))
+    else:
+        sampleRed = restart['chain'][0,:,burnIn::nspace,:].reshape((-1,ndim))
     nprior = np.product(np.shape(sampleRed))/ndim * 4
     if nprior<10 or nprior<len(restart['chain'][0,:,0]):
         print "Warning: probably not drawing a reasonable number of samples from the prior: ", nprior
@@ -1239,8 +1272,12 @@ def trianglePlot(restart,fn, fakemcmcName, burnIn=0, nspace=10, minimumlnlik=-np
     ## At this point sampleRed is a flat sample of the posterior, or at least our best guess thereof.
     pickle.dump(sampleRed, open(fakemcmcName+'_posterior.pickle', 'w'))
 
-    allProbs = restart['allProbs']
-    filt = allProbs[:,burnIn::nspace].reshape(-1) > minimumlnlik
+    if not PT:
+        allProbs = restart['allProbs']
+        filt = allProbs[:,burnIn::nspace].reshape(-1) > minimumlnlik
+    else:
+        allProbs = restart['allProbs']
+        filt = allProbs[0,:,burnIn::nspace].reshape(-1) > minimumlnlik
     pickle.dump(sampleRed[filt, :], open(fakemcmcName+'_filteredposterior.pickle', 'w'))
     print "completed writing out ", fakemcmcName+'_filteredposterior.pickle'
 
@@ -1249,7 +1286,7 @@ def trianglePlot(restart,fn, fakemcmcName, burnIn=0, nspace=10, minimumlnlik=-np
     header = ''
     for label in labels:
         header += label+' '
-    np.savetxt('fakemcmc30_posterior_glue.txt', sampleRed, header=header[:-1])
+    np.savetxt(fakemcmcName+'_posterior_glue.txt', sampleRed, header=header[:-1])
 
     extents=[]
     for i in range(np.shape(sampleRed)[1]):
@@ -1555,15 +1592,15 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     #sampler.run_mcmc(p0, nsteps) 
 
 
-    chain = sampler.chain # nwalkers x nsteps x ndim
-    samples = chain[:,15:,:].reshape((-1,ndim))
+    #chain = sampler.chain # nwalkers x nsteps x ndim
+    #samples = chain[:,15:,:].reshape((-1,ndim))
 
 
     if mpi:
         pool.close()
 
 
-import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
+#import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
 def singleRelationLikelihood(x,y,datasets, fsigma=1.0, debug=False):
     lik = 0
     resLimit = 7.9
@@ -2187,10 +2224,10 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
     Ys = filterArrayRows( Ys, valid)
     for i in zeroOut:
         j = i*4
-        Ys[:,j] = 0
-        Ys[:,j+1] = 0
-        Ys[:,j+2] = 0
-        Ys[:,j+3] = 0
+        Ys[:,j] = 1
+        Ys[:,j+1] = 1
+        Ys[:,j+2] = 1
+        Ys[:,j+3] = 1
     Xfail = filterArrayRows( X_orig, invalid )
 
     if dbg:
@@ -2200,10 +2237,10 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
         fig.subplots_adjust(hspace=0.4, wspace=0.05)
         for i in range(24):
             label=None
-            avg = np.mean(X_orig[:,i])
-            std = np.std(X_orig[:,i])
+            avg = np.mean(X[:,i])
+            std = np.std(X[:,i])
             try:
-                hist, edges = np.histogram( X_orig[:,i], bins=40, range=[avg-3*std,avg+3*std], density=False)
+                hist, edges = np.histogram( X[:,i], bins=40, range=[avg-3*std,avg+3*std], density=False)
             except:
                 pdb.set_trace()
             centers = (edges[:-1]+edges[1:])/2
@@ -2261,8 +2298,8 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
     X_test = X[validateSubset: , :]
     Ys_test = Ys[validateSubset: , :]
 
-    for j in range(len(logPreds)):
-        if logPreds[j] == 1:
+    for j in range(len(logPredsFull)):
+        if logPredsFull[j] == 1:
             for k in range(nz):
                 # mStellarHalo is sometimes identically zero which is bad for taking the log!
                 if j==19:
@@ -2274,22 +2311,28 @@ def readData(trainFrac=0.5, validateFrac=0.4, fn='broad05_to_lasso.txt', naccr=5
                 else:
                     problematic = Ys_train[:,j*nz+k]<=0
                     counter = np.ones(np.shape(problematic))
-                    print "WARNING: replacing ", np.sum(counter[problematic]), "elements with minimum value of training set"
+                    #print "WARNING: replacing ", np.sum(counter[problematic]), "elements with minimum value of training set"
                     fine = np.logical_not(problematic)
-                    minvalid = np.min(Ys_train[fine, j*nz+k])
-                    Ys_train[problematic, j*nz+k] = minvalid
-                    Ys_validate[Ys_validate[:,j*nz+k]<=0, j*nz+k] = minvalid
-                    Ys_test[Ys_test[:,j*nz+k]<=0, j*nz+k] = minvalid
+                    if np.any(fine):
+                        minvalid = np.min(Ys_train[fine, j*nz+k])
+                        Ys_train[problematic, j*nz+k] = minvalid
+                        Ys_validate[Ys_validate[:,j*nz+k]<=0, j*nz+k] = minvalid
+                        Ys_test[Ys_test[:,j*nz+k]<=0, j*nz+k] = minvalid
+                    else:
+                        # the fn was zeroed out.
+                        Ys_train[problematic, j*nz+k] = 1
+                        Ys_validate[Ys_validate[:,j*nz+k]<=0, j*nz+k] = 1
+                        Ys_test[Ys_test[:,j*nz+k]<=0, j*nz+k] = 1
 
                 Ys_train[:,j*nz+k] = np.log10(Ys_train[:,j*nz+k])
                 Ys_validate[:,j*nz+k] = np.log10(Ys_validate[:,j*nz+k]) 
                 Ys_test[:,j*nz+k] = np.log10(Ys_test[:,j*nz+k])
-    for i in range(len(logRadials)):
-        if logRadials[i]==1:
-            for j in range( len(logPreds)*nz + i*nRadii, len(logPreds)*nz + (i+1)*nRadii ):
-                Ys_train[:,j] = np.log10(Ys_train[:,j])
-                Ys_validate[:,j] = np.log10(Ys_validate[:,j])
-                Ys_test[:,j] = np.log10(Ys_test[:,j])
+#    for i in range(len(logRadials)):
+#        if logRadials[i]==1:
+#            for j in range( len(logPreds)*nz + i*nRadii, len(logPreds)*nz + (i+1)*nRadii ):
+#                Ys_train[:,j] = np.log10(Ys_train[:,j])
+#                Ys_validate[:,j] = np.log10(Ys_validate[:,j])
+#                Ys_test[:,j] = np.log10(Ys_test[:,j])
 
     print "Are all X data finite? ", np.all(np.isfinite(X_train)), np.all(np.isfinite(X_test)), not np.any(np.isnan(X_test)), np.all(np.isfinite(Ys_train)), not np.any(np.isnan(Ys_train))
     return X_train, X_validate, X_test,  Ys_train, Ys_validate, Ys_test, labels
@@ -3023,7 +3066,8 @@ def quickPlot(arr, name):
 def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
     from sklearn.metrics import r2_score
 
-    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broad133_to_lasso.txt', dbg=True, zeroOut=[12,15,19]) # no need to feed in arr, since we're just reading the data once.
+    #tl0=[r'$M_h$', r'$M_*$', r'sSFR', r'$\langle Z\rangle_\mathrm{SFR}$', r'$Z_*$', r'$M_{\mathrm{H}_2}/M_*$', r'$M_{\mathrm{HI}}/M_*$', r'$r_*$', r'$v_{\phi, 2.2}$', r'$c_{82}$', r'$\Sigma_1$', r'$j_*$', r'$\partial\log_{10}Z/\partial r$', r'$\sigma_\mathrm{max}$', r'$\dot{M}_{\mathrm{bulge, gas}}$', r'$r_{GI}/r_*$', r'$t_\mathrm{dep}$', r'$t_{\mathrm{dep},\mathrm{H}_2}$', r'$r_{\mathrm{HI}}$', r'$M_{*,\mathrm{merge}}$']
+    X_train_orig, X_validate, X_test_orig, Ys_train_orig, Ys_validate, Ys_test_orig, labels = readData(trainFrac=0.99, validateFrac=0, naccr=nAccrBins, fn='broadPrior160b_to_lasso.txt', dbg=True, zeroOut=[6,9,11,12,14,15,16,17,18,19]+range(20,50)) # no need to feed in arr, since we're just reading the data once.
 
 
 
@@ -3066,7 +3110,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
     doK = range(ntargets)
     #doK = [200]
-    identifier='153' # 90 is "Ridge Poly with alpha~10^-3, l1_fraction=0.5." 100 is multi-layer perceptron. 132 is ridge again, but only training on Mh0=10^12 halos. Try multi-layer perceptron again - it's so good [model 14x]. 150 is back to elastic net, with the updated training set tamping down the metal diffusion and with more models.
+    identifier='160' # 90 is "Ridge Poly with alpha~10^-3, l1_fraction=0.5." 100 is multi-layer perceptron. 132 is ridge again, but only training on Mh0=10^12 halos. Try multi-layer perceptron again - it's so good [model 14x]. 150 is back to elastic net, with the updated training set tamping down the metal diffusion and with more models. 160 is neural net in mass range 11-12.
     for cvi in range(ncv):
         ### Select a random subset of the X_train to be the validation set for this iteration
         #validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1)) # this is almost right, but will produce some overlap the X_validate below will have fewer than nsamples*0.1
@@ -3110,8 +3154,8 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             pdb.set_trace()
 
         #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnLassoRF(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=100, max_features='auto', min_per_leaf=5, alpha=1.0e-5, tol=1.0e-5 )
-        errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnPolyNet(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, l1_ratio=0.5, alpha=0.008, tol=1.0e-5)
-        #errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnMLP(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, hidden_layer_sizes=(200,200,200), activation='tanh', alpha=1.0e-3, shuffle=True)
+        #errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnPolyNet(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, l1_ratio=0.5, alpha=0.008, tol=1.0e-5)
+        errors_train_this, errors_validate_this, errors_test_this, labels_this, _, theModel = learnMLP(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, hidden_layer_sizes=(200,200,200), activation='tanh', alpha=1.0e-3, shuffle=True)
         #errors_train_this, errors_validate_this, errors_test_this, labels_this, feature_importances_this, theModel = learnNN(X_train, X_validate, X_test, Ys_train, Ys_validate, Ys_test, labels, n_estimators=10, k=k, max_depth=1000, max_features='auto', min_per_leaf=3 )
         if pick:
             pickle.dump( fntModel(theModel,Xtra,Ytra,randomFactors) , open('rfnt'+identifier+'_'+str(cvi)+'.pickle','w')) ### save the model -- fewer trees
@@ -4154,8 +4198,11 @@ def stitchRestarts(list_of_pickles):
             restart = copy.deepcopy(restartThis)
         elif i!=0 and not failed:
             # only these two matter I think
-            restart['chain'] = np.concatenate( (restart['chain'], restartThis['chain']), axis=1 )
-            restart['allProbs'] = np.concatenate( (restart['allProbs'], restartThis['allProbs']), axis=1 )
+            ptoff = 0 # offset to account for different shape when using parallel tempering
+            if len(np.shape(restart['chain']))==4:
+                ptoff=1
+            restart['chain'] = np.concatenate( (restart['chain'], restartThis['chain']), axis=1+ptoff )
+            restart['allProbs'] = np.concatenate( (restart['allProbs'], restartThis['allProbs']), axis=1+ptoff )
         elif failed:
             print "skipping because of failure"
         else:
@@ -4172,10 +4219,11 @@ def analyzeSingleRestart( fakemcmcName, burnIn=1800, minimumlnlik=-1e8, restart=
     except:
         pdb.set_trace()
     probsPlots(restart, fakemcmcName +'_allProb', burnIn=0)
-    return 0
+    #return 0
     trianglePlot(restart, fakemcmcName+'_triangle', fakemcmcName, burnIn=burnIn, nspace=20000, minimumlnlik=minimumlnlik)
-    return 0 # just give me the trace of the probabilities for now!
+    #return 0 # just give me the trace of the probabilities for now!
     tracePlots(restart, fakemcmcName +'_trace', burnIn=0)
+    return 0
 
     # Find the maximum among all models sampled so far.
     allProbs = restart['allProbs'].flatten() ## allprobs is presumably nwalkers*niterations
@@ -4222,52 +4270,84 @@ def analyzeSingleRestart( fakemcmcName, burnIn=1800, minimumlnlik=-1e8, restart=
 
     #####fakeEmceePlotResiduals(restart, 'fakemcmc13_residuals', gidgetmodels='rf78')
 
-def importanceResampling():
+def importanceResampling(thisHaloMass, coagulatedFilename, pikfilename):
     ## ok, so here we need to READ the data "congealed" from the mcmc_broad runs that use the posterior distribution to sample the real model.
     ## then we need to evaluate the posterior probabilities associated with these real models.
     ## In the context of importance sampling, we have like mu = (1/n) \sum p(X_i)/q(X_i) * h(X_i) --- p is the true distr., q is the sampling distr.
     ## So let's see. The pts at which we're evaluating the posterior are X_i, and they're drawn from q, the emulated posterior.
     ## OK, so p(X_i) is what we're evaluating here. What is q(X_i)? Hmm.. Werid that we're explicitly relying on the emulator here, but ok!
 
-    X_train, _, _, Ys_train, _, _, _= readData(trainFrac=1.0, validateFrac=0.0, fn=coagulatedFilename)
-    lnlik = globalLikelihood(Ys_train)
-    priors = globalPrior.lndensity( X_train )
-    pXi = lnlik+priors
-    qXi = lnprob(X_train)
-    logUnnormalizedWeights = pXi-qXi
+    ### this part just helped me think through what I was trying to do... doesn't actually work because of the fine details mentioned in the comments
+    #lnlik = globalLikelihood(Ys_train)
+    #priors = globalPrior.lndensity( X_train ) ## this won't work at all because this density is not defined in the same space. The prior doesn't accept mass, needs an fsigma, and doesn't account for accretion history.
+    #pXi = lnlik+priors
+    #qXi = lnprob(X_train) # also no good, because again lnprob doesn't know about mass, wants an fsigma, and doesn't know about accretion histories.
+    #logUnnormalizedWeights = pXi-qXi
     # a note on shapes: at this point we've evaluated a "weight" for every gidget run, but SOME points from the emulated posterior may have no corresponding runs (due to computatoinal difficulties or the job running into trouble), and other points will have multiple runs. We need to account for this at some point.
 
-    arr = pickle.load(open(pikfilename,'r'))
-    nsamp = len(arr[:,0])
-    counts = np.zeros(nsampe,dtype=int)
-    nruns = len(X_train[:,0]) # I think that's the right index
-    for j in range(nsamp):
-        emceeparams = arr[j,:]
-        for i in range(logVars):
+
+    mixtureFraction = 1.0 # the weight of the proposal distribution associated with this particular run. Could in principle be <1 if we generate gidget runs from more than one emulator.
+    X_train, _, _, Ys_train, _, _, _= readData(trainFrac=1.0, validateFrac=0.0, fn=coagulatedFilename, dbg=False, naccr=16)
+    # X_train here includes mass, does not include fsigma, and includes on top of that info on the accretion history.
+    # Variables are log'd as well.
+
+    arr = pickle.load(open(pikfilename,'r')) # from the emulator
+    numberEmulatedPosteriorSamples = len(arr[:,0])
+    counts = np.zeros(numberEmulatedPosteriorSamples,dtype=int) # the number of samples we have for each draw from the emulated posterior
+    unnormedLnWeights = np.zeros(numberEmulatedPosteriorSamples)
+    nruns = len(X_train[:,0]) # I think that's the right index. This is the number of successful runs of gidget.
+    for j in range(numberEmulatedPosteriorSamples):
+        emulatedPosteriorDraw = arr[j,:] ## these do not include mass or accretion history, and do include fsigma.
+        thisPrior = globalPrior.lndensity(emulatedPosteriorDraw) # perfect.
+        thisEmulatedLnlik = lnlikelihood(emulatedPosteriorDraw) 
+        # for this draw, we need to find all matching gidget runs, i.e. all rows of X_train/Ys_train that used the same parameters.
+        # note that logVars contains Mh0 but not fsigma.
+        to_compare = [thisHaloMass] + list(emulatedPosteriorDraw[:-1]) # include mass, exclude fsigma.
+        for i in range(len(logVars)):
+            if logVars[i]==1:
+                to_compare[i] = np.log10(to_compare[i])
+        # ok, so now we're ready to compare this draw of the emulated posterior [as to_compare] to the first N elements of any row of X_train.
+        individual_lnliks = []
         for k in range(nruns):
+            #pdb.set_trace()
+            if np.sum(np.isclose(to_compare, X_train[k, :len(to_compare)])) > len(to_compare)-3:
+                # match! Count it, record associated likelihood.
+                counts[j] += 1 
+                this_lnlik = globalLikelihood(Ys_train[k,:].reshape(1,-1)) 
+                individual_lnliks.append(this_lnlik)
+        # alright, so at this point we've identified all matches for this draw and computed their likelihoods.
+        rerun_likelihood = 0.0
+        rerun_lnlik = -np.inf
+        if counts[j]>0:
+            # if there were any matches, multiply the probabilities together, and reweight as if we had done 20 draws [since that's what the emulator does]
+            rerun_lnlik = np.sum(individual_lnliks)*20.0/float(counts[j])
+
+            #rerun_likelihood = np.exp(arg)
+            unnormedLnWeights[j] = rerun_lnlik - thisEmulatedLnlik - np.log(mixtureFraction)
+        else:
+            unnormedLnWeights[j] = np.nan
+    adj = np.nanmax(unnormedLnWeights)
+    unnormedLnWeights -= adj # this prevents underflow errors in the exponentiation to come
+    print "For halo mass ",thisHaloMass,"resimulated filename",coagulatedFilename,"and emulated posterior sample",pikfilename
+    print "Finished computing weights. Sum of counts:", np.sum(counts), ", number of rows of resimulated runs: ",nruns,", and number of samples in the emulated posterior: ",numberEmulatedPosteriorSamples
+    valid = counts>0
+    weights = np.zeros(numberEmulatedPosteriorSamples)
+    weights[valid] = np.exp(unnormedLnWeights[valid])/np.sum(np.exp(unnormedLnWeights[valid])) # normalize so the weights sum to 1.
+    ess = 1.0/np.sum(np.power(weights,2.0)) # compute the effective sample size
+    ## this is the most important step. If ess is not tiny, we can then pass these weights along to 
+    print "Number of samples with zero successful resimulations: ",np.sum( counts==0 )
+    print "Estimated effective sample size:",ess
+    pdb.set_trace()
 
 
 
 
     # don't forget to change the emulator models as in the odyssey version, i.e. replaces "models90" throughout the code. Probably doable via merge.
-    xxxxxxxxx
-    
 
 
 
 
 def main(args):
-    #learn(1.0e4, 1.0e-5)
-    #validateSVM()
-    #appendLabels()
-    #ksTestAnalysis()
-    #learnLasso(alpha=1.0e-3)
-    #validateLasso()
-    #validateRF()
-    #validateLassoRidge()
-
-    #searchTreeParams(400)
-    #searchLinearModels(800)
 
     if args.runDynesty:
         print "running dynesty"
@@ -4284,58 +4364,13 @@ def main(args):
         #fractionalVariancePlot()
         #ridgeCoeffsPlot()
 
-    #validateNPR()
-    #plotResiduals()
 
     #estimateFeatureImportancesJoint(analyze=True, pick=True) 
     #estimateFeatureImportances(analyze=True, pick=True) 
 
     print "q0"
     
-    #nuclearSearch(Nbins = 7, Niter=10000, Ninits=50)
-
-    #appendLikelihood()
     
-    #fakeEmceePlotResiduals(None, 'fakemcmc13_residuals', gidgetmodels='rf79', xmax=[ 1.41977729e-01,   2.03502540e+00,   2.02360753e+00,   2.01127027e+00, 2.56584739e-02,  -1.89348632e-02,   1.07203799e+00,  -9.80149073e-01, 1.00975501e+00,   4.99324933e-01,   1.50177845e+00,   1.48359195e+00, 4.94927969e-02,  9.79999389e-04,  9.98857856e-01,   2.85701876e-01, 9.59552777e-01,   9.02414277e-05,   9.91998674e-03, 0.5] )
-
-
-    #fakeEmceePlotResiduals(None, 'fakemcmc13_residuals81', gidgetmodels='rf81', xmax=[ 0.3512968,   3.91202004,  3.41454232,  3.22847406, -0.52552445,  2.60129093, 4.40972677, -1.47069249,  1.25916476,  0.63954234,  1.82215254,  1.46210786, 0.05488134,  0.04106005,  0.24240757,  0.47092227,  2.25026276,  0.36920633, 0.01555641, -1.0, 2.0e12, 0.8 ] )
-    #fakeEmceePlotResiduals(None, 'fakemcmc15_residuals86', xmax=  [  1.39192613e-01,   2.06852503e+00,   1.47353675e+00,   1.97365750e+00, 5.37224908e-01,   1.17595949e+00,   1.08963518e+00,  -5.08071210e-01, 1.01502597e+00,   5.17380183e-02,   5.36199804e+00,   1.25992157e+00, 6.23709052e-02,   1.72535928e-04,   9.15648977e-01,   1.06622955e-01, 5.88668979e+00,   1.79678213e-01,   6.00854464e-03,   0.00000000e+00, 9.18293025e+11, .3536  ], gidgetmodels='rf86' )
-
-
-
-    #fakeEmceePlotResiduals(None, 'fakemcmc16_residuals88', gidgetmodels='rf88', xmax=[  1.16493377e-01,   6.85441565e-01,   2.53454237e+00,   4.66205970e+00, 7.21672391e-01,  -9.65895952e-01,   3.31207773e+00,  -8.40086055e-01, 5.10900160e+00,   4.37085835e-01,   2.12261668e+00,   1.59251012e+00, 8.54462905e-02,   3.48195437e-03,   4.07820701e-01,   1.84455124e-01, 6.85178180e-01,   2.17577982e-01,   8.94197775e-03,   2.00963528e-01, 1.18649645e+12,   5.11828699e-01] )
-
-    #fakeEmceePlotResiduals(None, 'fakemcmc17_residuals99', gidgetmodels='rf99', xmax=[  1.76149012e-01, 2.71385761e+00, 2.43095960e+00, 2.56258037e+00, -5.22815474e-01, -7.30050429e-01, 5.96476522e+00, -1.95328561e+00, 1.13920495e+00, 6.26490351e-01, 1.57867191e+00, 1.77166604e+00, 6.13678555e-02, 6.36513703e-03, 5.42225312e-01, 1.54471933e-01, 1.69720803e+00, 4.65370474e-01, 1.28680215e-02, 4.79132819e-01, 1.64818086e+12, 9.93276414e-01, 5.41798936e-01])
-
-
-    #fakeEmceePlotResiduals( None, 'fakemcmc17d_residuals112', gidgetmodels='rf112', xmax = [ 1.44656471e-01, 1.94694047e+00, 2.46300115e+00, 2.52780687e+00, 4.14257376e-02, -9.24764117e-02, 6.03022138e+00, -1.71412505e+00, 2.75050207e+00, 5.03191815e-01, 2.64146528e+00, 2.93923418e+00, 4.93805277e-02, 1.33649809e-02, 6.30847392e-01, 7.70793830e-02, 6.40127324e-01, 2.75077929e-01, 1.67309700e-02, 4.98795340e-01, 1.93406046e+12, 7.82157806e-01, -1.59310290e-01, 5.93635084e-01] )
-
-    #fakeEmceePlotResiduals( None, 'fakemcmc17d_residuals113', gidgetmodels='rf113', xmax =[1.21990575e-01, 2.25750440e+00, 1.42283492e+00, 2.38779672e+00, -2.20443849e+00, 1.07448541e+00, 2.26876611e+00, -1.11338069e+00, 1.91939912e+00, 4.52858032e-01, 1.84182587e+00, 2.26660250e+00, 7.71741216e-02, 1.21665083e-02, 4.95477220e-01, 2.57736306e-01, 1.06866306e+00, 5.03555469e-01, 8.98255341e-03, 3.51823670e-01, 6.57947163e+11, 9.73425083e-01, -1.69906882e-01, 3.10019810e-01] )
-
-
-
-    #fakeEmceePlotResiduals( None, 'fakemcmc17d_residuals114', gidgetmodels='rf114', xmax=[0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288] )
-
-    #fakeEmceePlotResiduals( None, 'fakemcmc1718b_residuals117', gidgetmodels='rf117', xmax=  [0.147451569889, 2.52941811659, 2.59034734186, 2.41120695741, -0.124283831858, -0.0523679435879, 9.35680382698, -0.974822093888, 1.89905286619, 0.511551421578, 2.0337488747, 2.02929369251, 0.0642244458824, 0.00988965146683, 0.509787819545, 0.279394476293, 1.74417214913, 0.342311450585, 0.0107366934282, 0.414472066814, 1.50430105103e+12, 1.21653967757, -0.028389697679, 0.497607252288] )
-
-
-    ###### This one again!
-    #fakeEmceePlotResiduals( None, 'fakemcmc24co2_rf126', gidgetmodels='rf126', xmax=  [0.0443059862284, 0.806495237058, 1.4087606963, 0.869527693096, 0.327075377559, -0.308939479358, 0.0234912805083, -1.12089580649, 33.1828005128, 0.407917555468, 3.02608263739, 3.49498785593, 0.0907902716067, 4.63872357149e-05, 0.464102097423, 0.280240720027, 3.36677341647, 0.187561143417, 0.0218102260209, -0.0156521057259, 2.40360675676e+12, 3.62893109323, 0.195727400353] )
-    #trimDownForGlue()
-    
-    #fakeEmceePlotResiduals( None, 'fakemcmc24co2_rf128', gidgetmodels='rf128', xmax=[0.0907149271263, 0.761600454933, 2.20442557257, 0.426192077362, 0.155223968728, -0.100294656199, 0.0303891177429, -1.4123812033, 4.87364935138, 0.513140027012, 3.63601310775, 4.58975160056, 0.0841687629951, 6.49402673113e-05, 0.375868764738, -0.0826015820612, 2.14390072752, 0.233497821684, 0.0167987278298, -0.0134286210391, 2.29158889284e+12, 2.81011052587, 0.272326583338] )
-    ### analyze the fake mcmc run
-
-    #fakeEmceePlotResiduals( None, 'fakemcmc25_rf130', gidgetmodels='rf130', xmax=[0.112916589104, 0.63842335415, 2.50984526904, 0.448082316632, 0.104301163171, -0.131856822965, 0.0360716052922, -0.7, 4.29142270588, 0.511168005255, 3.64258405032, 4.73219935654, 0.0799694888646, 6.65087204525e-05, 0.408508757039, -0.161872545785, 3.25442635693, 0.183656180092, 0.0200517721637, -0.0105144001646, 3.20856474724e+12, 3.09020027961, 0.236742085025] )
-
-    #fakeEmceePlotResiduals( None, 'fakemcmc25_rf131rf132rf133', gidgetmodels=['rf131','rf132','rf133'], xmax= [0.113894786374, 0.671606201397, 2.50724549634, 0.546062003219, 0.094368156197, -0.112848097766, 0.0345714839787, -0.426176771365, 4.94145658032, 0.538678882129, 3.98454628212, 5.15197965132, 0.08133192535, 6.2784924053e-05, 0.400288619119, -0.150067876526, 2.77079137969, 0.209569425732, 0.0218331618273, -0.0116329761749, 3.51463541754e+12, 2.54465296635, 0.258963202267] )
-
-    #fakeEmceePlotResiduals( None, 'fakemcmc33_rf142', gidgetmodels='rf142', xmax= [0.0615434193287, 1.0188697904, 2.71537731422, 2.8650882819, 0.126784188369, 0.0185776666524, 0.0224351900625, 0.506267601629, 4.91488161105, 0.431751909881, 3.47660964674, 5.20346226824, 0.0597290394181, 7.90700983682e-05, 0.651026074296, -0.0744182306864, 0.123672492022, 0.259861700898, 0.0114748421283, -0.0143883263752, 2.57979242747e+12, 0.969561683518, 0.404615667626, 1.12238263527])
-
-    #fakeEmceePlotResiduals(None, 'fakemcmc34_rf144', gidgetmodels='rf144', xmax= [0.0696202889818, 2.36010095611, 1.19592519448, 3.80922040118, -0.331287157289, 0.16162232186, 0.0632291452063, 0.112694021741, 3.45596589733, 0.487314812337, 2.29321794439, 2.90572826728, 0.0759838285036, 0.00216076266301, 0.445410559116, 0.213309060707, 0.221933216054, 0.370702662448, 0.00848192935542, -0.10315237063, 2.33494750629e+12, 0.602354295423, 0.304498038927, 1.17790054244])
-
-    #fakeEmceePlotResiduals(None, 'fakemcmc34_rf145', gidgetmodels='rf145', xmax= [0.0645463323585, 1.24490023205, 1.37016152977, 3.37739992627, -0.333972689602, 0.135411790336, 0.045241077512, -0.101705141014, 1.42370069748, 0.224273418275, 2.01794607053, 2.3362673358, 0.0506343529443, 0.00113506777348, 0.437137064909, 0.158533010722, 0.100937381681, 0.292608054786, 0.0102875271548, -0.00833082266041, 1.05349338052e+12, 0.564760738996, 0.315726762435, 1.461132142])
 
     def fancyresiduals():
         def fairPosteriorSample( pikfilename, nsamp, ngal, mass):
@@ -4376,21 +4411,7 @@ def main(args):
 
     print "q1"
 
-
-    #zero = sorted(glob.glob('intq*_fakemcmc110e_restart.pickle'))+ sorted( glob.glob('intq*_fakemcmc110f_restart.pickle') ) + sorted( glob.glob('intq*_fakemcmc110g_restart.pickle') ) + sorted( glob.glob('intq*_fakemcmc110h_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc110i_restart.pickle') )
-    #one = sorted( glob.glob('intq*_fakemcmc111d_restart.pickle') ) + sorted( glob.glob('intq*_fakemcmc111e_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc111f_restart.pickle'))  + sorted( glob.glob('intq*_fakemcmc111g_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc111h_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc111i_restart.pickle')) 
-    #two = sorted(  glob.glob('intq*_fakemcmc112e_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc112f_restart.pickle'))  + sorted( glob.glob('intq*_fakemcmc112g_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc112h_restart.pickle') )
-    #three= sorted( glob.glob('intq*_fakemcmc113d_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc113e_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc113f_restart.pickle'))  +  sorted( glob.glob('intq*_fakemcmc113g_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc113h_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc113i_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc113j_restart.pickle'))
-
-    #zero =sorted( glob.glob('intq*_fakemcmc130a_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc130b_restart.pickle')) 
-    #one = sorted( glob.glob('intq*_fakemcmc131a_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc131b_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc131c_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc131d_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc131e_restart.pickle'))+ sorted(glob.glob('intq*_fakemcmc131f_restart.pickle'))+ sorted(glob.glob('intq*_fakemcmc131g_restart.pickle'))
-    #two = sorted( glob.glob('intq*_fakemcmc132a_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc132b_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc132c_restart.pickle')) + sorted(glob.glob('intq*_fakemcmc132d_restart.pickle'))+ sorted(glob.glob('intq*_fakemcmc132e_restart.pickle'))+ sorted(glob.glob('intq*_fakemcmc132f_restart.pickle'))
-    #three = sorted( glob.glob('intq*_fakemcmc133a_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc133b_restart.pickle')) 
-
-    #zero = sorted( glob.glob('intq*_fakemcmc140a_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc140b_restart.pickle'))+ sorted( glob.glob('intq*_fakemcmc140c_restart.pickle'))+ sorted( glob.glob('intq*_fakemcmc140d_restart.pickle'))
-    #one = sorted( glob.glob('intq*_fakemcmc141a_restart.pickle')) +  sorted( glob.glob('intq*_fakemcmc141b_restart.pickle'))
-    #two = sorted( glob.glob('intq*_fakemcmc142a_restart.pickle')) +  sorted( glob.glob('intq*_fakemcmc142b_restart.pickle'))+  sorted( glob.glob('intq*_fakemcmc142c_restart.pickle'))
-    #three = sorted( glob.glob('intq*_fakemcmc143a_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc143b_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc143c_restart.pickle')) + sorted( glob.glob('intq*_fakemcmc143d_restart.pickle'))
+    #importanceResampling(12.0, 'broadPostSim152_to_lasso.txt', 'fakemcmc152c_filteredposterior.pickle')
 
 
     def getRestartList(bn):
@@ -4405,30 +4426,31 @@ def main(args):
             pdb.set_trace()
         return full_list
 
-    zero = getRestartList('fakemcmc150')
-    one = getRestartList('fakemcmc151')
-    two = getRestartList('fakemcmc152')
-    three = getRestartList('fakemcmc153')
+    zero = getRestartList('fakemcmc162')
+    #one = getRestartList('fakemcmc151')
+    #two = getRestartList('fakemcmc152')
+    #three = getRestartList('fakemcmc153')
 
     zeLim = np.min( [len(zero)-1, 100] )
-    restartZero  = stitchRestarts( zero[-zeLim:] )
-    analyzeSingleRestart( 'fakemcmc150a', burnIn=2400, minimumlnlik=-9100, restart=restartZero )
+    restartZero  = stitchRestarts( zero)#[-zeLim:] )
+    analyzeSingleRestart( 'fakemcmc162a', burnIn=2280, minimumlnlik=-110000, restart=restartZero )
     restartZero = None # zero out
+    return 0
 
-    onLim = np.min( [len(one)-1, 100] )
-    restartOne = stitchRestarts( one[-onLim:] )
-    analyzeSingleRestart( 'fakemcmc151a', burnIn=2400, minimumlnlik=-2500, restart=restartOne )
-    restartOne = None
+    #onLim = np.min( [len(one)-1, 100] )
+    #restartOne = stitchRestarts( one[-onLim:] )
+    #analyzeSingleRestart( 'fakemcmc151a', burnIn=2400, minimumlnlik=-2500, restart=restartOne )
+    #restartOne = None
 
-    twLim = np.min( [len(two)-1, 100] )
-    restartTwo = stitchRestarts( two[-twLim:] )
-    analyzeSingleRestart( 'fakemcmc152a', burnIn=2400, minimumlnlik=-420, restart=restartTwo)
-    restartTwo = None
+    #twLim = np.min( [len(two)-1, 100] )
+    #restartTwo = stitchRestarts( two[-twLim:] )
+    #analyzeSingleRestart( 'fakemcmc152a', burnIn=2400, minimumlnlik=-420, restart=restartTwo)
+    #restartTwo = None
 
-    thLim = np.min( [len(three)-1, 100] )
+    #thLim = np.min( [len(three)-1, 100] )
     #restartThree = stitchRestarts( three[-thLim:] )
     #analyzeSingleRestart( 'fakemcmc153a', burnIn=2400, minimumlnlik=40, restart=restartThree)
-    restartThree = None
+    #restartThree = None
 
     print "q2"
 
@@ -4510,7 +4532,8 @@ def main(args):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Run an emulator-based mcmc, or analyze such a run.')
-    parser.add_argument('--logMh0', type=float, default=12.0, help='log10 of the z=0 halo mass in solar masses')
+    parser.add_argument('--logMh0Min', type=float, default=11.0, help='log10 of the min z=0 halo mass in solar masses')
+    parser.add_argument('--logMh0Max', type=float, default=12.0, help='log10 of the max z=0 halo mass in solar masses')
     parser.add_argument('--fakemcmcName', type=str, help='the basename of the files used to store the emulator mcmc')
     parser.add_argument('--runEmcee', action='store_true', help='run the emulator mcmc')
     parser.add_argument('--runDynesty', action='store_true', help='run the emulator dynamic nested sampling')
@@ -4519,9 +4542,11 @@ if __name__=='__main__':
     parser.set_defaults( runEmcee=False, analyzeMCMC=False, seedWith='', runDynesty=False)
     args = parser.parse_args()
     global globalFakemcmcName
-    global globalHaloMass
+    global globalHaloMassMin
+    global globalHaloMassMax
     globalFakemcmcName = args.fakemcmcName
-    globalHaloMass = args.logMh0
+    globalHaloMassMin = args.logMh0Min
+    globalHaloMassMax = args.logMh0Max
     main(args)
 
 

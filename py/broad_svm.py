@@ -375,7 +375,7 @@ print "Reading models.. this could take a sec"
 #models151 = pickle.load( open( 'rfnt151_0.pickle', 'r') )
 #models152 = pickle.load( open( 'rfnt152_0.pickle', 'r') )
 #models153 = pickle.load( open( 'rfnt153_0.pickle', 'r') )
-#models160 = pickle.load( open( 'rfnt160_0.pickle', 'r') )
+models160 = pickle.load( open( 'rfnt160_0.pickle', 'r') )
 #models24=[]
 #for k in range(80):
 #    fn = 'rfnt24co3_'+str(k)+'_0.pickle'
@@ -585,10 +585,10 @@ def lnlikelihood(emceeparams, models=None, debug=False, haloMassMin=globalHaloMa
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     nmh = 20
-    MhGrid = np.power(10.0, np.linspace(haloMassMin,haloMassMax,nmh)) ## look only at a very narrow range of masses
+    MhGrid = np.power(10.0, np.linspace(haloMassMin,globalHaloMassMax,nmh)) ## look only at a very narrow range of masses
     lnlik = 0.0
 
-    models16X = models160b
+    models16x = models160
 
     for k,Mh in enumerate(MhGrid):
         # Let's see.. Mh + emcee parameters, minus the last two "artificial" parameters
@@ -621,6 +621,7 @@ def lnlikelihood(emceeparams, models=None, debug=False, haloMassMin=globalHaloMa
     #print "Returning lnlik = ", lnlik #, "for emceeparams ",emceeparams
     if not np.isfinite(lnlik):
         return -np.inf
+    #print "Returning lnlik",lnlik
     return lnlik
 
 def sampleFromGaussianBall(var=0.001):
@@ -710,6 +711,9 @@ globalPrior = analyticDistributions.jointDistribution(\
 #        samplefromlognormaldensity( np.log(1.0e12), np.log(3.0)**2.0/varRedFac ),
 #        samplefromlognormaldensity( np.log(1.0), np.log(3.0)**2.0/varRedFac),  
 #        samplefromnormaldensity( 0.3, 0.2**2.0/varRedFac) ]
+
+def lnprior(emceeparams):
+    return globalPrior.lndensity(emceeparams)
 
 def lnprob(emceeparams, models=None):
     #pr = lnprior(emceeparams)
@@ -802,15 +806,26 @@ def saveRestart(fn,restart, truncate=0):
             restartCopy = {}
             for k in restart.keys():
                 if k=='chain':
-                    restartCopy['chain'] = restart['chain'][:,truncate:,:]
+                    if len(np.shape(restart['chain']))==3:
+			restartCopy['chain'] = restart['chain'][:,truncate:,:]
+                    else:
+                        restartCopy['chain'] = restart['chain'][:,:,truncate:,:]
                 elif k=='allProbs':
-                    restartCopy['allProbs'] = restart['allProbs'][:,truncate:] 
+                    if len(np.shape(restart['chain']))==3:
+                        restartCopy['allProbs'] = restart['allProbs'][:,truncate:] 
+                    else:
+                        restartCopy['allProbs'] = restart['allProbs'][:,:,truncate:] 
                 else:
                     restartCopy[k] = copy.deepcopy(restart[k])
 
-            if np.shape(restart['chain'])[1]>np.abs(truncate)*2:
-                restart['chain'] = restart['chain'][:,(truncate*2):,:]
-                restart['allProbs'] = restart['allProbs'][:,(truncate*2):]
+            if len(np.shape(restart['chain']))==3:
+                if np.shape(restart['chain'])[1]>np.abs(truncate)*2:
+                    restart['chain'] = restart['chain'][:,(truncate*2):,:]
+                    restart['allProbs'] = restart['allProbs'][:,(truncate*2):]
+            else:
+                if np.shape(restart['chain'])[2]>np.abs(truncate)*2:
+                    restart['chain'] = restart['chain'][:,:,(truncate*2):,:]
+                    restart['allProbs'] = restart['allProbs'][:,:,(truncate*2):]
             pickle.dump(restartCopy,f,2)
         else:
             pickle.dump(restart,f,2)
@@ -1491,7 +1506,8 @@ def runDynesty(mpi=False):
 
 
 
-def runEmcee(mpi=False, continueRun=False, seedWith=None):
+def runEmcee(mpi=False, continueRun=False, seedWith=None, parallelTempering=False, sampleFromPrior=False):
+    print "starting runEmcee with the following arguments! ",mpi,continueRun,seedWith,parallelTempering,sampleFromPrior
     import sys
     if mpi:
         from mpi4py import MPI
@@ -1507,15 +1523,41 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
             pool.wait()
             sys.exit()
     
-    ndim, nwalkers = 24, 4000 
+    if parallelTempering:
+        ntemps, ndim, nwalkers = 20, 24, 400 
+    else:
+        ndim, nwalkers = 24, 4000 
+    
+    print "Run set up! ndim,nwalkers:",ndim,nwalkers
+
     # fn = 'fakemcmc17a_restart.pickle' ## a ran for a long time. "Standard" result
     #fn = 'fakemcmc38_restart.pickle'  # reduce prior on kappaz by factor of 10 (in location parameter); include more masses in the likelihood function
     fn = globalFakemcmcName+'_restart.pickle'
     restart = {}
     nsteps = 300001
-    #p0 = [ globalPrior.sample() for w in range(nwalkers) ]
-    p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
-
+    if parallelTempering:
+        p0 = np.zeros( (ntemps, nwalkers, ndim) )
+        for i in range(nwalkers):
+            for j in range(ntemps):
+                if sampleFromPrior:
+                    p0[j,i,:] = globalPrior.sample()
+                else:
+                    p0[j,i,:] = sampleFromGaussianBall() 
+    else:
+        p0 = np.zeros( (nwalkers, ndim) )
+        for i in range(nwalkers):
+            if sampleFromPrior:
+                p0[i,:] = globalPrior.sample()
+            else:
+                p0[i,:] = sampleFromGaussianBall() 
+    print "Starting point established! Shape of p0: ",np.shape(p0)
+   
+#        else:
+#
+#    	    p0 = [ globalPrior.sample() for w in range(nwalkers) ]
+#        else:
+#            p0 = [ sampleFromGaussianBall() for w in range(nwalkers) ]
+#
     if seedWith is not None:
         if os.path.isfile(seedWith):
             with open(seedWith,'rb') as f:
@@ -1524,12 +1566,15 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
                 p0 = copy.deepcopy(seedPosition)
                 to_append = []
                 # if we need more positions for walker seeds, try just averaging.
-                if len(seedPosition)<nwalkers:
+                if False:
+                #if len(seedPosition)<nwalkers:
                     for i in range(nwalkers-len(seedPosition)):
                         selec = np.random.choice( range(len(p0)), size=2, replace=False )
                         ## this code doesn't work because p0 isn't a list.
                         to_append.append( (np.array(p0[selec[0]] ) + np.array(p0[selec[1]]))/2.0 )
                     p0 = np.array( list(p0)+to_append)
+
+    print "Seeded run if applicable!"
 
     restart['currentPosition'] = p0
     restart['chain' ] = None
@@ -1546,16 +1591,29 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
     restart['iterationCounter'] += nsteps
     restart['mcmcRunCounter'] += 1
 
-
     if mpi:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)#, args=[models])
-        #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool, args=[models])
+        if parallelTempering:
+            sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood, lnprior, pool=pool)   
+            #emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)#, args=[models])
+        else:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)#, args=[models])
+            #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool, args=[models])
     else:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)#, args=[models])
+        if parallelTempering:
+            sampler = emcee.PTSampler(nntemps, walkers, ndim, lnlikelihood, lnprior)#, args=[models])
+        else:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)#, args=[models])
         #sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=[models])
+
+    print "Initialized sampler!"
     
     counter =0
-    for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], rstate0=restart['state'], storechain=False) :
+    # adjust the axis corresponding to nwalkers.
+    ptOffset = 0
+    if parallelTempering:
+        ptOffset=1
+    for result in sampler.sample(restart['currentPosition'], iterations=nsteps, lnprob0=restart['prob'], storechain=False) :
+        print "Obtained a result. ",counter
         counter+=1
         pos, prob, state = result
 
@@ -1563,17 +1621,18 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None):
         restart['accept'] = sampler.acceptance_fraction[:]  # acceptance frac for each walker.
         restart['currentPosition'] = pos # same shape as p0: nwalkers x ndim
         restart['state'] = state # random number generator state
-        restart['prob'] = prob # nwalkers x __
+        restart['prob'] = prob # ntemp x nwalkers x __
         if restart['chain'] is None:
-            restart['chain'] = np.expand_dims(pos,1) # nwalkers x niterations x ndim
-            restart['allProbs'] = np.expand_dims(prob,1)  # nwalkers x niterations
+            restart['chain'] = np.expand_dims(pos,1+ptOffset) # nwalkers x niterations x ndim
+            restart['allProbs'] = np.expand_dims(prob,1+ptOffset)  # ntemp x nwalkers x niterations
         else:
             print np.shape(restart['chain']), np.shape(pos)
             print restart['mcmcRunCounter'], restart['iterationCounter']
             #restart['chain'] = np.concatenate((restart['chain'], sampler.chain[:,-1,:]), axis=1)
             print "dbg1: ",np.shape(restart['chain']), np.shape(np.zeros((nwalkers, 1, ndim))), np.shape(np.expand_dims(pos,1)), counter
-            restart['chain'] = np.concatenate((restart['chain'], np.expand_dims(pos, 1)),axis=1)
-            restart['allProbs'] = np.concatenate((restart['allProbs'], np.expand_dims(prob, 1)),axis=1)
+#dbg1:  (20, 100, 1, 24) (400, 1, 24) (20, 1, 400, 24) 2
+            restart['chain'] = np.concatenate((restart['chain'], np.expand_dims(pos, 1+ptOffset)),axis=1+ptOffset)
+            restart['allProbs'] = np.concatenate((restart['allProbs'], np.expand_dims(prob, 1+ptOffset)),axis=1+ptOffset)
 
         
         if counter%50==1:
@@ -1728,7 +1787,11 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True, debug=Fa
     logMst2 = np.log10( 10.0**Ys_train[:,6] + fh* 10.0**logmStellarHaloz2 )
     logMst3 = np.log10( 10.0**Ys_train[:,7] + fh* 10.0**logmStellarHaloz3 )
 
-    # Label points that fit Moster SMHM
+    #
+    if (10.0**loggasToStellarRatioH2z3 + 10.0**logMst3)/10.0**logMh3 > 0.18:
+	# we have found ourselves in a situation where the emulator believes we will exceed the universal baryon fraction in the initial conditions
+        if returnlikelihood:
+             return 0
 
     lnlik = np.zeros((len(Ys_train[:,0]),33) )
 
@@ -1762,13 +1825,13 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True, debug=Fa
     lnlik[:,15] += singleRelationLikelihood(10.0**logMst2,10.0**loggasToStellarRatioH2z2,['genzel15COz2','genzel15Dustz2'],fsigma)[srlInd]
     lnlik[:,16] += singleRelationLikelihood(10.0**logMst3,10.0**loggasToStellarRatioH2z3,['genzel15COz3','genzel15Dustz3'],fsigma)[srlInd]
 
-    lnlik[:,17] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioHIz0,['papastergis12','peeples11'],fsigma)[srlInd]
+    #lnlik[:,17] += singleRelationLikelihood(10.0**logMst0,10.0**loggasToStellarRatioHIz0,['papastergis12','peeples11'],fsigma)[srlInd]
 
     #lnlik += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13','Barro15HS','Barro15HQ'])
     #lnlik[:,18] += singleRelationLikelihood(10.0**logMst0,10.0**logSigma1z0,['Fang13'])[srlInd]
-    lnlik[:,19] += singleRelationLikelihood(10.0**logMst1,10.0**logSigma1z1,['Barro151S'],fsigma)[srlInd]
-    lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S'],fsigma,debug=debug)[srlInd]
-    lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S'],fsigma,debug=debug)[srlInd]
+    #lnlik[:,19] += singleRelationLikelihood(10.0**logMst1,10.0**logSigma1z1,['Barro151S'],fsigma)[srlInd]
+    #lnlik[:,20] += singleRelationLikelihood(10.0**logMst2,10.0**logSigma1z2,['Barro152S'],fsigma,debug=debug)[srlInd]
+    #lnlik[:,21] += singleRelationLikelihood(10.0**logMst3,10.0**logSigma1z3,['Barro153S'],fsigma,debug=debug)[srlInd]
 
 
     # Label points that fit galaxy sizes
@@ -1781,7 +1844,7 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True, debug=Fa
     #lnlik[:,24] += singleRelationLikelihood(10.0**logMst2,10.0**loghalfMassStarsz2,['vdW14ETG2','vdW14LTG2'])[srlInd]
     #lnlik[:,25] += singleRelationLikelihood(10.0**logMst3,10.0**loghalfMassStarsz3,['vdW14ETG3','vdW14LTG3'])[srlInd]
 
-    lnlik[:,26] += singleRelationLikelihood(10.0**(logMst0+loggasToStellarRatioHIz0),10.0**logbroeilsHIz0,['broeils97'],fsigma)[srlInd]
+    #lnlik[:,26] += singleRelationLikelihood(10.0**(logMst0+loggasToStellarRatioHIz0),10.0**logbroeilsHIz0,['broeils97'],fsigma)[srlInd]
 
     #lnlik[:,27] += singleRelationLikelihood(10.0**logMst0,10.0**logc82z0,['Dutton09All'])[srlInd]
 
@@ -1792,6 +1855,7 @@ def globalLikelihood(Ys_train, fsigma=1.0, fh=0, returnlikelihood=True, debug=Fa
     lnlik[:,30] += singleRelationLikelihood(10.0**(logMst1+logsSFRz1-9), 10.0**logmaxsigz1, ['krumholz17'])[srlInd]
     lnlik[:,31] += singleRelationLikelihood(10.0**(logMst2+logsSFRz2-9), 10.0**logmaxsigz2, ['krumholz17'])[srlInd]
     lnlik[:,32] += singleRelationLikelihood(10.0**(logMst3+logsSFRz3-9), 10.0**logmaxsigz3, ['krumholz17'])[srlInd]
+
 
     #lnlik[:,29] += singleRelationLikelihood(10.0**(logMst0+logsSFRz0), 
 
@@ -4356,10 +4420,13 @@ def main(args):
     if args.runEmcee:
         print "running emcee"
         seedWith=None
+        sampleFromPrior = True
         if args.seedWith!='':
             seedWith = args.seedWith
+            sampleFromPrior = False
         #runEmcee(mpi=True, continueRun=False, seedWith='fakemcmc22_restart.pickle' )
-        runEmcee(mpi=True, continueRun=False, seedWith=seedWith)
+        #runEmcee(mpi=True, continueRun=False, seedWith=seedWith)
+        runEmcee(mpi=True, continueRun=False, seedWith=seedWith, sampleFromPrior=True, parallelTempering=True )
         #runEmcee(mpi=True, continueRun=False, seedWith='int00961_fakemcmc91d_restart.pickle') 
         #fractionalVariancePlot()
         #ridgeCoeffsPlot()

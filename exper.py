@@ -3243,10 +3243,29 @@ if __name__ == "__main__":
     rf292 = fairPosteriorSample('rf292', 'py/fakemcmc142c_filteredposterior.pickle', 40, 1, np.linspace(11.95,12.05, 40) )
     rf293 = fairPosteriorSample('rf293', 'py/fakemcmc143c_filteredposterior.pickle', 40, 1, np.linspace(12.95,13.05, 40) )
 
-    rf300 = systematicPosteriorSample('rf300', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=0)
-    rf301 = systematicPosteriorSample('rf301', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=100)
-    rf302 = systematicPosteriorSample('rf302', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=200)
-    rf303 = systematicPosteriorSample('rf303', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=300)
+    #rf300 = systematicPosteriorSample('rf300', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=0)
+    #rf301 = systematicPosteriorSample('rf301', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=100)
+    rf302 = fairPosteriorSample('rf302', 'py/fakemcmc152c_filteredposterior.pickle', 100, 1, np.linspace(11.99,12.01,100))
+    #rf303 = systematicPosteriorSample('rf303', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=300)
+
+    #### Look for what causes the failures.
+    rf305 = fairPosteriorSample('rf305', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
+    rf306 = fairPosteriorSample('rf306', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
+    rf307 = fairPosteriorSample('rf307', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
+    rf308 = fairPosteriorSample('rf308', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
+    rf309 = fairPosteriorSample('rf309', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
+    for q in range(30):
+        rf305[q].irregularVary( 'tauHeat', 4.0) 
+        rf306[q].irregularVary( 'NPassive', 4)
+        rf307[q].irregularVary( 'xmin', 3.3e-3)
+        rf308[q].irregularVary( 'R', 120)
+        rf309[q].irregularVary( 'Noutputs', 400)
+
+    # rf310 is the 'ruthless' version. 311 makes the additional modification of tightening the assumed scatter on r_*
+    rf311 = fairPosteriorSample('rf311', 'py/fakemcmc160a_filteredposterior.pickle', 30, 1, np.linspace(11.0,12.00,30))
+    rf312 = fairPosteriorSample('rf312', 'py/fakemcmc160b_filteredposterior.pickle', 30, 1, np.linspace(11.0,12.00,30))
+
+    rf313 = fairPosteriorSample('rf313', 'py/fakemcmc161b_filteredposterior.pickle', 150, 1, np.linspace(11.0,12.00,150))
 
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
 

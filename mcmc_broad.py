@@ -21,8 +21,10 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 
-chaindirrel = 'broadPostSim153a'
-haloMass = 1.0e13
+#chaindirrel = 'broadPostSim152b'
+chaindirrel = 'broadPrior162a'
+haloMassMin = 1.0e11
+haloMassMax = 1.0e12
 analysisdir = os.environ['GIDGETDIR']+'/analysis/'
 chaindir = analysisdir+chaindirrel
 bolshoidir = os.environ['GIDGETDIR']+'/../bolshoi/' 
@@ -79,7 +81,7 @@ globalBolshoiReader = bolshoireader.bolshoireader('rf_registry4.txt',3.0e11,3.0e
 bolshoiSize =  len(globalBolshoiReader.keys)
 
 globalPrior = analyticDistributions.jointDistribution(\
-        [ analyticDistributions.simpleDistribution( 'loguniform', [haloMass*0.99, haloMass*1.01], 'Mh0'), \
+        [ analyticDistributions.simpleDistribution( 'loguniform', [haloMassMin, haloMassMax], 'Mh0'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(4.0)**2.0], 'alphaR' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRSt0' ), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(2.0), np.log(2.0)**2.0], 'alphaRGa0' ), \
@@ -96,7 +98,7 @@ globalPrior = analyticDistributions.jointDistribution(\
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-3), np.log(10.0)**2.0], 'epsquench'), \
         analyticDistributions.simpleDistribution( 'beta', [1.0,1.0], 'accCeiling'), \
         analyticDistributions.simpleDistribution( 'normal', [0.0, 0.3**2.0], 'conRF'), \
-        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1), np.log(2.0)**2.0], 'kZ'), \
+        analyticDistributions.simpleDistribution( 'lognormal', [np.log(0.1/4), np.log(2.0)**2.0], 'kZ'), \
         analyticDistributions.simpleDistribution( 'beta', [1,2], 'xiREC'), \
         analyticDistributions.simpleDistribution( 'lognormal', [np.log(1.0e-2), np.log(2.0)**2.0], 'epsff'), \
         analyticDistributions.simpleDistribution( 'normal', [0.0, 0.4**2], 'scaleAdjust'), \
@@ -137,6 +139,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
 
     thisexper.irregularVary('kappaMetals',kZ)
     thisexper.irregularVary('xiREC',xiREC)
+    thisexper.irregularVary('MQuench', mquench)
     #Mhz0 = np.array(Mhz0)
     Mhz4 = Mhz0/(.75*33.3 * np.power(Mhz0/1.5e13,0.359)) # very roughly... We know for Mh0 = 3e11, Mhz4 =4e10, and same for Mh0=2e13->Mhz4=6e11. Using those 4 numbers and assuming a powerlaw, we get this relation.
     def Moster(Mh, mparams):
@@ -163,6 +166,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
     rat4 *= fg0mult # double the gas content
     fgUsed =1.0/(1.0/rat4 + 1.0)*(1.0*weight1+1.0*weight2) 
     thisexper.irregularVary( 'fg0', fgUsed, 5)
+    thisexper.irregularVary( 'epsff', epsff )
     thisexper.irregularVary( 'fg0mult', fg0mult)
     thisexper.irregularVary( 'Mh0', Mhz0, 5)
     fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (1.0*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
@@ -176,7 +180,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
         asls=0.005
     thisexper.irregularVary('accScaleLength', asls, 5)
     #Rs = np.power(reff4/reff411, 1.0)*50* asls/0.042 
-    Rs = reff4 * 100
+    Rs = reff4 * 300
     rmin = reff4/3
     xmin = rmin/Rs
     #print "Mh0 is ", np.log10(Mhz0)
@@ -190,6 +194,7 @@ def emceeparameterspacetogidgetexperiment(emceeparams,name=None):
 
     bolweights =  np.random.random()
     thisexper.irregularVary('bolshoiWeight', bolweights ,5)
+    thisexper.irregularVary('tauHeat', 1.0) 
     thisexper.irregularVary('Noutputs',400)
     thisexper.irregularVary('zstart',3.98)
     thisexper.irregularVary('zrelax',4.0)
@@ -681,7 +686,9 @@ def run(n, p00=None, nwalkers=500, prior=True, pikfilename=None):
             p0 = []
             for i in range(nwalkers):
                 j = i % len(arr[:,0])
-                p0.append( [haloMass]+list(arr[j,:-1]) ) 
+                ### not sure if this the best strategy, but...
+                thisMass = np.power(10.0, np.log10(haloMassMin) + np.random.random()*np.log10(haloMassMax/haloMassMin) )
+                p0.append( [thisMass]+list(arr[j,:-1]) ) 
 
     restart = {}
     restart['currentPosition'] = p0
@@ -973,10 +980,6 @@ def maximumposteriorprob(x0):
 
 if __name__=="__main__":
 
-
-    
-
-
     ##x0 = [1.5, 0.01, .99, .5, -2./3., 2, .03, .01, .1, 1.0, .002, 1.0, 0.01, .45, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0]
     #x0 = sampleFromPrior()
     #x0[11] /= 1.0e12
@@ -999,8 +1002,8 @@ if __name__=="__main__":
 
    
     #run(400, nwalkers=1024,p00=xmax) 
-    #run(2, nwalkers=131072)
-    run(1, nwalkers=131072, prior=False, pikfilename='py/fakemcmc153c_filteredposterior.pickle')
+    #run(1, nwalkers=131072)
+    run(1, nwalkers=131072, prior=False, pikfilename='py/fakemcmc162a_filteredposterior.pickle')
     #rerunPosteriorPredictive()
 
     if False:
@@ -1025,9 +1028,6 @@ if __name__=="__main__":
         print [ "{:0.15f}".format(f)  for f in xmax ]
 
         #getPosteriorPredictive( restart, burnIn=190, nspace=100)
-
-
-
 
         # Now use xmax as p00 in a new chain
         #shutil.move(chainDirRel+'.pickle', chainDirRel+'_initial.pickle')

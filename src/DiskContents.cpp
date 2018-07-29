@@ -1271,7 +1271,7 @@ void DiskContents::DiffuseMetals(double dt, int species)
         //else if(dbg.opt(8)) KM = (kappaMetals*1.0e3)*1.0e-4 * uu[n]/uu[nx]*x[nx]/x[n] * dim.Radius/(10.0*cmperkpc); //KM = (kappaMetals*1.0e3)*sig[n]*sig[n]*sig[n]/(M_PI*col[n]*dim.chi() * (1.0 +  sig[n]*activeColSt(n)/(activeSigStZ(n)*col[n]))); 
         // don't scale - kappa is constant.
         //else KM = kappaMetals;
-        double klim = sig[n]*x[n]; // uu[n]*1.0; // sig[n] * x[n]; //sig[n]*sig[n]/uu[n] * x[n];
+        double klim = sig[n]*x[n]/3.0; // uu[n]*1.0; // sig[n] * x[n]; //sig[n]*sig[n]/uu[n] * x[n];
 	// double klim = sig[n] *  sig[n]*sig[n]/(dim.chi()*M_PI*(col[n] + sig[n]/activeSigStZ(n) * activeColSt(n)));   
         if(KM > klim ) KM = klim;
         double sum = 4.0*M_PI*KM/(mesh.dx(n)*mesh.dx(n));
@@ -1306,10 +1306,12 @@ void DiskContents::DiffuseMetals(double dt, int species)
     // Now the default is to set Z_boundary = Z_IGM - dbg.opt(1) is being used for something else
     //    if(dbg.opt(1)) { // Z_boundary = Z_IGM, i.e. metals are free to flow off the edge of the disk.
     if(species==0) {
-        gsl_vector_set(MetalMass1,nx,Z_IGMO*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+        // gsl_vector_set(MetalMass1,nx,Z_IGMO*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+        gsl_vector_set(MetalMass1,nx,ZDiskO[nx]*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
     }
     if(species==1) {
-        gsl_vector_set(MetalMass1,nx,Z_IGMFe*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+        //gsl_vector_set(MetalMass1,nx,Z_IGMFe*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
+        gsl_vector_set(MetalMass1,nx,ZDiskFe[nx]*col[nx]*mesh.x(nx+1)*mesh.x(nx+1)*dlnx);
     }
 	//    }
 	//    else { // Zero flux condition

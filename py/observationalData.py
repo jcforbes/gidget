@@ -767,7 +767,7 @@ def defineStructureRelations():
     ETG16 = [ 2.6457044894315596, 2.5618129499322033, 2.786387659388853, 2.983157446261737, 3.003303588637278, 3.099621625825474, 3.265213583599052, 3.4828497425094422, 3.693648791671034]
     ETG84 = [ 3.0718014871220904, 2.946339508823659, 3.3441243799431253, 3.454289085984601, 3.470971025126885, 3.5465038429155435, 3.6601327521902753, 3.857024268020112, 4.015819692363874]
             
-    datasets['baldry12LTG0'] = DataSet( 'mstar', 'halfMassStars', np.power(10.0, LTGM), np.power(10.0, LTGRmed)/1000, yLower = np.power(10.0, LTG16)/1000, yUpper = np.power(10.0, LTG84)/1000, label='Baldry 12 LTG', zmax=0.3)
+    datasets['baldry12LTG0'] = DataSet( 'mstar', 'halfMassStars', np.power(10.0, LTGM), np.power(10.0, LTGRmed)/1000, yLower = np.power(10.0, LTG16)/1000, yUpper = np.power(10.0, LTG84)/1000, label='Baldry 12 LTG', zmax=0.3, fixedSigma=0.1)
     #datasets['baldry12ETG0'] = DataSet( 'mstar', 'halfMassStars', np.power(10.0, ETGM), np.power(10.0, ETGmed)/1000, yLower = np.power(10.0, ETG16)/1000, yUpper = np.power(10.0, ETG84)/1000, label='Baldry 12 ETG', zmax=0.3)
 
 
@@ -783,7 +783,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.24, 0.36, 0.42, 0.61]))
     reffLTGvdW50 = np.power(10.0, np.array([0.49, 0.61, 0.66, 0.83]))
     reffLTGvdW84 = np.power(10.0, np.array([0.70, 0.80, 0.85, 1.01]))
-    datasets['vdW14LTG0']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmax=0.5, alpha=0.5)
+    datasets['vdW14LTG0']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmax=0.5, alpha=0.5, fixedSigma=0.1)
                 
     obsmstETG = np.power(10.0, np.array([9.25, 9.75, 10.25, 10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.02, -0.14, 0.02, 0.26, 0.62]))
@@ -795,7 +795,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.18, 0.32, 0.39, 0.51, 0.77]))
     reffLTGvdW50 = np.power(10.0, np.array([0.43, 0.56, 0.64, 0.75, 0.90]))
     reffLTGvdW84 = np.power(10.0, np.array([0.65, 0.76, 0.83, 0.90, 1.12]))
-    datasets['vdW14LTG1']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=0.5, zmax=1.0, alpha=0.5)
+    datasets['vdW14LTG1']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=0.5, zmax=1.0, alpha=0.5, fixedSigma=0.1)
 
     obsmstETG = np.power(10.0, np.array([9.75, 10.25, 10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.15, -0.15, 0.07, 0.41]))
@@ -807,7 +807,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.11, 0.23, 0.33, 0.47, 0.62]))
     reffLTGvdW50 = np.power(10.0, np.array([0.37, 0.48, 0.57, 0.67, 0.82]))
     reffLTGvdW84 = np.power(10.0, np.array([0.60, 0.69, 0.77, 0.83, 0.96]))
-    datasets['vdW14LTG1h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.0, zmax=1.5, alpha=0.5)
+    datasets['vdW14LTG1h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.0, zmax=1.5, alpha=0.5, fixedSigma=0.1)
 
     obsmstETG = np.power(10.0, np.array([9.75, 10.25, 10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.02, -0.27, -0.04, 0.28]))
@@ -819,7 +819,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([0.07, 0.16, 0.28, 0.35, 0.53]))
     reffLTGvdW50 = np.power(10.0, np.array([0.33, 0.42, 0.52, 0.61, 0.70]))
     reffLTGvdW84 = np.power(10.0, np.array([0.57, 0.65, 0.72, 0.80, 0.87]))
-    datasets['vdW14LTG2']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.5, zmax=2.0, alpha=0.5)
+    datasets['vdW14LTG2']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=1.5, zmax=2.0, alpha=0.5, fixedSigma=0.1)
 
 
     obsmstETG = np.power(10.0, np.array([ 10.25, 10.75, 11.25]))
@@ -832,7 +832,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([ 0.10, 0.17, 0.26, 0.40]))
     reffLTGvdW50 = np.power(10.0, np.array([ 0.35, 0.44, 0.53, 0.64]))
     reffLTGvdW84 = np.power(10.0, np.array([ 0.57, 0.64, 0.70, 0.84]))
-    datasets['vdW14LTG2h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.0, zmax=2.5, alpha=0.5)
+    datasets['vdW14LTG2h']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.0, zmax=2.5, alpha=0.5, fixedSigma=0.1)
 
     obsmstETG = np.power(10.0, np.array([  10.75, 11.25]))
     reffETGvdW16 = np.power(10.0, np.array([-0.22, 0.07]))
@@ -844,7 +844,7 @@ def defineStructureRelations():
     reffLTGvdW16 = np.power(10.0, np.array([  0.16, 0.19, 0.33]))
     reffLTGvdW50 = np.power(10.0, np.array([  0.43, 0.47, 0.55]))
     reffLTGvdW84 = np.power(10.0, np.array([  0.65, 0.71, 0.76]))
-    datasets['vdW14LTG3']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.5, zmax=3.0, alpha=0.5)
+    datasets['vdW14LTG3']  = DataSet( 'mstar', 'halfMassStars', obsmstLTG, reffLTGvdW50, yLower=reffLTGvdW16, yUpper=reffLTGvdW84, label='van der Wel 14 LTG', zmin=2.5, zmax=3.0, alpha=0.5, fixedSigma=0.1)
 
 
 

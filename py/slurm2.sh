@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name fmc142b
-#SBATCH -n 15 
-#SBATCH -t 1-06:00
+#SBATCH --job-name fmc162a
+#SBATCH -n 20
+#SBATCH -t 2-06:00
 #SBATCH -p shared
 #SBATCH --mem-per-cpu=15000
 #SBATCH --mail-type=ALL
@@ -17,6 +17,6 @@ module load python/2.7.14-fasrc01
 source activate ody
 
 cd $GIDGETDIR/py
-mpirun -n 15 python broad_svm.py --runEmcee --seedWith='intq03351_fakemcmc142a_restart.pickle' --fakemcmcName='fakemcmc142b' --logMh0=12.0 > estd.${SLURM_JOB_ID}.out 
-#mpirun -n 15 python broad_svm.py --runEmcee --fakemcmcName='fakemcmc142a' --logMh0=12.0 > estd.${SLURM_JOB_ID}.out 
+mpirun -n 20 python broad_svm.py --runEmcee --seedWith='intq03501_fakemcmc161b_restart.pickle' --fakemcmcName='fakemcmc162a' --logMh0Min=11.0 --logMh0Max=12.0 > estd.${SLURM_JOB_ID}.out 
+#mpirun -n 15 python broad_svm.py --runEmcee --fakemcmcName='fakemcmc152a' --logMh0=12.0 > estd.${SLURM_JOB_ID}.out 
 

@@ -3200,7 +3200,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
             # select a random accretion history from the training set..
             # I think this version is actually wrong.. it treats the different accretion bins as independent, which they aren't really.
             #randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),nfeatures-1-nAccrBins+ii] for ii in range(nAccrBins)])
-            randomFactors[jj,:] = X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])), nfeatures-1-nAccrBins+0 : nfeatures-1-nAccrBins+nAccrBins]
+            randomFactors[jj,:] = X_train[ int(randomFactorsKey01[jj,0]*len(X_train[:,0])), nfeatures-1-nAccrBins+0 : nfeatures-1-nAccrBins+nAccrBins]
 
         # Regularize the input and output vectors to give the learning algorithm an easier time
         Xtra = xtransform(X_train, deg=2)
@@ -4369,6 +4369,7 @@ def importanceResampling(thisHaloMass, coagulatedFilename, pikfilename):
     all_X = []
     for j in range(numberEmulatedPosteriorSamples):
         emulatedPosteriorDraw = arr[j,:] ## these do not include mass or accretion history, and do include fsigma.
+        thisFsigma = emulatedPosteriorDraw[j,-1] # 
         emulatedResiduals.append( fakeEmceeResiduals(emulatedPosteriorDraw, None) )
         thisPrior = globalPrior.lndensity(emulatedPosteriorDraw) # perfect.
         thisEmulatedLnlik = lnlikelihood(emulatedPosteriorDraw) 
@@ -4386,7 +4387,7 @@ def importanceResampling(thisHaloMass, coagulatedFilename, pikfilename):
             if np.sum(np.isclose(to_compare[1:], X_train[k, 1:len(to_compare)])) > len(to_compare)-2:
                 # match! Count it, record associated likelihood.
                 counts[j] += 1 
-                this_lnlik = globalLikelihood(Ys_train[k,:].reshape(1,-1)) 
+                this_lnlik = globalLikelihood(Ys_train[k,:].reshape(1,-1), fsigma = thisFsigma) 
                 these_residuals = globalLikelihood(Ys_train[k,:].reshape(1,-1), returnlikelihood=False)  
                 all_residuals.append(these_residuals)
                 all_X.append(X_train[k, :len(to_compare)])

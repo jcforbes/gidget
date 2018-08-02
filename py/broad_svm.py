@@ -32,7 +32,8 @@ nvars = len(logVars)
 
 nAccrBins = 16  # number of time bins into which to average accretion history
 np.random.seed(1487)
-randomFactorsKey01 = np.random.random(size=(50,nAccrBins)) 
+nAvailableRFs = 5000
+randomFactorsKey01 = np.random.random(size=(nAvailableRFs,nAccrBins)) 
 
 labelsTargets = ["Mh0", "Mh1", "Mh2", "Mh3", "Mst0", "Mst1", "Mst2", "Mst3", "sSFR0", "sSFR1", "sSFR2", "sSFR3", "Zg0", "Zg1", "Zg2", "Zg3", "Zst0", "Zst1", "Zst2", "Zst3", "fgmol0", "fgmol1", "fgmol2", "fgmol3", "fgHI0", "fgHI1", "fgHI2", "fgHI3", "rst0", "rst1", "rst2", "rst3", "vphitf0", "vphitf1", "vphitf2", "vphitf3", "c0", "c1", "c2", "c3", "SigCen0", "SigCen1", "SigCen2", "SigCen3", "jst0", "jst1", "jst2", "jst3", "Zgrad0", "Zgrad1", "Zgrad2", "Zgrad3", "sigmax0", "sigmax1", "sigmax2", "sigmax3", "mdotb0", "mdotb1", "mdotb2", "mdotb3", "rGI0", "rGI1", "rGI2", "rGI3", "tdep0", "tdep1", "tdep2", "tdep3", "tdepmol0", "tdepmol1", "tdepmol2", "tdepmol3", "rHI0", "rHI1", "rHI2", "rHI3", "Mmerge0", "Mmerge1", "Mmerge2", "Mmerge3", "vphi00", "vphi01", "vphi02", "vphi03", "vphi04", "vphi05", "vphi06", "vphi07", "vphi08", "vphi09", "vphi10", "vphi11", "vphi12", "vphi13", "vphi14", "vphi15", "vphi16", "vphi17", "vphi18", "vphi19", "Sigma00", "Sigma01", "Sigma02", "Sigma03", "Sigma04", "Sigma05", "Sigma06", "Sigma07", "Sigma08", "Sigma09", "Sigma10",  "Sigma11", "Sigma12", "Sigma13", "Sigma14", "Sigma15", "Sigma16", "Sigma17", "Sigma18", "Sigma19",   "SigmaSt00", "SigmaSt01", "SigmaSt02", "SigmaSt03", "SigmaSt04", "SigmaSt05", "SigmaSt06", "SigmaSt07", "SigmaSt08", "SigmaSt09", "SigmaSt10",  "SigmaSt11", "SigmaSt12", "SigmaSt13", "SigmaSt14", "SigmaSt15", "SigmaSt16", "SigmaSt17", "SigmaSt18", "SigmaSt19",  "SigmaSFR00", "SigmaSFR01", "SigmaSFR02", "SigmaSFR03", "SigmaSFR04", "SigmaSFR05", "SigmaSFR06", "SigmaSFR07", "SigmaSFR08", "SigmaSFR09", "SigmaSFR10", "SigmaSFR11", "SigmaSFR12", "SigmaSFR13", "SigmaSFR14", "SigmaSFR15", "SigmaSFR16", "SigmaSFR17", "SigmaSFR18", "SigmaSFR19", "Zr00", "Zr01", "Zr02", "Zr03", "Zr04", "Zr05", "Zr06", "Zr07", "Zr08", "Zr09", "Zr10", "Zr11", "Zr12", "Zr13", "Zr14", "Zr15", "Zr16", "Zr17", "Zr18", "Zr19", "Age00", "Age01", "Age02", "Age03", "Age04", "Age05", "Age06", "Age07", "Age08", "Age09", "Age10", "Age11", "Age12", "Age13", "Age14", "Age15", "Age16", "Age17", "Age18", "Age19", "lnLik"  ]
 
@@ -309,7 +310,7 @@ def fakeEmceeResiduals(emceeparams, models):
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
     # emceeparams is the set of 18 parameters that we fit with Lasso, minus mass, so we have..
     nmh = 20 
-    MhGrid = np.power(10.0, np.linspace(8.5,13,nmh))
+    MhGrid = np.power(10.0, np.linspace(11,12,nmh))
     lnlik = 0.0
 
     residuals=[]
@@ -581,10 +582,10 @@ def lnlikelihoodFromPickle(emceeparams, models=None):
     
 
     
-def lnlikelihood(emceeparams, models=None, debug=False, haloMassMin=globalHaloMassMin, haloMassMax=globalHaloMassMax):
+def lnlikelihood(emceeparams, models=None, debug=False, haloMassMin=globalHaloMassMin, haloMassMax=globalHaloMassMax, numberOfMasses=20):
     #models = [ pickle.load( open( 'rfnt10_'+str(k)+'_0.pickle', 'r' ) ) for k in range(80) ]
     # First transform the emceeparams into the same format used by 'X' in the fit of the linear models
-    nmh = 20
+    nmh = numberOfMasses
     MhGrid = np.power(10.0, np.linspace(haloMassMin,globalHaloMassMax,nmh)) ## look only at a very narrow range of masses
     lnlik = 0.0
 
@@ -1659,7 +1660,7 @@ def runEmcee(mpi=False, continueRun=False, seedWith=None, parallelTempering=Fals
         pool.close()
 
 
-#import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
+import observationalData # only need this when running hte mcmc. Otherwise just takes a while to cache all the distributions.
 def singleRelationLikelihood(x,y,datasets, fsigma=1.0, debug=False):
     lik = 0
     resLimit = 7.9
@@ -3174,7 +3175,7 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
 
     doK = range(ntargets)
     #doK = [200]
-    identifier='160' # 90 is "Ridge Poly with alpha~10^-3, l1_fraction=0.5." 100 is multi-layer perceptron. 132 is ridge again, but only training on Mh0=10^12 halos. Try multi-layer perceptron again - it's so good [model 14x]. 150 is back to elastic net, with the updated training set tamping down the metal diffusion and with more models. 160 is neural net in mass range 11-12.
+    identifier='170' # 90 is "Ridge Poly with alpha~10^-3, l1_fraction=0.5." 100 is multi-layer perceptron. 132 is ridge again, but only training on Mh0=10^12 halos. Try multi-layer perceptron again - it's so good [model 14x]. 150 is back to elastic net, with the updated training set tamping down the metal diffusion and with more models. 160 is neural net in mass range 11-12. 170 is the same, but with fixes for the random factors.
     for cvi in range(ncv):
         ### Select a random subset of the X_train to be the validation set for this iteration
         #validationIndices = np.random.uniform(0,nsamples-1, size=int(nsamples*0.1)) # this is almost right, but will produce some overlap the X_validate below will have fewer than nsamples*0.1
@@ -3195,8 +3196,11 @@ def estimateFeatureImportancesJoint(analyze=True, pick=True, plot=False):
         #### store a set of random factors to be used all throughout the emcee process
         #### Draw a random element 
         randomFactors = np.zeros(np.shape(randomFactorsKey01))
-        for jj in range(50):
-            randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),nfeatures-1-nAccrBins+ii] for ii in range(nAccrBins)])
+        for jj in range(np.shape(randomFactorsKey01)[0]):
+            # select a random accretion history from the training set..
+            # I think this version is actually wrong.. it treats the different accretion bins as independent, which they aren't really.
+            #randomFactors[jj,:] = np.array([X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])),nfeatures-1-nAccrBins+ii] for ii in range(nAccrBins)])
+            randomFactors[jj,:] = X_train[ int(randomFactorsKey01[jj,ii]*len(X_train[:,0])), nfeatures-1-nAccrBins+0 : nfeatures-1-nAccrBins+nAccrBins]
 
         # Regularize the input and output vectors to give the learning algorithm an easier time
         Xtra = xtransform(X_train, deg=2)
@@ -4360,13 +4364,18 @@ def importanceResampling(thisHaloMass, coagulatedFilename, pikfilename):
     counts = np.zeros(numberEmulatedPosteriorSamples,dtype=int) # the number of samples we have for each draw from the emulated posterior
     unnormedLnWeights = np.zeros(numberEmulatedPosteriorSamples)
     nruns = len(X_train[:,0]) # I think that's the right index. This is the number of successful runs of gidget.
+    all_residuals = []
+    emulatedResiduals = []
+    all_X = []
     for j in range(numberEmulatedPosteriorSamples):
         emulatedPosteriorDraw = arr[j,:] ## these do not include mass or accretion history, and do include fsigma.
+        emulatedResiduals.append( fakeEmceeResiduals(emulatedPosteriorDraw, None) )
         thisPrior = globalPrior.lndensity(emulatedPosteriorDraw) # perfect.
         thisEmulatedLnlik = lnlikelihood(emulatedPosteriorDraw) 
         # for this draw, we need to find all matching gidget runs, i.e. all rows of X_train/Ys_train that used the same parameters.
         # note that logVars contains Mh0 but not fsigma.
-        to_compare = [thisHaloMass] + list(emulatedPosteriorDraw[:-1]) # include mass, exclude fsigma.
+        #to_compare = [thisHaloMass] + list(emulatedPosteriorDraw[:-1]) # include mass, exclude fsigma.
+        to_compare = [1] + list(emulatedPosteriorDraw[:-1]) # include mass, exclude fsigma.
         for i in range(len(logVars)):
             if logVars[i]==1:
                 to_compare[i] = np.log10(to_compare[i])
@@ -4374,10 +4383,13 @@ def importanceResampling(thisHaloMass, coagulatedFilename, pikfilename):
         individual_lnliks = []
         for k in range(nruns):
             #pdb.set_trace()
-            if np.sum(np.isclose(to_compare, X_train[k, :len(to_compare)])) > len(to_compare)-3:
+            if np.sum(np.isclose(to_compare[1:], X_train[k, 1:len(to_compare)])) > len(to_compare)-2:
                 # match! Count it, record associated likelihood.
                 counts[j] += 1 
                 this_lnlik = globalLikelihood(Ys_train[k,:].reshape(1,-1)) 
+                these_residuals = globalLikelihood(Ys_train[k,:].reshape(1,-1), returnlikelihood=False)  
+                all_residuals.append(these_residuals)
+                all_X.append(X_train[k, :len(to_compare)])
                 individual_lnliks.append(this_lnlik)
         # alright, so at this point we've identified all matches for this draw and computed their likelihoods.
         rerun_likelihood = 0.0
@@ -4401,6 +4413,29 @@ def importanceResampling(thisHaloMass, coagulatedFilename, pikfilename):
     ## this is the most important step. If ess is not tiny, we can then pass these weights along to 
     print "Number of samples with zero successful resimulations: ",np.sum( counts==0 )
     print "Estimated effective sample size:",ess
+    print np.shape(all_X)
+    print np.shape(all_residuals)
+    all_X = np.array(all_X)
+    all_residuals = np.array(all_residuals)
+    emulatedResiduals = np.array(emulatedResiduals)
+    print np.shape(emulatedResiduals)
+    targetNames = ['SMHM 0', 'SMHM 1', 'SMHM 2', 'SMHM 3', 'sSFR 0', 'sSFR 1', 'sSFR 2', 'sSFR 3', 'Zst', 'Zg 0', 'Zg 1', 'Zg 2', 'Zg 3', 'fH2 0', 'fH2 1', 'fH2 2', 'fH2 3', 'fHI 0', 'Sigma1 0', 'Sigma1 1', 'Sigma1 2', 'Sigma1 3', 'Rst 0', 'Rst 1', 'Rst 2', 'Rst 3', 'RHI', 'c82', 'TF', 'sig 0', 'sig 1', 'sig 2', 'sig 3']
+    for i in range(np.shape(all_residuals)[2]):
+        fig,ax = plt.subplots()
+        sc1 = ax.scatter( np.power(10.0, all_X[:,0]), all_residuals[:,0,i], alpha=0.3, s=2, c=all_X[:,5 ], cmap='spring' ) # color by alphaCol.
+        for j in range(len(emulatedResiduals[:,0,0])):
+            x = np.logspace(11,12,20)
+            y = emulatedResiduals[j,:,0,i]
+            #print "x, y (emulated residuals): ", x,y
+            sc2 = ax.scatter( x, y, c='k', alpha=0.01 )
+        cbar = fig.colorbar( sc1 )
+        ax.set_xscale('log')
+        ax.set_ylim( -7, 7)
+        ax.plot( [1.0e11, 1.0e12], [0]*2, c='b', ls='--', lw=2)
+        ax.set_xlabel('Mh0')
+        ax.set_ylabel( targetNames[i] )
+        plt.savefig( 'fakemcmc162a_'+targetNames[i].replace(' ','-')+'.pdf', dpi=200)
+        plt.close(fig)
     pdb.set_trace()
 
 
@@ -4432,7 +4467,7 @@ def main(args):
         #ridgeCoeffsPlot()
 
 
-    #estimateFeatureImportancesJoint(analyze=True, pick=True) 
+    estimateFeatureImportancesJoint(analyze=True, pick=True) 
     #estimateFeatureImportances(analyze=True, pick=True) 
 
     print "q0"
@@ -4478,7 +4513,7 @@ def main(args):
 
     print "q1"
 
-    #importanceResampling(12.0, 'broadPostSim152_to_lasso.txt', 'fakemcmc152c_filteredposterior.pickle')
+    #importanceResampling('eleventy', 'broadPrior162a_to_lasso.txt', 'fakemcmc162a_filteredposterior.pickle')
 
 
     def getRestartList(bn):
@@ -4498,10 +4533,10 @@ def main(args):
     #two = getRestartList('fakemcmc152')
     #three = getRestartList('fakemcmc153')
 
-    zeLim = np.min( [len(zero)-1, 100] )
-    restartZero  = stitchRestarts( zero)#[-zeLim:] )
-    analyzeSingleRestart( 'fakemcmc162a', burnIn=2280, minimumlnlik=-110000, restart=restartZero )
-    restartZero = None # zero out
+    #zeLim = np.min( [len(zero)-1, 100] )
+    #restartZero  = stitchRestarts( zero)#[-zeLim:] )
+    #analyzeSingleRestart( 'fakemcmc162a', burnIn=2280, minimumlnlik=-110000, restart=restartZero )
+    #restartZero = None # zero out
     return 0
 
     #onLim = np.min( [len(one)-1, 100] )

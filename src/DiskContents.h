@@ -38,7 +38,7 @@ class DiskContents {
                double ksupp, double kpow,
                double mq, double muq, 
                double ZMx, double enInjFac, 
-               double chr);
+               double chr, double ahr);
 
   // Destructor. Cleans up a bunch of memory allocated by the constructor
   // to speed up GSL-related activities (inverting the matrix to solve for
@@ -251,7 +251,7 @@ class DiskContents {
 //  std::vector<double> MstarDotIPlusHalf;
 
   std::vector<double> colvPhiDisk, colstvPhiDisk; // used to store the actual column density distributions used to calculated vPhiDisk. These are the regular column density distributions (col and activeColSt()) passed through a discrete fourier transform and with their high-k components exponentially suppressed.
-  std::vector<double> dsigdtTrans, dsigdtDdx, dsigdtHeat, dsigdtCool;
+  std::vector<double> dsigdtTrans, dsigdtDdx, dsigdtHeat, dsigdtCool, dsigdtSN, dsigdtAccr;
 
   // store the cells where we have turned off forcing in the
   // torque equation.
@@ -336,7 +336,9 @@ class DiskContents {
     // details on why one should probably choose a number >1.
     fixedQ,
 
-    CloudHeatingRate; 
+    CloudHeatingRate,
+    AccretionHeatingRate; 
+
 
   // the minimum sig_st = minsigst
   double minsigst;

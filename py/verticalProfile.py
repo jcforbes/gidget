@@ -29,7 +29,7 @@ def dKzdz(z, r, Mh, redshift, crf):
     else:
         res=0
     if res>0:
-        print "WARNING: dKzdz>0 ",res,z,hh
+        print ("WARNING: dKzdz>0 ",res,z,hh)
     return res
 
 def ddz(y, z0, *args):
@@ -43,10 +43,10 @@ def ddz(y, z0, *args):
     try:
         assert len(sigsq)==N
     except:
-        print "Failed sigsq check! "
-        print "y=",y
-        print "N=",N
-        print "sigsq=",sigsq
+        print ("Failed sigsq check! ")
+        print ("y=",y)
+        print ("N=",N)
+        print ("sigsq=",sigsq)
     deriv = np.zeros(2*N)
     for i in range(N):
         #if y[i]<0:
@@ -129,7 +129,7 @@ def run(colsData, sigsq, r,Mh,redshift,crf):
 
 def weights(y,zs):
     shp = np.shape(y)
-    print "In weights, shape of y is ", shp
+    print ("In weights, shape of y is ", shp)
     cols = np.zeros( (shp[1]/2, 4) )
     zwindows = [ [0.15,0.25], [0.25,0.5], [0.5,1.0], [1.0,1.5] ]
     for i in range(shp[1]/2):
@@ -138,7 +138,7 @@ def weights(y,zs):
             coli, err = scint.quad( rhoInterp, zwindows[j][0]*1000.0, zwindows[j][1]*1000.0)
             if coli>0:
                 cols[i,j] = coli
-    print "In weights, shape of cols is ",np.shape(cols) 
+    print ("In weights, shape of cols is ",np.shape(cols) )
     # We want each window to be normalized to 1. I.e. each column in the matrix will tell us
     #   what fraction of the mass in a given z-window is in each component
     for i in range(4):
@@ -184,7 +184,7 @@ def test0():
     redshift=0
     crf=3.0
 
-    print dKzdz(z, r, Mh, redshift, crf)
+    print (dKzdz(z, r, Mh, redshift, crf))
 
 def test():
     sigsq = np.power(np.array([8.0, 5.0, 10.0, 20.0, 50.0]), 2.0)
@@ -196,13 +196,13 @@ def test():
     plot(y,zs,axIn=ax)
     plot(yAn,zAn,axIn=ax, ls='--')
     plt.close(fig)
-    print "WeightsNumerical: ",weights(y,zs)
-    print "WeightsAnalytic: ",weights(yAn,zAn)
+    print ("WeightsNumerical: ",weights(y,zs))
+    print ("WeightsAnalytic: ",weights(yAn,zAn))
 
 def test2():
     y,zs = run(np.array([.002, .02]), np.array([8, 20])*1.0e5 )
     plot(y,zs)
-    print "Weights: ",weights(y,zs)
+    print ("Weights: ",weights(y,zs))
 
 def test3():
     rho0s = np.array([10.0,100.0])/500.0
@@ -214,7 +214,7 @@ def test3():
     y = scint.odeint(ddz, y0, zs, args=args, mxstep=50000, rtol=1.0e-12)
 
 
-    print y 
+    print (y )
 
 
 if __name__=='__main__':

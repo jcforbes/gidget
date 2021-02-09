@@ -24,7 +24,7 @@ allProcs=[] # a global list of all processes we've started
 allStartTimes=[] # a global list of the start times of all of these processes
 
 
-globalBolshoiReader = bolshoireader('rf_registry4.txt',3.0e11,3.0e14, os.environ['GIDGETDIR']+'/../bolshoi/')
+globalBolshoiReader = bolshoireader('rf_registry4.txt',3.0e11,3.0e14, os.environ['GIDGETDIR']+'/bolshoi/')
 bolshoiSize =  len(globalBolshoiReader.keys)
 
 def HowManyStillRunning(procs):
@@ -81,7 +81,7 @@ class experiment:
                 -0.25,1.0,1.0,0.3,1.0, \
                 0,0.0,.1,.03,2.0, \
                 .002,1.0,1.0,0.3,0.0,.054,0.0,0.0, -1.0/3.0, 10.0, 2.0, 1.0e12, \
-                0.1, 2.0, 2.0, 1.4, 0.5, 1.0, -1.0, 0.5]
+                0.1, 2.0, 2.0, 1.4, 0.5, 1.0, -1.0, 1.0, 0.5]
         self.p_orig=self.p[:] # store a copy of p, possibly necessary later on.
         self.pl=[self.p[:]] # define a 1-element list containing a copy of p.
         # store some keys and the position to which they correspond in the p array
@@ -100,7 +100,7 @@ class experiment:
                 'accAlphaMh','accCeiling','fscatter','invMassRatio','fcool', \
                 'whichAccretionProfile','alphaAccretionProfile','widthAccretionProfile','fH2Min','tDepH2SC', \
                 'ZIGM','fg0mult','ZIGMfac','chiZslope','deltaBeta','yREC','concentrationRandomFactor','muFgScaling', 'muMhScaling', 'ksuppress', 'kpower', 'MQuench', \
-                'epsquench', 'muQuench', 'stScaleReduction', 'gaScaleReduction', 'ZMix', 'energyInjectionFactor', 'CloudHeatingRate', 'bolshoiWeight']
+                'epsquench', 'muQuench', 'stScaleReduction', 'gaScaleReduction', 'ZMix', 'energyInjectionFactor', 'CloudHeatingRate', 'AccretionHeatingRate', 'bolshoiWeight']
         assert len(self.p)==len(self.names)
         self.keys={}
         ctr=0
@@ -108,7 +108,7 @@ class experiment:
             self.keys[n]=ctr
             ctr=ctr+1
         self.expName=name
-	self.covariables=np.zeros(len(self.p),int)
+        self.covariables=np.zeros(len(self.p),int)
 
         # store the location of various expected subdirectories in the gidget distribution.
         #self.base=os.getcwd() # Assume we are in the base directory - alter this to /path/to/gidget/directory if necessary
@@ -148,8 +148,8 @@ class experiment:
             self.p[self.keys[name]]=[typ(float(mmin) * (rat)**(float(i)/float(n-1))) for i in range(n)]
         elif(n==1):
             self.p[self.keys[name]]=mmin # a mechanism for changing the parameter from its default value.
-    	self.covariables[self.keys[name]] = cov
-    	return self.p[self.keys[name]]
+        self.covariables[self.keys[name]] = cov
+        return self.p[self.keys[name]]
 
     def multiply(self,name,multiple):
         keynum = self.keys[name]
@@ -176,7 +176,7 @@ class experiment:
                 pdb.set_trace()
         # Next, we want to pass along the information we've been given on whether this parameter
         # should be covaried:
-    	self.covariables[self.keys[name]] = cov
+        self.covariables[self.keys[name]] = cov
         # and finally, give back what we've done.
         return self.p[keyNum]
     
@@ -186,16 +186,16 @@ class experiment:
 	'''
         consistent = True
         distinctCovSetIndices = set(self.covariables)
-	for ind in distinctCovSetIndices:
-		covIndicesForThisSet = np.where(self.covariables == ind)
-		lengths=[]
-		for var in covIndicesForThisSet:
-			lengths.append(len(self.p[var]))
-		if(len(set(lengths)) != 1):
-			consistent=False
-			print "Problem found in the ", ind, " set of covarying variables."
-			print "This corresponds to the variables ", covIndicesForThisSet
-			print "A set of variables you have asked to covary do not have the same lengths!"
+        for ind in distinctCovSetIndices:
+            covIndicesForThisSet = np.where(self.covariables == ind)
+            lengths=[]
+            for var in covIndicesForThisSet:
+                lengths.append(len(self.p[var]))
+                if(len(set(lengths)) != 1):
+                    consistent=False
+                    print( "Problem found in the ", ind, " set of covarying variables." )
+                    print( "This corresponds to the variables ", covIndicesForThisSet )
+                    print( "A set of variables you have asked to covary do not have the same lengths!" )
 
     def generatePl(self):
         '''vary() will change a certain element of self.p into a list
@@ -213,60 +213,57 @@ class experiment:
 	    # such that for every previous run we had, we now have len(param) more, each with a different
 	    # value from the list param.
             if(type(param)==list):
-		covaryOtherVarsWithJ=False
-		varyThisVariable=True # i.e. the variable corresponding to j.
-		cov = self.covariables[j] # the flag for covarying variables.
-		if (cov!=0): # if this parameter (j) is part of a set of covarying parameters...
-			covIndices = np.where(self.covariables == cov)[0]
-			# if our current variable, j, is the first in a set of variables we're covarying,
-			# let's go ahead and vary other the other variables in the same set.
-                        
-			if( covIndices[0] == j ): 
-				covaryOtherVarsWithJ = True
-			# whereas if this is not the case, then this variable has already been varied
-			else:
-				varyThisVariable = False
-		
-		if(varyThisVariable): 
-	                # make len(param) copies of the current pl
-	                pl2=[]
-	                for i in range(len(param)):
-	                    f=copy.deepcopy(self.pl)
-	                    pl2.append(f) # pl2 ~ [pl,pl,pl]~[[p,p,p],[p,p,p],[p,p,p]]
-	                    # in each copy, set the jth parameter in p to param[i]
-	                    for a_p in pl2[i]: # each element is a list of parameters for
-        	                a_p[j]=param[i]
-				if(covaryOtherVarsWithJ): 
-					for covIndex in covIndices:
-						if(covIndex != j): # already taken care of with a_p[j]=...
-							#print covIndex, i, len(a_p), len(self.p), len(self.p[covIndex]) 
-							a_p[covIndex] = self.p[covIndex][i]
-                	        # in each copy, append to the name a...z corresponding to 
+                covaryOtherVarsWithJ=False
+                varyThisVariable=True # i.e. the variable corresponding to j.
+                cov = self.covariables[j] # the flag for covarying variables.
+                if (cov!=0): # if this parameter (j) is part of a set of covarying parameters...
+                    covIndices = np.where(self.covariables == cov)[0]
+                    # if our current variable, j, is the first in a set of variables we're covarying,
+                    # let's go ahead and vary other the other variables in the same set.
+                    if( covIndices[0] == j ): 
+                        covaryOtherVarsWithJ = True
+                        # whereas if this is not the case, then this variable has already been varied
+                    else:
+                        varyThisVariable = False
+                if(varyThisVariable): 
+                    # make len(param) copies of the current pl
+                    pl2=[]
+                    for i in range(len(param)):
+                        f=copy.deepcopy(self.pl)
+                        pl2.append(f) # pl2 ~ [pl,pl,pl]~[[p,p,p],[p,p,p],[p,p,p]]
+                        # in each copy, set the jth parameter in p to param[i]
+                        for a_p in pl2[i]: # each element is a list of parameters for
+                            a_p[j]=param[i]
+                            if(covaryOtherVarsWithJ): 
+                                for covIndex in covIndices:
+                                    if(covIndex != j): # already taken care of with a_p[j]=...
+                                        #print covIndex, i, len(a_p), len(self.p), len(self.p[covIndex]) 
+                                        a_p[covIndex] = self.p[covIndex][i]
+                	    # in each copy, append to the name a...z corresponding to 
                             # which copy is currently being edited
-	                        if(i<=25):
-        	                    base='a'
-                	            app=''
-                                # If there are more than 26 variations, add a numeral for each
-                                # time we have looped through the alphabet when this number is
-                                # greater than zero.
-                        	else:
-	                            base='a'
-        	                    app=str((i-(i%26))/26)
-                                # avoid adding more letters to distinguish individual models
-                                # if such a distinction is unnecessary.
-                                if(len(param) > 1):
-                                    # but if such a distinction is necessary, by all means:
-                	            a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
-	                    # end loop over p's in pl2[i]
-        	        # end loop over range of this varied parameter
-		
-			# collapse pl to be a 1d array of p's.
-	                self.pl=[element for sub in pl2 for element in sub]
+                            if(i<=25):
+                                base='a'
+                                app=''
+                            # If there are more than 26 variations, add a numeral for each
+                            # time we have looped through the alphabet when this number is
+                            # greater than zero.
+                            else:
+                                base='a'
+                                app=str((i-(i%26))/26)
+                            # avoid adding more letters to distinguish individual models
+                            # if such a distinction is unnecessary.
+                            if(len(param) > 1):
+                                # but if such a distinction is necessary, by all means:
+                                a_p[self.keys['name']]+=chr(ord(base)+(i%26))+app
+	                # end loop over p's in pl2[i]
+        	    # end loop over range of this varied parameter
+                    # collapse pl to be a 1d array of p's.
+                self.pl=[element for sub in pl2 for element in sub]
 	    # end of param-being-a-list contingency
             else : #just a regular non-varying parameter
                 # If the user has used vary() but with N=1, the new argument will
                 # not be a list! In this case, we set this parameter in each element 
-		# of pl to be the value the user picked, instead of the default value.
+                # of pl to be the value the user picked, instead of the default value.
                 for i in range(len(self.pl)):
                     if(self.pl[i][j]!=param):
                         self.pl[i][j]=param
@@ -296,35 +293,35 @@ class experiment:
                 if(self.pl[-1]!=a_p):
                     f.write('\n') # no return after the last line
         if(os.path.exists(self.analysis+self.expName)):
-            print "Warning: this experiment already exists! It would be a good idea to rename your experiment or delete the pre-existing one manually."
+            print("Warning: this experiment already exists! It would be a good idea to rename your experiment or delete the pre-existing one manually.")
         os.rename(name,self.xgrid+'/'+name) # move the text file to gidget/xgrid
         os.mkdir(self.xgrid+'/output/'+self.expName) # make gidget/xgrid/output/name to store stde and stdo files.
-        print "Prepared file ",name," for submission to xGrid."
+        print ("Prepared file ",name," for submission to xGrid.")
 
     def ExamineExperiment(self):
-	self.generatePl()
+        self.generatePl()
         varied=[] # which elements of p are lists
-	Nvaried=[] # how many variations for each such list.
-	theLists=[] # a copy of each list.
+        Nvaried=[] # how many variations for each such list.
+        theLists=[] # a copy of each list.
         for j in range(len(self.p)): 
             param = self.p[j] 
             if(type(param)==list ):
-		varied.append(j)
-		Nvaried.append(len(param))
-		theLists.append(param[:])
-	successTable = np.ndarray(shape=tuple(Nvaried[:]),dtype=np.int64)
-	successTableKeys = np.zeros(tuple(Nvaried[:]))
-	for a_p in self.pl: # for each run..
-	    successTableKey =[]
-	    for i in range(len(varied)): # for each parameter that was varied
+                varied.append(j)
+                Nvaried.append(len(param))
+                theLists.append(param[:])
+        successTable = np.ndarray(shape=tuple(Nvaried[:]),dtype=np.int64)
+        successTableKeys = np.zeros(tuple(Nvaried[:]))
+        for a_p in self.pl: # for each run..
+            successTableKey =[]
+            for i in range(len(varied)): # for each parameter that was varied
                 j = varied[i]
                 successTableKey.append(theLists[i].index(a_p[j]))
             successTable[tuple(successTableKey)] = successCode(self.analysis+'/'+self.expName+'/'+a_p[0]+"_stde.txt")
             successTableKeys[tuple(successTableKey)] = 1#tuple(successTableKey)
-	print
-	print "Success Table:"
-        print successTable.T
-	print 
+        print()
+        print( "Success Table:")
+        print (successTable.T)
+        print() 
         return successTable.T
 
 
@@ -339,7 +336,7 @@ class experiment:
         binary = self.bin+'/gidget'
         expDir = self.analysis+'/'+self.expName
         if(os.path.exists(expDir) and startAt == 0):
-          print "Cancelling this run! ",self.expName
+          print( "Cancelling this run! ",self.expName)
           return ([],[],[])
         elif(os.path.exists(expDir) and startAt != 0):
           pass
@@ -374,9 +371,9 @@ class experiment:
         #if(os.path.exists(expDir) and startAt == 0 and not overwrite):
         #print "dbg: ",startAt,overwrite,glob.glob(expDir+'/*comment.txt'),os.path.exists(expDir)
         if( len(glob.glob(expDir+'/*comment.txt'))!=0 and startAt == 0 and not overwrite ):
-            print "************"
-            print "This directory already contains output. CANCELLING this run!"
-            print
+            print( "************")
+            print( "This directory already contains output. CANCELLING this run!")
+            print()
             return
         elif(os.path.exists(expDir) and (startAt != 0 or overwrite or len(glob.glob(expDir+'/*comment.txt'))==0)):
             pass # let the user overwrite whatever runs they so desire.
@@ -392,10 +389,10 @@ class experiment:
                 shutil.copy('Lacey84_table_L.txt', expDir+'/'+'Lacey84_table_L.txt')
             except:
                 #pdb.set_trace()
-                print "WARNING: failed to copy Lacey84 files. May need to add a set_trace in exper.py::experiment::localRun"
+                print( "WARNING: failed to copy Lacey84 files. May need to add a set_trace in exper.py::experiment::localRun")
             with open(expDir+'/'+a_p[self.keys['name']]+'_stdo.txt','w') as stdo:
                 with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','w') as stde:
-                    print "Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core."
+                    print ("Sending run #",ctr,"/",len(self.pl[startAt:])," , ",tmpap[0]," to a local core.")
                     #print "Parameters: "
                     #print [binary]+tmpap[:1]+[repr(el) for el in tmpap[1:]]
                     os.chdir(expDir)
@@ -405,7 +402,7 @@ class experiment:
                     cmd = ''
                     for el in tmpap:
                         cmd+=str(el)+' '
-                    print "Using cmd: ",cmd
+                    print ("Using cmd: ",cmd)
                     allProcs.append(procs[-1])
                     startTimes.append(time.time())
                     allStartTimes.append(time.time())
@@ -423,9 +420,9 @@ class experiment:
                     if proc.poll()==None:
                         # The process is still running.
                         if(time.time() - startTimes[k] > maxTime):
-                            print "WARNING: process has reached maximum allowed time of ",maxTime," seconds! Sending the kill signal."
-                            print " If you're sure the process should be running longer, increase the maxTime argument of localRun."
-                            print " Usually a run this long means something has gone horribly wrong."
+                            print ("WARNING: process has reached maximum allowed time of ",maxTime," seconds! Sending the kill signal.")
+                            print (" If you're sure the process should be running longer, increase the maxTime argument of localRun.")
+                            print (" Usually a run this long means something has gone horribly wrong.")
                             with open(expDir+'/'+a_p[self.keys['name']]+'_stde_aux.txt','a') as stde:
                                 stde.write('Reached max allowed time '+str(maxTime)+'\n')
                             proc.kill()
@@ -439,7 +436,7 @@ class experiment:
                 if(nStillRunning >= nproc):
                     time.sleep(60) # wait a little bit
                     if(nPrinted):
-                        print "Waiting for a free processor..."
+                        print ("Waiting for a free processor...")
                         nPrinted=False # only print the above message if we haven't seen it since 
 					# a new job has been submitted
                 # whereas if we have free processors, loop back around to submit the next run. 
@@ -462,7 +459,7 @@ def LocalRun(runBundle,nproc):
             if(nStillRunning >= nproc):
                 time.sleep(10) # wait a little bit
                 if(nPrinted):
-                    print "Waiting for a free processor..."
+                    print ("Waiting for a free processor...")
                     nPrinted=False # only print the above message if we haven't seen it since 
     	                            # a new job has been submitted
                    # whereas if we have free processors, loop back around to submit the next run. 
@@ -481,8 +478,8 @@ def LocalRun(runBundle,nproc):
             nPrev=nStillRunning
             if(nPrev == 0):
                break # we're done!
-            print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
-    print "Local run complete!"
+            print ("Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes.")
+    print ("Local run complete!")
 
 
 def GetScaleLengths(N,median=0.045,scatter=0.5,Mh0=1.0e12,sd=100,lower=0.0,upper=1.0e3,multiple=1.0):
@@ -493,12 +490,12 @@ def GetScaleLengths(N,median=0.045,scatter=0.5,Mh0=1.0e12,sd=100,lower=0.0,upper
     random.seed(sd)
     scLengths=[]
     while len(scLengths) < N:
-	spinParameter = median  * (10.0 ** random.gauss(0.0,scatter)) # lognormal w/ scatter in dex
+        spinParameter = median  * (10.0 ** random.gauss(0.0,scatter)) # lognormal w/ scatter in dex
         if(type(Mh0) == type([1,2,3])): # if Mh0 is a list
             if(len(Mh0) == N):
                 Mh=Mh0[len(scLengths)]
             else:
-                print "You've given GetScaleLengths the wrong number of halo masses"
+                print ("You've given GetScaleLengths the wrong number of halo masses")
                 Mh=1.0e12
         else:
             Mh=Mh0
@@ -534,10 +531,10 @@ def PrintSuccessTables(successTables):
         strSumOfSuccessTables[it.multi_index] = str(it[0]).zfill(len(successTables)-1)
         it.iternext()
 
-    print
-    print "Here is the sum of all success tables, in homogenized form"
-    print
-    print strSumOfSuccessTables
+    print()
+    print ("Here is the sum of all success tables, in homogenized form")
+    print()
+    print (strSumOfSuccessTables)
 
 def letter(i, caps=False):
     if caps:
@@ -616,11 +613,12 @@ def experSuiteFromBroadMCMC(list_of_emceeparams, list_of_news, name, list_of_mas
 
 def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=12.0):
     raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, chiZslope = emceeparams
-    assert mass<20
 
     if hasattr( mass, '__len__' ):
+        assert np.all(mass>1.0e5)
         Mhz0 = list(mass)
     else:
+        assert mass<20
         Mhz0 = list(np.power(10.0, np.linspace(mass, mass+0.001,ngal)))
 
     # create experiment
@@ -667,6 +665,7 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=
     weight2 = 1-weight1
     rat4 = 1.0/(1.0/fgz4 - 1.0)
     rat4 *= fg0mult # double the gas content
+    # even though we give fg0 to the gidget here, it is overridden later by giving gidget fg0mult and dbg switch 10, which internally computes in gidget's own initialization what the fg0 should be. Essentially this is because at this moment in the python code we don't actually know what the halo mass is at the initial redshift, and hence we don't know what the stellar mass is, so we don't know where we are in the "HH15" relation of fg vs. stellar mass. Within gidget we redo this ^ calculation with the actual initial halo,stellar masses.
     fgUsed =1.0/(1.0/rat4 + 1.0)*(1.0*weight1+1.0*weight2) 
     if not np.all(fgUsed<=1.0):
         pdb.set_trace()
@@ -675,7 +674,7 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=
     fcools = 1.0/(1.0-fgUsed) * mst/(0.17*Mhz4) * (1.0*weight1+1.0*weight2)  # The factor of 0.3 is a fudge factor to keep the galaxies near Moster for longer, and maybe shift them to be a bit more in line with what we would expect for e.g. the SF MS.
 
     if not np.all(fcools<=1.0):
-        print "WARNING: ", name, "fcools exceed unity: ", fcools
+        print ("WARNING: ", name, "fcools exceed unity: ", fcools)
     thisexper.irregularVary('fcool', list(fcools), 5)
     thisexper.irregularVary('NChanges', 1001)
 
@@ -734,6 +733,7 @@ def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=
     thisexper.irregularVary('TOL', 6.0e-4)
     thisexper.irregularVary('energyInjectionFactor', enInjFac)
     thisexper.irregularVary('minSigSt', 10.0)
+    thisexper.irregularVary('AccretionHeatingRate', 0.0)
     return thisexper
 
 
@@ -2977,141 +2977,6 @@ if __name__ == "__main__":
             exps.append( experFromBroadMCMC(emceeparams, bn+'_'+str(i).zfill(2), ngal=ngal, accHistories=accHistories, mass=masses[i]) )
         return exps
 
-    rf150 = fairPosteriorSample('rf150','py/fakemcmc39_filteredposterior.pickle', 4, 10, 10.8)
-    rf151 = fairPosteriorSample('rf151','py/fakemcmc40_filteredposterior.pickle', 4, 10, 12.0)
-    rf152 = fairPosteriorSample('rf152','py/fakemcmc41_filteredposterior.pickle', 4, 10, 13.0)
-    rf153 = fairPosteriorSample('rf153','py/fakemcmc42_filteredposterior.pickle', 4, 10, 10.0)
-    rf154 = fairPosteriorSample('rf154','py/fakemcmc43_filteredposterior.pickle', 4, 10, 11.0)
-
-            
-    rf160 = fairPosteriorSample('rf160','py/fakemcmc60_filteredposterior.pickle', 10, 1, 10.0)
-    rf161 = fairPosteriorSample('rf161','py/fakemcmc61_filteredposterior.pickle', 10, 1, 11.0)
-    rf162 = fairPosteriorSample('rf162','py/fakemcmc62_filteredposterior.pickle', 10, 1, 12.0)
-    rf163 = fairPosteriorSample('rf163','py/fakemcmc63_filteredposterior.pickle', 10, 1, 13.0)
-
-
-    rf170 = fairPosteriorSample('rf170','py/fakemcmc70_filteredposterior.pickle', 10, 1, 10.0)
-
-    rf167 = fairPosteriorSample('rf167','py/fakemcmc61_filteredposterior.pickle', 10, 1, 11.0)
-    rf168 = fairPosteriorSample('rf168','py/fakemcmc62_filteredposterior.pickle', 10, 1, 12.0)
-    rf165 = fairPosteriorSample('rf165','py/fakemcmc61_filteredposterior.pickle', 3, 1, 11.0)
-    rf166 = fairPosteriorSample('rf166','py/fakemcmc62_filteredposterior.pickle', 3, 1, 12.0)
-    for q in range(len(rf165)):
-        rf165[q].irregularVary('CloudHeatingRate', 1.0)
-        rf166[q].irregularVary('CloudHeatingRate', 1.0)
-
-    # ok, let's set up a sensible grid. rf180 is a fairPosteriorSample at 10^11, and rf181 is a fairPosteriorSample at 10^12 with CHR=1.
-    # rf182(3) are copies with CHR=3
-    # rf184(5) are copies with CHR=-.3
-    # rf186(7) are copies with CHR=1 but no spirals/GI heating
-    # rf188(9) are copies with no SN turbulent injection (i.e. the other source of gas phase turbulence)
-    # rf190(1) are copies with spiral heating, but not gas GI.
-    # rf192(3) are copies with identically zero CHR - This may be qual. different from 0.1 if it's a self-regulating process...
-    rf180 = fairPosteriorSample('rf180', 'py/fakemcmc61_filteredposterior.pickle', 4, 1, 11.0)
-    rf181 = fairPosteriorSample('rf181', 'py/fakemcmc62_filteredposterior.pickle', 4, 1, 12.0)
-    for q in range(len(rf180)):
-        rf180[q].irregularVary('CloudHeatingRate', 1.0)
-        rf181[q].irregularVary('CloudHeatingRate', 1.0)
-    rf182 = NewSetOfExperiments(rf180, 'rf182')
-    rf183 = NewSetOfExperiments(rf181, 'rf183')
-    rf184 = NewSetOfExperiments(rf180, 'rf184')
-    rf185 = NewSetOfExperiments(rf181, 'rf185')
-    rf186 = NewSetOfExperiments(rf180, 'rf186')
-    rf187 = NewSetOfExperiments(rf181, 'rf187')
-    rf188 = NewSetOfExperiments(rf180, 'rf188')
-    rf189 = NewSetOfExperiments(rf181, 'rf189')
-    rf190 = NewSetOfExperiments(rf180, 'rf190')
-    rf191 = NewSetOfExperiments(rf181, 'rf191')
-    rf192 = NewSetOfExperiments(rf180, 'rf192')
-    rf193 = NewSetOfExperiments(rf181, 'rf193')
-    for q in range(len(rf180)):
-        rf182[q].irregularVary('CloudHeatingRate',10.0)
-        rf183[q].irregularVary('CloudHeatingRate',10.0)
-
-        rf184[q].irregularVary('CloudHeatingRate',0.1)
-        rf185[q].irregularVary('CloudHeatingRate',0.1)
-
-        rf186[q].irregularVary('Qlim',0.02)
-        rf186[q].irregularVary('fixedQ',0.01)
-        rf187[q].irregularVary('Qlim',0.02)
-        rf187[q].irregularVary('fixedQ',0.01)
-
-        rf188[q].irregularVary('energyInjectionFactor',0.0)
-        rf189[q].irregularVary('energyInjectionFactor',0.0)
-
-        rf190[q].irregularVary('fixedQ',0.01)
-        rf191[q].irregularVary('fixedQ',0.01)
-
-        rf192[q].irregularVary('CloudHeatingRate',-1)
-        rf193[q].irregularVary('CloudHeatingRate',-1)
-
-    # These experiments start with the posterior sample from 10^11 or 10^12, and systematically vary the halo mass up (down) resp.
-    rf194 = NewSetOfExperiments(rf180, 'rf194')
-    rf195 = NewSetOfExperiments(rf181, 'rf195') 
-    rf196 = NewSetOfExperiments(rf181, 'rf196')
-    rf197 = NewSetOfExperiments(rf181, 'rf197')
-    rf198 = NewSetOfExperiments(rf181, 'rf198')
-    rf199 = NewSetOfExperiments(rf181, 'rf199')
-    
-    for q in range(len(rf194)):
-        rf194[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.0,12.0,10)))
-        rf195[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.0,12.0,10)))
-        rf196[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.5,13.0,15)))
-        rf197[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.5,13.0,15)))
-        rf197[q].irregularVary('Qlim', 0.5)
-        rf197[q].irregularVary('fixedQ', 0.45)
-        rf198[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.5,13.0,15)))
-        rf198[q].irregularVary('Qlim', 1.5)
-        rf198[q].irregularVary('fixedQ', 1.4)
-        rf199[q].irregularVary('Mh0', 3.0e12)
-        rf199[q].irregularVary('Qlim', np.linspace(0.5,3.0,10), 6)
-        rf199[q].irregularVary('fixedQ', 0.05+np.linspace(0.5,3.0,10), 6)
-    rf200 = NewSetOfExperiments(rf198, 'rf200')
-    rf201 = NewSetOfExperiments(rf198, 'rf200')
-    for q in range(len(rf200)):
-        rf200[q].irregularVary('NPassive', 100)
-        rf201[q].irregularVary('NPassive', 20)
-        rf201[q].irregularVary('dbg', 2**0 + 2**1 + 2**2 + 2**4 + 2**5 + 2**6 + 2**7 + 2**10 + 2**16 )
-
-    rf202 = NewSetOfExperiments(rf181, 'rf202')
-    for q in range(len(rf202)):
-        rf202[q].irregularVary('Mh0', 4.0e11)
-        rf202[q].irregularVary('NPassive', 100)
-    ## VARY the cloud heating rate
-    rf203 = NewSetOfExperiments(rf202, 'rf203')
-    rf204 = NewSetOfExperiments(rf202, 'rf204')
-    rf205 = NewSetOfExperiments(rf202, 'rf205')
-    # Vary spiral heating
-    rf206 = NewSetOfExperiments(rf202, 'rf206') # weak spirals & GI
-    rf207 = NewSetOfExperiments(rf202, 'rf207') # strong spirals & GI
-    rf208 = NewSetOfExperiments(rf202, 'rf208') # default spirals & weak GI
-    for q in range(len(rf202)):
-        rf203[q].irregularVary('CloudHeatingRate', 0)
-        rf204[q].irregularVary('CloudHeatingRate', 0.1)
-        rf205[q].irregularVary('CloudHeatingRate', 10.0)
-        rf206[q].irregularVary('Qlim',0.1)
-        rf206[q].irregularVary('fixedQ',0.07)
-        rf207[q].irregularVary('Qlim',5.0)
-        rf207[q].irregularVary('fixedQ',4.9)
-
-        rf208[q].irregularVary('fixedQ',0.1)
-
-    rf210 = fairPosteriorSample('rf210', 'py/fakemcmc61_filteredposterior.pickle', 8, 1, 11.0)
-    rf211 = fairPosteriorSample('rf211', 'py/fakemcmc62_filteredposterior.pickle', 8, 1, 12.0)
-    for q in range(len(rf210)):
-        rf210[q].irregularVary('Mh0', np.power(10.0,np.linspace(10.5,11.6,10)))
-        rf211[q].irregularVary('Mh0', np.power(10.0,np.linspace(11.4,12.5,10)))
-
-    rf210 = fairPosteriorSample('rf210', 'py/fakemcmc61_filteredposterior.pickle', 8, 1, 11.0)   
-    rf211 = fairPosteriorSample('rf211', 'py/fakemcmc62_filteredposterior.pickle', 8, 1, 12.0)
-
-
-    rf212 = fairPosteriorSample('rf212', 'py/fakemcmc61_filteredposterior.pickle', 80, 1, np.linspace(10.5,11.6,80))  
-    rf213 = fairPosteriorSample('rf213', 'py/fakemcmc62_filteredposterior.pickle', 80, 1, np.linspace(11.4,12.5,80))
-    rf214 = fairPosteriorSample('rf214', 'py/fakemcmc63_filteredposterior.pickle', 40, 1, np.linspace(12.4,13.1,40))
-    rf215 = fairPosteriorSample('rf215', 'py/fakemcmc62_filteredposterior.pickle', 80, 1, np.linspace(10.5,11.6,80))
-    
-    ### rf216 is a dummy combo of rf212 and rf213, just FYI
 
     def systematicPosteriorSample(bn, pikfilename, nsamp, ngal, mass, startSampling=0):
         #accHistories= list(np.random.random(10))
@@ -3131,28 +2996,6 @@ if __name__ == "__main__":
             exps.append( experFromBroadMCMC(emceeparams, bn+'_'+str(i).zfill(2), ngal=ngal, accHistories=accHistories, mass=masses[i]) )
         return exps
 
-
-
-    rf230 = fairPosteriorSample('rf230', 'py/fakemcmc100b_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
-    rf231 = fairPosteriorSample('rf231', 'py/fakemcmc101b_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
-    rf232 = fairPosteriorSample('rf232', 'py/fakemcmc102b_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
-    rf233 = fairPosteriorSample('rf233', 'py/fakemcmc103a_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
-
-    rf240 = fairPosteriorSample('rf240', 'py/fakemcmc110zz1_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
-    rf241 = fairPosteriorSample('rf241', 'py/fakemcmc111zz1_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
-    rf242 = fairPosteriorSample('rf242', 'py/fakemcmc112zz1_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
-    rf243 = fairPosteriorSample('rf243', 'py/fakemcmc113zz1_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
-
-    rf250 = fairPosteriorSample('rf250', 'py/fakemcmc110efgh_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
-    rf251 = fairPosteriorSample('rf251', 'py/fakemcmc111defgh_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
-    rf252 = fairPosteriorSample('rf252', 'py/fakemcmc112efgh_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
-    rf253 = fairPosteriorSample('rf253', 'py/fakemcmc113defghi_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
-
-
-    rf260 = fairPosteriorSample('rf260', 'py/fakemcmc110efgh_filteredposterior.pickle', 40, 1, np.linspace(9.999,10.001, 40) )
-    rf261 = fairPosteriorSample('rf261', 'py/fakemcmc111defgh_filteredposterior.pickle', 40, 1, np.linspace(10.999,11.001, 40) )
-    rf262 = fairPosteriorSample('rf262', 'py/fakemcmc112efgh_filteredposterior.pickle', 40, 1, np.linspace(11.999,12.001, 40) )
-    rf263 = fairPosteriorSample('rf263', 'py/fakemcmc113defghi_filteredposterior.pickle', 40, 1, np.linspace(12.999,13.001, 40) )
 
     masterparams = np.zeros((160, 23))
     mhs = np.power(10, np.linspace(9.5, 13.15, 160))
@@ -3182,30 +3025,6 @@ if __name__ == "__main__":
     rf264 = []
     for i in range(160):
         rf264.append( experFromBroadMCMC(masterparams[i,:], 'rf264_'+str(i).zfill(2), ngal=1, accHistories=None, mass=np.log10(mhs[i])) )
-
-
-    rf270 = fairPosteriorSample('rf270', 'py/fakemcmc110efgh_filteredposterior.pickle', 40, 1, np.linspace(9.5,10.5, 40) )
-    rf271 = fairPosteriorSample('rf271', 'py/fakemcmc111defgh_filteredposterior.pickle', 40, 1, np.linspace(10.5,11.5, 40) )
-    rf272 = fairPosteriorSample('rf272', 'py/fakemcmc112efgh_filteredposterior.pickle', 40, 1, np.linspace(11.5,12.5, 40) )
-    rf273 = fairPosteriorSample('rf273', 'py/fakemcmc113defghi_filteredposterior.pickle', 40, 1, np.linspace(12.5,13.5, 40) )
-    for q in range(len(rf270)):
-        rf270[q].irregularVary('fixedQ', 3.0)
-        rf271[q].irregularVary('fixedQ', 3.0)
-        rf272[q].irregularVary('fixedQ', 3.0)
-        rf273[q].irregularVary('fixedQ', 3.0)
-        rf270[q].irregularVary('Qlim', 3.05)
-        rf271[q].irregularVary('Qlim', 3.05)
-        rf272[q].irregularVary('Qlim', 3.05)
-        rf273[q].irregularVary('Qlim', 3.05)
-
-    rf280 = fairPosteriorSample('rf280', 'py/fakemcmc130f_filteredposterior.pickle', 40, 1, np.linspace( 9.95,10.05, 40) )
-    rf281 = fairPosteriorSample('rf281', 'py/fakemcmc131f_filteredposterior.pickle', 40, 1, np.linspace(10.95,11.05, 40) )
-    rf282 = fairPosteriorSample('rf282', 'py/fakemcmc132f_filteredposterior.pickle', 40, 1, np.linspace(11.95,12.05, 40) )
-    rf283 = fairPosteriorSample('rf283', 'py/fakemcmc133f_filteredposterior.pickle', 40, 1, np.linspace(12.95,13.05, 40) )
-
-    rf284 = fairPosteriorSample('rf284', 'py/fakemcmc130f_filteredposterior.pickle', 40, 1, np.linspace( 9.95,10.05, 40) )
-    for q in range(len(rf284)):
-        rf284[q].irregularVary('kappaMetals', 1.0e-3)
 
 
 
@@ -3238,35 +3057,73 @@ if __name__ == "__main__":
     for i in range(160):
         rf285.append( experFromBroadMCMC(masterparams[i,:], 'rf285_'+str(i).zfill(2), ngal=1, accHistories=None, mass=np.log10(mhs[i])) )
 
-    rf290 = fairPosteriorSample('rf290', 'py/fakemcmc140c_filteredposterior.pickle', 40, 1, np.linspace( 9.95,10.05, 40) )
-    rf291 = fairPosteriorSample('rf291', 'py/fakemcmc141c_filteredposterior.pickle', 40, 1, np.linspace(10.95,11.05, 40) )
-    rf292 = fairPosteriorSample('rf292', 'py/fakemcmc142c_filteredposterior.pickle', 40, 1, np.linspace(11.95,12.05, 40) )
-    rf293 = fairPosteriorSample('rf293', 'py/fakemcmc143c_filteredposterior.pickle', 40, 1, np.linspace(12.95,13.05, 40) )
 
-    #rf300 = systematicPosteriorSample('rf300', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=0)
-    #rf301 = systematicPosteriorSample('rf301', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=100)
-    rf302 = fairPosteriorSample('rf302', 'py/fakemcmc152c_filteredposterior.pickle', 100, 1, np.linspace(11.99,12.01,100))
-    #rf303 = systematicPosteriorSample('rf303', 'py/fakemcmc150X_filteredposterior.pickle', 100, 1, 12, startSampling=300)
 
-    #### Look for what causes the failures.
-    rf305 = fairPosteriorSample('rf305', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
-    rf306 = fairPosteriorSample('rf306', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
-    rf307 = fairPosteriorSample('rf307', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
-    rf308 = fairPosteriorSample('rf308', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
-    rf309 = fairPosteriorSample('rf309', 'py/fakemcmc152c_filteredposterior.pickle', 30, 1, np.linspace(11.99,12.01,30))
-    for q in range(30):
-        rf305[q].irregularVary( 'tauHeat', 4.0) 
-        rf306[q].irregularVary( 'NPassive', 4)
-        rf307[q].irregularVary( 'xmin', 3.3e-3)
-        rf308[q].irregularVary( 'R', 120)
-        rf309[q].irregularVary( 'Noutputs', 400)
+####def experFromBroadMCMC(emceeparams, name=None, ngal=30, accHistories=None, mass=12.0):
+####    raccRvir, rstarRed, rgasRed, fg0mult, muColScaling, muFgScaling, muNorm, muMhScaling, ZIGMfac, zmix, eta, Qf, alphaMRI, epsquench, accCeiling, conRF, kZ, xiREC, epsff, initialSlope, mquench, enInjFac, chiZslope = emceeparams
 
-    # rf310 is the 'ruthless' version. 311 makes the additional modification of tightening the assumed scatter on r_*
-    rf311 = fairPosteriorSample('rf311', 'py/fakemcmc160a_filteredposterior.pickle', 30, 1, np.linspace(11.0,12.00,30))
-    rf312 = fairPosteriorSample('rf312', 'py/fakemcmc160b_filteredposterior.pickle', 30, 1, np.linspace(11.0,12.00,30))
+    # some models set up to be similar-ish to Hopkins+ 2010-era isolated galaxies. For reference I've copied the call signature from experFromBroadMCMC above ^
+    #MAP = [ 10.0**-0.75, 10.0**0.3, 10.0**0.55, 10.0**0.32, 0.2, 0.1, 10.0**-2.25, -1.45, 10.0**-0.2, 0.58, 10.0**0.5, 10**0.6, 10.0**-1.83, 10.0**-2.05, .99, 0.24, 10.0**-1.7, 0.8, 10.0**-1.65, -0.3, 10.0**11.75,  10.0**-0.5, 0.4] # read off from fig. 1 of Forbes+ 2019 - 01-03
+    #MAP = [ 10.0**-1.25, 10.0**0.3, 10.0**0.55, 10.0**0.32, 0.2, 0.1, 10.0**-2.25, -1.45, 10.0**-0.2, 0.58, 10.0**0.5, 1.0, 10.0**-1.83, 10.0**-2.05, .99, 0.24, 10.0**-1.7, 0.8, 10.0**-1.65, -0.3, 10.0**11.75,  10.0**-0.5, 0.4] # modify Q & scalelength of accretion -04-06
+    #MAP = [ 10.0**-1.75, 10.0**0.3, 10.0**0.55, 10.0**0.32, 0.2, 0.1, 10.0**-2.25, -1.45, 10.0**-0.2, 0.58, 10.0**0.5, 1.0, 10.0**-1.83, 10.0**-2.05, .99, 0.24, 10.0**-1.7, 0.8, 10.0**-1.65, -0.3, 10.0**11.75,  10.0**-0.5, 0.4] # further reduce scale length. Let's see if we can overshoot  -07-09
+    #MAP = [ 10.0**-1.25, 10.0**0.3, 10.0**0.55, 10.0**0.32, 0.2, 0.1, 10.0**-2.25, -1.45, 10.0**-0.2, 0.58, 10.0**0.5, 1.0, 10.0**-1.83, 10.0**-2.05, .99, 0.24, 10.0**-1.7, 0.8, 10.0**-1.65, -0.3, 10.0**11.75,  10.0**-0.5, 0.4] # revert changes to accretion scalelength, try removing accretion heating (in experFromBroadMCMC)
+    #MAP = [ 10.0**-1.5, 10.0**0.3, 10.0**0.55, 10.0**0.32, 0.2, 0.1, 10.0**-2.25, -1.45, 10.0**-0.2, 0.58, 1.0, 1.0, 10.0**-1.83, 10.0**-2.05, .99, 0.24, 10.0**-1.7, 0.8, 10.0**-1.65, -0.3, 10.0**11.75,  10.0**-0.5, 0.4] # decrease eta, and compactify a little more -- 13-15
+    MAP = [ 10.0**-1.2, 10.0**0.3, 10.0**0.55, 10.0**0.52, 0.2, 0.1, 10.0**-2.25, -1.45, 10.0**-0.5, 0.58, 1.0, 1.0, 10.0**-1.83, 10.0**-2.05, .99, 0.24, 10.0**-1.7, 0.8, 10.0**-2.00, 0.0, 10.0**11.75,  0.1, 0.4] # increase initial gas fraction, decrease initial metallicity, decrease SN strength, decrease epsff, decrease muMhSlope -- used in 18-23. Also we're now just going to adjust zstart and zrelax to their ~actual times to make this whole thing a bit easier
+    MAPreducedGI = [ 10.0**-0.75, 10.0**0.3, 10.0**0.55, 10.0**0.32, 0.2, 0.1, 10.0**-2.25, -1.45, 10.0**-0.2, 0.58, 1.5, 2.0, 10.0**-1.83, 10.0**-2.05, .99, 0.24, 10.0**-1.7, 0.8, 10.0**-1.65, -0.3, 10.0**11.75,  10.0**-0.5, 0.4] # read off from fig. 1 of Forbes+ 2019 - 01-03
+    hkm16 = experFromBroadMCMC( MAP, name='hkm16', ngal=5, mass=10.4)
+    hkm16.irregularVary('zstart', 0.48)
+    hkm16.irregularVary('zrelax', 0.5)
 
-    rf313 = fairPosteriorSample('rf313', 'py/fakemcmc161b_filteredposterior.pickle', 150, 1, np.linspace(11.0,12.00,150))
+    hkm17 = experFromBroadMCMC( MAP, name='hkm17', ngal=5, mass=10.25) # further adjustment
+    hkm17.irregularVary('zstart', 0.05)
+    hkm17.irregularVary('zrelax', 0.07)
 
+    hkm14 = experFromBroadMCMC( MAP, name='hkm14', ngal=5, mass=12.0)
+    hkm15 = experFromBroadMCMC( MAP, name='hkm15', ngal=5, mass=13.0)
+
+
+    hkm18 = experFromBroadMCMC( MAP, name='hkm18', ngal=5, mass=10.25)
+    hkm18.irregularVary('zstart', 0.08)
+    hkm18.irregularVary('zrelax', 0.1)
+
+    hkm22 = experFromBroadMCMC( MAP, name='hkm22', ngal=2, mass=12.0)
+    hkm22.irregularVary('zstart', 0.08)
+    hkm22.irregularVary('zrelax', 0.1)
+    hkm23 = experFromBroadMCMC( MAP, name='hkm23', ngal=2, mass=13.0)
+    hkm23.irregularVary('zstart', 2.05)
+    hkm23.irregularVary('zrelax', 2.07)
+
+    hkm21 = experFromBroadMCMC( MAP, name='hkm21', ngal=2, mass=10.25)
+    hkm21.irregularVary('zstart', 0.08)
+    hkm21.irregularVary('zrelax', 0.1)
+    hkm21.irregularVary('fg0mult', 8.0 ) 
+    hkm21.irregularVary('accScaleLength', 10.0**-1.0  )
+    hkm21.irregularVary('kappaMetals', 1.0e-8 ) 
+    hkm21.irregularVary('stScaleReduction', 0.5)
+    hkm21.irregularVary('gaScaleReduction', 0.5)
+    hkm21.irregularVary('ZIGMfac', .003)
+    hkm21.irregularVary('muNorm', .008)
+    hkm21.irregularVary('xiREC', .9) 
+    hkm21.irregularVary('ZMix', 0.05) 
+
+    fe20 = experFromBroadMCMC( MAPreducedGI, name='fe20', ngal=20, mass=np.logspace(10,13,20))
+    fe21 = experFromBroadMCMC( MAPreducedGI, name='fe21', ngal=20, mass=np.logspace(10,13,20))
+    fe21.irregularVary('AccretionHeatingRate', 1.0)
+
+
+    fe22=NewSetOfExperiments( hkm21, 'fe22')[0] # turn on AccretionHeating
+    fe22.irregularVary('AccretionHeatingRate', 1.0)
+    fe23=NewSetOfExperiments( hkm22, 'fe23')[0] # turn on AccretionHeating
+    fe23.irregularVary('AccretionHeatingRate', 1.0)
+    fe24=NewSetOfExperiments( hkm23, 'fe24')[0] # turn on AccretionHeating
+    fe24.irregularVary('AccretionHeatingRate', 1.0)
+
+    # so right now we have a 2x2 of [Hopkins, MAP] x [Heating, no Heating]
+    # We could also try to come up with a particular situation besides MAP where we expect acc. heating might have some effect.
+    # Another possibility is to turn off GI
+    # Probably there are also other possibilities!
+
+    ####### IT'S PROBABLY A BAD IDEA TO MODIFY ANYTHING BELOW THIS LINE!!!
     for inputString in modelList: # aModelName will therefore be a string, obtained from the command-line args
 
 
@@ -3275,13 +3132,13 @@ if __name__ == "__main__":
         matches = [aModel for aModel in sorted(allModels.keys()) if inputString in aModel]
         if(len(matches) != 0): 
             for model in matches: #if(model in allModels): 
-                print "dbg0",inputString,matches
+                print ("dbg0",inputString,matches)
                 if(not args.xgrid): #local run
                     allModels[model].localRun(args.nproc,args.start)
                 else: # write a file to run on the xgrid
                     allModels[model].write('runExperiment_'+model+'.txt')
         else:
-            print "You asked me to run ",inputString," but did not define it in the script."
+            print ("You asked me to run ",inputString," but did not define it in the script.")
 
 
     # now all of our processes have been sent off
@@ -3296,8 +3153,8 @@ if __name__ == "__main__":
             nPrev=nStillRunning
             if(nPrev == 0):
                 break # we're done!
-            print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
-    print "All local runs complete!"
+            print ("Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes.")
+    print ("All local runs complete!")
 
 
-    print "Time elapsed (seconds): ", time.time()-t0
+    print ("Time elapsed (seconds): ", time.time()-t0)

@@ -52,7 +52,7 @@ class halo:
         ''' Return the density in g/cm**3 of the dark matter halo at the given spherical radius. Expects r in kpc.'''
         mi = self.mInterior(r)
         if r>5000:
-            print "Did you accidentally request halo.rho(r) with r in cm instead of kpc?"
+            print ("Did you accidentally request halo.rho(r) with r in cm instead of kpc?")
             assert False
         rScale = self.radius / self.c200 # kpc
         return self.rhoScale * np.exp( -2.0/self.alpha * (np.power(r/rScale, self.alpha) - 1.0) );

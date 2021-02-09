@@ -1020,7 +1020,8 @@ def defineGasFractions(z):
     datasets['papastergis12'] = DataSet( 'mstar', 'gasToStellarRatioHI', thisMst, fgThis, yLower=fgThis/10.0**0.31, yUpper=fgThis*10.0**0.31, label='Papastergis12', alpha=0.5) # 0.31 dex is the /minimal/ scatter in MHI/M* as a function of various things in Zheng2009. No scatter quoted in Papastergis '12
 
     thisMst = np.power(10.0, np.linspace(10.0,11.5, 100))
-    def molToStarGenzel( (af2, xif2, xig2, xih2), deltaMS=0.0):
+    def molToStarGenzel( fi, deltaMS=0.0):
+        (af2, xif2, xig2, xih2) = fi
         return np.power(10.0, af2 + xif2*np.log10(1.0+z) + xig2*deltaMS + xih2*np.log10(thisMst/10.0**10.77))
     def ratioToFraction(rat):
         ## f_g = Mg/(Mg+M*) = 1/(1+M*/Mg) = 1/(1+1/rat)

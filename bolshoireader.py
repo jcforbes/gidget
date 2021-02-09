@@ -31,13 +31,13 @@ class bolshoireader:
         for treei, tree in enumerate(self.trees):
             treecounter+=1
             if treecounter % 100 == 0:
-                print "Loading up tree ", treecounter, ' of ', len(self.trees)
+                print ("Loading up tree ", treecounter, ' of ', len(self.trees))
             treestring = 'tree '+repr(tree[0])+'\n'
             treeind = all_lines.index(treestring)
             try:
                 self.xs[treei, : ] = [float( all_lines[lineind].split()[0] ) for lineind in range(treeind+1,treeind+1001) ]
             except:
-                print "Ran into trouble!"
+                print ("Ran into trouble!")
                 bad_rows.append(treei)
         for k, row in enumerate(bad_rows):
             random_ind = int((len(self.trees)-1)*np.random.random())
@@ -81,11 +81,11 @@ class bolshoireader:
                 line = f.readline()
                 while line!='':
                     if 'tree '+repr(self.trees[ind][0]) in line:
-                        print "Copying tree with index ",ind," and Bolshoi ID ",self.trees[ind][0]
+                        print ("Copying tree with index ",ind," and Bolshoi ID ",self.trees[ind][0])
                         break # we found the tree we're looking for
                     line = f.readline()
                 if line=='':
-                    print "Failed to find line tree "+repr(self.trees[ind][0])
+                    print ("Failed to find line tree "+repr(self.trees[ind][0]))
                 line = f.readline()
                 collectlines=[]
                 while not 'tree' in line and line!='':
@@ -128,11 +128,11 @@ class bolshoireader:
             line = f.readline()
             while line!='':
                 if 'tree '+repr(self.trees[ind][0]) in line:
-                    print "Copying tree with index ",ind," and Bolshoi ID ",self.trees[ind][0]
+                    print ("Copying tree with index ",ind," and Bolshoi ID ",self.trees[ind][0])
                     break # we found the tree we're looking for
                 line = f.readline()
             if line=='':
-                print "Failed to find line tree "+repr(self.trees[ind][0])
+                print ("Failed to find line tree "+repr(self.trees[ind][0]))
             line = f.readline()
             collectlines=[]
             while not 'tree' in line and line!='':

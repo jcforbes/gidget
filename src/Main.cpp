@@ -135,6 +135,7 @@ int main(int argc, char **argv) {
     const double ZMix =              as.Set(0.5, "Fraction of outflowing metals mixed back in to inflowing gas");
     const double energyInjectionFactor = as.Set(1.0, "Adjust the momentum per stellar mass formed relative to 3000 kps");
     const double CloudHeatingRate =  as.Set(1.0, "Multiple of Lacey 1984 heating rate from star-cloud interactions. Assumes Mc=1e7 Msun and fcloud=0.1.");
+    const double AccretionHeatingRate = as.Set(1.0, "Multiple of (1/2) Mdot v_circ^2");
 
 
     as.WriteOut();
@@ -247,7 +248,7 @@ int main(int argc, char **argv) {
             cos,dim,mesh,dbg,
             thick,migratePassive,Qinit,kappaMetals,NActive,NPassive,
           minSigSt,RfREC,xiREC,fH2Min,tDepH2SC,yREC, ksuppress, kpower, MQuench, muQuench,
-          ZMix, energyInjectionFactor, CloudHeatingRate);
+          ZMix, energyInjectionFactor, CloudHeatingRate, AccretionHeatingRate);
     // double sig0 = 8.0/220.0; 
     double sig0 = sigth;
     double stScaleLengthA = accScaleLength*r200/cmperkpc; // accScaleLength * pow(MhZs/Mh0,alphaAccProf);

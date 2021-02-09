@@ -124,7 +124,7 @@ DiskContents::DiskContents(double tH, double eta,
         double ksup, double kpow,
         double mq, double muq,
         double Zmx, double enInjFac,
-        double chr) :
+        double chr, double ahr) :
     nx(m.nx()),x(m.x()),beta(m.beta()),
     uu(m.uu()), betap(m.betap()),
     uDisk(std::vector<double>(m.nx()+1,0.)),
@@ -153,6 +153,7 @@ DiskContents::DiskContents(double tH, double eta,
     ksuppress(ksup), kpower(kpow),
     thickness(thk), migratePassive(migP),
     CloudHeatingRate(chr),
+    AccretionHeatingRate(ahr),
     col(std::vector<double>(m.nx()+1,0.)),
     sig(std::vector<double>(m.nx()+1,0.)),
     energyInjectionFactor(enInjFac),
@@ -160,6 +161,8 @@ DiskContents::DiskContents(double tH, double eta,
     dsigdtDdx(std::vector<double>(m.nx()+1,0.)),
     dsigdtHeat(std::vector<double>(m.nx()+1,0.)),
     dsigdtCool(std::vector<double>(m.nx()+1,0.)),
+    dsigdtSN(std::vector<double>(m.nx()+1,0.)), 
+    dsigdtAccr(std::vector<double>(m.nx()+1,0.)),
     dcoldtIncoming(std::vector<double>(m.nx()+1,0.)),
     dcoldtOutgoing(std::vector<double>(m.nx()+1,0.)),
     dQdu(std::vector<double>(m.nx()+1,0.)), 
@@ -567,10 +570,15 @@ void DiskContents::ComputeDerivs(double ** tauvec, std::vector<double>& MdotiPlu
         else 
             dsigdtCool[n] = 0.0;
 
+	dsigdtSN[n] =  (1.0/3.0)*(energyInjectionFactor * 3000.0*1.0e5/dim.vphiR)*colSFR[n]/col[n];
+	dsigdtAccr[n] = (1.0/3.0)*(AccretionHeatingRate *0.5*uu[n]* uu[n])*accProf[n]*AccRate/(col[n]*sig[n]); 
+
+
         dsigdt[n] = (MdotiPlusHalf[n] + MdotiPlusHalfMRI[n] - MdotiPlusHalf[n-1]-MdotiPlusHalfMRI[n-1]) * sig[n] / (3.0*x[n]*mesh.dx(n)*col[n])
             - 5.0*ddxSig*(tauvec2+tauvecMRI[2][n]) / (3.0*(beta[n]+1.0)*x[n]*col[n]*uu[n])
             +uu[n]*(beta[n]-1.)*(tauvec[1][n]+tauvecMRI[1][n]) / (3.0*sig[n]*col[n]*x[n]*x[n]*x[n])
-	    + (1.0/3.0)*(energyInjectionFactor * 3000.0*1.0e5/dim.vphiR)*colSFR[n]/col[n];
+	    + (1.0/3.0)*(energyInjectionFactor * 3000.0*1.0e5/dim.vphiR)*colSFR[n]/col[n]
+	    + (1.0/3.0)*(AccretionHeatingRate *0.5*uu[n]* uu[n])*accProf[n]*AccRate/(col[n]*sig[n]); //needs further thought
 	if(dbg.opt(6)) {
 	    for(unsigned int i=0; i!=spsPassive.size(); ++i) {
                 dsigdt[n] += spsPassive[i]->dcoldtREC[n] * ( (2.0*spsPassive[i]->spsigR[n]*spsPassive[i]->spsigR[n] + spsPassive[i]->spsigZ[n]*spsPassive[i]->spsigZ[n])/3.0 - sig[n]*sig[n])/(2.0*col[n]*sig[n]);
@@ -2032,7 +2040,7 @@ void DiskContents::UpdateCoeffs(double redshift, std::vector<double>& UU, std::v
         // Forget all of the contributions to forcing we just computed, and
         // set it to an exponential.
         if(dbg.opt(4)) {
-          double faster = 1.0;
+          double faster = 3.0;
     	  //FF[n] = expm1((fixedQ-QQ)*uu[n]*faster / (x[n]));
     	  FF[n] = (fixedQ-QQ)*uu[n]*faster / (x[n]);
 
@@ -2252,6 +2260,7 @@ void DiskContents::WriteOutStepFile(std::string filename, AccretionHistory & acc
         wrt.push_back(dcoldtIncoming[n]); wrt.push_back(dcoldtOutgoing[n]); // 53..54
         wrt.push_back(MassLoadingFactor[n]); wrt.push_back(colvPhiDisk[n]); wrt.push_back(colstvPhiDisk[n]); // 55..57
 	wrt.push_back(ZDiskFe[n]); wrt.push_back( dcolREC ); wrt.push_back( dcolIArec ); // 58..60
+	wrt.push_back( dsigdtSN[n]); wrt.push_back( dsigdtAccr[n] ); // 61,62
         
         if(n==1 ) {
             int ncol = wrt.size();

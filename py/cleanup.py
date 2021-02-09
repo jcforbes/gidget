@@ -34,7 +34,7 @@ def moveFiles(keyname=None):
     ldirs = GetDirnames(allFiles)
 
     if keyname is None:
-        print "Directories: ",ldirs
+        print ("Directories: ",ldirs)
 
     for dirname in ldirs:
         if(not os.path.exists(dirname)):
@@ -46,7 +46,7 @@ def moveFiles(keyname=None):
                     os.remove(destname)
                 shutil.move(f,destname)
                 if keyname is None:
-                    print "Moving ",f," to ",destname
+                    print ("Moving ",f," to ",destname)
 
 
 if __name__=="__main__":

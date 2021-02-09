@@ -1,5 +1,5 @@
 from readoutput import *
-from balanceplot import balance
+from balanceplot import balance, balancesig
 import argparse
 import cleanup
 import pdb
@@ -8,21 +8,21 @@ import pdb
 
 def makeThePlots(args):
     if args.time is False and args.radial is False and args.scaled is False and args.mass==0 and args.balance is False:
-        print "Warning: you did not ask me to produce any plots! Use python plots.py -h to look at the options available."
-    print "plots.py in makeThePlots: args.models: ",args.models
+        print ("Warning: you did not ask me to produce any plots! Use python plots.py -h to look at the options available.")
+    print ("plots.py in makeThePlots: args.models: ",args.models)
     balanceArgs=[]
     AMargs=[]
     MONDargs=[]
     if(args.balance):
-        balanceArgs=['colTr','colAccr','colsfr','dcoldt','MassLoadingFactor','Mdot','colREC']
+        balanceArgs=['colTr','colAccr','colsfr','dcoldt','MassLoadingFactor','Mdot','colREC', 'dsigdtLoss', 'dsigdtGI', 'dsigdtAccr', 'dsigdtSN', 'dsigdtAdv']
     if(args.angularMomentum):
         AMargs = ['colTr','r','vPhi','dA']
     if(args.quick):
         MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig']
     for modelName in args.models:
-        print "Beginning to analyze experiment ",modelName
+        print ("Beginning to analyze experiment ",modelName)
         theExp = Experiment(modelName)
-        print "Reading in the experiment keeping: ", args.vsr + balanceArgs + AMargs +MONDargs
+        print ("Reading in the experiment keeping: ", args.vsr + balanceArgs + AMargs +MONDargs)
         theExp.read(args.vsr+balanceArgs+AMargs+MONDargs, keepStars=(args.stellarPops or args.quick), computeFit=args.fit, fh=args.fh)
         nts = int(theExp.models[0].p['Noutputs']+1)
         tis = [nts/5,nts/2,nts]
@@ -52,16 +52,16 @@ def makeThePlots(args):
                     theExp.timePlot(colorby=cb,vsz=False)
                     theExp.timePlot(colorby=cb,vsz=True)
             if(args.radial):
-                theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=cb,logR=args.logR)
+                theExp.radialPlot(timeIndex=list(range(1,nts+1,stepsize))+[nts],variables=args.vsr,colorby=cb,logR=args.logR)
             if(args.scaled):
-                theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,scaleR=True,colorby=cb,logR=args.logR)
+                theExp.radialPlot(timeIndex=list(range(1,nts+1,stepsize))+[nts],variables=args.vsr,scaleR=True,colorby=cb,logR=args.logR)
             #if(args.mass):
             #    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],prev=args.prev,colorby=cb)
             #    theExp.ptMovie(timeIndex=range(1,202,stepsize)+[201],xvar='Mh',prev=args.prev,colorby=cb)
             if len(args.mass)!=0:
                 for xv in args.mass:
-                    theExp.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar=xv,prev=args.prev,colorby=cb,movie=True)
-                    theExp.ptMovie(timeIndex=range(1,nts+1,stepsize)+[nts],xvar=xv,prev=0,colorby=cb,movie=False)
+                    theExp.ptMovie(timeIndex=list(range(1,nts+1,stepsize))+[nts],xvar=xv,prev=args.prev,colorby=cb,movie=True)
+                    theExp.ptMovie(timeIndex=list(range(1,nts+1,stepsize))+[nts],xvar=xv,prev=0,colorby=cb,movie=False)
         if len(args.mass)!=0 and args.snapshot:
             for xv in args.mass:
                 theExp.ptMovie(timeIndex=tis,xvar=xv,prev=0,colorby='t',movie=False)
@@ -102,7 +102,8 @@ def makeThePlots(args):
                 theExp.radialPlot(timeIndex=range(1,nts+1,stepsize)+[nts],variables=args.vsr,colorby=args.colorby[0],logR=args.logR,percentiles=per,scaleR=True)
         if(args.balance):
             #balance(theExp.models,timeIndex=range(1,nts+1,stepsize)+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR, ncols=5, nrows=3)
-            balance(theExp.models,timeIndex=range(1,nts+1,stepsize)+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR, ncols=1, nrows=1)
+            balance(theExp.models,timeIndex=list(range(1,nts+1,stepsize))+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR, ncols=1, nrows=1)
+            balancesig(theExp.models,timeIndex=list(range(1,nts+1,stepsize))+[nts],name=modelName,sortby=args.colorby[0],logR=args.logR, ncols=1, nrows=1)
         #theExp.customPlotPPD( expensive=True)
        # theExp.customPlotPPD( expensive=False)
 

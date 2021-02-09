@@ -1,13 +1,18 @@
 from readoutput import *
 import matplotlib.colors as pltcolors
 
+def heatingExperiment( hopkins_experiments_no_heating, hopkins_experiments_with_heating, map_no_heating, map_with_heating):
+    # the goal here is to look at the differences between these two sets of sims, with paritcular emphasis on 
+    pass
+
+
 def quickCheck(experiment_list):
     ''' Take a look at Mh vs M_*, and a variety of other easy diagnostics:
             M_* vs. ReSF, ReMst, Z_g, Z_SF, fg, fgh2, vPhi, sfr, Sigma1 '''
     def markAs(ax, fit, adj=0):
         ''' For the given axis, typically a panel in a many-panel plot, mark whether data plotted here was used in a fit (fit=1) or not (fit=0). In the latter case, mark this as a prediction '''
         if fit==1:
-            [i.set_linewidth(3) for i in ax.spines.itervalues()]
+            [i.set_linewidth(3) for i in ax.spines.values()]
             ax.text(.45+adj,.89, 'FIT', transform=ax.transAxes, fontsize=9)
         else:
             ax.text(.45+adj,.9, 'PRED', transform=ax.transAxes, fontsize=9)
@@ -45,11 +50,54 @@ def quickCheck(experiment_list):
     basename = ''
     for ex in experiment_list:
         basename+=ex.name+'_'
-    print "*******************************************************"
-    print "ANALYZING GALAXIES WITH THE FOLLOWING BREAKDOWN:"
+    print ("*******************************************************")
+    print ("ANALYZING GALAXIES WITH THE FOLLOWING BREAKDOWN:")
     for ex in experiment_list:
-        print ex.name, len(ex.models), [np.log10(model.p['Mh0']) for model in ex.models]
-    print "*******************************************************"
+        print (ex.name, len(ex.models), [np.log10(model.p['Mh0']) for model in ex.models])
+    print ("*******************************************************")
+
+    # Go through and compare some runs to the Hopkins 
+    if len(experiment_list)==3:
+        fig,ax = plt.subplots(3,3, figsize=(7,7))
+        if len(experiment_list)==3:
+            zHopkins = []
+            for i,z in enumerate([0,0,2]):
+                zHopkins.append( Nearest( experiment_list[i].models[0].var['z'].sensible(), z)[0] )
+        else:
+            print("Don't expect reasonable results in the comparison to Hopkins because something is wrong in the assumptions")
+            zHopkins = [Nearest( experiment_list[0].models[0].var['z'].sensible(), z)[0] for z in [0,0,2] ]
+        for i, ex in enumerate(experiment_list):
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['Mh'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[0,0], textsize=6, plotObs=True)
+            ax[0,0].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [1.4e12, 1.6e12, 2.0e10], c='k', marker='*', s=200)
+
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['mbar'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[0,1], textsize=6, plotObs=True)
+            ax[0,1].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [1.07e11, 7.13e10, 8.9e8], c='k', marker='*', s=200)
+
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['mCentral'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[0,2], textsize=6, plotObs=True)
+            ax[0,2].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [7e9, 1.5e10, 1e7], c='k', marker='*', s=200)
+
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['mdisk'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[1,0], textsize=6, plotObs=True)
+            ax[1,0].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [3e10,4.73e10, 1.3e8], c='k', marker='*', s=200)
+
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['naiveScaleLength'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[1,1], textsize=6, plotObs=True)
+            ax[1,1].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [1.6,3.0,0.7], c='k', marker='*', s=200)
+
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['mgas'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[1,2], textsize=6, plotObs=True)
+            ax[1,2].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [7e10, 0.9e10, 7.5e8], c='k', marker='*', s=200)
+            
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['naiveGasScaleLength'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[2,0], textsize=6, plotObs=True)
+            ax[2,0].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [3.2, 6.0, 2.1], c='k', marker='*', s=200)
+
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['Qavg'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[2,1], textsize=6, plotObs=True)
+            ax[2,1].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [1,1,1], c='k', marker='*', s=200)
+
+            experiment_list[i].ptMovie( xvar='mstar', yvar=['fghm'], colorby='Mh0', prev=0, timeIndex=[zHopkins[i]], movie=False, axIn=ax[2,2], textsize=6, plotObs=True)
+            ax[2,2].scatter( [7e9+3e10, 1.5e10+4.73e10, 1e7+1.3e8], [.49, .09, .56], c='k', marker='*', s=200)
+        plt.tight_layout()
+        plt.savefig(basename+'callibrationHopkins.pdf')
+        plt.close(fig)
+        
+
 
 
     fig,ax = plt.subplots(1,1, figsize=(7,7))
@@ -639,9 +687,9 @@ def quickCheck(experiment_list):
                 ys = ys + list( np.log10(model.var['colsfr'].sensible(timeIndex=zinds[0]))[the_filter] )
                 weights = weights + list( model.var['colst'].sensible(timeIndex=zinds[0])[the_filter] * model.var['dA'].sensible(timeIndex=zinds[0])[the_filter] )
                 #weights = weights + list( model.var['colsfr'].sensible(timeIndex=zinds[0])[the_filter]   *   model.var['dA'].sensible(timeIndex=zinds[0])[the_filter] )
-        print "*****************************************************"
-        print "CALLIBRATION13: number of samples: ", len(xs), "over ", modelCtr, "galaxies"
-        print "*****************************************************"
+        print ("*****************************************************")
+        print ("CALLIBRATION13: number of samples: ", len(xs), "over ", modelCtr, "galaxies")
+        print ("*****************************************************")
         ax.hist2d( xs, ys, weights=weights, cmap=colormap_list[i], alpha=0.8, bins=40, range=[[0,3],[-4,-0.5]], norm=pltcolors.LogNorm() )
 
         #ex.ptMovie(xvar='colst', yvar=['colsfr'], colorby='mstar', prev=0, timeIndex=[zinds[0]], movie=False, axIn=ax, textsize=6, color=colors[i])
@@ -1075,9 +1123,13 @@ if __name__=='__main__':
     #experiment_list = [Experiment('rf161'), Experiment('rf162'), Experiment('rf163') ]
 #    experiment_list = [Experiment('rf212'), Experiment('rf213')]
     #experiment_list = [ Experiment('rf285')]
-    experiment_list = [ Experiment('rf313')]
+    #experiment_list = [ Experiment('rf313')]
     #experiment_list = [ Experiment('rf290'), Experiment('rf291'), Experiment('rf292'), Experiment('rf293') ]
     #experiment_list = [Experiment('rf118'), Experiment('rf119'), Experiment('rf120')]
+    #experiment_list = [Experiment('hkm21'), Experiment('hkm22'), Experiment('hkm23')] # hopkins no heating
+    #experiment_list = [Experiment('fe22'), Experiment('fe23'), Experiment('fe24')] # hopkins with heating
+    #experiment_list = [Experiment('fe20')] # MAP no heating
+    experiment_list = [Experiment('fe21')] # MAP with heating
     MONDargs = ['gbar', 'gtot', 'hGas', 'sSFRRadial', 'rxl', 'colstNormalizedKravtsov', 'colNormalizedKravtsov', 'colHI', 'colH2', 'colst', 'fH2', 'vPhi', 'sigstR', 'sigstZ', 'ageRadial', 'colsfr', 'Z', 'sig', 'col', 'vPhiGasRadial', 'vPhiStarsRadial', 'kappaZ', 'kappaZlimit', 'kappaZconservativeLimit']
     for ex in experiment_list:
         ex.read(MONDargs, keepStars=True)

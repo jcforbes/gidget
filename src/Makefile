@@ -1,5 +1,5 @@
-LDFLAGS		= -O3  -L/usr/local/Cellar/gsl/2.3/lib -lgsl -lgslcblas -lm 
-CFLAGS		= -O3  -I/usr/local/Cellar/gsl/2.3/include -c 
+LDFLAGS		= -O3  -L/usr/local/lib -lgsl -lgslcblas -lm 
+CFLAGS		= -O3  -I/usr/local/include -c 
 CC		= g++ 
 EXECUTABLE=../bin/gidget
 

@@ -17,7 +17,7 @@ def HowManyStillRunning(procs):
 
 
 def makeMovies(keyname = None):
-    print "running makeMovies in makeGidgetMovies.py with keyname ",keyname
+    print ("running makeMovies in makeGidgetMovies.py with keyname ",keyname)
     # What subdirectory are we in?
     subdirname = os.getcwd()[os.getcwd().rfind("/")+1:] # analysis typically
     # Find all the directories in which the IDL code has put frames for movies
@@ -36,19 +36,19 @@ def makeMovies(keyname = None):
     # For each directory, make a movie of the same name sans the prefix "movie_"
     # Only use 12 processors at a time.
     for movieDir in movieDirs:
-        print "WORKING ON MOVIE: ",movieDir
+        print ("WORKING ON MOVIE: ",movieDir)
         ctr=ctr+1
         regstring = movieDir+'/frame_????.png'
         movieName = movieDir[6:]+".gif"
         subprocess.call(["rm","-f",movieName])
         if(keyname is None):
-            print "Producing movie #",ctr,"of",len(movieDirs)
+            print ("Producing movie #",ctr,"of",len(movieDirs))
         #print "processing movieDir ",movieDir
         #print 'running ffmpeg with regstring ',regstring
         #print 'to create movie ',movieName
         #procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-i",regstring,"-vcodec","qtrle",movieName],stderr=nulfp))
         procs.append(subprocess.Popen(["convert","-delay","10","-loop","0",regstring,movieName],stderr=nulfp))
-        print "running convert -delay 10 -loop 0 "+regstring+" "+movieName
+        print ("running convert -delay 10 -loop 0 "+regstring+" "+movieName)
     #    procs.append(subprocess.Popen(["ffmpeg","-loglevel","quiet","-f","image2","-qscale","1","-i",regstring,movieName],stderr=nulfp))
     #    procs.append(subprocess.Popen(["ffmpeg","-f","image2","-qscale","0","-i",regstring,movieName]))
     #    pdb.set_trace()
@@ -74,16 +74,16 @@ def makeMovies(keyname = None):
             if(nPrev == 0):
                 break # we're done!
             if(keyname is None):
-                print "Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes."
+                print ("Still waiting for ",nPrev, " processes to finish; I'll check every few seconds for changes.")
 
 
     if(keyname is None):
-        print 
-        print
-        print "Movies produced!"
-        print "Movies produced: ",movieNames
+        print() 
+        print()
+        print ("Movies produced!")
+        print ("Movies produced: ",movieNames)
     
-        print "Removing the directories containing movie frames."
+        print ("Removing the directories containing movie frames.")
     for movieDir in movieDirs:
         pass
         #subprocess.call(["rm","-rf",movieDir])

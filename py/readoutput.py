@@ -114,7 +114,7 @@ class RadialFunction:
         elif(timeIndex is None and locIndex is not None):
             return self.arr[:,locIndex]*self.cgsConv
         else:
-            print "Something has gone wrong in cgs"
+            print( "Something has gone wrong in cgs" )
     def sensible(self,timeIndex=None,locIndex=None):
         if(timeIndex is None and locIndex is None):
             return self.arr[:,:]*self.sensibleConv
@@ -125,7 +125,7 @@ class RadialFunction:
         elif(timeIndex is None and locIndex is not None):
             return self.arr[:,locIndex]*self.sensibleConv
         else:
-            print "Something has gone wrong in sensible"
+            print ("Something has gone wrong in sensible")
     def atR(self, rNew, rVec, timeIndex, sensible=True):
         #if(len(rVec) != len(self.sensible(timeIndex=timeIndex))):
         #    pdb.set_trace()
@@ -269,7 +269,7 @@ class SingleModel:
         return sums
 
     def read(self, keepOnly=[], keepStars=False, paramsOnly=False, computeFit=False, fh=0.3):
-        print "Reading in model ",self.path
+        print ("Reading in model ",self.path)
         with open(self.path+'_comment.txt','r') as comment:
             lines = comment.readlines()
             # paramnames - copied from exper.py's experiment class.
@@ -288,7 +288,7 @@ class SingleModel:
                     'widthAccretionProfile','fH2Min','tDepH2SC','ZIGM','fg0mult','ZIGMfac','chiZslope','deltaBeta','yREC', \
                     'concentrationRandomFactor','muFgScaling','muMhScaling','ksuppress', 'kpower', \
                     'MQuench','epsquench','muQuench','stScaleReduction','gaScaleReduction','ZMix', \
-                    'energyInjectionFactor', 'CloudHeatingRate']
+                    'energyInjectionFactor', 'CloudHeatingRate','AccretionHeatingRate']
             params=[]
             line = lines[-1] # get the last line
             tmp = line.split() # split the line into a list of strings
@@ -318,7 +318,7 @@ class SingleModel:
                     irfs.append('x'+str(k))
                     self.p[irfs[-1]] = float(line)
         except:
-            print "Failed to read in <path>_inputRandomFactors.txt"
+            print ("Failed to read in <path>_inputRandomFactors.txt")
         irfYs=[]
         try:
             with open(self.path+'_inputRandomFactorsY.txt','r') as irfY:
@@ -328,7 +328,7 @@ class SingleModel:
                     irfYs.append('y'+str(k))
                     self.p[irfYs[-1]] = float(line)
         except:
-            print "Failed to read in <path>_inputRandomFactorsY.txt"
+            print ("Failed to read in <path>_inputRandomFactorsY.txt")
         self.pLog={}
         for par in self.p.keys():
             self.pLog[par] = True # set all parameters to be logarithmic by default
@@ -337,18 +337,18 @@ class SingleModel:
             self.pLog[par] = False
         if paramsOnly:
             return
-        with open(self.path+'_evolution.dat','r') as evolution:
+        with open(self.path+'_evolution.dat','rb') as evolution:
             ncolev, =struct.unpack('i',evolution.read(4))
             self.ncolev=ncolev
             arr = evolution.read()
             evarray = np.fromstring(arr)
-            self.nsteps = len(evarray)/ncolev
+            self.nsteps = int(len(evarray)/ncolev)
             try:
                 self.evarray = np.reshape(evarray,(self.nsteps,self.ncolev))
             except:
-                print "Failed to reshape array. Off by one error?", np.shape(evarray),self.nsteps,self.ncolev,self.nsteps*self.ncolev,self.path
+                print ("Failed to reshape array. Off by one error?", np.shape(evarray),self.nsteps,self.ncolev,self.nsteps*self.ncolev,self.path)
                 
-        with open(self.path+'_radial.dat','r') as radial:
+        with open(self.path+'_radial.dat','rb') as radial:
             dataCube=[]
             for i in range(self.nsteps):
                 ncolstep, = struct.unpack('i',radial.read(4))
@@ -358,7 +358,7 @@ class SingleModel:
                 dataCube.append(np.reshape(sqArr,(nrowstep,ncolstep)))
             self.dataCube = np.array(dataCube)
         if keepStars:
-            with open(self.path+'_stars.dat','r') as stars:
+            with open(self.path+'_stars.dat','rb') as stars:
                 for i in range(self.nsteps):
                     NABp1, = struct.unpack('i', stars.read(4)) # NAgeBins+1
                     sz, = struct.unpack('i', stars.read(4)) # sps.size()
@@ -546,6 +546,14 @@ class SingleModel:
                 mdotCodeUnits, 'Mdot', \
                 self.p['md0']*gpermsun/speryear, \
                 self.p['md0'],r'$\dot{M}$ (M$_\odot$ yr$^{-1}$)',log=False)
+
+        self.var['dsigdtLoss'] = RadialFunction( np.copy(self.dataCube[:,:,44]), 'dsigdtLoss', cgsConv=1.0e10*self.p['vphiR']*self.p['vphiR']/(2.0*np.pi*self.p['R']*cmperkpc), sensibleConv=1.0e5*self.p['vphiR']*self.p['vphiR']*speryear*1.0e9/(2.0*np.pi*self.p['R']*cmperkpc), texString=r'\partial \sigma/\partial t |_\mathrm{diss} (\mathrm{km}\ \mathrm{s}^{-1}\ \mathrm{Gyr}^{-1})' )
+        self.var['dsigdtGI'] = RadialFunction( np.copy(self.dataCube[:,:,41]), 'dsigdtGI', cgsConv=1.0e10*self.p['vphiR']*self.p['vphiR']/(2.0*np.pi*self.p['R']*cmperkpc), sensibleConv=1.0e5*self.p['vphiR']*self.p['vphiR']*speryear*1.0e9/(2.0*np.pi*self.p['R']*cmperkpc), texString=r'\partial \sigma/\partial t |_\mathrm{GI} (\mathrm{km}\ \mathrm{s}^{-1}\ \mathrm{Gyr}^{-1})' )
+        self.var['dsigdtAdv'] = RadialFunction( np.copy(self.dataCube[:,:,39] + self.dataCube[:,:,40]), 'dsigdtAdv', cgsConv=1.0e10*self.p['vphiR']*self.p['vphiR']/(2.0*np.pi*self.p['R']*cmperkpc), sensibleConv=1.0e5*self.p['vphiR']*self.p['vphiR']*speryear*1.0e9/(2.0*np.pi*self.p['R']*cmperkpc), texString=r'\partial \sigma/\partial t |_\mathrm{adv} (\mathrm{km}\ \mathrm{s}^{-1}\ \mathrm{Gyr}^{-1})' )
+        self.var['dsigdtSN'] = RadialFunction( np.copy(self.dataCube[:,:,60]), 'dsigdtSN', cgsConv=1.0e10*self.p['vphiR']*self.p['vphiR']/(2.0*np.pi*self.p['R']*cmperkpc), sensibleConv=1.0e5*self.p['vphiR']*self.p['vphiR']*speryear*1.0e9/(2.0*np.pi*self.p['R']*cmperkpc), texString=r'\partial \sigma/\partial t |_\mathrm{SN} (\mathrm{km}\ \mathrm{s}^{-1}\ \mathrm{Gyr}^{-1})' )
+        self.var['dsigdtAccr'] = RadialFunction( np.copy(self.dataCube[:,:,61]), 'dsigdtAccr', cgsConv=1.0e10*self.p['vphiR']*self.p['vphiR']/(2.0*np.pi*self.p['R']*cmperkpc), sensibleConv=1.0e5*self.p['vphiR']*self.p['vphiR']*speryear*1.0e9/(2.0*np.pi*self.p['R']*cmperkpc), texString=r'\partial \sigma/\partial t |_\mathrm{Accr} (\mathrm{km}\ \mathrm{s}^{-1}\ \mathrm{Gyr}^{-1})' )
+
+
         self.var['colTr'] = RadialFunction( \
                 (self.var['Mdot'].cgs(locIndex=range(1,nxI+1))-self.var['Mdot'].cgs(locIndex=range(nxI)))/self.var['dA'].cgs(), \
                 'colTr',1.0, speryear*cmperkpc**2.0/gpermsun, r'$\dot{\Sigma}_{tr}$ (M$_\odot$ yr$^{-1}$ kpc$^{-2}$)',log=False, theRange=[-10,10])
@@ -575,6 +583,7 @@ class SingleModel:
                 np.copy(self.dataCube[:,:,23]),'Qg',1.0,1.0,r'$Q_g$',theRange=[.1,30.0])
         self.var['Qst'] = RadialFunction( \
                 np.copy(self.dataCube[:,:,22]),'Qst',1.0,1.0,r'$Q_*$',theRange=[.1,30.0])
+        self.var['Qavg'] = TimeFunction( np.average( self.var['Qg'].sensible(), axis=1, weights= self.var['colsfr'].sensible()*self.var['dA'].sensible()), 'Qavg', theRange=[0.3, 10.0], texString=r'$\langle Q_g \rangle_\mathrm{SFR}$') 
         self.var['tDepRadial'] = RadialFunction( \
                 self.var['col'].cgs()/self.var['colsfr'].cgs(), 'tDepRadial',\
                 1.0, 1.0/speryear, r'$t_\mathrm{dep} = \Sigma/\dot{\Sigma}_*^{SF} (yr)$')
@@ -608,7 +617,7 @@ class SingleModel:
                 self.var['mCentral'].sensible() + fh*self.var['mStellarHalo'].sensible() + 
                 np.sum( self.var['dA'].sensible()*self.var['colst'].sensible()*1.0e6, 1 ), \
                 'mstar',gpermsun,1.0,r'$M_*$ (M$_\odot$)', theRange=[0.9e7, 1.1e11])
-	mcfilter = self.var['mCentral'].cgs()/tempmstar.cgs()>0.05
+        mcfilter = self.var['mCentral'].cgs()/tempmstar.cgs()>0.05
         self.var['mCentral'].arr[mcfilter]=0.0 ### a horrifying hack to get around the fact that dwarf galaxies are unresolved b/c of too-large radii
 
         self.var['mstar'] = TimeFunction( \
@@ -672,7 +681,7 @@ class SingleModel:
             r9ind = np.searchsorted(sfrcu[z,:ri10], [sfrcu[z,ri10]*0.9])[0] # radius containing 90% of SFR within 10 kpc.
             if r9ind<=1:
                 r9ind=2 # if there's sooo much accretion into the central region that r90 is unresolved
-                print "WARNING: extremely concentrated SFR ",z
+                print ("WARNING: extremely concentrated SFR ",z)
             r9 = self.var['r'].cgs(timeIndex=z, locIndex=r9ind)
             r9s.append(r9)
             rir904, _ = Nearest( self.var['r'].sensible(timeIndex=0), r9/4.0 ) # radial index of 1/4 of r90
@@ -689,7 +698,7 @@ class SingleModel:
             
             if ri2<=1:
                 ri2 = 2
-                print "WARNING: 2 kpc not resolved"
+                print ("WARNING: 2 kpc not resolved")
             rgrid = np.arange( self.var['r'].sensible(timeIndex=0, locIndex=0), self.var['r'].sensible(timeIndex=0, locIndex=ri2), 0.2 )
             Zgridded = self.var['Z'].atR(rgrid, self.var['r'].sensible(timeIndex=0), z, sensible=False)
             m, b = np.polyfit(rgrid, np.log10(Zgridded), 1)
@@ -765,6 +774,7 @@ class SingleModel:
         self.var['fghm'] = TimeFunction( fgHalfMassStars, 'fghm', sensibleConv=1, texString=r'$\langle f_g \rangle_{r_*}$')
         self.var['fg2hm'] = TimeFunction( fgTwoHalfMassStars, 'fg2hm', sensibleConv=1, texString=r'$\langle f_g \rangle_{2r_*}$')
         self.var['halfMassStars'] = TimeFunction( halfMassRadiiStars, 'halfMassStars', cgsConv = cmperkpc, texString=r'$r_*$ (kpc)', theRange=[0.1, 10.0])
+        self.var['naiveScaleLength'] = TimeFunction( np.array(halfMassRadiiStars)/1.69, 'naiveScaleLength', cgsConv=cmperkpc, texString=r'$r_d (kpc)$', theRange=[0.1, 10.0])
         ## This will extract the global maximum in gas column density at any given redshift, and divide by the half stellar mass radius.
         self.var['radiusOfMaximumColumnDensity'] = TimeFunction( np.array(radiusOfMaxColumnDensity)/self.var['halfMassStars'].cgs(), 'radiusOfMaximumColumnDensity', texString=r'$r_{\max(\Sigma)}/r_*$', log=False, theRange=[0,1.5])
         self.var['radiusOfMaximumSFR'] = TimeFunction( np.array(radiusOfMaxSFR)/self.var['halfMassStars'].cgs(), 'radiusOfMaximumSFR', texString=r'$r_{\max(\dot{\Sigma}^\mathrm{SF})}/r_*$', log=False, theRange=[0,0.4])
@@ -772,6 +782,7 @@ class SingleModel:
         self.var['halfMassEst'] = TimeFunction( halfMassEst, 'halfMassEst', cgsConv = cmperkpc, texString=r'$r_{*,\mathrm{est}}$ (kpc)', theRange=[0.1, 10.0])
         self.var['c82'] = TimeFunction( c82Stars, 'c82', cgsConv = 1.0, texString=r'$c_{82} = r_{80}/r_{20}$ ', theRange=[2.0, 30.0])
         self.var['halfMassGas'] = TimeFunction( halfMassRadiiGas, 'halfMassGas', cgsConv = cmperkpc, texString=r'$r_g$ (kpc)')
+        self.var['naiveGasScaleLength'] = TimeFunction( np.array(halfMassRadiiGas)/1.69, 'naiveGasScaleLength', cgsConv=cmperkpc, texString=r'$r_{d,g} (kpc)$', theRange=[0.1, 10.0])
         self.var['halfMassSFR'] = TimeFunction( halfMassRadiiSFR, 'halfMassSFR', cgsConv = cmperkpc, texString=r'$r_\mathrm{SFR}$ (kpc)')
         self.var['metallicityGradient'] = TimeFunction( gradZAtHalfSFR, 'metallicityGradient', cgsConv=1.0/cmperkpc, sensibleConv=1.0, texString=r'$\partial \log_{10} Z/\partial r\ (r_\mathrm{SFR})$', log=False, theRange=[-0.5, 0.05])
 
@@ -902,16 +913,17 @@ class SingleModel:
         r1 = np.searchsorted(self.var['r'].sensible(timeIndex=-1), 1.0) # find the index of the cell closest to 1 kpc
         r1 = np.max([r1,2]) # guarantee that quantities defined within 1 kpc are not NaN if xmin>1 kpc. Ideally the user would have specified parameters such that the mesh is resolved further in that 1 kpc, but what can you do?
         if r1==2:
-            print "WARNING: Central kpc not resolved at all. Derived quantities defined within central kpc not reliable. Consider adjusting xmin and R: ", self.p['xmin'], self.p['R'], self.p['Mh0']
+            print ("WARNING: Central kpc not resolved at all. Derived quantities defined within central kpc not reliable. Consider adjusting xmin and R: ", self.p['xmin'], self.p['R'], self.p['Mh0'])
         numerator = np.sum( self.var['col'].cgs(locIndex=range(r1))*self.var['dA'].cgs(locIndex=range(r1))*self.var['rho'].cgs(locIndex=range(r1)), 1 )
         denominator = np.sum( self.var['col'].cgs(locIndex=range(r1))*self.var['dA'].cgs(locIndex=range(r1)),1 )
         self.var['rho1'] = TimeFunction( numerator  / denominator   ,  'rho1', 1.0, 1.0, r'$\langle \rho \rangle_\mathrm{1 kpc} (\mathrm{g}\ \mathrm{cm}^{-3})$'  )
         self.var['mgas']=TimeFunction( \
                 np.sum(self.var['dA'].cgs()*self.var['col'].cgs(), 1),'mgas', \
-                1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)')
+                1.0,1.0/gpermsun,r'$M_g$ (M$_\odot$)', theRange=[1e8,1e11])
         self.var['mbar']=TimeFunction( \
                 self.var['mgas'].sensible()+self.var['mstar'].sensible(), 'mbar', cgsConv=gpermsun, sensibleConv=1.0, \
-                texString=r'$M_\mathrm{bar} (M_\odot)$')
+                texString=r'$M_\mathrm{bar} (M_\odot)$', theRange=[1e8, 3e11])
+
         self.var['gasToStellarRatio'] = TimeFunction( self.var['mgas'].sensible()/self.var['mstar'].sensible(), 'gasToStellarRatio', texString=r'$M_g/M_*$')
         self.var['tdep']=TimeFunction( \
                 self.var['mgas'].cgs()/self.var['sfr'].cgs(),'tdep',1.0,1.0/speryear,r't$_\mathrm{dep}$ (yr)')
@@ -950,7 +962,7 @@ class SingleModel:
                 alphaFeStNum += self.var['colst'+sti].cgs() * self.var['Zst'+sti].cgs() * 1.0/(2.09 +1.06 / np.power(10.0,self.var['alphaFeSt'+sti].cgs())) 
                 alphaFeStDenom += self.var['colst'+sti].cgs() * self.var['Zst'+sti].cgs() * 1.0/(1.06 +2.09* np.power(10.0,self.var['alphaFeSt'+sti].cgs())) 
                 if i==99:
-                    print "WARNING: MAY HAVE MISSED SOME STELLAR POPULATIONS IN COMPUTING Zst!"
+                    print ("WARNING: MAY HAVE MISSED SOME STELLAR POPULATIONS IN COMPUTING Zst!")
             else:
                 if i==0 and keepStars:
                     assert False # Something has gone wrong!
@@ -1007,11 +1019,10 @@ class SingleModel:
         self.var['mOut'] = TimeFunction( np.cumsum( self.var['dt'].cgs() * self.var['integratedMLF'].cgs() * self.var['sfr'].cgs() ), 'mOut', cgsConv=1.0, sensibleConv=1.0/gpermsun, texString=r'$ M_{\mathrm{out}}$')
         self.var['metalMassISM'] = TimeFunction( np.sum( self.var['Z'].cgs() * self.var['dA'].cgs() * self.var['col'].cgs(), axis=1)/self.var['mgas'].cgs(), 'metalMassISM', cgsConv=1.0, sensibleConv=1/0.02, texString=r'$M_{Z,ISM}$' )
         self.var['metalMassSFR'] = TimeFunction( np.sum( self.var['Z'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs() *self.var['dA'].cgs()*self.var['col'].cgs(), axis=1)/ np.sum( self.var['dA'].cgs()*self.var['col'].cgs() * self.var['dA'].cgs() * self.var['colsfr'].cgs(), axis=1), 'metalMassSFR' , cgsConv=1.0, sensibleConv=1/0.02, texString=r'$M_{Z,SF}$' )
-	self.var['metalsCGMpISM'] = TimeFunction( self.var['metalMassCGM'].cgs()/self.var['metalMassISM'].cgs(), 'metalsCGMpISM', texString=r'$M_{Z,CGM}/M_{Z,ISM}$')
+        self.var['metalsCGMpISM'] = TimeFunction( self.var['metalMassCGM'].cgs()/self.var['metalMassISM'].cgs(), 'metalsCGMpISM', texString=r'$M_{Z,CGM}/M_{Z,ISM}$')
         self.var['ZOutZDisk'] = TimeFunction( self.var['ZWind'].cgs() * self.var['integratedMLF'].cgs()/ self.var['sfZ'].cgs() , 'ZOutZSF', cgsConv=1.0, sensibleConv=1.0, texString=r'$\mu Z_w/Z_\mathrm{disk}$')
-
-	self.var['tLoss'] = TimeFunction(self.var['tdep'].cgs()/(self.var['integratedMLF'].cgs()+0.503), 'tLoss', cgsConv=1.0, sensibleConv=1.0/speryear, texString=r'$t_\mathrm{loss} (\mathrm{yr})$')
-
+        self.var['tLoss'] = TimeFunction(self.var['tdep'].cgs()/(self.var['integratedMLF'].cgs()+0.503), 'tLoss', cgsConv=1.0, sensibleConv=1.0/speryear, texString=r'$t_\mathrm{loss} (\mathrm{yr})$')
+        
         mJeansMask = np.zeros(np.shape(self.var['sig'].sensible()),dtype=float)
         mJeansMask[self.var['fH2'].sensible()>0.1] = 1.0
         self.var['MJeans'] = RadialFunction( \
@@ -1109,7 +1120,9 @@ class SingleModel:
         self.var['dimensionlessSpinAccr'] = TimeFunction(self.var['specificJAccr'].cgs()/(np.sqrt(2.0)*self.var['Rvir'].cgs()*self.var['Vvir'].cgs()), 'dimensionlessSpinAccr', sensibleConv=1.0, cgsConv=1.0, texString=r'$j_\mathrm{accr}/\sqrt{2} R_\mathrm{vir} V_\mathrm{vir}$', theRange=lambdaRange)
 
         self.var['BTcen'] = TimeFunction( self.var['mCentral'].sensible()/self.var['mstar'].sensible(), 'BTcen', log=False, texString=r'$M_\mathrm{cen}/M_*$')
-        self.var['BTmin'] = TimeFunction( (self.var['mCentral'].cgs()-self.var['colst'].cgs(locIndex=0)*np.pi*self.var['rb'].cgs(locIndex=0)**2.0)/self.var['mstar'].cgs(), 'BTcen', log=False, texString=r'BT min')
+        self.var['BTmin'] = TimeFunction( (self.var['mCentral'].cgs()-self.var['colst'].cgs(locIndex=0)*np.pi*self.var['rb'].cgs(locIndex=0)**2.0)/self.var['mstar'].cgs(), 'BTmin', log=False, texString=r'BT min')
+
+        self.var['mdisk'] = TimeFunction( self.var['mstar'].sensible()- self.var['mCentral'].sensible(), 'BTcen', texString=r'$M_* - M_\mathrm{cen}$', theRange=[1.0e8, 1.0e11])
 
         mgasvis = np.sum((self.var['colHI'].cgs() + self.var['colH2'].cgs())*self.var['dA'].cgs(),axis=1) 
         colNtile = np.tile( (0.448*mgasvis/np.power(0.015*self.var['Rvir'].cgs(),2.0)), (int(self.p['nx']),1) ).T
@@ -1117,10 +1130,10 @@ class SingleModel:
         colstNtile = np.tile( (0.448*self.var['mstar'].cgs()/np.power(0.015*self.var['Rvir'].cgs(),2.0)), (int(self.p['nx']),1) ).T
         self.var['colstNormalizedKravtsov'] = RadialFunction( self.var['colst'].cgs()/colstNtile, 'colstNormalizedKravtsov', log=True, texString=r'$\Sigma_*/\Sigma_{*,n}$')
 
-        theKeys = self.var.keys()
+        theKeys = copy.deepcopy(list(self.var.keys()))
         whitelist = ['rb','r','dA','rx','dr'] + keepOnly + starList
         if ('colstFit' in whitelist or 'colstFit2' in whitelist or 'stFit2Residual' in whitelist or 'stFitResidual' in whitelist) and not computeFit:
-            print "You asked me to plot something that you asked me not to compute! Either add --fit or take away and colstFit or colstFit2."
+            print ("You asked me to plot something that you asked me not to compute! Either add --fit or take away and colstFit or colstFit2.")
             raise ValueError
         if 'vPhi' in whitelist:
             if 'vPhiDM' not in whitelist:
@@ -1369,9 +1382,9 @@ class SingleModel:
                 yguess = logcol[ind] + (r[:]-r[ind])*slope
                 fail = (yguess[0:ind] - logcol[0:ind]).clip(min=0)
                 if len(fail)==0:
-                    print "Something odd has happened in computeMBulge."
-                    print "ind: ",ind
-                    print "r,scaleRadius*f: ",r,scaleRadius*f
+                    print ("Something odd has happened in computeMBulge.")
+                    print ("ind: ",ind)
+                    print ("r,scaleRadius*f: ",r,scaleRadius*f)
                     failflag = True
                 else:
                     failflag = np.max(fail) > 0
@@ -1420,7 +1433,7 @@ class SingleModel:
                 else:
                     pass # went outside the boundary - hopefully not a big deal.
             # Hopefully we don't get here.
-            print "Something has gone wrong in quantityAt!"
+            print ("Something has gone wrong in quantityAt!")
             pdb.set_trace()
             return 1.0e20
 
@@ -1429,17 +1442,31 @@ def Nearest(arr,val):
     index = (np.abs(arr-val)).argmin()
     return index,arr[index]
 
+
+def tail(f, n, offset=0):
+    proc = subprocess.Popen(['tail', '-n', str(n + offset), f], stdout=subprocess.PIPE)
+    lines = proc.stdout.readlines()
+    oneLine = ""
+    for line in lines:
+        oneLine += str(line.decode("latin-1"))
+    return oneLine
+
 def reachedRedshiftZero(fn):
     ''' Read in the last few lines of the standard output and check whether the code successfully reached redshift zero.
         This can be used to check whether a model has finshed successfully, or whether it's either still running or exited early.'''
-    with open(fn+'_stdo.txt','r') as f:
-        try:
-            f.seek(-200, 2)
-            lastFewLines = f.read(200)
-        except:
-            print "WARNING: failed to read last 200 elements of ",fn+'_stdo.txt'
-            lastFewLines=''
-        return 'Reached redshift zero' in lastFewLines
+    lastFewLines = tail(fn+'_stdo.txt', 5)
+    print("Checking the following 'last few lines': ", lastFewLines)
+    #with open(fn+'_stdo.txt','r') as f:
+
+        #f.seek(-200, 2)
+        #lastFewLines = f.read(200)
+#        try:
+#            f.seek(-200, 2)
+#            lastFewLines = f.read(200)
+#        except:
+#            print ("WARNING: failed to read last 200 elements of ",fn+'_stdo.txt')
+#            lastFewLines=''
+    return 'Reached redshift zero' in lastFewLines
 
 
 class Experiment:
@@ -1462,7 +1489,7 @@ class Experiment:
             if(os.stat(fnames[i]+'_stde.txt')[6]==0) and reachedRedshiftZero(fnames[i]):
                 self.models.append(SingleModel(fnames[i]))
             else:
-                pass
+                print("WARNING: didn't include model with the following properties: ", i, fn, fnames[i], os.stat(fnames[i]+'_stde.txt')[6], reachedRedshiftZero(fnames[i]))
         self.fn = fnames
         if(len(fnames)==0):
             raise ValueError("No models found in experiment "+name+" using key "+fnameKey)
@@ -1509,10 +1536,10 @@ class Experiment:
         from scipy.optimize import minimize
         res = minimize(toMinimize, wis, bounds = [(wi*1.0e-4,wi*1.0e3) for wi in wis])
         wiMin = res.x
-        print "Final variance: ",np.var(np.log10(wiMin))
-        print wiMin # just for the record
-        print "Started with:", toMinimize(wi0)
-        print "Finished with:", toMinimize(wiMin)
+        print ("Final variance: ",np.var(np.log10(wiMin)))
+        print (wiMin) # just for the record
+        print ("Started with:", toMinimize(wi0))
+        print ("Finished with:", toMinimize(wiMin))
         #pdb.set_trace()
         return wiMin 
 
@@ -1571,7 +1598,7 @@ class Experiment:
             model.read(keepOnly=keepOnly,paramsOnly=paramsOnly,keepStars=keepStars,computeFit=computeFit, fh=fh)
             n+=1
             if(n % 50 == 0):
-                print "Reading in model ",n," of ",len(self.models)
+                print ("Reading in model ",n," of ",len(self.models))
     def rankBy(self,var=None,timeIndex=None,locIndex=None,keepMagnitude=False):
         ''' For each model in the experiment, add a TimeSeries object called rankBy<var> to the model's var structure.
         This variable will store the model's rank as a function of time.'''
@@ -1593,7 +1620,7 @@ class Experiment:
         nt = self.models[0].nTimeSteps()
         ranks = np.ones((len(self.models),nt))
         if(qu.ndim == 3 or (qu.ndim==2 and isinstance(self.models[0].var[var],RadialFunction) and locIndex is None)):
-            print "WARNING: you asked me to rank models by ",var," with timeIndex and locIndex",timeIndex,locIndex," but I can't do that."
+            print ("WARNING: you asked me to rank models by ",var," with timeIndex and locIndex",timeIndex,locIndex," but I can't do that.")
         else:
             if(qu.ndim==2):
                 for i in range(nt):
@@ -1638,7 +1665,7 @@ class Experiment:
                 dirname +='_perc'
             if(not os.path.exists(dirname)):
                 os.makedirs(dirname)
-            print "Making movie: ",v
+            print ("Making movie: ",v)
 # from SO
 #            rate=29.97
 #            cmdstring = ('ffmpeg','-r','%d' % rate,
@@ -1666,7 +1693,7 @@ class Experiment:
                 rc = rotCurve[51:101, 2:5]
 
             if movie and not axIn is None:
-                print "You asked me to make a movie and provided an axis in radialPlot. Not sure what to do"
+                print ("You asked me to make a movie and provided an axis in radialPlot. Not sure what to do")
                 assert False
 
             if not movie:
@@ -2215,7 +2242,7 @@ class Experiment:
 
         for i,var in enumerate(vars):
 
-            print "Making histogram for ",var
+            print ("Making histogram for ",var)
             overallX,_,overallXLog,overallXRange = self.constructQuantity(var)
             if(len(np.shape(overallX))==1):
                 overallX = np.tile(overallX, (self.models[0].nTimeSteps(),1)).T
@@ -2338,7 +2365,7 @@ class Experiment:
 
         def hmf(z):
             if z!='0.0' and z!='1.0' and z!='2.0' and z!='3.0':
-                print "I don't have that redshift handy"
+                print ("I don't have that redshift handy")
                 assert False
             fn = '../hmf8to17/mVector_PLANCK-SMT z: '+z+'.txt'
             arr = np.loadtxt(fn)
@@ -2464,7 +2491,7 @@ class Experiment:
         for yvar in yvars:
 
 
-            print "Coefficients for fit to ",yvar," vs ",xvars
+            print ("Coefficients for fit to ",yvar," vs ",xvars)
             overallY,_,overallYLog,overallYRange = self.constructQuantity(yvar) 
 
 
@@ -2604,9 +2631,9 @@ class Experiment:
             #pdb.set_trace()
             clf = linear_model.LinearRegression()
             clf.fit( X.T, y )
-            print clf.coef_
-            print clf.intercept_
-            print ""
+            print (clf.coef_)
+            print (clf.intercept_)
+            print ("")
 
             fig,ax = plt.subplots()
             if overallYLog:
@@ -2771,7 +2798,7 @@ class Experiment:
         iMh = np.searchsorted(Mhs, flatMh)
         jOpz = np.searchsorted(opzs, flatOpz)
         for iyv,yv in enumerate(yvars):
-            print "Doing global fraction analysis for y=",yv
+            print ("Doing global fraction analysis for y=",yv)
             overallY,_,overallYLog,overallYRange = self.constructQuantity(yv) 
             flatY = overallY.flatten()
             hist= np.zeros( ( NMhBins, NzBins) )
@@ -2830,7 +2857,7 @@ class Experiment:
             dirname = 'movie_'+self.name+'_vs'+xvar+'_'+v+'_cb'+colorby
             if(not os.path.exists(dirname) and movie):
                 os.makedirs(dirname)
-            print "Making movie : ",v," vs ",xvar
+            print ("Making movie : ",v," vs ",xvar)
 
             overallVar,_,overallLog,overallRange = self.constructQuantity(v)
 
@@ -2855,7 +2882,7 @@ class Experiment:
                 if movie:
                     fig,ax = plt.subplots(1,1)
                     if not axIn is None:
-                        print "You asked for a movie and provided an axis. I don't know what to do!"
+                        print ("You asked for a movie and provided an axis. I don't know what to do!")
                         assert False
                 try:
                     ax.set_xlabel(model.get(xvar).texString)
@@ -2946,7 +2973,7 @@ class Experiment:
                         h, xe, ye = np.histogram2d(xx,yy, bins=30, range=[[overallXRange[0],overallXRange[1]],[overallRange[0],overallRange[1]]] , weights=weights, normed=True) 
                     except:
                         pdb.set_trace()
-                    print "hist min, max: ",np.min(h),np.max(h)
+                    print ("hist min, max: ",np.min(h),np.max(h))
                     #ax.imshow(np.log10(h.T+1.0), cmap=cmaps[counter], origin='lower', extent=( overallXRange[0],overallXRange[1],overallRange[0],overallRange[1] ), interpolation='gaussian', alpha=.8, aspect='auto')
                     ax.contour(np.log10(1.0+h.T), extent=( overallXRange[0],overallXRange[1],overallRange[0],overallRange[1] ), cmap=cmaps[counter]  )
                     #plt.hexbin( xx, yy, extent=, alpha = 1.0/float(len(timeIndex)), xscale='linear', yscale='linear', cmap=cmaps[counter] )
@@ -3062,7 +3089,7 @@ class Experiment:
             colorby = 'Mh0'
 
         for i,v in enumerate(variables):
-            print "Making plot v: ",v
+            print ("Making plot v: ",v)
             fig,ax=plt.subplots(1,1)
             model = self.models[0]
 
@@ -3200,7 +3227,7 @@ class Experiment:
 
             #scalarMap.set_array(colors)
             #scalarMap.autoscale()
-            print "Finished making plot v: ",v
+            print ("Finished making plot v: ",v)
 
             #plt.colorbar(sc,ax=ax)
             try:
@@ -3210,7 +3237,7 @@ class Experiment:
                     plt.savefig(self.name+'_vst_'+v+'_cb'+colorby+'.png')
 
             except ValueError:
-                print "Caught ValueError while trying to plot variable ",v," colored by ",colorby
+                print ("Caught ValueError while trying to plot variable ",v," colored by ",colorby)
             plt.close(fig)
         #### End of timePlot(self,variables=None,colorby=None,perc=None):
 
@@ -3514,7 +3541,7 @@ class Experiment:
                     log = model.var[name].log
             else:
                 failure=True
-                print "Couldn't find the requested variable! ",name
+                print ("Couldn't find the requested variable! ",name)
             failures.append(failure)
         construction = np.array(construction)
         if flatten:
@@ -3533,7 +3560,10 @@ class Experiment:
                 pdb.set_trace() # Something is going wrong in the above and I don't know what!
         if nameIsParam:
             #theRange = [np.min(construction),np.max(construction)]
-            theRange = np.percentile(construction, (10,90))
+            if name=='Mh0':
+                theRange=[1.0e10, 1.0e13]
+            else:
+                theRange = np.percentile(construction, (10,90))
         elif self.models[0].get(name).theRange is None:
             try:
                 theRange = [np.min(construction),np.max(construction)]
@@ -3544,14 +3574,14 @@ class Experiment:
 
         # If the arrays weren't all the same size from model to model, we have a problem.
         if(hasattr(theRange[0],"__len__")):
-            print "WARNING: arrays of different sizes for variable ",name
+            print ("WARNING: arrays of different sizes for variable ",name)
             theRange[0] = np.min(theRange[0])
             theRange[1] = np.max(theRange[1])
 
         if(log):
             if theRange[0]<1.0e-20:
                 #theRange[0] = theRange[1]/1.0e6
-                print "Warning: I want to clobber the lower end of range, but I didn't"
+                print ("Warning: I want to clobber the lower end of range, but I didn't")
             if not (theRange[0]>0 and theRange[1]>0):
                 log=False
             if theRange[0]>0:
